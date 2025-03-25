@@ -6,8 +6,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var newOptions struct {
+	Socket string
+}
+
 var newCmd = &cobra.Command{
-	Use: "new",
+	Use:   "new",
+	Short: "Start a new conversation",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Hello, World!")
 	},
@@ -15,4 +20,5 @@ var newCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(newCmd)
+	newCmd.Flags().StringVarP(&newOptions.Socket, "socket", "s", "", "The socket to connect to")
 }

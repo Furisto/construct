@@ -9,6 +9,7 @@ import (
 	"github.com/furisto/construct/backend/agent"
 	"github.com/furisto/construct/backend/api"
 	"github.com/furisto/construct/backend/model"
+	"github.com/furisto/construct/backend/toolbox"
 )
 
 func main() {
@@ -22,9 +23,10 @@ func main() {
 	stopCh := make(chan struct{})
 	agent := agent.NewAgent(
 		agent.WithModelProviders([]model.ModelProvider{provider}),
-		agent.WithSystemPrompt("You are a helpful assistant."),
+		agent.WithSystemPrompt(agent.ConstructSystemPrompt),
 		agent.WithSystemMemory(agent.NewEphemeralMemory()),
 		agent.WithUserMemory(agent.NewEphemeralMemory()),
+		agent.WithToolbox(toolbox.NewToolbox()),
 	)
 	go func() {
 		agent.Run(ctx)
