@@ -1,0 +1,80 @@
+syntax = "proto3";
+
+package modelprovider;
+
+service ModelProvider {
+	rpc CreateProvider(CreateProviderRequest) returns (CreateProviderResponse) {}
+    rpc GetProvider(GetProviderRequest) returns (GetProviderResponse) {}
+    rpc ListProviders(ListProvidersRequest) returns (ListProvidersResponse) {}
+    rpc UpdateProvider(UpdateProviderRequest) returns (UpdateProviderResponse) {}
+    rpc DeleteProvider(DeleteProviderRequest) returns (DeleteProviderResponse) {}
+}
+
+message CreateProviderRequest {
+	string name = 1;
+	string api_key = 2;
+	ProviderType provider_type = 3;  
+	map<string, string> config = 4; 
+}
+
+message CreateProviderResponse {
+	string id = 1;
+	Provider provider = 2;
+}
+
+message Provider {
+	string id = 1;
+	string name = 2;
+	ProviderType provider_type = 3;
+	map<string, string> config = 4;
+	bool is_active = 5;
+	string created_at = 6;
+	string updated_at = 7;
+}
+
+message GetProviderRequest {
+	string id = 1;
+}
+
+message GetProviderResponse {
+	Provider provider = 1;
+}
+
+message ListProvidersRequest {
+	int32 page_size = 1;
+	string page_token = 2;
+	string filter = 3;  // Optional filter criteria
+}
+
+message ListProvidersResponse {
+	repeated Provider providers = 1;
+	string next_page_token = 2;
+	int32 total_count = 3;
+}
+
+message UpdateProviderRequest {
+	string id = 1;
+	string name = 2;
+	string api_key = 3;
+	map<string, string> config = 4;
+	bool is_active = 5;
+}
+
+message UpdateProviderResponse {
+	Provider provider = 1;
+}
+
+message DeleteProviderRequest {
+	string id = 1;
+}
+
+message DeleteProviderResponse {
+}
+
+enum ProviderType {
+	PROVIDER_TYPE_UNSPECIFIED = 0;
+	PROVIDER_TYPE_ANTHROPIC = 1;
+	PROVIDER_TYPE_OPENAI = 2;
+	PROVIDER_TYPE_XAI = 3;
+	PROVIDER_TYPE_DEEPSEEK = 4;
+}
