@@ -3,20 +3,21 @@ package model
 import (
 	"context"
 
-	"github.com/furisto/construct/backend/toolbox"
+	"github.com/furisto/construct/backend/tool"
 	"github.com/google/uuid"
 )
 
 type InvokeModelOptions struct {
-	Messages    []Message
-	Tools       []toolbox.Tool
-	MaxTokens   int
-	Temperature float64
+	Messages      []Message
+	Tools         []tool.Tool
+	MaxTokens     int
+	Temperature   float64
+	StreamHandler func(ctx context.Context, message *Message)
 }
 
 func DefaultInvokeModelOptions() *InvokeModelOptions {
 	return &InvokeModelOptions{
-		Tools:       []toolbox.Tool{},
+		Tools:       []tool.Tool{},
 		MaxTokens:   8192,
 		Temperature: 0.0,
 	}
@@ -24,7 +25,7 @@ func DefaultInvokeModelOptions() *InvokeModelOptions {
 
 type InvokeModelOption func(*InvokeModelOptions)
 
-func WithTools(tools []toolbox.Tool) InvokeModelOption {
+func WithTools(tools []tool.Tool) InvokeModelOption {
 	return func(o *InvokeModelOptions) {
 		o.Tools = tools
 	}
@@ -42,6 +43,12 @@ func WithTemperature(temperature float64) InvokeModelOption {
 	}
 }
 
+func WithStreamHandler(handler func(ctx context.Context, message *Message)) InvokeModelOption {
+	return func(o *InvokeModelOptions) {
+		o.StreamHandler = handler
+	}
+}
+
 type ModelProvider interface {
 	InvokeModel(ctx context.Context, model uuid.UUID, prompt string, messages []Message, opts ...InvokeModelOption) (*ModelResponse, error)
 }
@@ -56,7 +63,14 @@ const (
 
 type Message struct {
 	Source  MessageSource
-	Content string
+	Content []ContentBlock
+}
+
+func NewModelMessage(content []ContentBlock) *Message {
+	return &Message{
+		Source:  MessageSourceModel,
+		Content: content,
+	}
 }
 
 type ContentBlockType string
@@ -70,20 +84,26 @@ type ContentBlock interface {
 	Type() ContentBlockType
 }
 
-type TextBlock struct {
-	Type ContentBlockType
+type TextContentBlock struct {
 	Text string
 }
 
-type ToolCallBlock struct {
-	Type  ContentBlockType
+func (t *TextContentBlock) Type() ContentBlockType {
+	return ContentBlockTypeText
+}
+
+type ToolCallContentBlock struct {
 	Name  string
 	Input string
 }
 
+func (t *ToolCallContentBlock) Type() ContentBlockType {
+	return ContentBlockTypeToolCall
+}
+
 type ModelResponse struct {
-	Blocks []ContentBlock
-	Usage  Usage
+	Message *Message
+	Usage   Usage
 }
 
 type Usage struct {

@@ -3,6 +3,7 @@ package model
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
@@ -150,33 +151,33 @@ func (p *AnthropicProvider) InvokeModel(ctx context.Context, model uuid.UUID, sy
 		return nil, fmt.Errorf("at least one message is required")
 	}
 
-	o := &InvokeModelOptions{}
+	o := DefaultInvokeModelOptions()
 	for _, opt := range opts {
 		opt(o)
-	}
-
-	prevUserMessageIndex := -1
-	for i := len(messages) - 2; i >= 0; i-- {
-		if messages[i].Source == MessageSourceUser {
-			prevUserMessageIndex = i
-			break
-		}
 	}
 
 	// convert to anthropic messages
 	anthropicMessages := make([]anthropic.MessageParam, len(messages))
 	for i, message := range messages {
+		anthropicBlocks := make([]anthropic.ContentBlockParamUnion, len(message.Content))
+		for j, b := range message.Content {
+			switch block := b.(type) {
+			case *TextContentBlock:
+				anthropicBlocks[j] = anthropic.NewTextBlock(block.Text)
+			}
+		}
+
+		// if i == len(messages)-1 || i == prevUserMessageIndex {
+		// 	block.CacheControl = anthropic.F(anthropic.CacheControlEphemeralParam{
+		// 		Type: anthropic.F(anthropic.CacheControlEphemeralTypeEphemeral),
+		// 	})
+		// }
+
 		switch message.Source {
 		case MessageSourceUser:
-			block := anthropic.NewTextBlock(message.Content)
-			if i == len(messages)-1 || i == prevUserMessageIndex {
-				block.CacheControl = anthropic.F(anthropic.CacheControlEphemeralParam{
-					Type: anthropic.F(anthropic.CacheControlEphemeralTypeEphemeral),
-				})
-			}
-			anthropicMessages[i] = anthropic.NewUserMessage(block)
+			anthropicMessages[i] = anthropic.NewUserMessage(anthropicBlocks...)
 		case MessageSourceModel:
-			anthropicMessages[i] = anthropic.NewAssistantMessage(anthropic.NewTextBlock(message.Content))
+			anthropicMessages[i] = anthropic.NewAssistantMessage(anthropicBlocks...)
 		}
 	}
 
@@ -186,6 +187,7 @@ func (p *AnthropicProvider) InvokeModel(ctx context.Context, model uuid.UUID, sy
 		toolParam := anthropic.ToolParam{
 			Name:        anthropic.F(tool.Name),
 			Description: anthropic.F(tool.Description),
+			InputSchema: anthropic.F(tool.Schema),
 		}
 
 		if i == len(o.Tools)-1 {
@@ -209,20 +211,25 @@ func (p *AnthropicProvider) InvokeModel(ctx context.Context, model uuid.UUID, sy
 			},
 		}),
 		Messages:   anthropic.F(anthropicMessages),
-		ToolChoice: anthropic.F(anthropic.ToolChoiceUnionParam(anthropic.ToolChoiceAutoParam{})),
+		ToolChoice: anthropic.F(anthropic.ToolChoiceUnionParam(anthropic.ToolChoiceAutoParam{Type: anthropic.F(anthropic.ToolChoiceAutoTypeAuto)})),
 		Tools:      anthropic.F(tools),
 	})
 	defer stream.Close()
 
-	message := anthropic.Message{}
+	anthropicMessage := anthropic.Message{}
 	for stream.Next() {
 		event := stream.Current()
-		message.Accumulate(event)
+		anthropicMessage.Accumulate(event)
 
 		switch delta := event.Delta.(type) {
 		case anthropic.ContentBlockDeltaEventDelta:
-			if delta.Text != "" {
-				print(delta.Text)
+			if delta.Text != "" && o.StreamHandler != nil {
+				o.StreamHandler(ctx, &Message{
+					Source: MessageSourceModel,
+					Content: []ContentBlock{
+						&TextContentBlock{Text: delta.Text},
+					},
+				})
 			}
 		}
 	}
@@ -231,7 +238,25 @@ func (p *AnthropicProvider) InvokeModel(ctx context.Context, model uuid.UUID, sy
 		return nil, fmt.Errorf("failed to stream response: %w", stream.Err())
 	}
 
-	return nil, nil
+	content := make([]ContentBlock, len(anthropicMessage.Content))
+	for i, block := range anthropicMessage.Content {
+		switch block.Type {
+		case anthropic.ContentBlockTypeText:
+			content[i] = &TextContentBlock{
+				Text: strings.TrimRight(block.Text, "\n"),
+			}
+		}
+	}
+
+	return &ModelResponse{
+		Message: NewModelMessage(content),
+		Usage: Usage{
+			InputTokens:      anthropicMessage.Usage.InputTokens,
+			OutputTokens:     anthropicMessage.Usage.OutputTokens,
+			CacheWriteTokens: anthropicMessage.Usage.CacheCreationInputTokens,
+			CacheReadTokens:  anthropicMessage.Usage.CacheReadInputTokens,
+		},
+	}, nil
 }
 
 // func (p *AnthropicProvider) ListModels(ctx context.Context) ([]Model, error) {

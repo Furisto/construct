@@ -1,21 +1,29 @@
 package cmd
 
 import (
-	"fmt"
+	"context"
+
+	"log/slog"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/spf13/cobra"
 )
 
 var rootCmd = &cobra.Command{
 	Use: "construct",
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Hello, World!")
+	PreRun: func(cmd *cobra.Command, args []string) {
+		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, nil)))
 	},
 }
 
 func Execute() {
-	if err := rootCmd.Execute(); err != nil {
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
+	if err := rootCmd.ExecuteContext(ctx); err != nil {
+		slog.Error("failed to execute command", "error", err)
 		os.Exit(1)
 	}
 }

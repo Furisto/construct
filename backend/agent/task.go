@@ -1,6 +1,8 @@
 package agent
 
-import "github.com/google/uuid"
+import (
+	"github.com/google/uuid"
+)
 
 type Task struct {
 	ID uuid.UUID

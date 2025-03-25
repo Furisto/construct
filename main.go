@@ -2,21 +2,25 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
-	"net/http"
-	"os"
+	"log/slog"
+	"runtime"
 
 	"github.com/furisto/construct/backend/agent"
-	"github.com/furisto/construct/backend/api"
 	"github.com/furisto/construct/backend/model"
-	"github.com/furisto/construct/backend/toolbox"
+	"github.com/furisto/construct/backend/tool"
 )
 
 func main() {
-	provider, err := model.NewAnthropicProvider(os.Getenv("ANTHROPIC_API_KEY"))
+	provider, err := model.NewAnthropicProvider("")
 	if err != nil {
 		log.Fatalf("failed to create anthropic provider: %v", err)
 	}
+
+
+	fmt.Println(runtime.GOARCH)
+
 
 	ctx := context.Background()
 
@@ -26,15 +30,36 @@ func main() {
 		agent.WithSystemPrompt(agent.ConstructSystemPrompt),
 		agent.WithSystemMemory(agent.NewEphemeralMemory()),
 		agent.WithUserMemory(agent.NewEphemeralMemory()),
-		agent.WithToolbox(toolbox.NewToolbox()),
+		agent.WithTools(
+			tool.FilesystemTools()...,
+		),
 	)
+	return
+
 	go func() {
-		agent.Run(ctx)
+		err := agent.Run(ctx)
+		fmt.Println("agent stopped")
+		if err != nil {
+			slog.Error("failed to run agent", "error", err)
+		}
 		stopCh <- struct{}{}
 	}()
 
-	handler := api.NewApiHandler(agent)
-	http.ListenAndServe(":8080", handler)
+	// go func() {
+	// 	handler := api.NewApiHandler(agent)
+	// 	http.ListenAndServe(":8080", handler)
+	// }()
+
+	// task := agent.NewTask()
+	// task.OnMessage(func(msg model.Message) {
+	// 	fmt.Print(msg.Content)
+	// })
+	// task.SendMessage(ctx, "Hello, how are you?")
+
+	// stream := agent.SendMessage(ctx, "Hello, how are you?")
+	// stream.OnMessage(func(msg model.Message) {
+	// 	fmt.Print(msg.Content)
+	// })
 
 	<-stopCh
 

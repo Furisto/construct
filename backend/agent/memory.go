@@ -23,3 +23,22 @@ func (m *EphemeralMemory) Append(messages []model.Message) error {
 func (m *EphemeralMemory) GetMessages() []model.Message {
 	return m.Messages
 }
+
+type FileMemory struct {
+	FilePath string
+}
+
+func NewFileMemory(filePath string) *FileMemory {
+	return &FileMemory{
+		FilePath: filePath,
+	}
+}
+
+func (m *FileMemory) Append(messages []model.Message) error {
+	return nil
+}
+
+func (m *FileMemory) GetMessages() []model.Message {
+	return nil
+}
+
