@@ -29,6 +29,7 @@ require (
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/hashicorp/hcl/v2 v2.13.0 // indirect
+	github.com/hedwigz/entviz v0.0.0-20221011080911-9d47f6f1d818 // indirect
 	github.com/jmattheis/goverter v1.8.0 // indirect
 	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect

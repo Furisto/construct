@@ -1,55 +1,54 @@
 package secret
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/tink-crypto/tink-go/aead"
-	"github.com/tink-crypto/tink-go/core/registry"
-	"github.com/tink-crypto/tink-go/integration/gcpkms"
 	"github.com/tink-crypto/tink-go/keyset"
 	"github.com/tink-crypto/tink-go/tink"
 )
 
+func GenerateKeyset() (*keyset.Handle, error) {
+	return keyset.NewHandle(aead.AES256GCMKeyTemplate())
+}
+
 type Client struct {
 	keyset *keyset.Handle
+	aead   tink.AEAD
 }
 
-func NewClient(keyset *keyset.Handle) *Client {
-	return &Client{keyset: keyset}
-}
-
-func GenerateKeyAndEncrypt(plaintext []byte) ([]byte, *keyset.Handle, error) {
-	// Generate a new keyset handle for AEAD (Authenticated Encryption with Associated Data)
-	keysetHandle, err := keyset.NewHandle(aead.AES256GCMKeyTemplate())
-	if err != nil {
-		return nil, nil, fmt.Errorf("keyset.NewHandle failed: %v", err)
-	}
-
-	// Get the AEAD primitive
-	aeadPrimitive, err := aead.New(keysetHandle)
-	if err != nil {
-		return nil, nil, fmt.Errorf("aead.New failed: %v", err)
-	}
-
-	// Encrypt the plaintext
-	ciphertext, err := aeadPrimitive.Encrypt(plaintext, nil) // nil is the additional authenticated data (AAD)
-	if err != nil {
-		return nil, nil, fmt.Errorf("encryption failed: %v", err)
-	}
-
-	return ciphertext, keysetHandle, nil
-}
-
-// Decrypt decrypts data using the provided keyset handle
-func Decrypt(ciphertext []byte, keysetHandle *keyset.Handle) ([]byte, error) {
-	// Get the AEAD primitive from the keyset handle
+func NewClient(keysetHandle *keyset.Handle) (*Client, error) {
 	aeadPrimitive, err := aead.New(keysetHandle)
 	if err != nil {
 		return nil, fmt.Errorf("aead.New failed: %v", err)
 	}
 
-	// Decrypt the ciphertext
-	plaintext, err := aeadPrimitive.Decrypt(ciphertext, nil) // nil is the additional authenticated data (AAD)
+	return &Client{
+		keyset: keysetHandle,
+		aead:   aeadPrimitive,
+	}, nil
+}
+
+func (c *Client) Encrypt(plaintext []byte, associatedData []byte) ([]byte, error) {
+	if plaintext == nil {
+		return nil, fmt.Errorf("plaintext cannot be nil")
+	}
+
+	ciphertext, err := c.aead.Encrypt(plaintext, associatedData)
+	if err != nil {
+		return nil, fmt.Errorf("encryption failed: %v", err)
+	}
+
+	return ciphertext, nil
+}
+
+func (c *Client) Decrypt(ciphertext []byte, associatedData []byte) ([]byte, error) {
+	if ciphertext == nil {
+		return nil, fmt.Errorf("ciphertext cannot be nil")
+	}
+
+	plaintext, err := c.aead.Decrypt(ciphertext, associatedData)
 	if err != nil {
 		return nil, fmt.Errorf("decryption failed: %v", err)
 	}
@@ -57,35 +56,24 @@ func Decrypt(ciphertext []byte, keysetHandle *keyset.Handle) ([]byte, error) {
 	return plaintext, nil
 }
 
-func SaveKeysetToFile(keysetHandle *keyset.Handle, filename string) error {
-	// Create a writer for the file
-	writer, err := keyset.JSONWriter.Write()
-	if err != nil {
-		return fmt.Errorf("keyset.NewJSONWriter failed: %v", err)
+func (c *Client) KeysetToJSON() (string, error) {
+	buf := new(bytes.Buffer)
+	writer := keyset.NewJSONWriter(buf)
+
+	if err := c.keyset.Write(writer, c.aead); err != nil {
+		return "", fmt.Errorf("failed to write keyset to JSON: %v", err)
 	}
 
-	// Write the keyset
-	if err := keysetHandle.Write(writer, nil); err != nil {
-		return fmt.Errorf("keysetHandle.Write failed: %v", err)
-	}
-
-	return nil
+	return buf.String(), nil
 }
 
-// LoadKeysetFromFile loads a keyset from a file
-func LoadKeysetFromFile(filename string) (*keyset.Handle, error) {
-	// Create a reader for the file
-	reader, err := keyset.NewJSONReader(openFile(filename))
-	if err != nil {
-		return nil, fmt.Errorf("keyset.NewJSONReader failed: %v", err)
-	}
+func (c *Client) KeysetFromJSON(jsonKeyset string) (*keyset.Handle, error) {
+	reader := keyset.NewJSONReader(bytes.NewBufferString(jsonKeyset))
 
-	// Read the keyset
-	keysetHandle, err := keyset.Read(reader, nil)
+	keysetHandle, err := keyset.Read(reader, c.aead)
 	if err != nil {
-		return nil, fmt.Errorf("keyset.Read failed: %v", err)
+		return nil, fmt.Errorf("failed to read keyset from JSON: %v", err)
 	}
 
 	return keysetHandle, nil
 }
-

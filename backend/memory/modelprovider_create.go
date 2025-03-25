@@ -69,15 +69,9 @@ func (mpc *ModelProviderCreate) SetURL(s string) *ModelProviderCreate {
 	return mpc
 }
 
-// SetSecretRef sets the "secret_ref" field.
-func (mpc *ModelProviderCreate) SetSecretRef(s string) *ModelProviderCreate {
-	mpc.mutation.SetSecretRef(s)
-	return mpc
-}
-
-// SetSecretStore sets the "secret_store" field.
-func (mpc *ModelProviderCreate) SetSecretStore(s string) *ModelProviderCreate {
-	mpc.mutation.SetSecretStore(s)
+// SetSecret sets the "secret" field.
+func (mpc *ModelProviderCreate) SetSecret(b []byte) *ModelProviderCreate {
+	mpc.mutation.SetSecret(b)
 	return mpc
 }
 
@@ -209,20 +203,12 @@ func (mpc *ModelProviderCreate) check() error {
 			return &ValidationError{Name: "url", err: fmt.Errorf(`memory: validator failed for field "ModelProvider.url": %w`, err)}
 		}
 	}
-	if _, ok := mpc.mutation.SecretRef(); !ok {
-		return &ValidationError{Name: "secret_ref", err: errors.New(`memory: missing required field "ModelProvider.secret_ref"`)}
+	if _, ok := mpc.mutation.Secret(); !ok {
+		return &ValidationError{Name: "secret", err: errors.New(`memory: missing required field "ModelProvider.secret"`)}
 	}
-	if v, ok := mpc.mutation.SecretRef(); ok {
-		if err := modelprovider.SecretRefValidator(v); err != nil {
-			return &ValidationError{Name: "secret_ref", err: fmt.Errorf(`memory: validator failed for field "ModelProvider.secret_ref": %w`, err)}
-		}
-	}
-	if _, ok := mpc.mutation.SecretStore(); !ok {
-		return &ValidationError{Name: "secret_store", err: errors.New(`memory: missing required field "ModelProvider.secret_store"`)}
-	}
-	if v, ok := mpc.mutation.SecretStore(); ok {
-		if err := modelprovider.SecretStoreValidator(v); err != nil {
-			return &ValidationError{Name: "secret_store", err: fmt.Errorf(`memory: validator failed for field "ModelProvider.secret_store": %w`, err)}
+	if v, ok := mpc.mutation.Secret(); ok {
+		if err := modelprovider.SecretValidator(v); err != nil {
+			return &ValidationError{Name: "secret", err: fmt.Errorf(`memory: validator failed for field "ModelProvider.secret": %w`, err)}
 		}
 	}
 	if _, ok := mpc.mutation.Enabled(); !ok {
@@ -283,13 +269,9 @@ func (mpc *ModelProviderCreate) createSpec() (*ModelProvider, *sqlgraph.CreateSp
 		_spec.SetField(modelprovider.FieldURL, field.TypeString, value)
 		_node.URL = value
 	}
-	if value, ok := mpc.mutation.SecretRef(); ok {
-		_spec.SetField(modelprovider.FieldSecretRef, field.TypeString, value)
-		_node.SecretRef = value
-	}
-	if value, ok := mpc.mutation.SecretStore(); ok {
-		_spec.SetField(modelprovider.FieldSecretStore, field.TypeString, value)
-		_node.SecretStore = value
+	if value, ok := mpc.mutation.Secret(); ok {
+		_spec.SetField(modelprovider.FieldSecret, field.TypeBytes, value)
+		_node.Secret = value
 	}
 	if value, ok := mpc.mutation.Enabled(); ok {
 		_spec.SetField(modelprovider.FieldEnabled, field.TypeBool, value)

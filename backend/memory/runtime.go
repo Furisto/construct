@@ -69,16 +69,12 @@ func init() {
 	modelproviderDescURL := modelproviderFields[3].Descriptor()
 	// modelprovider.URLValidator is a validator for the "url" field. It is called by the builders before save.
 	modelprovider.URLValidator = modelproviderDescURL.Validators[0].(func(string) error)
-	// modelproviderDescSecretRef is the schema descriptor for secret_ref field.
-	modelproviderDescSecretRef := modelproviderFields[4].Descriptor()
-	// modelprovider.SecretRefValidator is a validator for the "secret_ref" field. It is called by the builders before save.
-	modelprovider.SecretRefValidator = modelproviderDescSecretRef.Validators[0].(func(string) error)
-	// modelproviderDescSecretStore is the schema descriptor for secret_store field.
-	modelproviderDescSecretStore := modelproviderFields[5].Descriptor()
-	// modelprovider.SecretStoreValidator is a validator for the "secret_store" field. It is called by the builders before save.
-	modelprovider.SecretStoreValidator = modelproviderDescSecretStore.Validators[0].(func(string) error)
+	// modelproviderDescSecret is the schema descriptor for secret field.
+	modelproviderDescSecret := modelproviderFields[4].Descriptor()
+	// modelprovider.SecretValidator is a validator for the "secret" field. It is called by the builders before save.
+	modelprovider.SecretValidator = modelproviderDescSecret.Validators[0].(func([]byte) error)
 	// modelproviderDescEnabled is the schema descriptor for enabled field.
-	modelproviderDescEnabled := modelproviderFields[6].Descriptor()
+	modelproviderDescEnabled := modelproviderFields[5].Descriptor()
 	// modelprovider.DefaultEnabled holds the default value on creation for the enabled field.
 	modelprovider.DefaultEnabled = modelproviderDescEnabled.Default.(bool)
 	// modelproviderDescID is the schema descriptor for id field.

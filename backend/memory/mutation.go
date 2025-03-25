@@ -1306,8 +1306,7 @@ type ModelProviderMutation struct {
 	name          *string
 	provider_type *types.ModelProviderType
 	url           *string
-	secret_ref    *string
-	secret_store  *string
+	secret        *[]byte
 	enabled       *bool
 	clearedFields map[string]struct{}
 	models        map[uuid.UUID]struct{}
@@ -1602,76 +1601,40 @@ func (m *ModelProviderMutation) ResetURL() {
 	m.url = nil
 }
 
-// SetSecretRef sets the "secret_ref" field.
-func (m *ModelProviderMutation) SetSecretRef(s string) {
-	m.secret_ref = &s
+// SetSecret sets the "secret" field.
+func (m *ModelProviderMutation) SetSecret(b []byte) {
+	m.secret = &b
 }
 
-// SecretRef returns the value of the "secret_ref" field in the mutation.
-func (m *ModelProviderMutation) SecretRef() (r string, exists bool) {
-	v := m.secret_ref
+// Secret returns the value of the "secret" field in the mutation.
+func (m *ModelProviderMutation) Secret() (r []byte, exists bool) {
+	v := m.secret
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// OldSecretRef returns the old "secret_ref" field's value of the ModelProvider entity.
+// OldSecret returns the old "secret" field's value of the ModelProvider entity.
 // If the ModelProvider object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ModelProviderMutation) OldSecretRef(ctx context.Context) (v string, err error) {
+func (m *ModelProviderMutation) OldSecret(ctx context.Context) (v []byte, err error) {
 	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldSecretRef is only allowed on UpdateOne operations")
+		return v, errors.New("OldSecret is only allowed on UpdateOne operations")
 	}
 	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldSecretRef requires an ID field in the mutation")
+		return v, errors.New("OldSecret requires an ID field in the mutation")
 	}
 	oldValue, err := m.oldValue(ctx)
 	if err != nil {
-		return v, fmt.Errorf("querying old value for OldSecretRef: %w", err)
+		return v, fmt.Errorf("querying old value for OldSecret: %w", err)
 	}
-	return oldValue.SecretRef, nil
+	return oldValue.Secret, nil
 }
 
-// ResetSecretRef resets all changes to the "secret_ref" field.
-func (m *ModelProviderMutation) ResetSecretRef() {
-	m.secret_ref = nil
-}
-
-// SetSecretStore sets the "secret_store" field.
-func (m *ModelProviderMutation) SetSecretStore(s string) {
-	m.secret_store = &s
-}
-
-// SecretStore returns the value of the "secret_store" field in the mutation.
-func (m *ModelProviderMutation) SecretStore() (r string, exists bool) {
-	v := m.secret_store
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldSecretStore returns the old "secret_store" field's value of the ModelProvider entity.
-// If the ModelProvider object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ModelProviderMutation) OldSecretStore(ctx context.Context) (v string, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldSecretStore is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldSecretStore requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldSecretStore: %w", err)
-	}
-	return oldValue.SecretStore, nil
-}
-
-// ResetSecretStore resets all changes to the "secret_store" field.
-func (m *ModelProviderMutation) ResetSecretStore() {
-	m.secret_store = nil
+// ResetSecret resets all changes to the "secret" field.
+func (m *ModelProviderMutation) ResetSecret() {
+	m.secret = nil
 }
 
 // SetEnabled sets the "enabled" field.
@@ -1798,7 +1761,7 @@ func (m *ModelProviderMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ModelProviderMutation) Fields() []string {
-	fields := make([]string, 0, 8)
+	fields := make([]string, 0, 7)
 	if m.create_time != nil {
 		fields = append(fields, modelprovider.FieldCreateTime)
 	}
@@ -1814,11 +1777,8 @@ func (m *ModelProviderMutation) Fields() []string {
 	if m.url != nil {
 		fields = append(fields, modelprovider.FieldURL)
 	}
-	if m.secret_ref != nil {
-		fields = append(fields, modelprovider.FieldSecretRef)
-	}
-	if m.secret_store != nil {
-		fields = append(fields, modelprovider.FieldSecretStore)
+	if m.secret != nil {
+		fields = append(fields, modelprovider.FieldSecret)
 	}
 	if m.enabled != nil {
 		fields = append(fields, modelprovider.FieldEnabled)
@@ -1841,10 +1801,8 @@ func (m *ModelProviderMutation) Field(name string) (ent.Value, bool) {
 		return m.ProviderType()
 	case modelprovider.FieldURL:
 		return m.URL()
-	case modelprovider.FieldSecretRef:
-		return m.SecretRef()
-	case modelprovider.FieldSecretStore:
-		return m.SecretStore()
+	case modelprovider.FieldSecret:
+		return m.Secret()
 	case modelprovider.FieldEnabled:
 		return m.Enabled()
 	}
@@ -1866,10 +1824,8 @@ func (m *ModelProviderMutation) OldField(ctx context.Context, name string) (ent.
 		return m.OldProviderType(ctx)
 	case modelprovider.FieldURL:
 		return m.OldURL(ctx)
-	case modelprovider.FieldSecretRef:
-		return m.OldSecretRef(ctx)
-	case modelprovider.FieldSecretStore:
-		return m.OldSecretStore(ctx)
+	case modelprovider.FieldSecret:
+		return m.OldSecret(ctx)
 	case modelprovider.FieldEnabled:
 		return m.OldEnabled(ctx)
 	}
@@ -1916,19 +1872,12 @@ func (m *ModelProviderMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetURL(v)
 		return nil
-	case modelprovider.FieldSecretRef:
-		v, ok := value.(string)
+	case modelprovider.FieldSecret:
+		v, ok := value.([]byte)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.SetSecretRef(v)
-		return nil
-	case modelprovider.FieldSecretStore:
-		v, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetSecretStore(v)
+		m.SetSecret(v)
 		return nil
 	case modelprovider.FieldEnabled:
 		v, ok := value.(bool)
@@ -2001,11 +1950,8 @@ func (m *ModelProviderMutation) ResetField(name string) error {
 	case modelprovider.FieldURL:
 		m.ResetURL()
 		return nil
-	case modelprovider.FieldSecretRef:
-		m.ResetSecretRef()
-		return nil
-	case modelprovider.FieldSecretStore:
-		m.ResetSecretStore()
+	case modelprovider.FieldSecret:
+		m.ResetSecret()
 		return nil
 	case modelprovider.FieldEnabled:
 		m.ResetEnabled()

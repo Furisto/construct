@@ -77,14 +77,9 @@ func URL(v string) predicate.ModelProvider {
 	return predicate.ModelProvider(sql.FieldEQ(FieldURL, v))
 }
 
-// SecretRef applies equality check predicate on the "secret_ref" field. It's identical to SecretRefEQ.
-func SecretRef(v string) predicate.ModelProvider {
-	return predicate.ModelProvider(sql.FieldEQ(FieldSecretRef, v))
-}
-
-// SecretStore applies equality check predicate on the "secret_store" field. It's identical to SecretStoreEQ.
-func SecretStore(v string) predicate.ModelProvider {
-	return predicate.ModelProvider(sql.FieldEQ(FieldSecretStore, v))
+// Secret applies equality check predicate on the "secret" field. It's identical to SecretEQ.
+func Secret(v []byte) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldEQ(FieldSecret, v))
 }
 
 // Enabled applies equality check predicate on the "enabled" field. It's identical to EnabledEQ.
@@ -332,134 +327,44 @@ func URLContainsFold(v string) predicate.ModelProvider {
 	return predicate.ModelProvider(sql.FieldContainsFold(FieldURL, v))
 }
 
-// SecretRefEQ applies the EQ predicate on the "secret_ref" field.
-func SecretRefEQ(v string) predicate.ModelProvider {
-	return predicate.ModelProvider(sql.FieldEQ(FieldSecretRef, v))
+// SecretEQ applies the EQ predicate on the "secret" field.
+func SecretEQ(v []byte) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldEQ(FieldSecret, v))
 }
 
-// SecretRefNEQ applies the NEQ predicate on the "secret_ref" field.
-func SecretRefNEQ(v string) predicate.ModelProvider {
-	return predicate.ModelProvider(sql.FieldNEQ(FieldSecretRef, v))
+// SecretNEQ applies the NEQ predicate on the "secret" field.
+func SecretNEQ(v []byte) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldNEQ(FieldSecret, v))
 }
 
-// SecretRefIn applies the In predicate on the "secret_ref" field.
-func SecretRefIn(vs ...string) predicate.ModelProvider {
-	return predicate.ModelProvider(sql.FieldIn(FieldSecretRef, vs...))
+// SecretIn applies the In predicate on the "secret" field.
+func SecretIn(vs ...[]byte) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldIn(FieldSecret, vs...))
 }
 
-// SecretRefNotIn applies the NotIn predicate on the "secret_ref" field.
-func SecretRefNotIn(vs ...string) predicate.ModelProvider {
-	return predicate.ModelProvider(sql.FieldNotIn(FieldSecretRef, vs...))
+// SecretNotIn applies the NotIn predicate on the "secret" field.
+func SecretNotIn(vs ...[]byte) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldNotIn(FieldSecret, vs...))
 }
 
-// SecretRefGT applies the GT predicate on the "secret_ref" field.
-func SecretRefGT(v string) predicate.ModelProvider {
-	return predicate.ModelProvider(sql.FieldGT(FieldSecretRef, v))
+// SecretGT applies the GT predicate on the "secret" field.
+func SecretGT(v []byte) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldGT(FieldSecret, v))
 }
 
-// SecretRefGTE applies the GTE predicate on the "secret_ref" field.
-func SecretRefGTE(v string) predicate.ModelProvider {
-	return predicate.ModelProvider(sql.FieldGTE(FieldSecretRef, v))
+// SecretGTE applies the GTE predicate on the "secret" field.
+func SecretGTE(v []byte) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldGTE(FieldSecret, v))
 }
 
-// SecretRefLT applies the LT predicate on the "secret_ref" field.
-func SecretRefLT(v string) predicate.ModelProvider {
-	return predicate.ModelProvider(sql.FieldLT(FieldSecretRef, v))
+// SecretLT applies the LT predicate on the "secret" field.
+func SecretLT(v []byte) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldLT(FieldSecret, v))
 }
 
-// SecretRefLTE applies the LTE predicate on the "secret_ref" field.
-func SecretRefLTE(v string) predicate.ModelProvider {
-	return predicate.ModelProvider(sql.FieldLTE(FieldSecretRef, v))
-}
-
-// SecretRefContains applies the Contains predicate on the "secret_ref" field.
-func SecretRefContains(v string) predicate.ModelProvider {
-	return predicate.ModelProvider(sql.FieldContains(FieldSecretRef, v))
-}
-
-// SecretRefHasPrefix applies the HasPrefix predicate on the "secret_ref" field.
-func SecretRefHasPrefix(v string) predicate.ModelProvider {
-	return predicate.ModelProvider(sql.FieldHasPrefix(FieldSecretRef, v))
-}
-
-// SecretRefHasSuffix applies the HasSuffix predicate on the "secret_ref" field.
-func SecretRefHasSuffix(v string) predicate.ModelProvider {
-	return predicate.ModelProvider(sql.FieldHasSuffix(FieldSecretRef, v))
-}
-
-// SecretRefEqualFold applies the EqualFold predicate on the "secret_ref" field.
-func SecretRefEqualFold(v string) predicate.ModelProvider {
-	return predicate.ModelProvider(sql.FieldEqualFold(FieldSecretRef, v))
-}
-
-// SecretRefContainsFold applies the ContainsFold predicate on the "secret_ref" field.
-func SecretRefContainsFold(v string) predicate.ModelProvider {
-	return predicate.ModelProvider(sql.FieldContainsFold(FieldSecretRef, v))
-}
-
-// SecretStoreEQ applies the EQ predicate on the "secret_store" field.
-func SecretStoreEQ(v string) predicate.ModelProvider {
-	return predicate.ModelProvider(sql.FieldEQ(FieldSecretStore, v))
-}
-
-// SecretStoreNEQ applies the NEQ predicate on the "secret_store" field.
-func SecretStoreNEQ(v string) predicate.ModelProvider {
-	return predicate.ModelProvider(sql.FieldNEQ(FieldSecretStore, v))
-}
-
-// SecretStoreIn applies the In predicate on the "secret_store" field.
-func SecretStoreIn(vs ...string) predicate.ModelProvider {
-	return predicate.ModelProvider(sql.FieldIn(FieldSecretStore, vs...))
-}
-
-// SecretStoreNotIn applies the NotIn predicate on the "secret_store" field.
-func SecretStoreNotIn(vs ...string) predicate.ModelProvider {
-	return predicate.ModelProvider(sql.FieldNotIn(FieldSecretStore, vs...))
-}
-
-// SecretStoreGT applies the GT predicate on the "secret_store" field.
-func SecretStoreGT(v string) predicate.ModelProvider {
-	return predicate.ModelProvider(sql.FieldGT(FieldSecretStore, v))
-}
-
-// SecretStoreGTE applies the GTE predicate on the "secret_store" field.
-func SecretStoreGTE(v string) predicate.ModelProvider {
-	return predicate.ModelProvider(sql.FieldGTE(FieldSecretStore, v))
-}
-
-// SecretStoreLT applies the LT predicate on the "secret_store" field.
-func SecretStoreLT(v string) predicate.ModelProvider {
-	return predicate.ModelProvider(sql.FieldLT(FieldSecretStore, v))
-}
-
-// SecretStoreLTE applies the LTE predicate on the "secret_store" field.
-func SecretStoreLTE(v string) predicate.ModelProvider {
-	return predicate.ModelProvider(sql.FieldLTE(FieldSecretStore, v))
-}
-
-// SecretStoreContains applies the Contains predicate on the "secret_store" field.
-func SecretStoreContains(v string) predicate.ModelProvider {
-	return predicate.ModelProvider(sql.FieldContains(FieldSecretStore, v))
-}
-
-// SecretStoreHasPrefix applies the HasPrefix predicate on the "secret_store" field.
-func SecretStoreHasPrefix(v string) predicate.ModelProvider {
-	return predicate.ModelProvider(sql.FieldHasPrefix(FieldSecretStore, v))
-}
-
-// SecretStoreHasSuffix applies the HasSuffix predicate on the "secret_store" field.
-func SecretStoreHasSuffix(v string) predicate.ModelProvider {
-	return predicate.ModelProvider(sql.FieldHasSuffix(FieldSecretStore, v))
-}
-
-// SecretStoreEqualFold applies the EqualFold predicate on the "secret_store" field.
-func SecretStoreEqualFold(v string) predicate.ModelProvider {
-	return predicate.ModelProvider(sql.FieldEqualFold(FieldSecretStore, v))
-}
-
-// SecretStoreContainsFold applies the ContainsFold predicate on the "secret_store" field.
-func SecretStoreContainsFold(v string) predicate.ModelProvider {
-	return predicate.ModelProvider(sql.FieldContainsFold(FieldSecretStore, v))
+// SecretLTE applies the LTE predicate on the "secret" field.
+func SecretLTE(v []byte) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldLTE(FieldSecret, v))
 }
 
 // EnabledEQ applies the EQ predicate on the "enabled" field.

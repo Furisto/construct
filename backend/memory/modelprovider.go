@@ -29,10 +29,8 @@ type ModelProvider struct {
 	ProviderType types.ModelProviderType `json:"provider_type,omitempty"`
 	// URL holds the value of the "url" field.
 	URL string `json:"url,omitempty"`
-	// SecretRef holds the value of the "secret_ref" field.
-	SecretRef string `json:"-"`
-	// SecretStore holds the value of the "secret_store" field.
-	SecretStore string `json:"secret_store,omitempty"`
+	// Secret holds the value of the "secret" field.
+	Secret []byte `json:"-"`
 	// Enabled holds the value of the "enabled" field.
 	Enabled bool `json:"enabled,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -64,9 +62,11 @@ func (*ModelProvider) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case modelprovider.FieldSecret:
+			values[i] = new([]byte)
 		case modelprovider.FieldEnabled:
 			values[i] = new(sql.NullBool)
-		case modelprovider.FieldName, modelprovider.FieldProviderType, modelprovider.FieldURL, modelprovider.FieldSecretRef, modelprovider.FieldSecretStore:
+		case modelprovider.FieldName, modelprovider.FieldProviderType, modelprovider.FieldURL:
 			values[i] = new(sql.NullString)
 		case modelprovider.FieldCreateTime, modelprovider.FieldUpdateTime:
 			values[i] = new(sql.NullTime)
@@ -123,17 +123,11 @@ func (mp *ModelProvider) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				mp.URL = value.String
 			}
-		case modelprovider.FieldSecretRef:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field secret_ref", values[i])
-			} else if value.Valid {
-				mp.SecretRef = value.String
-			}
-		case modelprovider.FieldSecretStore:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field secret_store", values[i])
-			} else if value.Valid {
-				mp.SecretStore = value.String
+		case modelprovider.FieldSecret:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field secret", values[i])
+			} else if value != nil {
+				mp.Secret = *value
 			}
 		case modelprovider.FieldEnabled:
 			if value, ok := values[i].(*sql.NullBool); !ok {
@@ -197,10 +191,7 @@ func (mp *ModelProvider) String() string {
 	builder.WriteString("url=")
 	builder.WriteString(mp.URL)
 	builder.WriteString(", ")
-	builder.WriteString("secret_ref=<sensitive>")
-	builder.WriteString(", ")
-	builder.WriteString("secret_store=")
-	builder.WriteString(mp.SecretStore)
+	builder.WriteString("secret=<sensitive>")
 	builder.WriteString(", ")
 	builder.WriteString("enabled=")
 	builder.WriteString(fmt.Sprintf("%v", mp.Enabled))

@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"connectrpc.com/connect"
@@ -15,65 +16,73 @@ import (
 	"github.com/google/uuid"
 )
 
-const KeyringSecretStore = "keyring"
-
-func NewModelProviderHandler(db *memory.Client) *ModelProviderHandler {
+func NewModelProviderHandler(db *memory.Client, encryption *secret.Client) *ModelProviderHandler {
 	return &ModelProviderHandler{
-		db: db,
+		db:         db,
+		encryption: encryption,
 	}
 }
 
 type ModelProviderHandler struct {
-	db *memory.Client
+	db         *memory.Client
+	encryption *secret.Client
 	v1connect.UnimplementedModelProviderServiceHandler
 }
 
 func (h *ModelProviderHandler) CreateProvider(ctx context.Context, req *connect.Request[v1.CreateModelProviderRequest]) (*connect.Response[v1.CreateModelProviderResponse], error) {
 	providerType, err := conv.ConvertProviderTypeFromProto(req.Msg.ProviderType)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		return nil, apiError(err)
+	}
+
+	jsonSecret, err := json.Marshal(APIKey{Key: req.Msg.ApiKey})
+	if err != nil {
+		return nil, apiError(fmt.Errorf("failed to marshal API key: %w", err))
 	}
 
 	modelProviderID := uuid.New()
-	secretKey := secret.ModelProviderSecret(modelProviderID)
-	if err := secret.SetSecret(secretKey, &req.Msg.ApiKey); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to store API key: %w", err))
-	}
-
-	modelProvider, err := h.db.ModelProvider.Create().
-		SetID(modelProviderID).
-		SetName(req.Msg.Name).
-		SetProviderType(providerType).
-		SetURL(req.Msg.Url).
-		SetEnabled(true).
-		SetSecretRef(secretKey).
-		SetSecretStore(KeyringSecretStore).
-		Save(ctx)
+	encryptedSecret, err := h.encryption.Encrypt(jsonSecret, []byte(secret.ModelProviderSecret(modelProviderID)))
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create model provider: %w", err))
+		return nil, apiError(fmt.Errorf("failed to encrypt API key: %w", err))
 	}
 
-	models := make([]*memory.ModelCreate, 0, len(model.SupportedModels(model.Provider(providerType))))
-	for _, m := range model.SupportedModels(model.Provider(providerType)) {
-		models = append(models, h.db.Model.Create().
-			SetName(m.Name).
-			SetContextWindow(m.ContextWindow).
-			SetEnabled(true))
-	}
+	modelProvider, err := memory.Transaction(ctx, h.db, func(tx *memory.Client) (*memory.ModelProvider, error) {
+		modelProvider, err := h.db.ModelProvider.Create().
+			SetID(modelProviderID).
+			SetName(req.Msg.Name).
+			SetProviderType(providerType).
+			SetURL(req.Msg.Url).
+			SetEnabled(true).
+			SetSecret(encryptedSecret).
+			Save(ctx)
+		if err != nil {
+			return nil, err
+		}
 
-	_, err = h.db.Model.CreateBulk(models...).Save(ctx)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create models: %w", err))
-	}
+		models := make([]*memory.ModelCreate, 0, len(model.SupportedModels(model.Provider(providerType))))
+		for _, m := range model.SupportedModels(model.Provider(providerType)) {
+			models = append(models, h.db.Model.Create().
+				SetName(m.Name).
+				SetContextWindow(m.ContextWindow).
+				SetEnabled(true))
+		}
+
+		_, err = h.db.Model.CreateBulk(models...).Save(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create models: %w", err)
+		}
+
+		return modelProvider, nil
+	})
 
 	converter := conv.NewModelProviderConverter()
-	protoMP, err := converter.IntoAPI(modelProvider)
+	apiModelProvider, err := converter.ConvertIntoProto(modelProvider)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	return connect.NewResponse(&v1.CreateModelProviderResponse{
-		ModelProvider: protoMP,
+		ModelProvider: apiModelProvider,
 	}), nil
 }
 
@@ -92,7 +101,7 @@ func (h *ModelProviderHandler) GetProvider(ctx context.Context, req *connect.Req
 	}
 
 	converter := conv.NewModelProviderConverter()
-	protoMP, err := converter.IntoAPI(modelProvider)
+	protoMP, err := converter.ConvertIntoProto(modelProvider)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -120,7 +129,7 @@ func (h *ModelProviderHandler) ListProviders(ctx context.Context, req *connect.R
 	converter := conv.NewModelProviderConverter()
 	protoMPs := make([]*v1.ModelProvider, 0, len(modelProviders))
 	for _, mp := range modelProviders {
-		protoMP, err := converter.IntoAPI(mp)
+		protoMP, err := converter.ConvertIntoProto(mp)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -166,7 +175,7 @@ func (h *ModelProviderHandler) UpdateProvider(ctx context.Context, req *connect.
 	}
 
 	converter := conv.NewModelProviderConverter()
-	protoMP, err := converter.IntoAPI(modelProvider)
+	protoMP, err := converter.ConvertIntoProto(modelProvider)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -197,4 +206,8 @@ func (h *ModelProviderHandler) DeleteProvider(ctx context.Context, req *connect.
 	}
 
 	return connect.NewResponse(&v1.DeleteModelProviderResponse{}), nil
+}
+
+type APIKey struct {
+	Key string `json:"key"`
 }

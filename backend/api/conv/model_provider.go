@@ -10,7 +10,7 @@ import (
 )
 
 type ModelProviderConverter interface {
-	IntoAPI(modelProvider *memory.ModelProvider) (*v1.ModelProvider, error)
+	ConvertIntoProto(modelProvider *memory.ModelProvider) (*v1.ModelProvider, error)
 }
 
 func NewModelProviderConverter() ModelProviderConverter {
@@ -19,7 +19,7 @@ func NewModelProviderConverter() ModelProviderConverter {
 
 type modelProviderConverter struct{}
 
-func (c *modelProviderConverter) IntoAPI(mp *memory.ModelProvider) (*v1.ModelProvider, error) {
+func (c *modelProviderConverter) ConvertIntoProto(mp *memory.ModelProvider) (*v1.ModelProvider, error) {
 	if mp == nil {
 		return nil, nil
 	}

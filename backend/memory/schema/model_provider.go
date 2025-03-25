@@ -19,8 +19,7 @@ func (ModelProvider) Fields() []ent.Field {
 		field.String("name").NotEmpty(),
 		field.Enum("provider_type").GoType(types.ModelProviderType("")),
 		field.String("url").NotEmpty(),
-		field.String("secret_ref").NotEmpty().Sensitive(),
-		field.String("secret_store").NotEmpty(),
+		field.Bytes("secret").NotEmpty().Sensitive(),
 		field.Bool("enabled").Default(true),
 	}
 }
