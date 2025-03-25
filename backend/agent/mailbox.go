@@ -2,6 +2,7 @@ package agent
 
 import (
 	"sync"
+	"github.com/google/uuid"
 )
 
 type TaskQueue struct {
@@ -10,16 +11,16 @@ type TaskQueue struct {
 
 type Mailbox struct {
 	mu     sync.RWMutex
-	queues map[string]*TaskQueue
+	queues map[uuid.UUID]*TaskQueue
 }
 
 func NewMailbox() *Mailbox {
 	return &Mailbox{
-		queues: make(map[string]*TaskQueue),
+		queues: make(map[uuid.UUID]*TaskQueue),
 	}
 }
 
-func (m *Mailbox) Enqueue(taskID string, message string) {
+func (m *Mailbox) Enqueue(taskID uuid.UUID, message string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -34,7 +35,7 @@ func (m *Mailbox) Enqueue(taskID string, message string) {
 	queue.messages = append(queue.messages, message)
 }
 
-func (m *Mailbox) Dequeue(taskID string) []string {
+func (m *Mailbox) Dequeue(taskID uuid.UUID) []string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

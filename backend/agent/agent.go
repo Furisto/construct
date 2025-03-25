@@ -85,7 +85,7 @@ type Agent struct {
 	Mailbox        *Mailbox
 	SystemMemory   Memory
 	Concurrency    int
-	Queue          workqueue.TypedDelayingInterface[string]
+	Queue          workqueue.TypedDelayingInterface[uuid.UUID]
 	running        atomic.Bool
 }
 
@@ -99,7 +99,7 @@ func NewAgent(opts ...AgentOption) *Agent {
 		toolbox.AddTool(tool)
 	}
 
-	queue := workqueue.NewTypedDelayingQueueWithConfig(workqueue.TypedDelayingQueueConfig[string]{
+	queue := workqueue.NewTypedDelayingQueueWithConfig(workqueue.TypedDelayingQueueConfig[uuid.UUID]{
 		Name: "construct",
 	})
 
@@ -137,11 +137,11 @@ func (a *Agent) Run(ctx context.Context) error {
 	return nil
 }
 
-func (a *Agent) processTask(ctx context.Context, taskID string) error {
+func (a *Agent) processTask(ctx context.Context, taskID uuid.UUID) error {
 	defer a.Queue.Done(taskID)
 
 	messages := a.Mailbox.Dequeue(taskID)
-	
+
 
 
 
@@ -183,11 +183,14 @@ func (a *Agent) processTask(ctx context.Context, taskID string) error {
 		fmt.Println(resp.Usage)
 	}
 	return nil
-
 }
 
 
-func(a *Agent) SendMessage(message *model.Message) error {
-	a.
+func(a *Agent) SendMessage(taskID uuid.UUID, message string) {
+	a.Mailbox.Enqueue(taskID, message)
+}
+
+func (a *Agent) CreateTask() uuid.UUID {
+	return uuid.New()
 }
 

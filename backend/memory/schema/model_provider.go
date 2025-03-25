@@ -12,7 +12,7 @@ type ModelProvider struct {
 
 func (ModelProvider) Fields() []ent.Field {
 	return []ent.Field{
-		field.UUID("id", uuid.UUID{}).Default(uuid.New).Unique().Immutable(),
+		field.UUID("id", uuid.UUID{}).Default(uuid.NewV7).Unique().Immutable(),
 		field.String("name").NotEmpty(),
 	}
 }

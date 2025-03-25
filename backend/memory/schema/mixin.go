@@ -14,7 +14,7 @@ type AgentMixin struct {
 
 func (AgentMixin) Fields() []ent.Field {
 	return []ent.Field{
-		field.UUID("agent_id", uuid.UUID{}).Default(uuid.New).Unique(),
+		field.UUID("agent_id", uuid.UUID{}).Default(uuid.NewV7).Unique(),
 	}
 }
 
