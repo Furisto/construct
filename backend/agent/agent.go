@@ -82,7 +82,7 @@ type Agent struct {
 	ModelProviders []model.ModelProvider
 	SystemPrompt   string
 	Toolbox        *tool.Toolbox
-	Mailbox        Memory
+	Mailbox        *Mailbox
 	SystemMemory   Memory
 	Concurrency    int
 	Queue          workqueue.TypedDelayingInterface[string]
@@ -107,7 +107,7 @@ func NewAgent(opts ...AgentOption) *Agent {
 		ModelProviders: options.ModelProviders,
 		SystemPrompt:   options.SystemPrompt,
 		Toolbox:        toolbox,
-		Mailbox:        options.Mailbox,
+		Mailbox:        NewMailbox(),
 		SystemMemory:   options.SystemMemory,
 		Concurrency:    options.Concurrency,
 		Queue:          queue,
@@ -140,10 +140,13 @@ func (a *Agent) Run(ctx context.Context) error {
 func (a *Agent) processTask(ctx context.Context, taskID string) error {
 	defer a.Queue.Done(taskID)
 
-
-
-
+	messages := a.Mailbox.Dequeue(taskID)
 	
+
+
+
+
+
 	for _, mp := range a.ModelProviders {
 		resp, err := mp.InvokeModel(ctx, uuid.MustParse("0195b4e2-45b6-76df-b208-f48b7b0d5f51"), ConstructSystemPrompt, []model.Message{
 			{
@@ -182,6 +185,9 @@ func (a *Agent) processTask(ctx context.Context, taskID string) error {
 	return nil
 
 }
-func (a *Agent) NewTask() *Task {
-	return &Task{}
+
+
+func(a *Agent) SendMessage(message *model.Message) error {
+	a.
 }
+
