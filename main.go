@@ -20,7 +20,12 @@ func main() {
 	ctx := context.Background()
 
 	stopCh := make(chan struct{})
-	agent := agent.NewAgent([]model.ModelProvider{provider})
+	agent := agent.NewAgent(
+		agent.WithModelProviders([]model.ModelProvider{provider}),
+		agent.WithSystemPrompt("You are a helpful assistant."),
+		agent.WithSystemMemory(agent.NewEphemeralMemory()),
+		agent.WithUserMemory(agent.NewEphemeralMemory()),
+	)
 	go func() {
 		agent.Run(ctx)
 		stopCh <- struct{}{}

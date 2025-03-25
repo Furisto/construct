@@ -16,6 +16,10 @@ type Provider string
 const (
 	Anthropic Provider = "anthropic"
 	OpenAI    Provider = "openai"
+	DeepSeek  Provider = "deepseek"
+	Gemini    Provider = "gemini"
+	XAI       Provider = "xai"
+	Bedrock   Provider = "bedrock"
 )
 
 type Capability string

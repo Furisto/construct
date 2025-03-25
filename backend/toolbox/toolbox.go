@@ -9,6 +9,7 @@ type Tool struct {
 	Name        string
 	Description string
 	Parameters  []Parameter
+	Readonly    bool
 	Execute     func(ctx context.Context, parameters map[string]string) (string, error)
 }
 
