@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/furisto/construct/backend/toolbox"
+	"github.com/google/uuid"
 )
 
 type InvokeModelOptions struct {
@@ -42,7 +43,7 @@ func WithTemperature(temperature float64) InvokeModelOption {
 }
 
 type ModelProvider interface {
-	InvokeModel(ctx context.Context, systemPrompt, model string, messages []Message, opts ...InvokeModelOption) (string, error)
+	InvokeModel(ctx context.Context, model uuid.UUID, prompt string, messages []Message, opts ...InvokeModelOption) (*ModelResponse, error)
 }
 
 type MessageSource string

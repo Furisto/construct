@@ -231,7 +231,7 @@ func (p *AnthropicProvider) InvokeModel(ctx context.Context, model uuid.UUID, sy
 		return nil, fmt.Errorf("failed to stream response: %w", stream.Err())
 	}
 
-
+	return nil, nil
 }
 
 // func (p *AnthropicProvider) ListModels(ctx context.Context) ([]Model, error) {

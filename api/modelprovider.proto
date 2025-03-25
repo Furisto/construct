@@ -18,8 +18,7 @@ message CreateProviderRequest {
 }
 
 message CreateProviderResponse {
-	string id = 1;
-	Provider provider = 2;
+	Provider provider = 1;
 }
 
 message Provider {
@@ -43,7 +42,7 @@ message GetProviderResponse {
 message ListProvidersRequest {
 	int32 page_size = 1;
 	string page_token = 2;
-	string filter = 3;  // Optional filter criteria
+	string filter = 3; 
 }
 
 message ListProvidersResponse {
