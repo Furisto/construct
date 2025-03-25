@@ -6,20 +6,26 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/furisto/construct/backend/memory"
+	"github.com/furisto/construct/backend/memory/schema/types"
 	"github.com/furisto/construct/backend/model"
 	"github.com/furisto/construct/backend/tool"
 	"github.com/google/uuid"
 	"k8s.io/client-go/util/workqueue"
+
 )
+
+const ConstructAgentID = "0195c3f6-6ddd-7d16-a07f-3461a675334e"
 
 type AgentOptions struct {
 	SystemPrompt   string
 	ModelProviders []model.ModelProvider
 	Tools          []tool.Tool
 	Mailbox        Memory
-	SystemMemory   Memory
-	UserMemory     Memory
-	Concurrency    int
+	// SystemMemory   Memory
+	// UserMemory     Memory
+	Concurrency int
+	Memory      *memory.Client
 }
 
 func DefaultAgentOptions() *AgentOptions {
@@ -28,9 +34,9 @@ func DefaultAgentOptions() *AgentOptions {
 		SystemPrompt:   "You are a helpful assistant that can help with tasks and answer questions.",
 		Tools:          []tool.Tool{},
 		Mailbox:        NewEphemeralMemory(),
-		SystemMemory:   NewEphemeralMemory(),
-		UserMemory:     NewEphemeralMemory(),
-		Concurrency:    5,
+		// SystemMemory:   NewEphemeralMemory(),
+		// UserMemory:     NewEphemeralMemory(),
+		Concurrency: 5,
 	}
 }
 
@@ -60,17 +66,23 @@ func WithMailbox(mailbox Memory) AgentOption {
 	}
 }
 
-func WithSystemMemory(memory Memory) AgentOption {
+func WithMemory(memory *memory.Client) AgentOption {
 	return func(o *AgentOptions) {
-		o.SystemMemory = memory
+		o.Memory = memory
 	}
 }
 
-func WithUserMemory(memory Memory) AgentOption {
-	return func(o *AgentOptions) {
-		o.UserMemory = memory
-	}
-}
+// func WithSystemMemory(memory Memory) AgentOption {
+// 	return func(o *AgentOptions) {
+// 		o.SystemMemory = memory
+// 	}
+// }
+
+// func WithUserMemory(memory Memory) AgentOption {
+// 	return func(o *AgentOptions) {
+// 		o.UserMemory = memory
+// 	}
+// }
 
 func WithConcurrency(concurrency int) AgentOption {
 	return func(o *AgentOptions) {
@@ -83,7 +95,7 @@ type Agent struct {
 	SystemPrompt   string
 	Toolbox        *tool.Toolbox
 	Mailbox        *Mailbox
-	SystemMemory   Memory
+	Memory         *memory.Client
 	Concurrency    int
 	Queue          workqueue.TypedDelayingInterface[uuid.UUID]
 	running        atomic.Bool
@@ -108,9 +120,10 @@ func NewAgent(opts ...AgentOption) *Agent {
 		SystemPrompt:   options.SystemPrompt,
 		Toolbox:        toolbox,
 		Mailbox:        NewMailbox(),
-		SystemMemory:   options.SystemMemory,
-		Concurrency:    options.Concurrency,
-		Queue:          queue,
+		Memory:         options.Memory,
+		// SystemMemory:   options.SystemMemory,
+		Concurrency: options.Concurrency,
+		Queue:       queue,
 	}
 }
 
@@ -140,57 +153,89 @@ func (a *Agent) Run(ctx context.Context) error {
 func (a *Agent) processTask(ctx context.Context, taskID uuid.UUID) error {
 	defer a.Queue.Done(taskID)
 
-	messages := a.Mailbox.Dequeue(taskID)
+	// messages := a.Mailbox.Dequeue(taskID)
 
+	modelProvider := a.ModelProviders[0]
 
-
-
-
-
-	for _, mp := range a.ModelProviders {
-		resp, err := mp.InvokeModel(ctx, uuid.MustParse("0195b4e2-45b6-76df-b208-f48b7b0d5f51"), ConstructSystemPrompt, []model.Message{
-			{
-				Source: model.MessageSourceUser,
-				Content: []model.ContentBlock{
-					&model.TextContentBlock{
-						Text: "Hello, how are you? Please write at least 200 words and then read the file /etc/passwd",
-					},
-				},
-			},
-		}, model.WithStreamHandler(func(ctx context.Context, message *model.Message) {
-			for _, block := range message.Content {
-				switch block := block.(type) {
-				case *model.TextContentBlock:
-					fmt.Print(block.Text)
-				}
-			}
-		}), model.WithTools(tool.FilesystemTools()))
-
-		if err != nil {
-			return err
-		}
-
-		for _, block := range resp.Message.Content {
+	resp, err := modelProvider.InvokeModel(ctx, taskID, a.SystemPrompt, []model.Message{}, model.WithStreamHandler(func(ctx context.Context, message *model.Message) {
+		for _, block := range message.Content {
 			switch block := block.(type) {
 			case *model.TextContentBlock:
 				fmt.Print(block.Text)
-			case *model.ToolCallContentBlock:
-				fmt.Println(block.Name)
-				fmt.Println(string(block.Input))
 			}
 		}
+	}))
 
-		fmt.Println(resp.Usage)
+	if err != nil {
+		return err
 	}
+
+	a.Memory.Message.Create().
+		SetRole(types.MessageRole(resp.Message.Source)).
+		SetUsage(&types.MessageUsage{
+			InputTokens:      resp.Usage.InputTokens,
+			OutputTokens:     resp.Usage.OutputTokens,
+			CacheWriteTokens: resp.Usage.CacheWriteTokens,
+			CacheReadTokens:  resp.Usage.CacheReadTokens,
+		}).
+		Save(ctx)
+
 	return nil
+
+	// for _, mp := range a.ModelProviders {
+	// 	resp, err := mp.InvokeModel(ctx, uuid.MustParse("0195b4e2-45b6-76df-b208-f48b7b0d5f51"), ConstructSystemPrompt, []model.Message{
+	// 		{
+	// 			Source: model.MessageSourceUser,
+	// 			Content: []model.ContentBlock{
+	// 				&model.TextContentBlock{
+	// 					Text: "Hello, how are you? Please write at least 200 words and then read the file /etc/passwd",
+	// 				},
+	// 			},
+	// 		},
+	// 	}, model.WithStreamHandler(func(ctx context.Context, message *model.Message) {
+	// 		for _, block := range message.Content {
+	// 			switch block := block.(type) {
+	// 			case *model.TextContentBlock:
+	// 				fmt.Print(block.Text)
+	// 			}
+	// 		}
+	// 	}), model.WithTools(tool.FilesystemTools()))
+
+	// 	if err != nil {
+	// 		return err
+	// 	}
+
+	// 	for _, block := range resp.Message.Content {
+	// 		switch block := block.(type) {
+	// 		case *model.TextContentBlock:
+	// 			fmt.Print(block.Text)
+	// 		case *model.ToolCallContentBlock:
+	// 			fmt.Println(block.Name)
+	// 			fmt.Println(string(block.Input))
+	// 		}
+	// 	}
+
+	// 	fmt.Println(resp.Usage)
+	// }
 }
 
-
-func(a *Agent) SendMessage(taskID uuid.UUID, message string) {
+func (a *Agent) SendMessage(taskID uuid.UUID, message string) {
 	a.Mailbox.Enqueue(taskID, message)
+	a.Queue.Add(taskID)
 }
 
-func (a *Agent) CreateTask() uuid.UUID {
-	return uuid.New()
-}
+func (a *Agent) CreateTask(ctx context.Context) (uuid.UUID, error) {
+	task, err := a.Memory.Task.Create().
+		SetAgentID(uuid.MustParse(ConstructAgentID)).
+		SetInputTokens(0).
+		SetOutputTokens(0).
+		SetCacheWriteTokens(0).
+		SetCacheReadTokens(0).
+		Save(ctx)
 
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	return task.ID, nil
+}

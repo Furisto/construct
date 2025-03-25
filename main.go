@@ -3,32 +3,49 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"log/slog"
 
+	"entgo.io/ent/dialect"
 	"github.com/furisto/construct/backend/agent"
+	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/model"
 	"github.com/furisto/construct/backend/tool"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 func main() {
 	provider, err := model.NewAnthropicProvider("")
 	if err != nil {
-		log.Fatalf("failed to create anthropic provider: %v", err)
+		slog.Error("failed to create anthropic provider", "error", err)
 	}
 
 	ctx := context.Background()
+	client, err := memory.Open(dialect.SQLite, "file:ent?mode=memory&cache=shared&_fk=1")
+	if err != nil {
+		slog.Error("failed opening connection to sqlite", "error", err)
+	}
+	defer client.Close()
+
+	if err := client.Schema.Create(ctx); err != nil {
+		slog.Error("failed creating schema resources", "error", err)
+	}
 
 	stopCh := make(chan struct{})
 	agent := agent.NewAgent(
 		agent.WithModelProviders(provider),
 		agent.WithSystemPrompt(agent.ConstructSystemPrompt),
-		agent.WithSystemMemory(agent.NewEphemeralMemory()),
-		agent.WithUserMemory(agent.NewEphemeralMemory()),
+		agent.WithMemory(client),
+		// agent.WithSystemMemory(agent.NewEphemeralMemory()),
+		// agent.WithUserMemory(agent.NewEphemeralMemory()),
 		agent.WithTools(
 			tool.FilesystemTools()...,
 		),
 	)
+
+	taskID, err := agent.CreateTask(ctx)
+	if err != nil {
+		slog.Error("failed to create task", "error", err)
+	}
 
 	go func() {
 		err := agent.Run(ctx)
@@ -38,6 +55,8 @@ func main() {
 		}
 		stopCh <- struct{}{}
 	}()
+
+	agent.SendMessage(taskID, "Hello, how are you?")
 
 	// go func() {
 	// 	handler := api.NewApiHandler(agent)
