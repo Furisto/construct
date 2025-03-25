@@ -6,7 +6,9 @@ import (
 	"time"
 
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/furisto/construct/backend/memory/predicate"
+	"github.com/furisto/construct/backend/memory/schema/types"
 	"github.com/google/uuid"
 )
 
@@ -68,6 +70,21 @@ func UpdateTime(v time.Time) predicate.ModelProvider {
 // Name applies equality check predicate on the "name" field. It's identical to NameEQ.
 func Name(v string) predicate.ModelProvider {
 	return predicate.ModelProvider(sql.FieldEQ(FieldName, v))
+}
+
+// URL applies equality check predicate on the "url" field. It's identical to URLEQ.
+func URL(v string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldEQ(FieldURL, v))
+}
+
+// SecretRef applies equality check predicate on the "secret_ref" field. It's identical to SecretRefEQ.
+func SecretRef(v string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldEQ(FieldSecretRef, v))
+}
+
+// Enabled applies equality check predicate on the "enabled" field. It's identical to EnabledEQ.
+func Enabled(v bool) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldEQ(FieldEnabled, v))
 }
 
 // CreateTimeEQ applies the EQ predicate on the "create_time" field.
@@ -213,6 +230,199 @@ func NameEqualFold(v string) predicate.ModelProvider {
 // NameContainsFold applies the ContainsFold predicate on the "name" field.
 func NameContainsFold(v string) predicate.ModelProvider {
 	return predicate.ModelProvider(sql.FieldContainsFold(FieldName, v))
+}
+
+// ProviderTypeEQ applies the EQ predicate on the "provider_type" field.
+func ProviderTypeEQ(v types.ModelProviderType) predicate.ModelProvider {
+	vc := v
+	return predicate.ModelProvider(sql.FieldEQ(FieldProviderType, vc))
+}
+
+// ProviderTypeNEQ applies the NEQ predicate on the "provider_type" field.
+func ProviderTypeNEQ(v types.ModelProviderType) predicate.ModelProvider {
+	vc := v
+	return predicate.ModelProvider(sql.FieldNEQ(FieldProviderType, vc))
+}
+
+// ProviderTypeIn applies the In predicate on the "provider_type" field.
+func ProviderTypeIn(vs ...types.ModelProviderType) predicate.ModelProvider {
+	v := make([]any, len(vs))
+	for i := range v {
+		v[i] = vs[i]
+	}
+	return predicate.ModelProvider(sql.FieldIn(FieldProviderType, v...))
+}
+
+// ProviderTypeNotIn applies the NotIn predicate on the "provider_type" field.
+func ProviderTypeNotIn(vs ...types.ModelProviderType) predicate.ModelProvider {
+	v := make([]any, len(vs))
+	for i := range v {
+		v[i] = vs[i]
+	}
+	return predicate.ModelProvider(sql.FieldNotIn(FieldProviderType, v...))
+}
+
+// URLEQ applies the EQ predicate on the "url" field.
+func URLEQ(v string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldEQ(FieldURL, v))
+}
+
+// URLNEQ applies the NEQ predicate on the "url" field.
+func URLNEQ(v string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldNEQ(FieldURL, v))
+}
+
+// URLIn applies the In predicate on the "url" field.
+func URLIn(vs ...string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldIn(FieldURL, vs...))
+}
+
+// URLNotIn applies the NotIn predicate on the "url" field.
+func URLNotIn(vs ...string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldNotIn(FieldURL, vs...))
+}
+
+// URLGT applies the GT predicate on the "url" field.
+func URLGT(v string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldGT(FieldURL, v))
+}
+
+// URLGTE applies the GTE predicate on the "url" field.
+func URLGTE(v string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldGTE(FieldURL, v))
+}
+
+// URLLT applies the LT predicate on the "url" field.
+func URLLT(v string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldLT(FieldURL, v))
+}
+
+// URLLTE applies the LTE predicate on the "url" field.
+func URLLTE(v string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldLTE(FieldURL, v))
+}
+
+// URLContains applies the Contains predicate on the "url" field.
+func URLContains(v string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldContains(FieldURL, v))
+}
+
+// URLHasPrefix applies the HasPrefix predicate on the "url" field.
+func URLHasPrefix(v string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldHasPrefix(FieldURL, v))
+}
+
+// URLHasSuffix applies the HasSuffix predicate on the "url" field.
+func URLHasSuffix(v string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldHasSuffix(FieldURL, v))
+}
+
+// URLEqualFold applies the EqualFold predicate on the "url" field.
+func URLEqualFold(v string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldEqualFold(FieldURL, v))
+}
+
+// URLContainsFold applies the ContainsFold predicate on the "url" field.
+func URLContainsFold(v string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldContainsFold(FieldURL, v))
+}
+
+// SecretRefEQ applies the EQ predicate on the "secret_ref" field.
+func SecretRefEQ(v string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldEQ(FieldSecretRef, v))
+}
+
+// SecretRefNEQ applies the NEQ predicate on the "secret_ref" field.
+func SecretRefNEQ(v string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldNEQ(FieldSecretRef, v))
+}
+
+// SecretRefIn applies the In predicate on the "secret_ref" field.
+func SecretRefIn(vs ...string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldIn(FieldSecretRef, vs...))
+}
+
+// SecretRefNotIn applies the NotIn predicate on the "secret_ref" field.
+func SecretRefNotIn(vs ...string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldNotIn(FieldSecretRef, vs...))
+}
+
+// SecretRefGT applies the GT predicate on the "secret_ref" field.
+func SecretRefGT(v string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldGT(FieldSecretRef, v))
+}
+
+// SecretRefGTE applies the GTE predicate on the "secret_ref" field.
+func SecretRefGTE(v string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldGTE(FieldSecretRef, v))
+}
+
+// SecretRefLT applies the LT predicate on the "secret_ref" field.
+func SecretRefLT(v string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldLT(FieldSecretRef, v))
+}
+
+// SecretRefLTE applies the LTE predicate on the "secret_ref" field.
+func SecretRefLTE(v string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldLTE(FieldSecretRef, v))
+}
+
+// SecretRefContains applies the Contains predicate on the "secret_ref" field.
+func SecretRefContains(v string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldContains(FieldSecretRef, v))
+}
+
+// SecretRefHasPrefix applies the HasPrefix predicate on the "secret_ref" field.
+func SecretRefHasPrefix(v string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldHasPrefix(FieldSecretRef, v))
+}
+
+// SecretRefHasSuffix applies the HasSuffix predicate on the "secret_ref" field.
+func SecretRefHasSuffix(v string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldHasSuffix(FieldSecretRef, v))
+}
+
+// SecretRefEqualFold applies the EqualFold predicate on the "secret_ref" field.
+func SecretRefEqualFold(v string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldEqualFold(FieldSecretRef, v))
+}
+
+// SecretRefContainsFold applies the ContainsFold predicate on the "secret_ref" field.
+func SecretRefContainsFold(v string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldContainsFold(FieldSecretRef, v))
+}
+
+// EnabledEQ applies the EQ predicate on the "enabled" field.
+func EnabledEQ(v bool) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldEQ(FieldEnabled, v))
+}
+
+// EnabledNEQ applies the NEQ predicate on the "enabled" field.
+func EnabledNEQ(v bool) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldNEQ(FieldEnabled, v))
+}
+
+// HasModels applies the HasEdge predicate on the "models" edge.
+func HasModels() predicate.ModelProvider {
+	return predicate.ModelProvider(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, ModelsTable, ModelsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasModelsWith applies the HasEdge predicate on the "models" edge with a given conditions (other predicates).
+func HasModelsWith(preds ...predicate.Model) predicate.ModelProvider {
+	return predicate.ModelProvider(func(s *sql.Selector) {
+		step := newModelsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
 }
 
 // And groups predicates with the AND operator between them.

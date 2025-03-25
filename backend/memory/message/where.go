@@ -192,16 +192,6 @@ func UpdateTimeLTE(v time.Time) predicate.Message {
 	return predicate.Message(sql.FieldLTE(FieldUpdateTime, v))
 }
 
-// ContentIsNil applies the IsNil predicate on the "content" field.
-func ContentIsNil() predicate.Message {
-	return predicate.Message(sql.FieldIsNull(FieldContent))
-}
-
-// ContentNotNil applies the NotNil predicate on the "content" field.
-func ContentNotNil() predicate.Message {
-	return predicate.Message(sql.FieldNotNull(FieldContent))
-}
-
 // RoleEQ applies the EQ predicate on the "role" field.
 func RoleEQ(v types.MessageRole) predicate.Message {
 	vc := v

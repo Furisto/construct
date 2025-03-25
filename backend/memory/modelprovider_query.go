@@ -4,6 +4,7 @@ package memory
 
 import (
 	"context"
+	"database/sql/driver"
 	"fmt"
 	"math"
 
@@ -11,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/furisto/construct/backend/memory/model"
 	"github.com/furisto/construct/backend/memory/modelprovider"
 	"github.com/furisto/construct/backend/memory/predicate"
 	"github.com/google/uuid"
@@ -23,6 +25,7 @@ type ModelProviderQuery struct {
 	order      []modelprovider.OrderOption
 	inters     []Interceptor
 	predicates []predicate.ModelProvider
+	withModels *ModelQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -57,6 +60,28 @@ func (mpq *ModelProviderQuery) Unique(unique bool) *ModelProviderQuery {
 func (mpq *ModelProviderQuery) Order(o ...modelprovider.OrderOption) *ModelProviderQuery {
 	mpq.order = append(mpq.order, o...)
 	return mpq
+}
+
+// QueryModels chains the current query on the "models" edge.
+func (mpq *ModelProviderQuery) QueryModels() *ModelQuery {
+	query := (&ModelClient{config: mpq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := mpq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := mpq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(modelprovider.Table, modelprovider.FieldID, selector),
+			sqlgraph.To(model.Table, model.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, modelprovider.ModelsTable, modelprovider.ModelsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(mpq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
 }
 
 // First returns the first ModelProvider entity from the query.
@@ -251,10 +276,22 @@ func (mpq *ModelProviderQuery) Clone() *ModelProviderQuery {
 		order:      append([]modelprovider.OrderOption{}, mpq.order...),
 		inters:     append([]Interceptor{}, mpq.inters...),
 		predicates: append([]predicate.ModelProvider{}, mpq.predicates...),
+		withModels: mpq.withModels.Clone(),
 		// clone intermediate query.
 		sql:  mpq.sql.Clone(),
 		path: mpq.path,
 	}
+}
+
+// WithModels tells the query-builder to eager-load the nodes that are connected to
+// the "models" edge. The optional arguments are used to configure the query builder of the edge.
+func (mpq *ModelProviderQuery) WithModels(opts ...func(*ModelQuery)) *ModelProviderQuery {
+	query := (&ModelClient{config: mpq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	mpq.withModels = query
+	return mpq
 }
 
 // GroupBy is used to group vertices by one or more fields/columns.
@@ -333,8 +370,11 @@ func (mpq *ModelProviderQuery) prepareQuery(ctx context.Context) error {
 
 func (mpq *ModelProviderQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*ModelProvider, error) {
 	var (
-		nodes = []*ModelProvider{}
-		_spec = mpq.querySpec()
+		nodes       = []*ModelProvider{}
+		_spec       = mpq.querySpec()
+		loadedTypes = [1]bool{
+			mpq.withModels != nil,
+		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
 		return (*ModelProvider).scanValues(nil, columns)
@@ -342,6 +382,7 @@ func (mpq *ModelProviderQuery) sqlAll(ctx context.Context, hooks ...queryHook) (
 	_spec.Assign = func(columns []string, values []any) error {
 		node := &ModelProvider{config: mpq.config}
 		nodes = append(nodes, node)
+		node.Edges.loadedTypes = loadedTypes
 		return node.assignValues(columns, values)
 	}
 	for i := range hooks {
@@ -353,7 +394,46 @@ func (mpq *ModelProviderQuery) sqlAll(ctx context.Context, hooks ...queryHook) (
 	if len(nodes) == 0 {
 		return nodes, nil
 	}
+	if query := mpq.withModels; query != nil {
+		if err := mpq.loadModels(ctx, query, nodes,
+			func(n *ModelProvider) { n.Edges.Models = []*Model{} },
+			func(n *ModelProvider, e *Model) { n.Edges.Models = append(n.Edges.Models, e) }); err != nil {
+			return nil, err
+		}
+	}
 	return nodes, nil
+}
+
+func (mpq *ModelProviderQuery) loadModels(ctx context.Context, query *ModelQuery, nodes []*ModelProvider, init func(*ModelProvider), assign func(*ModelProvider, *Model)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*ModelProvider)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	query.withFKs = true
+	query.Where(predicate.Model(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(modelprovider.ModelsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.model_provider_models
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "model_provider_models" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "model_provider_models" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
 }
 
 func (mpq *ModelProviderQuery) sqlCount(ctx context.Context) (int, error) {

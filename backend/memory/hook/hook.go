@@ -21,6 +21,18 @@ func (f MessageFunc) Mutate(ctx context.Context, m memory.Mutation) (memory.Valu
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *memory.MessageMutation", m)
 }
 
+// The ModelFunc type is an adapter to allow the use of ordinary
+// function as Model mutator.
+type ModelFunc func(context.Context, *memory.ModelMutation) (memory.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ModelFunc) Mutate(ctx context.Context, m memory.Mutation) (memory.Value, error) {
+	if mv, ok := m.(*memory.ModelMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *memory.ModelMutation", m)
+}
+
 // The ModelProviderFunc type is an adapter to allow the use of ordinary
 // function as ModelProvider mutator.
 type ModelProviderFunc func(context.Context, *memory.ModelProviderMutation) (memory.Value, error)

@@ -4,13 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/zalando/go-keyring"
 )
 
 const keychainService = "construct"
 
-func ModelProviderSecret(id string) string {
-	return fmt.Sprintf("model_provider/%s", id)
+func ModelProviderSecret(id uuid.UUID) string {
+	return fmt.Sprintf("model_provider/%s", id.String())
 }
 
 func GetSecret[T any](key string) (*T, error) {

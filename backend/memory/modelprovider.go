@@ -10,6 +10,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/furisto/construct/backend/memory/modelprovider"
+	"github.com/furisto/construct/backend/memory/schema/types"
 	"github.com/google/uuid"
 )
 
@@ -23,8 +24,37 @@ type ModelProvider struct {
 	// UpdateTime holds the value of the "update_time" field.
 	UpdateTime time.Time `json:"update_time,omitempty"`
 	// Name holds the value of the "name" field.
-	Name         string `json:"name,omitempty"`
+	Name string `json:"name,omitempty"`
+	// ProviderType holds the value of the "provider_type" field.
+	ProviderType types.ModelProviderType `json:"provider_type,omitempty"`
+	// URL holds the value of the "url" field.
+	URL string `json:"url,omitempty"`
+	// SecretRef holds the value of the "secret_ref" field.
+	SecretRef string `json:"-"`
+	// Enabled holds the value of the "enabled" field.
+	Enabled bool `json:"enabled,omitempty"`
+	// Edges holds the relations/edges for other nodes in the graph.
+	// The values are being populated by the ModelProviderQuery when eager-loading is set.
+	Edges        ModelProviderEdges `json:"edges"`
 	selectValues sql.SelectValues
+}
+
+// ModelProviderEdges holds the relations/edges for other nodes in the graph.
+type ModelProviderEdges struct {
+	// Models holds the value of the models edge.
+	Models []*Model `json:"models,omitempty"`
+	// loadedTypes holds the information for reporting if a
+	// type was loaded (or requested) in eager-loading or not.
+	loadedTypes [1]bool
+}
+
+// ModelsOrErr returns the Models value or an error if the edge
+// was not loaded in eager-loading.
+func (e ModelProviderEdges) ModelsOrErr() ([]*Model, error) {
+	if e.loadedTypes[0] {
+		return e.Models, nil
+	}
+	return nil, &NotLoadedError{edge: "models"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -32,7 +62,9 @@ func (*ModelProvider) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case modelprovider.FieldName:
+		case modelprovider.FieldEnabled:
+			values[i] = new(sql.NullBool)
+		case modelprovider.FieldName, modelprovider.FieldProviderType, modelprovider.FieldURL, modelprovider.FieldSecretRef:
 			values[i] = new(sql.NullString)
 		case modelprovider.FieldCreateTime, modelprovider.FieldUpdateTime:
 			values[i] = new(sql.NullTime)
@@ -77,6 +109,30 @@ func (mp *ModelProvider) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				mp.Name = value.String
 			}
+		case modelprovider.FieldProviderType:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field provider_type", values[i])
+			} else if value.Valid {
+				mp.ProviderType = types.ModelProviderType(value.String)
+			}
+		case modelprovider.FieldURL:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field url", values[i])
+			} else if value.Valid {
+				mp.URL = value.String
+			}
+		case modelprovider.FieldSecretRef:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field secret_ref", values[i])
+			} else if value.Valid {
+				mp.SecretRef = value.String
+			}
+		case modelprovider.FieldEnabled:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field enabled", values[i])
+			} else if value.Valid {
+				mp.Enabled = value.Bool
+			}
 		default:
 			mp.selectValues.Set(columns[i], values[i])
 		}
@@ -88,6 +144,11 @@ func (mp *ModelProvider) assignValues(columns []string, values []any) error {
 // This includes values selected through modifiers, order, etc.
 func (mp *ModelProvider) Value(name string) (ent.Value, error) {
 	return mp.selectValues.Get(name)
+}
+
+// QueryModels queries the "models" edge of the ModelProvider entity.
+func (mp *ModelProvider) QueryModels() *ModelQuery {
+	return NewModelProviderClient(mp.config).QueryModels(mp)
 }
 
 // Update returns a builder for updating this ModelProvider.
@@ -121,6 +182,17 @@ func (mp *ModelProvider) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("name=")
 	builder.WriteString(mp.Name)
+	builder.WriteString(", ")
+	builder.WriteString("provider_type=")
+	builder.WriteString(fmt.Sprintf("%v", mp.ProviderType))
+	builder.WriteString(", ")
+	builder.WriteString("url=")
+	builder.WriteString(mp.URL)
+	builder.WriteString(", ")
+	builder.WriteString("secret_ref=<sensitive>")
+	builder.WriteString(", ")
+	builder.WriteString("enabled=")
+	builder.WriteString(fmt.Sprintf("%v", mp.Enabled))
 	builder.WriteByte(')')
 	return builder.String()
 }

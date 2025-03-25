@@ -10,8 +10,11 @@ import (
 	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/model"
 	"github.com/furisto/construct/backend/tool"
+	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
 )
+
+const ConstructAgentID = "0195c3f6-6ddd-7d16-a07f-3461a675334e"
 
 func main() {
 	provider, err := model.NewAnthropicProvider("")
@@ -32,6 +35,7 @@ func main() {
 
 	stopCh := make(chan struct{})
 	agent := agent.NewAgent(
+		agent.WithAgentID(uuid.MustParse(ConstructAgentID)),
 		agent.WithModelProviders(provider),
 		agent.WithSystemPrompt(agent.ConstructSystemPrompt),
 		agent.WithMemory(client),

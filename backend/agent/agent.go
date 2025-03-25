@@ -7,36 +7,33 @@ import (
 	"sync/atomic"
 
 	"github.com/furisto/construct/backend/memory"
+	memory_model "github.com/furisto/construct/backend/memory/model"
 	"github.com/furisto/construct/backend/memory/schema/types"
 	"github.com/furisto/construct/backend/model"
+	"github.com/furisto/construct/backend/secret"
 	"github.com/furisto/construct/backend/tool"
 	"github.com/google/uuid"
 	"k8s.io/client-go/util/workqueue"
-
 )
 
-const ConstructAgentID = "0195c3f6-6ddd-7d16-a07f-3461a675334e"
-
 type AgentOptions struct {
+	AgentID        uuid.UUID
 	SystemPrompt   string
 	ModelProviders []model.ModelProvider
 	Tools          []tool.Tool
 	Mailbox        Memory
-	// SystemMemory   Memory
-	// UserMemory     Memory
-	Concurrency int
-	Memory      *memory.Client
+	Concurrency    int
+	Memory         *memory.Client
 }
 
 func DefaultAgentOptions() *AgentOptions {
 	return &AgentOptions{
+		AgentID:        uuid.New(),
 		ModelProviders: []model.ModelProvider{},
 		SystemPrompt:   "You are a helpful assistant that can help with tasks and answer questions.",
 		Tools:          []tool.Tool{},
 		Mailbox:        NewEphemeralMemory(),
-		// SystemMemory:   NewEphemeralMemory(),
-		// UserMemory:     NewEphemeralMemory(),
-		Concurrency: 5,
+		Concurrency:    5,
 	}
 }
 
@@ -72,25 +69,20 @@ func WithMemory(memory *memory.Client) AgentOption {
 	}
 }
 
-// func WithSystemMemory(memory Memory) AgentOption {
-// 	return func(o *AgentOptions) {
-// 		o.SystemMemory = memory
-// 	}
-// }
-
-// func WithUserMemory(memory Memory) AgentOption {
-// 	return func(o *AgentOptions) {
-// 		o.UserMemory = memory
-// 	}
-// }
-
 func WithConcurrency(concurrency int) AgentOption {
 	return func(o *AgentOptions) {
 		o.Concurrency = concurrency
 	}
 }
 
+func WithAgentID(agentID uuid.UUID) AgentOption {
+	return func(o *AgentOptions) {
+		o.AgentID = agentID
+	}
+}
+
 type Agent struct {
+	AgentID        uuid.UUID
 	ModelProviders []model.ModelProvider
 	SystemPrompt   string
 	Toolbox        *tool.Toolbox
@@ -116,14 +108,14 @@ func NewAgent(opts ...AgentOption) *Agent {
 	})
 
 	return &Agent{
+		AgentID:        options.AgentID,
 		ModelProviders: options.ModelProviders,
 		SystemPrompt:   options.SystemPrompt,
 		Toolbox:        toolbox,
 		Mailbox:        NewMailbox(),
 		Memory:         options.Memory,
-		// SystemMemory:   options.SystemMemory,
-		Concurrency: options.Concurrency,
-		Queue:       queue,
+		Concurrency:    options.Concurrency,
+		Queue:          queue,
 	}
 }
 
@@ -153,25 +145,63 @@ func (a *Agent) Run(ctx context.Context) error {
 func (a *Agent) processTask(ctx context.Context, taskID uuid.UUID) error {
 	defer a.Queue.Done(taskID)
 
-	// messages := a.Mailbox.Dequeue(taskID)
+	task, err := a.Memory.Task.Get(ctx, taskID)
+	if err != nil {
+		return err
+	}
 
-	modelProvider := a.ModelProviders[0]
+	userMessages := a.Mailbox.Dequeue(taskID)
+	for _, message := range userMessages {
+		a.Memory.Message.Create().
+			SetRole(types.MessageRoleUser).
+			SetContent(message).
+			Save(ctx)
+	}
 
-	resp, err := modelProvider.InvokeModel(ctx, taskID, a.SystemPrompt, []model.Message{}, model.WithStreamHandler(func(ctx context.Context, message *model.Message) {
+	m, err := a.Memory.Model.Query().Where(memory_model.ID(task.Spec.ModelID)).WithModelProvider().Only(ctx)
+	if err != nil {
+		return err
+	}
+
+	modelProvider, err := a.modelProviderForModel(m)
+	if err != nil {
+		return err
+	}
+
+	resp, err := modelProvider.InvokeModel(ctx, uuid.MustParse("0195b4e2-45b6-76df-b208-f48b7b0d5f51"), ConstructSystemPrompt, []model.Message{
+		{
+			Source: model.MessageSourceUser,
+			Content: []model.ContentBlock{
+				&model.TextContentBlock{
+					Text: "Hello, how are you? Please write at least 200 words and then read the file /etc/passwd",
+				},
+			},
+		},
+	}, model.WithStreamHandler(func(ctx context.Context, message *model.Message) {
 		for _, block := range message.Content {
 			switch block := block.(type) {
 			case *model.TextContentBlock:
 				fmt.Print(block.Text)
 			}
 		}
-	}))
+	}), model.WithTools(tool.FilesystemTools()))
 
 	if err != nil {
 		return err
 	}
 
+	for _, block := range resp.Message.Content {
+		switch block := block.(type) {
+		case *model.TextContentBlock:
+			fmt.Print(block.Text)
+		case *model.ToolCallContentBlock:
+			fmt.Println(block.Name)
+			fmt.Println(string(block.Input))
+		}
+	}
+
 	a.Memory.Message.Create().
-		SetRole(types.MessageRole(resp.Message.Source)).
+		SetRole(types.MessageRoleAssistant).
 		SetUsage(&types.MessageUsage{
 			InputTokens:      resp.Usage.InputTokens,
 			OutputTokens:     resp.Usage.OutputTokens,
@@ -181,42 +211,28 @@ func (a *Agent) processTask(ctx context.Context, taskID uuid.UUID) error {
 		Save(ctx)
 
 	return nil
+}
 
-	// for _, mp := range a.ModelProviders {
-	// 	resp, err := mp.InvokeModel(ctx, uuid.MustParse("0195b4e2-45b6-76df-b208-f48b7b0d5f51"), ConstructSystemPrompt, []model.Message{
-	// 		{
-	// 			Source: model.MessageSourceUser,
-	// 			Content: []model.ContentBlock{
-	// 				&model.TextContentBlock{
-	// 					Text: "Hello, how are you? Please write at least 200 words and then read the file /etc/passwd",
-	// 				},
-	// 			},
-	// 		},
-	// 	}, model.WithStreamHandler(func(ctx context.Context, message *model.Message) {
-	// 		for _, block := range message.Content {
-	// 			switch block := block.(type) {
-	// 			case *model.TextContentBlock:
-	// 				fmt.Print(block.Text)
-	// 			}
-	// 		}
-	// 	}), model.WithTools(tool.FilesystemTools()))
+func (a *Agent) modelProviderForModel(m *memory.Model) (model.ModelProvider, error) {
+	if m.Edges.ModelProvider == nil {
+		return nil, fmt.Errorf("model provider not found")
+	}
 
-	// 	if err != nil {
-	// 		return err
-	// 	}
+	switch m.Edges.ModelProvider.ProviderType {
+	case types.ModelProviderTypeAnthropic:
+		secret, err := secret.GetSecret[model.AnthropicSecret](secret.ModelProviderSecret(m.Edges.ModelProvider.ID))
+		if err != nil {
+			return nil, err
+		}
 
-	// 	for _, block := range resp.Message.Content {
-	// 		switch block := block.(type) {
-	// 		case *model.TextContentBlock:
-	// 			fmt.Print(block.Text)
-	// 		case *model.ToolCallContentBlock:
-	// 			fmt.Println(block.Name)
-	// 			fmt.Println(string(block.Input))
-	// 		}
-	// 	}
-
-	// 	fmt.Println(resp.Usage)
-	// }
+		provider, err := model.NewAnthropicProvider(secret.APIKey)
+		if err != nil {
+			return nil, err
+		}
+		return provider, nil
+	default:
+		return nil, fmt.Errorf("unknown model provider type: %s", m.Edges.ModelProvider.ProviderType)
+	}
 }
 
 func (a *Agent) SendMessage(taskID uuid.UUID, message string) {
@@ -226,7 +242,7 @@ func (a *Agent) SendMessage(taskID uuid.UUID, message string) {
 
 func (a *Agent) CreateTask(ctx context.Context) (uuid.UUID, error) {
 	task, err := a.Memory.Task.Create().
-		SetAgentID(uuid.MustParse(ConstructAgentID)).
+		SetAgentID(a.AgentID).
 		SetInputTokens(0).
 		SetOutputTokens(0).
 		SetCacheWriteTokens(0).

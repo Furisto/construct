@@ -29,14 +29,6 @@ func (tc *TaskCreate) SetAgentID(u uuid.UUID) *TaskCreate {
 	return tc
 }
 
-// SetNillableAgentID sets the "agent_id" field if the given value is not nil.
-func (tc *TaskCreate) SetNillableAgentID(u *uuid.UUID) *TaskCreate {
-	if u != nil {
-		tc.SetAgentID(*u)
-	}
-	return tc
-}
-
 // SetCreateTime sets the "create_time" field.
 func (tc *TaskCreate) SetCreateTime(t time.Time) *TaskCreate {
 	tc.mutation.SetCreateTime(t)
@@ -165,10 +157,6 @@ func (tc *TaskCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (tc *TaskCreate) defaults() {
-	if _, ok := tc.mutation.AgentID(); !ok {
-		v := task.DefaultAgentID()
-		tc.mutation.SetAgentID(v)
-	}
 	if _, ok := tc.mutation.CreateTime(); !ok {
 		v := task.DefaultCreateTime()
 		tc.mutation.SetCreateTime(v)

@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/furisto/construct/backend/memory/message"
+	"github.com/furisto/construct/backend/memory/model"
 	"github.com/furisto/construct/backend/memory/modelprovider"
 	"github.com/furisto/construct/backend/memory/predicate"
 	"github.com/furisto/construct/backend/memory/schema/types"
@@ -29,6 +30,7 @@ const (
 
 	// Node types.
 	TypeMessage       = "Message"
+	TypeModel         = "Model"
 	TypeModelProvider = "ModelProvider"
 	TypeTask          = "Task"
 )
@@ -297,22 +299,9 @@ func (m *MessageMutation) OldContent(ctx context.Context) (v *types.MessageConte
 	return oldValue.Content, nil
 }
 
-// ClearContent clears the value of the "content" field.
-func (m *MessageMutation) ClearContent() {
-	m.content = nil
-	m.clearedFields[message.FieldContent] = struct{}{}
-}
-
-// ContentCleared returns if the "content" field was cleared in this mutation.
-func (m *MessageMutation) ContentCleared() bool {
-	_, ok := m.clearedFields[message.FieldContent]
-	return ok
-}
-
 // ResetContent resets all changes to the "content" field.
 func (m *MessageMutation) ResetContent() {
 	m.content = nil
-	delete(m.clearedFields, message.FieldContent)
 }
 
 // SetRole sets the "role" field.
@@ -629,9 +618,6 @@ func (m *MessageMutation) AddField(name string, value ent.Value) error {
 // mutation.
 func (m *MessageMutation) ClearedFields() []string {
 	var fields []string
-	if m.FieldCleared(message.FieldContent) {
-		fields = append(fields, message.FieldContent)
-	}
 	if m.FieldCleared(message.FieldUsage) {
 		fields = append(fields, message.FieldUsage)
 	}
@@ -649,9 +635,6 @@ func (m *MessageMutation) FieldCleared(name string) bool {
 // error if the field is not defined in the schema.
 func (m *MessageMutation) ClearField(name string) error {
 	switch name {
-	case message.FieldContent:
-		m.ClearContent()
-		return nil
 	case message.FieldUsage:
 		m.ClearUsage()
 		return nil
@@ -769,6 +752,549 @@ func (m *MessageMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown Message edge %s", name)
 }
 
+// ModelMutation represents an operation that mutates the Model nodes in the graph.
+type ModelMutation struct {
+	config
+	op                    Op
+	typ                   string
+	id                    *uuid.UUID
+	name                  *string
+	context_window        *int64
+	addcontext_window     *int64
+	enabled               *bool
+	clearedFields         map[string]struct{}
+	model_provider        *uuid.UUID
+	clearedmodel_provider bool
+	done                  bool
+	oldValue              func(context.Context) (*Model, error)
+	predicates            []predicate.Model
+}
+
+var _ ent.Mutation = (*ModelMutation)(nil)
+
+// modelOption allows management of the mutation configuration using functional options.
+type modelOption func(*ModelMutation)
+
+// newModelMutation creates new mutation for the Model entity.
+func newModelMutation(c config, op Op, opts ...modelOption) *ModelMutation {
+	m := &ModelMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeModel,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withModelID sets the ID field of the mutation.
+func withModelID(id uuid.UUID) modelOption {
+	return func(m *ModelMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *Model
+		)
+		m.oldValue = func(ctx context.Context) (*Model, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().Model.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withModel sets the old Model of the mutation.
+func withModel(node *Model) modelOption {
+	return func(m *ModelMutation) {
+		m.oldValue = func(context.Context) (*Model, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ModelMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ModelMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("memory: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of Model entities.
+func (m *ModelMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ModelMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ModelMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().Model.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetName sets the "name" field.
+func (m *ModelMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *ModelMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the Model entity.
+// If the Model object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ModelMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *ModelMutation) ResetName() {
+	m.name = nil
+}
+
+// SetContextWindow sets the "context_window" field.
+func (m *ModelMutation) SetContextWindow(i int64) {
+	m.context_window = &i
+	m.addcontext_window = nil
+}
+
+// ContextWindow returns the value of the "context_window" field in the mutation.
+func (m *ModelMutation) ContextWindow() (r int64, exists bool) {
+	v := m.context_window
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldContextWindow returns the old "context_window" field's value of the Model entity.
+// If the Model object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ModelMutation) OldContextWindow(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldContextWindow is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldContextWindow requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldContextWindow: %w", err)
+	}
+	return oldValue.ContextWindow, nil
+}
+
+// AddContextWindow adds i to the "context_window" field.
+func (m *ModelMutation) AddContextWindow(i int64) {
+	if m.addcontext_window != nil {
+		*m.addcontext_window += i
+	} else {
+		m.addcontext_window = &i
+	}
+}
+
+// AddedContextWindow returns the value that was added to the "context_window" field in this mutation.
+func (m *ModelMutation) AddedContextWindow() (r int64, exists bool) {
+	v := m.addcontext_window
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetContextWindow resets all changes to the "context_window" field.
+func (m *ModelMutation) ResetContextWindow() {
+	m.context_window = nil
+	m.addcontext_window = nil
+}
+
+// SetEnabled sets the "enabled" field.
+func (m *ModelMutation) SetEnabled(b bool) {
+	m.enabled = &b
+}
+
+// Enabled returns the value of the "enabled" field in the mutation.
+func (m *ModelMutation) Enabled() (r bool, exists bool) {
+	v := m.enabled
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEnabled returns the old "enabled" field's value of the Model entity.
+// If the Model object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ModelMutation) OldEnabled(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEnabled is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEnabled requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEnabled: %w", err)
+	}
+	return oldValue.Enabled, nil
+}
+
+// ResetEnabled resets all changes to the "enabled" field.
+func (m *ModelMutation) ResetEnabled() {
+	m.enabled = nil
+}
+
+// SetModelProviderID sets the "model_provider" edge to the ModelProvider entity by id.
+func (m *ModelMutation) SetModelProviderID(id uuid.UUID) {
+	m.model_provider = &id
+}
+
+// ClearModelProvider clears the "model_provider" edge to the ModelProvider entity.
+func (m *ModelMutation) ClearModelProvider() {
+	m.clearedmodel_provider = true
+}
+
+// ModelProviderCleared reports if the "model_provider" edge to the ModelProvider entity was cleared.
+func (m *ModelMutation) ModelProviderCleared() bool {
+	return m.clearedmodel_provider
+}
+
+// ModelProviderID returns the "model_provider" edge ID in the mutation.
+func (m *ModelMutation) ModelProviderID() (id uuid.UUID, exists bool) {
+	if m.model_provider != nil {
+		return *m.model_provider, true
+	}
+	return
+}
+
+// ModelProviderIDs returns the "model_provider" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ModelProviderID instead. It exists only for internal usage by the builders.
+func (m *ModelMutation) ModelProviderIDs() (ids []uuid.UUID) {
+	if id := m.model_provider; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetModelProvider resets all changes to the "model_provider" edge.
+func (m *ModelMutation) ResetModelProvider() {
+	m.model_provider = nil
+	m.clearedmodel_provider = false
+}
+
+// Where appends a list predicates to the ModelMutation builder.
+func (m *ModelMutation) Where(ps ...predicate.Model) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ModelMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ModelMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.Model, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ModelMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ModelMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (Model).
+func (m *ModelMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ModelMutation) Fields() []string {
+	fields := make([]string, 0, 3)
+	if m.name != nil {
+		fields = append(fields, model.FieldName)
+	}
+	if m.context_window != nil {
+		fields = append(fields, model.FieldContextWindow)
+	}
+	if m.enabled != nil {
+		fields = append(fields, model.FieldEnabled)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ModelMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case model.FieldName:
+		return m.Name()
+	case model.FieldContextWindow:
+		return m.ContextWindow()
+	case model.FieldEnabled:
+		return m.Enabled()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ModelMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case model.FieldName:
+		return m.OldName(ctx)
+	case model.FieldContextWindow:
+		return m.OldContextWindow(ctx)
+	case model.FieldEnabled:
+		return m.OldEnabled(ctx)
+	}
+	return nil, fmt.Errorf("unknown Model field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ModelMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case model.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	case model.FieldContextWindow:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetContextWindow(v)
+		return nil
+	case model.FieldEnabled:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEnabled(v)
+		return nil
+	}
+	return fmt.Errorf("unknown Model field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ModelMutation) AddedFields() []string {
+	var fields []string
+	if m.addcontext_window != nil {
+		fields = append(fields, model.FieldContextWindow)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ModelMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case model.FieldContextWindow:
+		return m.AddedContextWindow()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ModelMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case model.FieldContextWindow:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddContextWindow(v)
+		return nil
+	}
+	return fmt.Errorf("unknown Model numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ModelMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ModelMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ModelMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown Model nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ModelMutation) ResetField(name string) error {
+	switch name {
+	case model.FieldName:
+		m.ResetName()
+		return nil
+	case model.FieldContextWindow:
+		m.ResetContextWindow()
+		return nil
+	case model.FieldEnabled:
+		m.ResetEnabled()
+		return nil
+	}
+	return fmt.Errorf("unknown Model field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ModelMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.model_provider != nil {
+		edges = append(edges, model.EdgeModelProvider)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ModelMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case model.EdgeModelProvider:
+		if id := m.model_provider; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ModelMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ModelMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ModelMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedmodel_provider {
+		edges = append(edges, model.EdgeModelProvider)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ModelMutation) EdgeCleared(name string) bool {
+	switch name {
+	case model.EdgeModelProvider:
+		return m.clearedmodel_provider
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ModelMutation) ClearEdge(name string) error {
+	switch name {
+	case model.EdgeModelProvider:
+		m.ClearModelProvider()
+		return nil
+	}
+	return fmt.Errorf("unknown Model unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ModelMutation) ResetEdge(name string) error {
+	switch name {
+	case model.EdgeModelProvider:
+		m.ResetModelProvider()
+		return nil
+	}
+	return fmt.Errorf("unknown Model edge %s", name)
+}
+
 // ModelProviderMutation represents an operation that mutates the ModelProvider nodes in the graph.
 type ModelProviderMutation struct {
 	config
@@ -778,7 +1304,14 @@ type ModelProviderMutation struct {
 	create_time   *time.Time
 	update_time   *time.Time
 	name          *string
+	provider_type *types.ModelProviderType
+	url           *string
+	secret_ref    *string
+	enabled       *bool
 	clearedFields map[string]struct{}
+	models        map[uuid.UUID]struct{}
+	removedmodels map[uuid.UUID]struct{}
+	clearedmodels bool
 	done          bool
 	oldValue      func(context.Context) (*ModelProvider, error)
 	predicates    []predicate.ModelProvider
@@ -996,6 +1529,204 @@ func (m *ModelProviderMutation) ResetName() {
 	m.name = nil
 }
 
+// SetProviderType sets the "provider_type" field.
+func (m *ModelProviderMutation) SetProviderType(tpt types.ModelProviderType) {
+	m.provider_type = &tpt
+}
+
+// ProviderType returns the value of the "provider_type" field in the mutation.
+func (m *ModelProviderMutation) ProviderType() (r types.ModelProviderType, exists bool) {
+	v := m.provider_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProviderType returns the old "provider_type" field's value of the ModelProvider entity.
+// If the ModelProvider object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ModelProviderMutation) OldProviderType(ctx context.Context) (v types.ModelProviderType, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProviderType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProviderType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProviderType: %w", err)
+	}
+	return oldValue.ProviderType, nil
+}
+
+// ResetProviderType resets all changes to the "provider_type" field.
+func (m *ModelProviderMutation) ResetProviderType() {
+	m.provider_type = nil
+}
+
+// SetURL sets the "url" field.
+func (m *ModelProviderMutation) SetURL(s string) {
+	m.url = &s
+}
+
+// URL returns the value of the "url" field in the mutation.
+func (m *ModelProviderMutation) URL() (r string, exists bool) {
+	v := m.url
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldURL returns the old "url" field's value of the ModelProvider entity.
+// If the ModelProvider object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ModelProviderMutation) OldURL(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldURL is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldURL requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldURL: %w", err)
+	}
+	return oldValue.URL, nil
+}
+
+// ResetURL resets all changes to the "url" field.
+func (m *ModelProviderMutation) ResetURL() {
+	m.url = nil
+}
+
+// SetSecretRef sets the "secret_ref" field.
+func (m *ModelProviderMutation) SetSecretRef(s string) {
+	m.secret_ref = &s
+}
+
+// SecretRef returns the value of the "secret_ref" field in the mutation.
+func (m *ModelProviderMutation) SecretRef() (r string, exists bool) {
+	v := m.secret_ref
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSecretRef returns the old "secret_ref" field's value of the ModelProvider entity.
+// If the ModelProvider object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ModelProviderMutation) OldSecretRef(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSecretRef is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSecretRef requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSecretRef: %w", err)
+	}
+	return oldValue.SecretRef, nil
+}
+
+// ResetSecretRef resets all changes to the "secret_ref" field.
+func (m *ModelProviderMutation) ResetSecretRef() {
+	m.secret_ref = nil
+}
+
+// SetEnabled sets the "enabled" field.
+func (m *ModelProviderMutation) SetEnabled(b bool) {
+	m.enabled = &b
+}
+
+// Enabled returns the value of the "enabled" field in the mutation.
+func (m *ModelProviderMutation) Enabled() (r bool, exists bool) {
+	v := m.enabled
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEnabled returns the old "enabled" field's value of the ModelProvider entity.
+// If the ModelProvider object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ModelProviderMutation) OldEnabled(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEnabled is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEnabled requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEnabled: %w", err)
+	}
+	return oldValue.Enabled, nil
+}
+
+// ResetEnabled resets all changes to the "enabled" field.
+func (m *ModelProviderMutation) ResetEnabled() {
+	m.enabled = nil
+}
+
+// AddModelIDs adds the "models" edge to the Model entity by ids.
+func (m *ModelProviderMutation) AddModelIDs(ids ...uuid.UUID) {
+	if m.models == nil {
+		m.models = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.models[ids[i]] = struct{}{}
+	}
+}
+
+// ClearModels clears the "models" edge to the Model entity.
+func (m *ModelProviderMutation) ClearModels() {
+	m.clearedmodels = true
+}
+
+// ModelsCleared reports if the "models" edge to the Model entity was cleared.
+func (m *ModelProviderMutation) ModelsCleared() bool {
+	return m.clearedmodels
+}
+
+// RemoveModelIDs removes the "models" edge to the Model entity by IDs.
+func (m *ModelProviderMutation) RemoveModelIDs(ids ...uuid.UUID) {
+	if m.removedmodels == nil {
+		m.removedmodels = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.models, ids[i])
+		m.removedmodels[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedModels returns the removed IDs of the "models" edge to the Model entity.
+func (m *ModelProviderMutation) RemovedModelsIDs() (ids []uuid.UUID) {
+	for id := range m.removedmodels {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ModelsIDs returns the "models" edge IDs in the mutation.
+func (m *ModelProviderMutation) ModelsIDs() (ids []uuid.UUID) {
+	for id := range m.models {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetModels resets all changes to the "models" edge.
+func (m *ModelProviderMutation) ResetModels() {
+	m.models = nil
+	m.clearedmodels = false
+	m.removedmodels = nil
+}
+
 // Where appends a list predicates to the ModelProviderMutation builder.
 func (m *ModelProviderMutation) Where(ps ...predicate.ModelProvider) {
 	m.predicates = append(m.predicates, ps...)
@@ -1030,7 +1761,7 @@ func (m *ModelProviderMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ModelProviderMutation) Fields() []string {
-	fields := make([]string, 0, 3)
+	fields := make([]string, 0, 7)
 	if m.create_time != nil {
 		fields = append(fields, modelprovider.FieldCreateTime)
 	}
@@ -1039,6 +1770,18 @@ func (m *ModelProviderMutation) Fields() []string {
 	}
 	if m.name != nil {
 		fields = append(fields, modelprovider.FieldName)
+	}
+	if m.provider_type != nil {
+		fields = append(fields, modelprovider.FieldProviderType)
+	}
+	if m.url != nil {
+		fields = append(fields, modelprovider.FieldURL)
+	}
+	if m.secret_ref != nil {
+		fields = append(fields, modelprovider.FieldSecretRef)
+	}
+	if m.enabled != nil {
+		fields = append(fields, modelprovider.FieldEnabled)
 	}
 	return fields
 }
@@ -1054,6 +1797,14 @@ func (m *ModelProviderMutation) Field(name string) (ent.Value, bool) {
 		return m.UpdateTime()
 	case modelprovider.FieldName:
 		return m.Name()
+	case modelprovider.FieldProviderType:
+		return m.ProviderType()
+	case modelprovider.FieldURL:
+		return m.URL()
+	case modelprovider.FieldSecretRef:
+		return m.SecretRef()
+	case modelprovider.FieldEnabled:
+		return m.Enabled()
 	}
 	return nil, false
 }
@@ -1069,6 +1820,14 @@ func (m *ModelProviderMutation) OldField(ctx context.Context, name string) (ent.
 		return m.OldUpdateTime(ctx)
 	case modelprovider.FieldName:
 		return m.OldName(ctx)
+	case modelprovider.FieldProviderType:
+		return m.OldProviderType(ctx)
+	case modelprovider.FieldURL:
+		return m.OldURL(ctx)
+	case modelprovider.FieldSecretRef:
+		return m.OldSecretRef(ctx)
+	case modelprovider.FieldEnabled:
+		return m.OldEnabled(ctx)
 	}
 	return nil, fmt.Errorf("unknown ModelProvider field %s", name)
 }
@@ -1098,6 +1857,34 @@ func (m *ModelProviderMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetName(v)
+		return nil
+	case modelprovider.FieldProviderType:
+		v, ok := value.(types.ModelProviderType)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProviderType(v)
+		return nil
+	case modelprovider.FieldURL:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetURL(v)
+		return nil
+	case modelprovider.FieldSecretRef:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSecretRef(v)
+		return nil
+	case modelprovider.FieldEnabled:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEnabled(v)
 		return nil
 	}
 	return fmt.Errorf("unknown ModelProvider field %s", name)
@@ -1157,55 +1944,103 @@ func (m *ModelProviderMutation) ResetField(name string) error {
 	case modelprovider.FieldName:
 		m.ResetName()
 		return nil
+	case modelprovider.FieldProviderType:
+		m.ResetProviderType()
+		return nil
+	case modelprovider.FieldURL:
+		m.ResetURL()
+		return nil
+	case modelprovider.FieldSecretRef:
+		m.ResetSecretRef()
+		return nil
+	case modelprovider.FieldEnabled:
+		m.ResetEnabled()
+		return nil
 	}
 	return fmt.Errorf("unknown ModelProvider field %s", name)
 }
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *ModelProviderMutation) AddedEdges() []string {
-	edges := make([]string, 0, 0)
+	edges := make([]string, 0, 1)
+	if m.models != nil {
+		edges = append(edges, modelprovider.EdgeModels)
+	}
 	return edges
 }
 
 // AddedIDs returns all IDs (to other nodes) that were added for the given edge
 // name in this mutation.
 func (m *ModelProviderMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case modelprovider.EdgeModels:
+		ids := make([]ent.Value, 0, len(m.models))
+		for id := range m.models {
+			ids = append(ids, id)
+		}
+		return ids
+	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *ModelProviderMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 0)
+	edges := make([]string, 0, 1)
+	if m.removedmodels != nil {
+		edges = append(edges, modelprovider.EdgeModels)
+	}
 	return edges
 }
 
 // RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
 // the given name in this mutation.
 func (m *ModelProviderMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case modelprovider.EdgeModels:
+		ids := make([]ent.Value, 0, len(m.removedmodels))
+		for id := range m.removedmodels {
+			ids = append(ids, id)
+		}
+		return ids
+	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *ModelProviderMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 0)
+	edges := make([]string, 0, 1)
+	if m.clearedmodels {
+		edges = append(edges, modelprovider.EdgeModels)
+	}
 	return edges
 }
 
 // EdgeCleared returns a boolean which indicates if the edge with the given name
 // was cleared in this mutation.
 func (m *ModelProviderMutation) EdgeCleared(name string) bool {
+	switch name {
+	case modelprovider.EdgeModels:
+		return m.clearedmodels
+	}
 	return false
 }
 
 // ClearEdge clears the value of the edge with the given name. It returns an error
 // if that edge is not defined in the schema.
 func (m *ModelProviderMutation) ClearEdge(name string) error {
+	switch name {
+	}
 	return fmt.Errorf("unknown ModelProvider unique edge %s", name)
 }
 
 // ResetEdge resets all changes to the edge with the given name in this mutation.
 // It returns an error if the edge is not defined in the schema.
 func (m *ModelProviderMutation) ResetEdge(name string) error {
+	switch name {
+	case modelprovider.EdgeModels:
+		m.ResetModels()
+		return nil
+	}
 	return fmt.Errorf("unknown ModelProvider edge %s", name)
 }
 

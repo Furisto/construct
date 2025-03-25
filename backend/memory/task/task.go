@@ -75,8 +75,6 @@ func ValidColumn(column string) bool {
 }
 
 var (
-	// DefaultAgentID holds the default value on creation for the "agent_id" field.
-	DefaultAgentID func() uuid.UUID
 	// DefaultCreateTime holds the default value on creation for the "create_time" field.
 	DefaultCreateTime func() time.Time
 	// DefaultUpdateTime holds the default value on creation for the "update_time" field.

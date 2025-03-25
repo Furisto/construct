@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/furisto/construct/backend/memory/message"
+	"github.com/furisto/construct/backend/memory/model"
 	"github.com/furisto/construct/backend/memory/modelprovider"
 	"github.com/furisto/construct/backend/memory/schema"
 	"github.com/furisto/construct/backend/memory/task"
@@ -17,16 +18,10 @@ import (
 // to their package variables.
 func init() {
 	messageMixin := schema.Message{}.Mixin()
-	messageMixinFields0 := messageMixin[0].Fields()
-	_ = messageMixinFields0
 	messageMixinFields1 := messageMixin[1].Fields()
 	_ = messageMixinFields1
 	messageFields := schema.Message{}.Fields()
 	_ = messageFields
-	// messageDescAgentID is the schema descriptor for agent_id field.
-	messageDescAgentID := messageMixinFields0[0].Descriptor()
-	// message.DefaultAgentID holds the default value on creation for the agent_id field.
-	message.DefaultAgentID = messageDescAgentID.Default.(func() uuid.UUID)
 	// messageDescCreateTime is the schema descriptor for create_time field.
 	messageDescCreateTime := messageMixinFields1[0].Descriptor()
 	// message.DefaultCreateTime holds the default value on creation for the create_time field.
@@ -41,6 +36,16 @@ func init() {
 	messageDescID := messageFields[0].Descriptor()
 	// message.DefaultID holds the default value on creation for the id field.
 	message.DefaultID = messageDescID.Default.(func() uuid.UUID)
+	modelFields := schema.Model{}.Fields()
+	_ = modelFields
+	// modelDescEnabled is the schema descriptor for enabled field.
+	modelDescEnabled := modelFields[3].Descriptor()
+	// model.DefaultEnabled holds the default value on creation for the enabled field.
+	model.DefaultEnabled = modelDescEnabled.Default.(bool)
+	// modelDescID is the schema descriptor for id field.
+	modelDescID := modelFields[0].Descriptor()
+	// model.DefaultID holds the default value on creation for the id field.
+	model.DefaultID = modelDescID.Default.(func() uuid.UUID)
 	modelproviderMixin := schema.ModelProvider{}.Mixin()
 	modelproviderMixinFields0 := modelproviderMixin[0].Fields()
 	_ = modelproviderMixinFields0
@@ -60,21 +65,27 @@ func init() {
 	modelproviderDescName := modelproviderFields[1].Descriptor()
 	// modelprovider.NameValidator is a validator for the "name" field. It is called by the builders before save.
 	modelprovider.NameValidator = modelproviderDescName.Validators[0].(func(string) error)
+	// modelproviderDescURL is the schema descriptor for url field.
+	modelproviderDescURL := modelproviderFields[3].Descriptor()
+	// modelprovider.URLValidator is a validator for the "url" field. It is called by the builders before save.
+	modelprovider.URLValidator = modelproviderDescURL.Validators[0].(func(string) error)
+	// modelproviderDescSecretRef is the schema descriptor for secret_ref field.
+	modelproviderDescSecretRef := modelproviderFields[4].Descriptor()
+	// modelprovider.SecretRefValidator is a validator for the "secret_ref" field. It is called by the builders before save.
+	modelprovider.SecretRefValidator = modelproviderDescSecretRef.Validators[0].(func(string) error)
+	// modelproviderDescEnabled is the schema descriptor for enabled field.
+	modelproviderDescEnabled := modelproviderFields[5].Descriptor()
+	// modelprovider.DefaultEnabled holds the default value on creation for the enabled field.
+	modelprovider.DefaultEnabled = modelproviderDescEnabled.Default.(bool)
 	// modelproviderDescID is the schema descriptor for id field.
 	modelproviderDescID := modelproviderFields[0].Descriptor()
 	// modelprovider.DefaultID holds the default value on creation for the id field.
 	modelprovider.DefaultID = modelproviderDescID.Default.(func() uuid.UUID)
 	taskMixin := schema.Task{}.Mixin()
-	taskMixinFields0 := taskMixin[0].Fields()
-	_ = taskMixinFields0
 	taskMixinFields1 := taskMixin[1].Fields()
 	_ = taskMixinFields1
 	taskFields := schema.Task{}.Fields()
 	_ = taskFields
-	// taskDescAgentID is the schema descriptor for agent_id field.
-	taskDescAgentID := taskMixinFields0[0].Descriptor()
-	// task.DefaultAgentID holds the default value on creation for the agent_id field.
-	task.DefaultAgentID = taskDescAgentID.Default.(func() uuid.UUID)
 	// taskDescCreateTime is the schema descriptor for create_time field.
 	taskDescCreateTime := taskMixinFields1[0].Descriptor()
 	// task.DefaultCreateTime holds the default value on creation for the create_time field.

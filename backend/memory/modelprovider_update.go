@@ -11,8 +11,11 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/furisto/construct/backend/memory/model"
 	"github.com/furisto/construct/backend/memory/modelprovider"
 	"github.com/furisto/construct/backend/memory/predicate"
+	"github.com/furisto/construct/backend/memory/schema/types"
+	"github.com/google/uuid"
 )
 
 // ModelProviderUpdate is the builder for updating ModelProvider entities.
@@ -48,9 +51,101 @@ func (mpu *ModelProviderUpdate) SetNillableName(s *string) *ModelProviderUpdate 
 	return mpu
 }
 
+// SetProviderType sets the "provider_type" field.
+func (mpu *ModelProviderUpdate) SetProviderType(tpt types.ModelProviderType) *ModelProviderUpdate {
+	mpu.mutation.SetProviderType(tpt)
+	return mpu
+}
+
+// SetNillableProviderType sets the "provider_type" field if the given value is not nil.
+func (mpu *ModelProviderUpdate) SetNillableProviderType(tpt *types.ModelProviderType) *ModelProviderUpdate {
+	if tpt != nil {
+		mpu.SetProviderType(*tpt)
+	}
+	return mpu
+}
+
+// SetURL sets the "url" field.
+func (mpu *ModelProviderUpdate) SetURL(s string) *ModelProviderUpdate {
+	mpu.mutation.SetURL(s)
+	return mpu
+}
+
+// SetNillableURL sets the "url" field if the given value is not nil.
+func (mpu *ModelProviderUpdate) SetNillableURL(s *string) *ModelProviderUpdate {
+	if s != nil {
+		mpu.SetURL(*s)
+	}
+	return mpu
+}
+
+// SetSecretRef sets the "secret_ref" field.
+func (mpu *ModelProviderUpdate) SetSecretRef(s string) *ModelProviderUpdate {
+	mpu.mutation.SetSecretRef(s)
+	return mpu
+}
+
+// SetNillableSecretRef sets the "secret_ref" field if the given value is not nil.
+func (mpu *ModelProviderUpdate) SetNillableSecretRef(s *string) *ModelProviderUpdate {
+	if s != nil {
+		mpu.SetSecretRef(*s)
+	}
+	return mpu
+}
+
+// SetEnabled sets the "enabled" field.
+func (mpu *ModelProviderUpdate) SetEnabled(b bool) *ModelProviderUpdate {
+	mpu.mutation.SetEnabled(b)
+	return mpu
+}
+
+// SetNillableEnabled sets the "enabled" field if the given value is not nil.
+func (mpu *ModelProviderUpdate) SetNillableEnabled(b *bool) *ModelProviderUpdate {
+	if b != nil {
+		mpu.SetEnabled(*b)
+	}
+	return mpu
+}
+
+// AddModelIDs adds the "models" edge to the Model entity by IDs.
+func (mpu *ModelProviderUpdate) AddModelIDs(ids ...uuid.UUID) *ModelProviderUpdate {
+	mpu.mutation.AddModelIDs(ids...)
+	return mpu
+}
+
+// AddModels adds the "models" edges to the Model entity.
+func (mpu *ModelProviderUpdate) AddModels(m ...*Model) *ModelProviderUpdate {
+	ids := make([]uuid.UUID, len(m))
+	for i := range m {
+		ids[i] = m[i].ID
+	}
+	return mpu.AddModelIDs(ids...)
+}
+
 // Mutation returns the ModelProviderMutation object of the builder.
 func (mpu *ModelProviderUpdate) Mutation() *ModelProviderMutation {
 	return mpu.mutation
+}
+
+// ClearModels clears all "models" edges to the Model entity.
+func (mpu *ModelProviderUpdate) ClearModels() *ModelProviderUpdate {
+	mpu.mutation.ClearModels()
+	return mpu
+}
+
+// RemoveModelIDs removes the "models" edge to Model entities by IDs.
+func (mpu *ModelProviderUpdate) RemoveModelIDs(ids ...uuid.UUID) *ModelProviderUpdate {
+	mpu.mutation.RemoveModelIDs(ids...)
+	return mpu
+}
+
+// RemoveModels removes "models" edges to Model entities.
+func (mpu *ModelProviderUpdate) RemoveModels(m ...*Model) *ModelProviderUpdate {
+	ids := make([]uuid.UUID, len(m))
+	for i := range m {
+		ids[i] = m[i].ID
+	}
+	return mpu.RemoveModelIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -96,6 +191,21 @@ func (mpu *ModelProviderUpdate) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`memory: validator failed for field "ModelProvider.name": %w`, err)}
 		}
 	}
+	if v, ok := mpu.mutation.ProviderType(); ok {
+		if err := modelprovider.ProviderTypeValidator(v); err != nil {
+			return &ValidationError{Name: "provider_type", err: fmt.Errorf(`memory: validator failed for field "ModelProvider.provider_type": %w`, err)}
+		}
+	}
+	if v, ok := mpu.mutation.URL(); ok {
+		if err := modelprovider.URLValidator(v); err != nil {
+			return &ValidationError{Name: "url", err: fmt.Errorf(`memory: validator failed for field "ModelProvider.url": %w`, err)}
+		}
+	}
+	if v, ok := mpu.mutation.SecretRef(); ok {
+		if err := modelprovider.SecretRefValidator(v); err != nil {
+			return &ValidationError{Name: "secret_ref", err: fmt.Errorf(`memory: validator failed for field "ModelProvider.secret_ref": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -116,6 +226,63 @@ func (mpu *ModelProviderUpdate) sqlSave(ctx context.Context) (n int, err error) 
 	}
 	if value, ok := mpu.mutation.Name(); ok {
 		_spec.SetField(modelprovider.FieldName, field.TypeString, value)
+	}
+	if value, ok := mpu.mutation.ProviderType(); ok {
+		_spec.SetField(modelprovider.FieldProviderType, field.TypeEnum, value)
+	}
+	if value, ok := mpu.mutation.URL(); ok {
+		_spec.SetField(modelprovider.FieldURL, field.TypeString, value)
+	}
+	if value, ok := mpu.mutation.SecretRef(); ok {
+		_spec.SetField(modelprovider.FieldSecretRef, field.TypeString, value)
+	}
+	if value, ok := mpu.mutation.Enabled(); ok {
+		_spec.SetField(modelprovider.FieldEnabled, field.TypeBool, value)
+	}
+	if mpu.mutation.ModelsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   modelprovider.ModelsTable,
+			Columns: []string{modelprovider.ModelsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(model.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := mpu.mutation.RemovedModelsIDs(); len(nodes) > 0 && !mpu.mutation.ModelsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   modelprovider.ModelsTable,
+			Columns: []string{modelprovider.ModelsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(model.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := mpu.mutation.ModelsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   modelprovider.ModelsTable,
+			Columns: []string{modelprovider.ModelsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(model.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if n, err = sqlgraph.UpdateNodes(ctx, mpu.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
@@ -157,9 +324,101 @@ func (mpuo *ModelProviderUpdateOne) SetNillableName(s *string) *ModelProviderUpd
 	return mpuo
 }
 
+// SetProviderType sets the "provider_type" field.
+func (mpuo *ModelProviderUpdateOne) SetProviderType(tpt types.ModelProviderType) *ModelProviderUpdateOne {
+	mpuo.mutation.SetProviderType(tpt)
+	return mpuo
+}
+
+// SetNillableProviderType sets the "provider_type" field if the given value is not nil.
+func (mpuo *ModelProviderUpdateOne) SetNillableProviderType(tpt *types.ModelProviderType) *ModelProviderUpdateOne {
+	if tpt != nil {
+		mpuo.SetProviderType(*tpt)
+	}
+	return mpuo
+}
+
+// SetURL sets the "url" field.
+func (mpuo *ModelProviderUpdateOne) SetURL(s string) *ModelProviderUpdateOne {
+	mpuo.mutation.SetURL(s)
+	return mpuo
+}
+
+// SetNillableURL sets the "url" field if the given value is not nil.
+func (mpuo *ModelProviderUpdateOne) SetNillableURL(s *string) *ModelProviderUpdateOne {
+	if s != nil {
+		mpuo.SetURL(*s)
+	}
+	return mpuo
+}
+
+// SetSecretRef sets the "secret_ref" field.
+func (mpuo *ModelProviderUpdateOne) SetSecretRef(s string) *ModelProviderUpdateOne {
+	mpuo.mutation.SetSecretRef(s)
+	return mpuo
+}
+
+// SetNillableSecretRef sets the "secret_ref" field if the given value is not nil.
+func (mpuo *ModelProviderUpdateOne) SetNillableSecretRef(s *string) *ModelProviderUpdateOne {
+	if s != nil {
+		mpuo.SetSecretRef(*s)
+	}
+	return mpuo
+}
+
+// SetEnabled sets the "enabled" field.
+func (mpuo *ModelProviderUpdateOne) SetEnabled(b bool) *ModelProviderUpdateOne {
+	mpuo.mutation.SetEnabled(b)
+	return mpuo
+}
+
+// SetNillableEnabled sets the "enabled" field if the given value is not nil.
+func (mpuo *ModelProviderUpdateOne) SetNillableEnabled(b *bool) *ModelProviderUpdateOne {
+	if b != nil {
+		mpuo.SetEnabled(*b)
+	}
+	return mpuo
+}
+
+// AddModelIDs adds the "models" edge to the Model entity by IDs.
+func (mpuo *ModelProviderUpdateOne) AddModelIDs(ids ...uuid.UUID) *ModelProviderUpdateOne {
+	mpuo.mutation.AddModelIDs(ids...)
+	return mpuo
+}
+
+// AddModels adds the "models" edges to the Model entity.
+func (mpuo *ModelProviderUpdateOne) AddModels(m ...*Model) *ModelProviderUpdateOne {
+	ids := make([]uuid.UUID, len(m))
+	for i := range m {
+		ids[i] = m[i].ID
+	}
+	return mpuo.AddModelIDs(ids...)
+}
+
 // Mutation returns the ModelProviderMutation object of the builder.
 func (mpuo *ModelProviderUpdateOne) Mutation() *ModelProviderMutation {
 	return mpuo.mutation
+}
+
+// ClearModels clears all "models" edges to the Model entity.
+func (mpuo *ModelProviderUpdateOne) ClearModels() *ModelProviderUpdateOne {
+	mpuo.mutation.ClearModels()
+	return mpuo
+}
+
+// RemoveModelIDs removes the "models" edge to Model entities by IDs.
+func (mpuo *ModelProviderUpdateOne) RemoveModelIDs(ids ...uuid.UUID) *ModelProviderUpdateOne {
+	mpuo.mutation.RemoveModelIDs(ids...)
+	return mpuo
+}
+
+// RemoveModels removes "models" edges to Model entities.
+func (mpuo *ModelProviderUpdateOne) RemoveModels(m ...*Model) *ModelProviderUpdateOne {
+	ids := make([]uuid.UUID, len(m))
+	for i := range m {
+		ids[i] = m[i].ID
+	}
+	return mpuo.RemoveModelIDs(ids...)
 }
 
 // Where appends a list predicates to the ModelProviderUpdate builder.
@@ -218,6 +477,21 @@ func (mpuo *ModelProviderUpdateOne) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`memory: validator failed for field "ModelProvider.name": %w`, err)}
 		}
 	}
+	if v, ok := mpuo.mutation.ProviderType(); ok {
+		if err := modelprovider.ProviderTypeValidator(v); err != nil {
+			return &ValidationError{Name: "provider_type", err: fmt.Errorf(`memory: validator failed for field "ModelProvider.provider_type": %w`, err)}
+		}
+	}
+	if v, ok := mpuo.mutation.URL(); ok {
+		if err := modelprovider.URLValidator(v); err != nil {
+			return &ValidationError{Name: "url", err: fmt.Errorf(`memory: validator failed for field "ModelProvider.url": %w`, err)}
+		}
+	}
+	if v, ok := mpuo.mutation.SecretRef(); ok {
+		if err := modelprovider.SecretRefValidator(v); err != nil {
+			return &ValidationError{Name: "secret_ref", err: fmt.Errorf(`memory: validator failed for field "ModelProvider.secret_ref": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -255,6 +529,63 @@ func (mpuo *ModelProviderUpdateOne) sqlSave(ctx context.Context) (_node *ModelPr
 	}
 	if value, ok := mpuo.mutation.Name(); ok {
 		_spec.SetField(modelprovider.FieldName, field.TypeString, value)
+	}
+	if value, ok := mpuo.mutation.ProviderType(); ok {
+		_spec.SetField(modelprovider.FieldProviderType, field.TypeEnum, value)
+	}
+	if value, ok := mpuo.mutation.URL(); ok {
+		_spec.SetField(modelprovider.FieldURL, field.TypeString, value)
+	}
+	if value, ok := mpuo.mutation.SecretRef(); ok {
+		_spec.SetField(modelprovider.FieldSecretRef, field.TypeString, value)
+	}
+	if value, ok := mpuo.mutation.Enabled(); ok {
+		_spec.SetField(modelprovider.FieldEnabled, field.TypeBool, value)
+	}
+	if mpuo.mutation.ModelsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   modelprovider.ModelsTable,
+			Columns: []string{modelprovider.ModelsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(model.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := mpuo.mutation.RemovedModelsIDs(); len(nodes) > 0 && !mpuo.mutation.ModelsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   modelprovider.ModelsTable,
+			Columns: []string{modelprovider.ModelsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(model.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := mpuo.mutation.ModelsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   modelprovider.ModelsTable,
+			Columns: []string{modelprovider.ModelsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(model.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	_node = &ModelProvider{config: mpuo.config}
 	_spec.Assign = _node.assignValues

@@ -11,10 +11,10 @@ var (
 	// MessagesColumns holds the columns for the "messages" table.
 	MessagesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID, Unique: true},
-		{Name: "agent_id", Type: field.TypeUUID, Unique: true},
+		{Name: "agent_id", Type: field.TypeUUID},
 		{Name: "create_time", Type: field.TypeTime},
 		{Name: "update_time", Type: field.TypeTime},
-		{Name: "content", Type: field.TypeJSON, Nullable: true},
+		{Name: "content", Type: field.TypeJSON},
 		{Name: "role", Type: field.TypeEnum, Enums: []string{"user", "assistant"}},
 		{Name: "usage", Type: field.TypeJSON, Nullable: true},
 	}
@@ -31,12 +31,38 @@ var (
 			},
 		},
 	}
+	// ModelsColumns holds the columns for the "models" table.
+	ModelsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID, Unique: true},
+		{Name: "name", Type: field.TypeString},
+		{Name: "context_window", Type: field.TypeInt64},
+		{Name: "enabled", Type: field.TypeBool, Default: true},
+		{Name: "model_provider_models", Type: field.TypeUUID, Nullable: true},
+	}
+	// ModelsTable holds the schema information for the "models" table.
+	ModelsTable = &schema.Table{
+		Name:       "models",
+		Columns:    ModelsColumns,
+		PrimaryKey: []*schema.Column{ModelsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "models_model_providers_models",
+				Columns:    []*schema.Column{ModelsColumns[4]},
+				RefColumns: []*schema.Column{ModelProvidersColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+	}
 	// ModelProvidersColumns holds the columns for the "model_providers" table.
 	ModelProvidersColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID, Unique: true},
 		{Name: "create_time", Type: field.TypeTime},
 		{Name: "update_time", Type: field.TypeTime},
 		{Name: "name", Type: field.TypeString},
+		{Name: "provider_type", Type: field.TypeEnum, Enums: []string{"anthropic", "openai"}},
+		{Name: "url", Type: field.TypeString},
+		{Name: "secret_ref", Type: field.TypeString},
+		{Name: "enabled", Type: field.TypeBool, Default: true},
 	}
 	// ModelProvidersTable holds the schema information for the "model_providers" table.
 	ModelProvidersTable = &schema.Table{
@@ -47,7 +73,7 @@ var (
 	// TasksColumns holds the columns for the "tasks" table.
 	TasksColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID, Unique: true},
-		{Name: "agent_id", Type: field.TypeUUID, Unique: true},
+		{Name: "agent_id", Type: field.TypeUUID},
 		{Name: "create_time", Type: field.TypeTime},
 		{Name: "update_time", Type: field.TypeTime},
 		{Name: "spec", Type: field.TypeJSON},
@@ -98,6 +124,7 @@ var (
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		MessagesTable,
+		ModelsTable,
 		ModelProvidersTable,
 		TasksTable,
 		TaskMessagesTable,
@@ -105,6 +132,7 @@ var (
 )
 
 func init() {
+	ModelsTable.ForeignKeys[0].RefTable = ModelProvidersTable
 	TaskMessagesTable.ForeignKeys[0].RefTable = TasksTable
 	TaskMessagesTable.ForeignKeys[1].RefTable = MessagesTable
 }

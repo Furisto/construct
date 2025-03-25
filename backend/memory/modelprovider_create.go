@@ -10,7 +10,9 @@ import (
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/furisto/construct/backend/memory/model"
 	"github.com/furisto/construct/backend/memory/modelprovider"
+	"github.com/furisto/construct/backend/memory/schema/types"
 	"github.com/google/uuid"
 )
 
@@ -55,6 +57,38 @@ func (mpc *ModelProviderCreate) SetName(s string) *ModelProviderCreate {
 	return mpc
 }
 
+// SetProviderType sets the "provider_type" field.
+func (mpc *ModelProviderCreate) SetProviderType(tpt types.ModelProviderType) *ModelProviderCreate {
+	mpc.mutation.SetProviderType(tpt)
+	return mpc
+}
+
+// SetURL sets the "url" field.
+func (mpc *ModelProviderCreate) SetURL(s string) *ModelProviderCreate {
+	mpc.mutation.SetURL(s)
+	return mpc
+}
+
+// SetSecretRef sets the "secret_ref" field.
+func (mpc *ModelProviderCreate) SetSecretRef(s string) *ModelProviderCreate {
+	mpc.mutation.SetSecretRef(s)
+	return mpc
+}
+
+// SetEnabled sets the "enabled" field.
+func (mpc *ModelProviderCreate) SetEnabled(b bool) *ModelProviderCreate {
+	mpc.mutation.SetEnabled(b)
+	return mpc
+}
+
+// SetNillableEnabled sets the "enabled" field if the given value is not nil.
+func (mpc *ModelProviderCreate) SetNillableEnabled(b *bool) *ModelProviderCreate {
+	if b != nil {
+		mpc.SetEnabled(*b)
+	}
+	return mpc
+}
+
 // SetID sets the "id" field.
 func (mpc *ModelProviderCreate) SetID(u uuid.UUID) *ModelProviderCreate {
 	mpc.mutation.SetID(u)
@@ -67,6 +101,21 @@ func (mpc *ModelProviderCreate) SetNillableID(u *uuid.UUID) *ModelProviderCreate
 		mpc.SetID(*u)
 	}
 	return mpc
+}
+
+// AddModelIDs adds the "models" edge to the Model entity by IDs.
+func (mpc *ModelProviderCreate) AddModelIDs(ids ...uuid.UUID) *ModelProviderCreate {
+	mpc.mutation.AddModelIDs(ids...)
+	return mpc
+}
+
+// AddModels adds the "models" edges to the Model entity.
+func (mpc *ModelProviderCreate) AddModels(m ...*Model) *ModelProviderCreate {
+	ids := make([]uuid.UUID, len(m))
+	for i := range m {
+		ids[i] = m[i].ID
+	}
+	return mpc.AddModelIDs(ids...)
 }
 
 // Mutation returns the ModelProviderMutation object of the builder.
@@ -112,6 +161,10 @@ func (mpc *ModelProviderCreate) defaults() {
 		v := modelprovider.DefaultUpdateTime()
 		mpc.mutation.SetUpdateTime(v)
 	}
+	if _, ok := mpc.mutation.Enabled(); !ok {
+		v := modelprovider.DefaultEnabled
+		mpc.mutation.SetEnabled(v)
+	}
 	if _, ok := mpc.mutation.ID(); !ok {
 		v := modelprovider.DefaultID()
 		mpc.mutation.SetID(v)
@@ -133,6 +186,33 @@ func (mpc *ModelProviderCreate) check() error {
 		if err := modelprovider.NameValidator(v); err != nil {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`memory: validator failed for field "ModelProvider.name": %w`, err)}
 		}
+	}
+	if _, ok := mpc.mutation.ProviderType(); !ok {
+		return &ValidationError{Name: "provider_type", err: errors.New(`memory: missing required field "ModelProvider.provider_type"`)}
+	}
+	if v, ok := mpc.mutation.ProviderType(); ok {
+		if err := modelprovider.ProviderTypeValidator(v); err != nil {
+			return &ValidationError{Name: "provider_type", err: fmt.Errorf(`memory: validator failed for field "ModelProvider.provider_type": %w`, err)}
+		}
+	}
+	if _, ok := mpc.mutation.URL(); !ok {
+		return &ValidationError{Name: "url", err: errors.New(`memory: missing required field "ModelProvider.url"`)}
+	}
+	if v, ok := mpc.mutation.URL(); ok {
+		if err := modelprovider.URLValidator(v); err != nil {
+			return &ValidationError{Name: "url", err: fmt.Errorf(`memory: validator failed for field "ModelProvider.url": %w`, err)}
+		}
+	}
+	if _, ok := mpc.mutation.SecretRef(); !ok {
+		return &ValidationError{Name: "secret_ref", err: errors.New(`memory: missing required field "ModelProvider.secret_ref"`)}
+	}
+	if v, ok := mpc.mutation.SecretRef(); ok {
+		if err := modelprovider.SecretRefValidator(v); err != nil {
+			return &ValidationError{Name: "secret_ref", err: fmt.Errorf(`memory: validator failed for field "ModelProvider.secret_ref": %w`, err)}
+		}
+	}
+	if _, ok := mpc.mutation.Enabled(); !ok {
+		return &ValidationError{Name: "enabled", err: errors.New(`memory: missing required field "ModelProvider.enabled"`)}
 	}
 	return nil
 }
@@ -180,6 +260,38 @@ func (mpc *ModelProviderCreate) createSpec() (*ModelProvider, *sqlgraph.CreateSp
 	if value, ok := mpc.mutation.Name(); ok {
 		_spec.SetField(modelprovider.FieldName, field.TypeString, value)
 		_node.Name = value
+	}
+	if value, ok := mpc.mutation.ProviderType(); ok {
+		_spec.SetField(modelprovider.FieldProviderType, field.TypeEnum, value)
+		_node.ProviderType = value
+	}
+	if value, ok := mpc.mutation.URL(); ok {
+		_spec.SetField(modelprovider.FieldURL, field.TypeString, value)
+		_node.URL = value
+	}
+	if value, ok := mpc.mutation.SecretRef(); ok {
+		_spec.SetField(modelprovider.FieldSecretRef, field.TypeString, value)
+		_node.SecretRef = value
+	}
+	if value, ok := mpc.mutation.Enabled(); ok {
+		_spec.SetField(modelprovider.FieldEnabled, field.TypeBool, value)
+		_node.Enabled = value
+	}
+	if nodes := mpc.mutation.ModelsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   modelprovider.ModelsTable,
+			Columns: []string{modelprovider.ModelsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(model.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec
 }

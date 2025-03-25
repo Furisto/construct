@@ -3,9 +3,12 @@
 package modelprovider
 
 import (
+	"fmt"
 	"time"
 
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
+	"github.com/furisto/construct/backend/memory/schema/types"
 	"github.com/google/uuid"
 )
 
@@ -20,8 +23,25 @@ const (
 	FieldUpdateTime = "update_time"
 	// FieldName holds the string denoting the name field in the database.
 	FieldName = "name"
+	// FieldProviderType holds the string denoting the provider_type field in the database.
+	FieldProviderType = "provider_type"
+	// FieldURL holds the string denoting the url field in the database.
+	FieldURL = "url"
+	// FieldSecretRef holds the string denoting the secret_ref field in the database.
+	FieldSecretRef = "secret_ref"
+	// FieldEnabled holds the string denoting the enabled field in the database.
+	FieldEnabled = "enabled"
+	// EdgeModels holds the string denoting the models edge name in mutations.
+	EdgeModels = "models"
 	// Table holds the table name of the modelprovider in the database.
 	Table = "model_providers"
+	// ModelsTable is the table that holds the models relation/edge.
+	ModelsTable = "models"
+	// ModelsInverseTable is the table name for the Model entity.
+	// It exists in this package in order to avoid circular dependency with the "model" package.
+	ModelsInverseTable = "models"
+	// ModelsColumn is the table column denoting the models relation/edge.
+	ModelsColumn = "model_provider_models"
 )
 
 // Columns holds all SQL columns for modelprovider fields.
@@ -30,6 +50,10 @@ var Columns = []string{
 	FieldCreateTime,
 	FieldUpdateTime,
 	FieldName,
+	FieldProviderType,
+	FieldURL,
+	FieldSecretRef,
+	FieldEnabled,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -51,9 +75,25 @@ var (
 	UpdateDefaultUpdateTime func() time.Time
 	// NameValidator is a validator for the "name" field. It is called by the builders before save.
 	NameValidator func(string) error
+	// URLValidator is a validator for the "url" field. It is called by the builders before save.
+	URLValidator func(string) error
+	// SecretRefValidator is a validator for the "secret_ref" field. It is called by the builders before save.
+	SecretRefValidator func(string) error
+	// DefaultEnabled holds the default value on creation for the "enabled" field.
+	DefaultEnabled bool
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() uuid.UUID
 )
+
+// ProviderTypeValidator is a validator for the "provider_type" field enum values. It is called by the builders before save.
+func ProviderTypeValidator(pt types.ModelProviderType) error {
+	switch pt {
+	case "anthropic", "openai":
+		return nil
+	default:
+		return fmt.Errorf("modelprovider: invalid enum value for provider_type field: %q", pt)
+	}
+}
 
 // OrderOption defines the ordering options for the ModelProvider queries.
 type OrderOption func(*sql.Selector)
@@ -76,4 +116,45 @@ func ByUpdateTime(opts ...sql.OrderTermOption) OrderOption {
 // ByName orders the results by the name field.
 func ByName(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldName, opts...).ToFunc()
+}
+
+// ByProviderType orders the results by the provider_type field.
+func ByProviderType(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldProviderType, opts...).ToFunc()
+}
+
+// ByURL orders the results by the url field.
+func ByURL(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldURL, opts...).ToFunc()
+}
+
+// BySecretRef orders the results by the secret_ref field.
+func BySecretRef(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSecretRef, opts...).ToFunc()
+}
+
+// ByEnabled orders the results by the enabled field.
+func ByEnabled(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldEnabled, opts...).ToFunc()
+}
+
+// ByModelsCount orders the results by models count.
+func ByModelsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newModelsStep(), opts...)
+	}
+}
+
+// ByModels orders the results by models terms.
+func ByModels(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newModelsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+func newModelsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ModelsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, ModelsTable, ModelsColumn),
+	)
 }

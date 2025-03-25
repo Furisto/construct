@@ -14,6 +14,8 @@ type Tx struct {
 	config
 	// Message is the client for interacting with the Message builders.
 	Message *MessageClient
+	// Model is the client for interacting with the Model builders.
+	Model *ModelClient
 	// ModelProvider is the client for interacting with the ModelProvider builders.
 	ModelProvider *ModelProviderClient
 	// Task is the client for interacting with the Task builders.
@@ -150,6 +152,7 @@ func (tx *Tx) Client() *Client {
 
 func (tx *Tx) init() {
 	tx.Message = NewMessageClient(tx.config)
+	tx.Model = NewModelClient(tx.config)
 	tx.ModelProvider = NewModelProviderClient(tx.config)
 	tx.Task = NewTaskClient(tx.config)
 }

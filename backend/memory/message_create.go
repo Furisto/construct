@@ -29,14 +29,6 @@ func (mc *MessageCreate) SetAgentID(u uuid.UUID) *MessageCreate {
 	return mc
 }
 
-// SetNillableAgentID sets the "agent_id" field if the given value is not nil.
-func (mc *MessageCreate) SetNillableAgentID(u *uuid.UUID) *MessageCreate {
-	if u != nil {
-		mc.SetAgentID(*u)
-	}
-	return mc
-}
-
 // SetCreateTime sets the "create_time" field.
 func (mc *MessageCreate) SetCreateTime(t time.Time) *MessageCreate {
 	mc.mutation.SetCreateTime(t)
@@ -147,10 +139,6 @@ func (mc *MessageCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (mc *MessageCreate) defaults() {
-	if _, ok := mc.mutation.AgentID(); !ok {
-		v := message.DefaultAgentID()
-		mc.mutation.SetAgentID(v)
-	}
 	if _, ok := mc.mutation.CreateTime(); !ok {
 		v := message.DefaultCreateTime()
 		mc.mutation.SetCreateTime(v)
@@ -175,6 +163,9 @@ func (mc *MessageCreate) check() error {
 	}
 	if _, ok := mc.mutation.UpdateTime(); !ok {
 		return &ValidationError{Name: "update_time", err: errors.New(`memory: missing required field "Message.update_time"`)}
+	}
+	if _, ok := mc.mutation.Content(); !ok {
+		return &ValidationError{Name: "content", err: errors.New(`memory: missing required field "Message.content"`)}
 	}
 	if _, ok := mc.mutation.Role(); !ok {
 		return &ValidationError{Name: "role", err: errors.New(`memory: missing required field "Message.role"`)}

@@ -57,12 +57,6 @@ func (mu *MessageUpdate) SetContent(tc *types.MessageContent) *MessageUpdate {
 	return mu
 }
 
-// ClearContent clears the value of the "content" field.
-func (mu *MessageUpdate) ClearContent() *MessageUpdate {
-	mu.mutation.ClearContent()
-	return mu
-}
-
 // SetRole sets the "role" field.
 func (mu *MessageUpdate) SetRole(tr types.MessageRole) *MessageUpdate {
 	mu.mutation.SetRole(tr)
@@ -197,9 +191,6 @@ func (mu *MessageUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if value, ok := mu.mutation.Content(); ok {
 		_spec.SetField(message.FieldContent, field.TypeJSON, value)
 	}
-	if mu.mutation.ContentCleared() {
-		_spec.ClearField(message.FieldContent, field.TypeJSON)
-	}
 	if value, ok := mu.mutation.Role(); ok {
 		_spec.SetField(message.FieldRole, field.TypeEnum, value)
 	}
@@ -297,12 +288,6 @@ func (muo *MessageUpdateOne) SetUpdateTime(t time.Time) *MessageUpdateOne {
 // SetContent sets the "content" field.
 func (muo *MessageUpdateOne) SetContent(tc *types.MessageContent) *MessageUpdateOne {
 	muo.mutation.SetContent(tc)
-	return muo
-}
-
-// ClearContent clears the value of the "content" field.
-func (muo *MessageUpdateOne) ClearContent() *MessageUpdateOne {
-	muo.mutation.ClearContent()
 	return muo
 }
 
@@ -469,9 +454,6 @@ func (muo *MessageUpdateOne) sqlSave(ctx context.Context) (_node *Message, err e
 	}
 	if value, ok := muo.mutation.Content(); ok {
 		_spec.SetField(message.FieldContent, field.TypeJSON, value)
-	}
-	if muo.mutation.ContentCleared() {
-		_spec.ClearField(message.FieldContent, field.TypeJSON)
 	}
 	if value, ok := muo.mutation.Role(); ok {
 		_spec.SetField(message.FieldRole, field.TypeEnum, value)

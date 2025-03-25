@@ -300,3 +300,7 @@ func (p *AnthropicProvider) GetModel(ctx context.Context, modelID uuid.UUID) (Mo
 	}
 	return model, nil
 }
+
+type AnthropicSecret struct {
+	APIKey string `json:"api_key"`
+}
