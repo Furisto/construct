@@ -93,6 +93,20 @@ func (mpu *ModelProviderUpdate) SetNillableSecretRef(s *string) *ModelProviderUp
 	return mpu
 }
 
+// SetSecretStore sets the "secret_store" field.
+func (mpu *ModelProviderUpdate) SetSecretStore(s string) *ModelProviderUpdate {
+	mpu.mutation.SetSecretStore(s)
+	return mpu
+}
+
+// SetNillableSecretStore sets the "secret_store" field if the given value is not nil.
+func (mpu *ModelProviderUpdate) SetNillableSecretStore(s *string) *ModelProviderUpdate {
+	if s != nil {
+		mpu.SetSecretStore(*s)
+	}
+	return mpu
+}
+
 // SetEnabled sets the "enabled" field.
 func (mpu *ModelProviderUpdate) SetEnabled(b bool) *ModelProviderUpdate {
 	mpu.mutation.SetEnabled(b)
@@ -206,6 +220,11 @@ func (mpu *ModelProviderUpdate) check() error {
 			return &ValidationError{Name: "secret_ref", err: fmt.Errorf(`memory: validator failed for field "ModelProvider.secret_ref": %w`, err)}
 		}
 	}
+	if v, ok := mpu.mutation.SecretStore(); ok {
+		if err := modelprovider.SecretStoreValidator(v); err != nil {
+			return &ValidationError{Name: "secret_store", err: fmt.Errorf(`memory: validator failed for field "ModelProvider.secret_store": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -235,6 +254,9 @@ func (mpu *ModelProviderUpdate) sqlSave(ctx context.Context) (n int, err error) 
 	}
 	if value, ok := mpu.mutation.SecretRef(); ok {
 		_spec.SetField(modelprovider.FieldSecretRef, field.TypeString, value)
+	}
+	if value, ok := mpu.mutation.SecretStore(); ok {
+		_spec.SetField(modelprovider.FieldSecretStore, field.TypeString, value)
 	}
 	if value, ok := mpu.mutation.Enabled(); ok {
 		_spec.SetField(modelprovider.FieldEnabled, field.TypeBool, value)
@@ -366,6 +388,20 @@ func (mpuo *ModelProviderUpdateOne) SetNillableSecretRef(s *string) *ModelProvid
 	return mpuo
 }
 
+// SetSecretStore sets the "secret_store" field.
+func (mpuo *ModelProviderUpdateOne) SetSecretStore(s string) *ModelProviderUpdateOne {
+	mpuo.mutation.SetSecretStore(s)
+	return mpuo
+}
+
+// SetNillableSecretStore sets the "secret_store" field if the given value is not nil.
+func (mpuo *ModelProviderUpdateOne) SetNillableSecretStore(s *string) *ModelProviderUpdateOne {
+	if s != nil {
+		mpuo.SetSecretStore(*s)
+	}
+	return mpuo
+}
+
 // SetEnabled sets the "enabled" field.
 func (mpuo *ModelProviderUpdateOne) SetEnabled(b bool) *ModelProviderUpdateOne {
 	mpuo.mutation.SetEnabled(b)
@@ -492,6 +528,11 @@ func (mpuo *ModelProviderUpdateOne) check() error {
 			return &ValidationError{Name: "secret_ref", err: fmt.Errorf(`memory: validator failed for field "ModelProvider.secret_ref": %w`, err)}
 		}
 	}
+	if v, ok := mpuo.mutation.SecretStore(); ok {
+		if err := modelprovider.SecretStoreValidator(v); err != nil {
+			return &ValidationError{Name: "secret_store", err: fmt.Errorf(`memory: validator failed for field "ModelProvider.secret_store": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -538,6 +579,9 @@ func (mpuo *ModelProviderUpdateOne) sqlSave(ctx context.Context) (_node *ModelPr
 	}
 	if value, ok := mpuo.mutation.SecretRef(); ok {
 		_spec.SetField(modelprovider.FieldSecretRef, field.TypeString, value)
+	}
+	if value, ok := mpuo.mutation.SecretStore(); ok {
+		_spec.SetField(modelprovider.FieldSecretStore, field.TypeString, value)
 	}
 	if value, ok := mpuo.mutation.Enabled(); ok {
 		_spec.SetField(modelprovider.FieldEnabled, field.TypeBool, value)

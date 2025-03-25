@@ -62,6 +62,7 @@ var (
 		{Name: "provider_type", Type: field.TypeEnum, Enums: []string{"anthropic", "openai"}},
 		{Name: "url", Type: field.TypeString},
 		{Name: "secret_ref", Type: field.TypeString},
+		{Name: "secret_store", Type: field.TypeString},
 		{Name: "enabled", Type: field.TypeBool, Default: true},
 	}
 	// ModelProvidersTable holds the schema information for the "model_providers" table.

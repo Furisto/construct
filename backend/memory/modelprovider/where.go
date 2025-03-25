@@ -82,6 +82,11 @@ func SecretRef(v string) predicate.ModelProvider {
 	return predicate.ModelProvider(sql.FieldEQ(FieldSecretRef, v))
 }
 
+// SecretStore applies equality check predicate on the "secret_store" field. It's identical to SecretStoreEQ.
+func SecretStore(v string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldEQ(FieldSecretStore, v))
+}
+
 // Enabled applies equality check predicate on the "enabled" field. It's identical to EnabledEQ.
 func Enabled(v bool) predicate.ModelProvider {
 	return predicate.ModelProvider(sql.FieldEQ(FieldEnabled, v))
@@ -390,6 +395,71 @@ func SecretRefEqualFold(v string) predicate.ModelProvider {
 // SecretRefContainsFold applies the ContainsFold predicate on the "secret_ref" field.
 func SecretRefContainsFold(v string) predicate.ModelProvider {
 	return predicate.ModelProvider(sql.FieldContainsFold(FieldSecretRef, v))
+}
+
+// SecretStoreEQ applies the EQ predicate on the "secret_store" field.
+func SecretStoreEQ(v string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldEQ(FieldSecretStore, v))
+}
+
+// SecretStoreNEQ applies the NEQ predicate on the "secret_store" field.
+func SecretStoreNEQ(v string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldNEQ(FieldSecretStore, v))
+}
+
+// SecretStoreIn applies the In predicate on the "secret_store" field.
+func SecretStoreIn(vs ...string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldIn(FieldSecretStore, vs...))
+}
+
+// SecretStoreNotIn applies the NotIn predicate on the "secret_store" field.
+func SecretStoreNotIn(vs ...string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldNotIn(FieldSecretStore, vs...))
+}
+
+// SecretStoreGT applies the GT predicate on the "secret_store" field.
+func SecretStoreGT(v string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldGT(FieldSecretStore, v))
+}
+
+// SecretStoreGTE applies the GTE predicate on the "secret_store" field.
+func SecretStoreGTE(v string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldGTE(FieldSecretStore, v))
+}
+
+// SecretStoreLT applies the LT predicate on the "secret_store" field.
+func SecretStoreLT(v string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldLT(FieldSecretStore, v))
+}
+
+// SecretStoreLTE applies the LTE predicate on the "secret_store" field.
+func SecretStoreLTE(v string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldLTE(FieldSecretStore, v))
+}
+
+// SecretStoreContains applies the Contains predicate on the "secret_store" field.
+func SecretStoreContains(v string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldContains(FieldSecretStore, v))
+}
+
+// SecretStoreHasPrefix applies the HasPrefix predicate on the "secret_store" field.
+func SecretStoreHasPrefix(v string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldHasPrefix(FieldSecretStore, v))
+}
+
+// SecretStoreHasSuffix applies the HasSuffix predicate on the "secret_store" field.
+func SecretStoreHasSuffix(v string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldHasSuffix(FieldSecretStore, v))
+}
+
+// SecretStoreEqualFold applies the EqualFold predicate on the "secret_store" field.
+func SecretStoreEqualFold(v string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldEqualFold(FieldSecretStore, v))
+}
+
+// SecretStoreContainsFold applies the ContainsFold predicate on the "secret_store" field.
+func SecretStoreContainsFold(v string) predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldContainsFold(FieldSecretStore, v))
 }
 
 // EnabledEQ applies the EQ predicate on the "enabled" field.

@@ -75,6 +75,12 @@ func (mpc *ModelProviderCreate) SetSecretRef(s string) *ModelProviderCreate {
 	return mpc
 }
 
+// SetSecretStore sets the "secret_store" field.
+func (mpc *ModelProviderCreate) SetSecretStore(s string) *ModelProviderCreate {
+	mpc.mutation.SetSecretStore(s)
+	return mpc
+}
+
 // SetEnabled sets the "enabled" field.
 func (mpc *ModelProviderCreate) SetEnabled(b bool) *ModelProviderCreate {
 	mpc.mutation.SetEnabled(b)
@@ -211,6 +217,14 @@ func (mpc *ModelProviderCreate) check() error {
 			return &ValidationError{Name: "secret_ref", err: fmt.Errorf(`memory: validator failed for field "ModelProvider.secret_ref": %w`, err)}
 		}
 	}
+	if _, ok := mpc.mutation.SecretStore(); !ok {
+		return &ValidationError{Name: "secret_store", err: errors.New(`memory: missing required field "ModelProvider.secret_store"`)}
+	}
+	if v, ok := mpc.mutation.SecretStore(); ok {
+		if err := modelprovider.SecretStoreValidator(v); err != nil {
+			return &ValidationError{Name: "secret_store", err: fmt.Errorf(`memory: validator failed for field "ModelProvider.secret_store": %w`, err)}
+		}
+	}
 	if _, ok := mpc.mutation.Enabled(); !ok {
 		return &ValidationError{Name: "enabled", err: errors.New(`memory: missing required field "ModelProvider.enabled"`)}
 	}
@@ -272,6 +286,10 @@ func (mpc *ModelProviderCreate) createSpec() (*ModelProvider, *sqlgraph.CreateSp
 	if value, ok := mpc.mutation.SecretRef(); ok {
 		_spec.SetField(modelprovider.FieldSecretRef, field.TypeString, value)
 		_node.SecretRef = value
+	}
+	if value, ok := mpc.mutation.SecretStore(); ok {
+		_spec.SetField(modelprovider.FieldSecretStore, field.TypeString, value)
+		_node.SecretStore = value
 	}
 	if value, ok := mpc.mutation.Enabled(); ok {
 		_spec.SetField(modelprovider.FieldEnabled, field.TypeBool, value)

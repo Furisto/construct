@@ -20,6 +20,7 @@ func (ModelProvider) Fields() []ent.Field {
 		field.Enum("provider_type").GoType(types.ModelProviderType("")),
 		field.String("url").NotEmpty(),
 		field.String("secret_ref").NotEmpty().Sensitive(),
+		field.String("secret_store").NotEmpty(),
 		field.Bool("enabled").Default(true),
 	}
 }

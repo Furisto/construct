@@ -29,6 +29,8 @@ const (
 	FieldURL = "url"
 	// FieldSecretRef holds the string denoting the secret_ref field in the database.
 	FieldSecretRef = "secret_ref"
+	// FieldSecretStore holds the string denoting the secret_store field in the database.
+	FieldSecretStore = "secret_store"
 	// FieldEnabled holds the string denoting the enabled field in the database.
 	FieldEnabled = "enabled"
 	// EdgeModels holds the string denoting the models edge name in mutations.
@@ -53,6 +55,7 @@ var Columns = []string{
 	FieldProviderType,
 	FieldURL,
 	FieldSecretRef,
+	FieldSecretStore,
 	FieldEnabled,
 }
 
@@ -79,6 +82,8 @@ var (
 	URLValidator func(string) error
 	// SecretRefValidator is a validator for the "secret_ref" field. It is called by the builders before save.
 	SecretRefValidator func(string) error
+	// SecretStoreValidator is a validator for the "secret_store" field. It is called by the builders before save.
+	SecretStoreValidator func(string) error
 	// DefaultEnabled holds the default value on creation for the "enabled" field.
 	DefaultEnabled bool
 	// DefaultID holds the default value on creation for the "id" field.
@@ -131,6 +136,11 @@ func ByURL(opts ...sql.OrderTermOption) OrderOption {
 // BySecretRef orders the results by the secret_ref field.
 func BySecretRef(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldSecretRef, opts...).ToFunc()
+}
+
+// BySecretStore orders the results by the secret_store field.
+func BySecretStore(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSecretStore, opts...).ToFunc()
 }
 
 // ByEnabled orders the results by the enabled field.
