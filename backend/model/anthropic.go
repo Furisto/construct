@@ -3,7 +3,6 @@ package model
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
@@ -151,9 +150,9 @@ func (p *AnthropicProvider) InvokeModel(ctx context.Context, model uuid.UUID, sy
 		return nil, fmt.Errorf("at least one message is required")
 	}
 
-	o := DefaultInvokeModelOptions()
+	options := DefaultInvokeModelOptions()
 	for _, opt := range opts {
-		opt(o)
+		opt(options)
 	}
 
 	// convert to anthropic messages
@@ -183,24 +182,24 @@ func (p *AnthropicProvider) InvokeModel(ctx context.Context, model uuid.UUID, sy
 
 	// convert to anthropic tools
 	var tools []anthropic.ToolUnionUnionParam
-	for i, tool := range o.Tools {
+	for i, tool := range options.Tools {
 		toolParam := anthropic.ToolParam{
 			Name:        anthropic.F(tool.Name),
 			Description: anthropic.F(tool.Description),
 			InputSchema: anthropic.F(tool.Schema),
 		}
 
-		if i == len(o.Tools)-1 {
+		if i == len(options.Tools)-1 {
 			toolParam.CacheControl = anthropic.F(
 				anthropic.CacheControlEphemeralParam{Type: anthropic.F(anthropic.CacheControlEphemeralTypeEphemeral)})
 		}
 		tools = append(tools, toolParam)
 	}
 
-	stream := p.client.Messages.NewStreaming(ctx, anthropic.MessageNewParams{
+	request := anthropic.MessageNewParams{
 		Model:       anthropic.F(m.Name),
-		MaxTokens:   anthropic.F(int64(o.MaxTokens)),
-		Temperature: anthropic.F(o.Temperature),
+		MaxTokens:   anthropic.F(int64(options.MaxTokens)),
+		Temperature: anthropic.F(options.Temperature),
 		System: anthropic.F([]anthropic.TextBlockParam{
 			{
 				Type: anthropic.F(anthropic.TextBlockParamTypeText),
@@ -210,10 +209,15 @@ func (p *AnthropicProvider) InvokeModel(ctx context.Context, model uuid.UUID, sy
 				}),
 			},
 		}),
-		Messages:   anthropic.F(anthropicMessages),
-		ToolChoice: anthropic.F(anthropic.ToolChoiceUnionParam(anthropic.ToolChoiceAutoParam{Type: anthropic.F(anthropic.ToolChoiceAutoTypeAuto)})),
-		Tools:      anthropic.F(tools),
-	})
+		Messages: anthropic.F(anthropicMessages),
+	}
+
+	if len(options.Tools) > 0 {
+		request.ToolChoice = anthropic.F(anthropic.ToolChoiceUnionParam(anthropic.ToolChoiceAutoParam{Type: anthropic.F(anthropic.ToolChoiceAutoTypeAuto)}))
+		request.Tools = anthropic.F(tools)
+	}
+
+	stream := p.client.Messages.NewStreaming(ctx, request)
 	defer stream.Close()
 
 	anthropicMessage := anthropic.Message{}
@@ -223,8 +227,8 @@ func (p *AnthropicProvider) InvokeModel(ctx context.Context, model uuid.UUID, sy
 
 		switch delta := event.Delta.(type) {
 		case anthropic.ContentBlockDeltaEventDelta:
-			if delta.Text != "" && o.StreamHandler != nil {
-				o.StreamHandler(ctx, &Message{
+			if delta.Text != "" && options.StreamHandler != nil {
+				options.StreamHandler(ctx, &Message{
 					Source: MessageSourceModel,
 					Content: []ContentBlock{
 						&TextContentBlock{Text: delta.Text},
@@ -240,10 +244,15 @@ func (p *AnthropicProvider) InvokeModel(ctx context.Context, model uuid.UUID, sy
 
 	content := make([]ContentBlock, len(anthropicMessage.Content))
 	for i, block := range anthropicMessage.Content {
-		switch block.Type {
-		case anthropic.ContentBlockTypeText:
+		switch block := block.AsUnion().(type) {
+		case anthropic.TextBlock:
 			content[i] = &TextContentBlock{
-				Text: strings.TrimRight(block.Text, "\n"),
+				Text: block.Text,
+			}
+		case anthropic.ToolUseBlock:
+			content[i] = &ToolCallContentBlock{
+				Name:  block.Name,
+				Input: block.Input,
 			}
 		}
 	}

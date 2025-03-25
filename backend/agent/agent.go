@@ -3,24 +3,34 @@ package agent
 import (
 	"context"
 	"fmt"
+	"sync"
+	"sync/atomic"
 
 	"github.com/furisto/construct/backend/model"
 	"github.com/furisto/construct/backend/tool"
 	"github.com/google/uuid"
+	"k8s.io/client-go/util/workqueue"
 )
 
 type AgentOptions struct {
 	SystemPrompt   string
 	ModelProviders []model.ModelProvider
-	Toolbox        *tool.Toolbox
+	Tools          []tool.Tool
+	Mailbox        Memory
 	SystemMemory   Memory
 	UserMemory     Memory
+	Concurrency    int
 }
 
 func DefaultAgentOptions() *AgentOptions {
 	return &AgentOptions{
 		ModelProviders: []model.ModelProvider{},
-		Toolbox:        tool.NewToolbox(),
+		SystemPrompt:   "You are a helpful assistant that can help with tasks and answer questions.",
+		Tools:          []tool.Tool{},
+		Mailbox:        NewEphemeralMemory(),
+		SystemMemory:   NewEphemeralMemory(),
+		UserMemory:     NewEphemeralMemory(),
+		Concurrency:    5,
 	}
 }
 
@@ -32,16 +42,21 @@ func WithSystemPrompt(systemPrompt string) AgentOption {
 	}
 }
 
-func WithModelProviders(modelProviders []model.ModelProvider) AgentOption {
+func WithModelProviders(modelProviders ...model.ModelProvider) AgentOption {
 	return func(o *AgentOptions) {
 		o.ModelProviders = modelProviders
 	}
 }
 
-
 func WithTools(tools ...tool.Tool) AgentOption {
 	return func(o *AgentOptions) {
-		
+		o.Tools = tools
+	}
+}
+
+func WithMailbox(mailbox Memory) AgentOption {
+	return func(o *AgentOptions) {
+		o.Mailbox = mailbox
 	}
 }
 
@@ -57,10 +72,21 @@ func WithUserMemory(memory Memory) AgentOption {
 	}
 }
 
+func WithConcurrency(concurrency int) AgentOption {
+	return func(o *AgentOptions) {
+		o.Concurrency = concurrency
+	}
+}
+
 type Agent struct {
 	ModelProviders []model.ModelProvider
-	Toolbox        *tool.Toolbox
 	SystemPrompt   string
+	Toolbox        *tool.Toolbox
+	Mailbox        Memory
+	SystemMemory   Memory
+	Concurrency    int
+	Queue          workqueue.TypedDelayingInterface[string]
+	running        atomic.Bool
 }
 
 func NewAgent(opts ...AgentOption) *Agent {
@@ -68,13 +94,56 @@ func NewAgent(opts ...AgentOption) *Agent {
 	for _, opt := range opts {
 		opt(options)
 	}
+	toolbox := tool.NewToolbox()
+	for _, tool := range options.Tools {
+		toolbox.AddTool(tool)
+	}
+
+	queue := workqueue.NewTypedDelayingQueueWithConfig(workqueue.TypedDelayingQueueConfig[string]{
+		Name: "construct",
+	})
+
 	return &Agent{
 		ModelProviders: options.ModelProviders,
-		Toolbox:        options.Toolbox,
+		SystemPrompt:   options.SystemPrompt,
+		Toolbox:        toolbox,
+		Mailbox:        options.Mailbox,
+		SystemMemory:   options.SystemMemory,
+		Concurrency:    options.Concurrency,
+		Queue:          queue,
 	}
 }
 
 func (a *Agent) Run(ctx context.Context) error {
+	if !a.running.CompareAndSwap(false, true) {
+		return nil
+	}
+
+	var wg sync.WaitGroup
+	for range a.Concurrency {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				taskID, shutdown := a.Queue.Get()
+				if shutdown {
+					return
+				}
+				a.processTask(ctx, taskID)
+			}
+		}()
+	}
+	wg.Wait()
+	return nil
+}
+
+func (a *Agent) processTask(ctx context.Context, taskID string) error {
+	defer a.Queue.Done(taskID)
+
+
+
+
+	
 	for _, mp := range a.ModelProviders {
 		resp, err := mp.InvokeModel(ctx, uuid.MustParse("0195b4e2-45b6-76df-b208-f48b7b0d5f51"), ConstructSystemPrompt, []model.Message{
 			{
@@ -98,12 +167,21 @@ func (a *Agent) Run(ctx context.Context) error {
 			return err
 		}
 
-		fmt.Println(resp.Message.Content[0].(*model.TextContentBlock).Text)
+		for _, block := range resp.Message.Content {
+			switch block := block.(type) {
+			case *model.TextContentBlock:
+				fmt.Print(block.Text)
+			case *model.ToolCallContentBlock:
+				fmt.Println(block.Name)
+				fmt.Println(string(block.Input))
+			}
+		}
+
 		fmt.Println(resp.Usage)
 	}
 	return nil
-}
 
+}
 func (a *Agent) NewTask() *Task {
 	return &Task{}
 }

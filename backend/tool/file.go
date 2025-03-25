@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+const FilesystemToolCategory = "filesystem"
+
 type ReadFileInput struct {
 	FilePath string `json:"file_path"`
 }
@@ -36,21 +38,21 @@ type ListFilesInput struct {
 
 func FilesystemTools() []Tool {
 	return []Tool{
-		NewTool("read_file", "Read a file", func(ctx context.Context, input ReadFileInput) (string, error) {
+		NewTool("read_file", "Read a file", FilesystemToolCategory, func(ctx context.Context, input ReadFileInput) (string, error) {
 			content, err := os.ReadFile(input.FilePath)
 			if err != nil {
 				return "", err
 			}
 			return string(content), nil
 		}),
-		NewTool("write_file", "Write to a file", func(ctx context.Context, input WriteFileInput) (string, error) {
+		NewTool("write_file", "Write to a file", FilesystemToolCategory, func(ctx context.Context, input WriteFileInput) (string, error) {
 			err := os.WriteFile(input.FilePath, []byte(input.Content), 0644)
 			if err != nil {
 				return "", err
 			}
 			return "File written successfully", nil
-		}),
-		NewTool("edit_file", "Edit a file", func(ctx context.Context, input EditFileInput) (string, error) {
+		}, WithReadonly(false)),
+		NewTool("edit_file", "Edit a file", FilesystemToolCategory, func(ctx context.Context, input EditFileInput) (string, error) {
 			// For editing a file, we'll read the file first, then write new content
 			_, err := os.Stat(input.FilePath)
 			if err != nil {
@@ -62,8 +64,8 @@ func FilesystemTools() []Tool {
 				return "", err
 			}
 			return "File edited successfully", nil
-		}),
-		NewTool("find_files", "Search for files in the project", func(ctx context.Context, input FindFilesInput) (string, error) {
+		}, WithReadonly(false)),
+		NewTool("find_files", "Search for files in the project", FilesystemToolCategory, func(ctx context.Context, input FindFilesInput) (string, error) {
 			var results []string
 
 			err := filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
@@ -82,7 +84,7 @@ func FilesystemTools() []Tool {
 
 			return strings.Join(results, "\n"), nil
 		}),
-		NewTool("grep", "Grep for a pattern in the project", func(ctx context.Context, input GrepInput) (string, error) {
+		NewTool("grep", "Grep for a pattern in the project", FilesystemToolCategory, func(ctx context.Context, input GrepInput) (string, error) {
 			var results []string
 			searchPath := "."
 			if input.Path != "" {
@@ -113,7 +115,7 @@ func FilesystemTools() []Tool {
 
 			return strings.Join(results, "\n"), nil
 		}),
-		NewTool("list_files", "List all files in the directory", func(ctx context.Context, input ListFilesInput) (string, error) {
+		NewTool("list_files", "List all files in the directory", FilesystemToolCategory, func(ctx context.Context, input ListFilesInput) (string, error) {
 			directory := input.Directory
 			if directory == "" {
 				directory = "."
@@ -132,4 +134,36 @@ func FilesystemTools() []Tool {
 			return strings.Join(results, "\n"), nil
 		}),
 	}
+}
+
+func WalkDirectoryTree(rootPath string) (string, error) {
+	result := rootPath + "\n"
+	err := walkDirRecursive(rootPath, &result, 1, 3, "  ")
+	if err != nil {
+		return "", err
+	}
+	return result, nil
+}
+
+func walkDirRecursive(path string, result *string, currentLevel, maxLevel int, indent string) error {
+	if currentLevel > maxLevel {
+		return nil
+	}
+
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			*result += indent + "|_ " + entry.Name() + "\n"
+			err := walkDirRecursive(path+"/"+entry.Name(), result, currentLevel+1, maxLevel, indent+"        ")
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }

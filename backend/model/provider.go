@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/furisto/construct/backend/tool"
 	"github.com/google/uuid"
@@ -94,7 +95,7 @@ func (t *TextContentBlock) Type() ContentBlockType {
 
 type ToolCallContentBlock struct {
 	Name  string
-	Input string
+	Input json.RawMessage
 }
 
 func (t *ToolCallContentBlock) Type() ContentBlockType {

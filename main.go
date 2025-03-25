@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
-	"runtime"
 
 	"github.com/furisto/construct/backend/agent"
 	"github.com/furisto/construct/backend/model"
@@ -18,15 +17,11 @@ func main() {
 		log.Fatalf("failed to create anthropic provider: %v", err)
 	}
 
-
-	fmt.Println(runtime.GOARCH)
-
-
 	ctx := context.Background()
 
 	stopCh := make(chan struct{})
 	agent := agent.NewAgent(
-		agent.WithModelProviders([]model.ModelProvider{provider}),
+		agent.WithModelProviders(provider),
 		agent.WithSystemPrompt(agent.ConstructSystemPrompt),
 		agent.WithSystemMemory(agent.NewEphemeralMemory()),
 		agent.WithUserMemory(agent.NewEphemeralMemory()),
@@ -34,7 +29,6 @@ func main() {
 			tool.FilesystemTools()...,
 		),
 	)
-	return
 
 	go func() {
 		err := agent.Run(ctx)
