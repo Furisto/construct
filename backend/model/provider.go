@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 
 	"github.com/furisto/construct/backend/tool"
-	"github.com/google/uuid"
 )
 
 type InvokeModelOptions struct {
@@ -26,7 +25,7 @@ func DefaultInvokeModelOptions() *InvokeModelOptions {
 
 type InvokeModelOption func(*InvokeModelOptions)
 
-func WithTools(tools []tool.Tool) InvokeModelOption {
+func WithTools(tools ...tool.Tool) InvokeModelOption {
 	return func(o *InvokeModelOptions) {
 		o.Tools = tools
 	}
@@ -51,7 +50,7 @@ func WithStreamHandler(handler func(ctx context.Context, message *Message)) Invo
 }
 
 type ModelProvider interface {
-	InvokeModel(ctx context.Context, model uuid.UUID, prompt string, messages []Message, opts ...InvokeModelOption) (*ModelResponse, error)
+	InvokeModel(ctx context.Context, model, prompt string, messages []Message, opts ...InvokeModelOption) (*ModelResponse, error)
 }
 
 type MessageSource string

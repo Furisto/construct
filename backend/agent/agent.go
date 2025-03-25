@@ -150,25 +150,30 @@ func (a *Agent) processTask(ctx context.Context, taskID uuid.UUID) error {
 		return err
 	}
 
-	userMessages := a.Mailbox.Dequeue(taskID)
-	for _, message := range userMessages {
-		a.Memory.Message.Create().
-			SetRole(types.MessageRoleUser).
-			SetContent(message).
-			Save(ctx)
-	}
+	// userMessages := a.Mailbox.Dequeue(taskID)
+	// for _, message := range userMessages {
+	// 	a.Memory.Message.Create().
+	// 		SetRole(types.MessageRoleUser).
+	// 		// SetContent(message).
+	// 		Save(ctx)
+	// }
 
 	m, err := a.Memory.Model.Query().Where(memory_model.ID(task.Spec.ModelID)).WithModelProvider().Only(ctx)
 	if err != nil {
 		return err
 	}
 
-	modelProvider, err := a.modelProviderForModel(m)
+	providerAPI, err := a.modelProviderAPI(m)
 	if err != nil {
 		return err
 	}
 
-	resp, err := modelProvider.InvokeModel(ctx, uuid.MustParse("0195b4e2-45b6-76df-b208-f48b7b0d5f51"), ConstructSystemPrompt, []model.Message{
+	// messages, err := a.Memory.Message.Query().Where(memory_message.TaskID(taskID)).All(ctx)
+	// if err != nil {
+	// 	return err
+	// }
+
+	resp, err := providerAPI.InvokeModel(ctx, m.Name, ConstructSystemPrompt, []model.Message{
 		{
 			Source: model.MessageSourceUser,
 			Content: []model.ContentBlock{
@@ -184,7 +189,7 @@ func (a *Agent) processTask(ctx context.Context, taskID uuid.UUID) error {
 				fmt.Print(block.Text)
 			}
 		}
-	}), model.WithTools(tool.FilesystemTools()))
+	}), model.WithTools(a.Toolbox.ListTools()...))
 
 	if err != nil {
 		return err
@@ -213,14 +218,15 @@ func (a *Agent) processTask(ctx context.Context, taskID uuid.UUID) error {
 	return nil
 }
 
-func (a *Agent) modelProviderForModel(m *memory.Model) (model.ModelProvider, error) {
+func (a *Agent) modelProviderAPI(m *memory.Model) (model.ModelProvider, error) {
 	if m.Edges.ModelProvider == nil {
 		return nil, fmt.Errorf("model provider not found")
 	}
+	provider := m.Edges.ModelProvider
 
-	switch m.Edges.ModelProvider.ProviderType {
+	switch provider.ProviderType {
 	case types.ModelProviderTypeAnthropic:
-		secret, err := secret.GetSecret[model.AnthropicSecret](secret.ModelProviderSecret(m.Edges.ModelProvider.ID))
+		secret, err := secret.GetSecret[model.AnthropicSecret](secret.ModelProviderSecret(provider.ID))
 		if err != nil {
 			return nil, err
 		}
@@ -231,7 +237,7 @@ func (a *Agent) modelProviderForModel(m *memory.Model) (model.ModelProvider, err
 		}
 		return provider, nil
 	default:
-		return nil, fmt.Errorf("unknown model provider type: %s", m.Edges.ModelProvider.ProviderType)
+		return nil, fmt.Errorf("unknown model provider type: %s", provider.ProviderType)
 	}
 }
 

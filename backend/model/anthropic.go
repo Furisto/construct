@@ -132,14 +132,9 @@ func NewAnthropicProvider(apiKey string) (*AnthropicProvider, error) {
 	return provider, nil
 }
 
-func (p *AnthropicProvider) InvokeModel(ctx context.Context, model uuid.UUID, systemPrompt string, messages []Message, opts ...InvokeModelOption) (*ModelResponse, error) {
-	if model == uuid.Nil {
+func (p *AnthropicProvider) InvokeModel(ctx context.Context, model, systemPrompt string, messages []Message, opts ...InvokeModelOption) (*ModelResponse, error) {
+	if model == "" {
 		return nil, fmt.Errorf("model is required")
-	}
-
-	m, ok := p.models[model]
-	if !ok {
-		return nil, fmt.Errorf("model not supported")
 	}
 
 	if systemPrompt == "" {
@@ -197,7 +192,7 @@ func (p *AnthropicProvider) InvokeModel(ctx context.Context, model uuid.UUID, sy
 	}
 
 	request := anthropic.MessageNewParams{
-		Model:       anthropic.F(m.Name),
+		Model:       anthropic.F(model),
 		MaxTokens:   anthropic.F(int64(options.MaxTokens)),
 		Temperature: anthropic.F(options.Temperature),
 		System: anthropic.F([]anthropic.TextBlockParam{
