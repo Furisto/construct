@@ -7,7 +7,7 @@ type Model struct {
 	Provider      Provider
 	Name          string
 	Capabilities  []Capability
-	ContextWindow int
+	ContextWindow int64
 	Pricing       ModelPricing
 }
 
@@ -36,4 +36,12 @@ type ModelPricing struct {
 	Output     float64
 	CacheWrite float64
 	CacheRead  float64
+}
+
+func SupportedModels(provider Provider) []Model {
+	switch provider {
+	case Anthropic:
+		return SupportedAnthropicModels()
+	}
+	return nil
 }

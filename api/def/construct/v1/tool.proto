@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package construct.v1;
+
+rpc CreateToolCategory(CreateToolCategoryRequest) returns (CreateToolCategoryResponse) {}
+rpc GetToolCategory(GetToolCategoryRequest) returns (GetToolCategoryResponse) {}
+rpc ListToolCategories(ListToolCategoriesRequest) returns (ListToolCategoriesResponse) {}
+rpc UpdateToolCategory(UpdateToolCategoryRequest) returns (UpdateToolCategoryResponse) {}
+rpc DeleteToolCategory(DeleteToolCategoryRequest) returns (DeleteToolCategoryResponse) {}
+
