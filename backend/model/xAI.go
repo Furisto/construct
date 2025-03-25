@@ -1,4 +1,4 @@
-package modelprovider
+package model
 
 import (
 	"context"
@@ -14,4 +14,3 @@ func NewXAIProvider(apiKey string) (*XAIProvider, error) {
 func (p *XAIProvider) ListModels(ctx context.Context) ([]Model, error) {
 	return nil, nil
 }
-

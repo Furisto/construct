@@ -1,4 +1,4 @@
-package modelprovider
+package model
 
 import (
 	"context"
@@ -41,7 +41,7 @@ func WithTemperature(temperature float64) InvokeModelOption {
 	}
 }
 
-type Provider interface {
+type ModelProvider interface {
 	InvokeModel(ctx context.Context, systemPrompt, model string, messages []Message, opts ...InvokeModelOption) (string, error)
 }
 
@@ -86,17 +86,12 @@ type ModelResponse struct {
 }
 
 type Usage struct {
-	InputTokens       int64
-	OutputTokens      int64
-	CacheWriteTokens  int64
-	CachedInputTokens int64
+	InputTokens      int64
+	OutputTokens     int64
+	CacheWriteTokens int64
+	CacheReadTokens  int64
 }
 
 type ToolCall struct {
 	Name string
-}
-
-type Model struct {
-	Name     string
-	Provider string
 }

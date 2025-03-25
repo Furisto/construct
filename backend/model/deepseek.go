@@ -1,4 +1,4 @@
-package modelprovider
+package model
 
 import (
 	"context"
@@ -17,4 +17,3 @@ func NewDeepSeekProvider(apiKey string) (*DeepSeekProvider, error) {
 func (p *DeepSeekProvider) ListModels(ctx context.Context) ([]Model, error) {
 	return nil, nil
 }
-

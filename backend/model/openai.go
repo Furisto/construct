@@ -1,4 +1,4 @@
-package modelprovider
+package model
 
 import (
 	"context"
