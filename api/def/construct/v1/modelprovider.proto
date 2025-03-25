@@ -1,0 +1,97 @@
+syntax = "proto3";
+
+package construct.v1;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/furisto/construct/api/go/v1";
+
+service ModelProviderService {
+  rpc CreateProvider(CreateModelProviderRequest) returns (CreateModelProviderResponse) {}
+  rpc GetProvider(GetModelProviderRequest) returns (GetModelProviderResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  rpc ListProviders(ListModelProvidersRequest) returns (ListModelProvidersResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  rpc UpdateProvider(UpdateModelProviderRequest) returns (UpdateModelProviderResponse) {}
+  rpc DeleteProvider(DeleteModelProviderRequest) returns (DeleteModelProviderResponse) {}
+}
+
+message CreateModelProviderRequest {
+  string name = 1 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 255
+  ];
+  string url = 2 [(buf.validate.field).string.uri = true];
+  string api_key = 3 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 255
+  ];
+  ModelProviderType provider_type = 4 [(buf.validate.field).enum.defined_only = true];
+}
+
+message CreateModelProviderResponse {
+  ModelProvider model_provider = 1 [(buf.validate.field).required = true];
+}
+
+message ModelProvider {
+  string id = 1 [(buf.validate.field).string.uuid = true];
+  string name = 2 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 255
+  ];
+  ModelProviderType provider_type = 3 [(buf.validate.field).enum.defined_only = true];
+  bool enabled = 4 [(buf.validate.field).required = true];
+  google.protobuf.Timestamp created_at = 5 [(buf.validate.field).required = true];
+  google.protobuf.Timestamp updated_at = 6 [(buf.validate.field).required = true];
+}
+
+message GetModelProviderRequest {
+  string id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message GetModelProviderResponse {
+  ModelProvider model_provider = 1 [(buf.validate.field).required = true];
+}
+
+message ListModelProvidersRequest {
+  message Filter {
+    bool enabled = 1;
+  }
+  Filter filter = 1;
+}
+
+message ListModelProvidersResponse {
+  repeated ModelProvider model_providers = 1;
+}
+
+message UpdateModelProviderRequest {
+  string id = 1 [(buf.validate.field).string.uuid = true];
+  optional string name = 2 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 255
+  ];
+  optional string api_key = 3 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 255
+  ];
+  optional bool enabled = 4;
+}
+
+message UpdateModelProviderResponse {
+  ModelProvider model_provider = 1 [(buf.validate.field).required = true];
+}
+
+message DeleteModelProviderRequest {
+  string id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message DeleteModelProviderResponse {}
+
+enum ModelProviderType {
+  MODEL_PROVIDER_TYPE_UNSPECIFIED = 0;
+  MODEL_PROVIDER_TYPE_ANTHROPIC = 1;
+  MODEL_PROVIDER_TYPE_OPENAI = 2;
+}

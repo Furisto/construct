@@ -1,0 +1,14 @@
+
+version: v2
+deps:
+  - buf.build/bufbuild/protovalidate
+lint:
+  use:
+    - STANDARD
+  except:
+    - FIELD_NOT_REQUIRED
+  ignore:
+   - google
+breaking:
+  use:
+    - FILE

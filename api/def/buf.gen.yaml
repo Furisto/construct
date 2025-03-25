@@ -1,0 +1,8 @@
+version: v2
+plugins:
+  - local: protoc-gen-go
+    out: ../go
+    opt: module=github.com/furisto/construct/api/go
+  - local: protoc-gen-connect-go
+    out: ../go
+    opt: module=github.com/furisto/construct/api/go
