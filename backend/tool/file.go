@@ -2,6 +2,7 @@ package tool
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -39,6 +40,14 @@ type ListFilesInput struct {
 func FilesystemTools() []Tool {
 	return []Tool{
 		NewTool("read_file", "Read a file", FilesystemToolCategory, func(ctx context.Context, input ReadFileInput) (string, error) {
+			if input.FilePath == "" {
+				return "", fmt.Errorf("file path is required")
+			}
+
+			if !filepath.IsAbs(input.FilePath) {
+				return "", fmt.Errorf("file path must be absolute")
+			}
+
 			content, err := os.ReadFile(input.FilePath)
 			if err != nil {
 				return "", err
@@ -46,6 +55,14 @@ func FilesystemTools() []Tool {
 			return string(content), nil
 		}),
 		NewTool("write_file", "Write to a file", FilesystemToolCategory, func(ctx context.Context, input WriteFileInput) (string, error) {
+			if input.FilePath == "" {
+				return "", fmt.Errorf("file path is required")
+			}
+
+			if !filepath.IsAbs(input.FilePath) {
+				return "", fmt.Errorf("file path must be absolute")
+			}
+
 			err := os.WriteFile(input.FilePath, []byte(input.Content), 0644)
 			if err != nil {
 				return "", err
@@ -85,6 +102,18 @@ func FilesystemTools() []Tool {
 			return strings.Join(results, "\n"), nil
 		}),
 		NewTool("grep", "Grep for a pattern in the project", FilesystemToolCategory, func(ctx context.Context, input GrepInput) (string, error) {
+			if input.Pattern == "" {
+				return "", fmt.Errorf("pattern is required")
+			}
+
+			if input.Path == "" {
+				return "", fmt.Errorf("path is required")
+			}
+
+			if !filepath.IsAbs(input.Path) {
+				return "", fmt.Errorf("path must be absolute")
+			}
+
 			var results []string
 			searchPath := "."
 			if input.Path != "" {
