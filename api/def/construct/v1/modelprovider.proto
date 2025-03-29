@@ -8,15 +8,15 @@ import "google/protobuf/timestamp.proto";
 option go_package = "github.com/furisto/construct/api/go/v1";
 
 service ModelProviderService {
-  rpc CreateProvider(CreateModelProviderRequest) returns (CreateModelProviderResponse) {}
-  rpc GetProvider(GetModelProviderRequest) returns (GetModelProviderResponse) {
+  rpc CreateModelProvider(CreateModelProviderRequest) returns (CreateModelProviderResponse) {}
+  rpc GetModelProvider(GetModelProviderRequest) returns (GetModelProviderResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
-  rpc ListProviders(ListModelProvidersRequest) returns (ListModelProvidersResponse) {
+  rpc ListModelProviders(ListModelProvidersRequest) returns (ListModelProvidersResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
-  rpc UpdateProvider(UpdateModelProviderRequest) returns (UpdateModelProviderResponse) {}
-  rpc DeleteProvider(DeleteModelProviderRequest) returns (DeleteModelProviderResponse) {}
+  rpc UpdateModelProvider(UpdateModelProviderRequest) returns (UpdateModelProviderResponse) {}
+  rpc DeleteModelProvider(DeleteModelProviderRequest) returns (DeleteModelProviderResponse) {}
 }
 
 message CreateModelProviderRequest {
@@ -24,12 +24,15 @@ message CreateModelProviderRequest {
     (buf.validate.field).string.min_len = 1,
     (buf.validate.field).string.max_len = 255
   ];
-  string url = 2 [(buf.validate.field).string.uri = true];
-  string api_key = 3 [
-    (buf.validate.field).string.min_len = 1,
-    (buf.validate.field).string.max_len = 255
-  ];
-  ModelProviderType provider_type = 4 [(buf.validate.field).enum.defined_only = true];
+
+  oneof authentication {
+    string api_key = 2 [
+      (buf.validate.field).string.min_len = 1,
+      (buf.validate.field).string.max_len = 255
+    ];
+  }
+
+  ModelProviderType provider_type = 30 [(buf.validate.field).enum.defined_only = true];
 }
 
 message CreateModelProviderResponse {
@@ -58,13 +61,16 @@ message GetModelProviderResponse {
 
 message ListModelProvidersRequest {
   message Filter {
-    bool enabled = 1;
+    optional bool enabled = 1;
+    repeated ModelProviderType provider_types = 2 [(buf.validate.field).repeated.max_items = 10];
   }
   Filter filter = 1;
+  string page_token = 2 [(buf.validate.field).string.max_len = 255];
 }
 
 message ListModelProvidersResponse {
   repeated ModelProvider model_providers = 1;
+  string next_page_token = 2;
 }
 
 message UpdateModelProviderRequest {
@@ -73,11 +79,13 @@ message UpdateModelProviderRequest {
     (buf.validate.field).string.min_len = 1,
     (buf.validate.field).string.max_len = 255
   ];
-  optional string api_key = 3 [
-    (buf.validate.field).string.min_len = 1,
-    (buf.validate.field).string.max_len = 255
-  ];
-  optional bool enabled = 4;
+  oneof authentication {
+    string api_key = 3 [
+      (buf.validate.field).string.min_len = 1,
+      (buf.validate.field).string.max_len = 255
+    ];
+  }
+  optional bool enabled = 30;
 }
 
 message UpdateModelProviderResponse {
