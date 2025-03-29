@@ -22,7 +22,6 @@ func (Task) Fields() []ent.Field {
 		field.Int64("output_tokens"),
 		field.Int64("cache_write_tokens"),
 		field.Int64("cache_read_tokens"),
-		// field.UUID("last_processed_message", uuid.UUID{}).Optional(),
 	}
 }
 
