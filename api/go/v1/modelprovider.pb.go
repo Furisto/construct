@@ -73,13 +73,15 @@ func (ModelProviderType) EnumDescriptor() ([]byte, []int) {
 }
 
 type CreateModelProviderRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Url           string                 `protobuf:"bytes,2,opt,name=url,proto3" json:"url,omitempty"`
-	ApiKey        string                 `protobuf:"bytes,3,opt,name=api_key,json=apiKey,proto3" json:"api_key,omitempty"`
-	ProviderType  ModelProviderType      `protobuf:"varint,4,opt,name=provider_type,json=providerType,proto3,enum=construct.v1.ModelProviderType" json:"provider_type,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Name  string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Types that are valid to be assigned to Authentication:
+	//
+	//	*CreateModelProviderRequest_ApiKey
+	Authentication isCreateModelProviderRequest_Authentication `protobuf_oneof:"authentication"`
+	ProviderType   ModelProviderType                           `protobuf:"varint,30,opt,name=provider_type,json=providerType,proto3,enum=construct.v1.ModelProviderType" json:"provider_type,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *CreateModelProviderRequest) Reset() {
@@ -119,16 +121,18 @@ func (x *CreateModelProviderRequest) GetName() string {
 	return ""
 }
 
-func (x *CreateModelProviderRequest) GetUrl() string {
+func (x *CreateModelProviderRequest) GetAuthentication() isCreateModelProviderRequest_Authentication {
 	if x != nil {
-		return x.Url
+		return x.Authentication
 	}
-	return ""
+	return nil
 }
 
 func (x *CreateModelProviderRequest) GetApiKey() string {
 	if x != nil {
-		return x.ApiKey
+		if x, ok := x.Authentication.(*CreateModelProviderRequest_ApiKey); ok {
+			return x.ApiKey
+		}
 	}
 	return ""
 }
@@ -139,6 +143,16 @@ func (x *CreateModelProviderRequest) GetProviderType() ModelProviderType {
 	}
 	return ModelProviderType_MODEL_PROVIDER_TYPE_UNSPECIFIED
 }
+
+type isCreateModelProviderRequest_Authentication interface {
+	isCreateModelProviderRequest_Authentication()
+}
+
+type CreateModelProviderRequest_ApiKey struct {
+	ApiKey string `protobuf:"bytes,2,opt,name=api_key,json=apiKey,proto3,oneof"`
+}
+
+func (*CreateModelProviderRequest_ApiKey) isCreateModelProviderRequest_Authentication() {}
 
 type CreateModelProviderResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -359,6 +373,7 @@ func (x *GetModelProviderResponse) GetModelProvider() *ModelProvider {
 type ListModelProvidersRequest struct {
 	state         protoimpl.MessageState            `protogen:"open.v1"`
 	Filter        *ListModelProvidersRequest_Filter `protobuf:"bytes,1,opt,name=filter,proto3" json:"filter,omitempty"`
+	PageToken     string                            `protobuf:"bytes,2,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -400,9 +415,17 @@ func (x *ListModelProvidersRequest) GetFilter() *ListModelProvidersRequest_Filte
 	return nil
 }
 
+func (x *ListModelProvidersRequest) GetPageToken() string {
+	if x != nil {
+		return x.PageToken
+	}
+	return ""
+}
+
 type ListModelProvidersResponse struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	ModelProviders []*ModelProvider       `protobuf:"bytes,1,rep,name=model_providers,json=modelProviders,proto3" json:"model_providers,omitempty"`
+	NextPageToken  string                 `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -444,14 +467,24 @@ func (x *ListModelProvidersResponse) GetModelProviders() []*ModelProvider {
 	return nil
 }
 
+func (x *ListModelProvidersResponse) GetNextPageToken() string {
+	if x != nil {
+		return x.NextPageToken
+	}
+	return ""
+}
+
 type UpdateModelProviderRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name          *string                `protobuf:"bytes,2,opt,name=name,proto3,oneof" json:"name,omitempty"`
-	ApiKey        *string                `protobuf:"bytes,3,opt,name=api_key,json=apiKey,proto3,oneof" json:"api_key,omitempty"`
-	Enabled       *bool                  `protobuf:"varint,4,opt,name=enabled,proto3,oneof" json:"enabled,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name  *string                `protobuf:"bytes,2,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	// Types that are valid to be assigned to Authentication:
+	//
+	//	*UpdateModelProviderRequest_ApiKey
+	Authentication isUpdateModelProviderRequest_Authentication `protobuf_oneof:"authentication"`
+	Enabled        *bool                                       `protobuf:"varint,30,opt,name=enabled,proto3,oneof" json:"enabled,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *UpdateModelProviderRequest) Reset() {
@@ -498,9 +531,18 @@ func (x *UpdateModelProviderRequest) GetName() string {
 	return ""
 }
 
+func (x *UpdateModelProviderRequest) GetAuthentication() isUpdateModelProviderRequest_Authentication {
+	if x != nil {
+		return x.Authentication
+	}
+	return nil
+}
+
 func (x *UpdateModelProviderRequest) GetApiKey() string {
-	if x != nil && x.ApiKey != nil {
-		return *x.ApiKey
+	if x != nil {
+		if x, ok := x.Authentication.(*UpdateModelProviderRequest_ApiKey); ok {
+			return x.ApiKey
+		}
 	}
 	return ""
 }
@@ -511,6 +553,16 @@ func (x *UpdateModelProviderRequest) GetEnabled() bool {
 	}
 	return false
 }
+
+type isUpdateModelProviderRequest_Authentication interface {
+	isUpdateModelProviderRequest_Authentication()
+}
+
+type UpdateModelProviderRequest_ApiKey struct {
+	ApiKey string `protobuf:"bytes,3,opt,name=api_key,json=apiKey,proto3,oneof"`
+}
+
+func (*UpdateModelProviderRequest_ApiKey) isUpdateModelProviderRequest_Authentication() {}
 
 type UpdateModelProviderResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -638,7 +690,8 @@ func (*DeleteModelProviderResponse) Descriptor() ([]byte, []int) {
 
 type ListModelProvidersRequest_Filter struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Enabled       bool                   `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	Enabled       *bool                  `protobuf:"varint,1,opt,name=enabled,proto3,oneof" json:"enabled,omitempty"`
+	ProviderTypes []ModelProviderType    `protobuf:"varint,2,rep,packed,name=provider_types,json=providerTypes,proto3,enum=construct.v1.ModelProviderType" json:"provider_types,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -674,24 +727,31 @@ func (*ListModelProvidersRequest_Filter) Descriptor() ([]byte, []int) {
 }
 
 func (x *ListModelProvidersRequest_Filter) GetEnabled() bool {
-	if x != nil {
-		return x.Enabled
+	if x != nil && x.Enabled != nil {
+		return *x.Enabled
 	}
 	return false
+}
+
+func (x *ListModelProvidersRequest_Filter) GetProviderTypes() []ModelProviderType {
+	if x != nil {
+		return x.ProviderTypes
+	}
+	return nil
 }
 
 var File_construct_v1_modelprovider_proto protoreflect.FileDescriptor
 
 const file_construct_v1_modelprovider_proto_rawDesc = "" +
 	"\n" +
-	" construct/v1/modelprovider.proto\x12\fconstruct.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xcd\x01\n" +
+	" construct/v1/modelprovider.proto\x12\fconstruct.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xc5\x01\n" +
 	"\x1aCreateModelProviderRequest\x12\x1e\n" +
 	"\x04name\x18\x01 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\xff\x01R\x04name\x12\x1a\n" +
-	"\x03url\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x88\x01\x01R\x03url\x12#\n" +
-	"\aapi_key\x18\x03 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\xff\x01R\x06apiKey\x12N\n" +
-	"\rprovider_type\x18\x04 \x01(\x0e2\x1f.construct.v1.ModelProviderTypeB\b\xbaH\x05\x82\x01\x02\x10\x01R\fproviderType\"i\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xff\x01R\x04name\x12%\n" +
+	"\aapi_key\x18\x02 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xff\x01H\x00R\x06apiKey\x12N\n" +
+	"\rprovider_type\x18\x1e \x01(\x0e2\x1f.construct.v1.ModelProviderTypeB\b\xbaH\x05\x82\x01\x02\x10\x01R\fproviderTypeB\x10\n" +
+	"\x0eauthentication\"i\n" +
 	"\x1bCreateModelProviderResponse\x12J\n" +
 	"\x0emodel_provider\x18\x01 \x01(\v2\x1b.construct.v1.ModelProviderB\x06\xbaH\x03\xc8\x01\x01R\rmodelProvider\"\xc1\x02\n" +
 	"\rModelProvider\x12\x18\n" +
@@ -707,23 +767,29 @@ const file_construct_v1_modelprovider_proto_rawDesc = "" +
 	"\x17GetModelProviderRequest\x12\x18\n" +
 	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\"f\n" +
 	"\x18GetModelProviderResponse\x12J\n" +
-	"\x0emodel_provider\x18\x01 \x01(\v2\x1b.construct.v1.ModelProviderB\x06\xbaH\x03\xc8\x01\x01R\rmodelProvider\"\x87\x01\n" +
+	"\x0emodel_provider\x18\x01 \x01(\v2\x1b.construct.v1.ModelProviderB\x06\xbaH\x03\xc8\x01\x01R\rmodelProvider\"\x94\x02\n" +
 	"\x19ListModelProvidersRequest\x12F\n" +
-	"\x06filter\x18\x01 \x01(\v2..construct.v1.ListModelProvidersRequest.FilterR\x06filter\x1a\"\n" +
-	"\x06Filter\x12\x18\n" +
-	"\aenabled\x18\x01 \x01(\bR\aenabled\"b\n" +
+	"\x06filter\x18\x01 \x01(\v2..construct.v1.ListModelProvidersRequest.FilterR\x06filter\x12'\n" +
+	"\n" +
+	"page_token\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x18\xff\x01R\tpageToken\x1a\x85\x01\n" +
+	"\x06Filter\x12\x1d\n" +
+	"\aenabled\x18\x01 \x01(\bH\x00R\aenabled\x88\x01\x01\x12P\n" +
+	"\x0eprovider_types\x18\x02 \x03(\x0e2\x1f.construct.v1.ModelProviderTypeB\b\xbaH\x05\x92\x01\x02\x10\n" +
+	"R\rproviderTypesB\n" +
+	"\n" +
+	"\b_enabled\"\x8a\x01\n" +
 	"\x1aListModelProvidersResponse\x12D\n" +
-	"\x0fmodel_providers\x18\x01 \x03(\v2\x1b.construct.v1.ModelProviderR\x0emodelProviders\"\xc5\x01\n" +
+	"\x0fmodel_providers\x18\x01 \x03(\v2\x1b.construct.v1.ModelProviderR\x0emodelProviders\x12&\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"\xc8\x01\n" +
 	"\x1aUpdateModelProviderRequest\x12\x18\n" +
 	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\x12#\n" +
 	"\x04name\x18\x02 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\xff\x01H\x00R\x04name\x88\x01\x01\x12(\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xff\x01H\x01R\x04name\x88\x01\x01\x12%\n" +
 	"\aapi_key\x18\x03 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\xff\x01H\x01R\x06apiKey\x88\x01\x01\x12\x1d\n" +
-	"\aenabled\x18\x04 \x01(\bH\x02R\aenabled\x88\x01\x01B\a\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xff\x01H\x00R\x06apiKey\x12\x1d\n" +
+	"\aenabled\x18\x1e \x01(\bH\x02R\aenabled\x88\x01\x01B\x10\n" +
+	"\x0eauthenticationB\a\n" +
 	"\x05_nameB\n" +
-	"\n" +
-	"\b_api_keyB\n" +
 	"\n" +
 	"\b_enabled\"i\n" +
 	"\x1bUpdateModelProviderResponse\x12J\n" +
@@ -734,13 +800,13 @@ const file_construct_v1_modelprovider_proto_rawDesc = "" +
 	"\x11ModelProviderType\x12#\n" +
 	"\x1fMODEL_PROVIDER_TYPE_UNSPECIFIED\x10\x00\x12!\n" +
 	"\x1dMODEL_PROVIDER_TYPE_ANTHROPIC\x10\x01\x12\x1e\n" +
-	"\x1aMODEL_PROVIDER_TYPE_OPENAI\x10\x022\x9d\x04\n" +
-	"\x14ModelProviderService\x12g\n" +
-	"\x0eCreateProvider\x12(.construct.v1.CreateModelProviderRequest\x1a).construct.v1.CreateModelProviderResponse\"\x00\x12a\n" +
-	"\vGetProvider\x12%.construct.v1.GetModelProviderRequest\x1a&.construct.v1.GetModelProviderResponse\"\x03\x90\x02\x01\x12g\n" +
-	"\rListProviders\x12'.construct.v1.ListModelProvidersRequest\x1a(.construct.v1.ListModelProvidersResponse\"\x03\x90\x02\x01\x12g\n" +
-	"\x0eUpdateProvider\x12(.construct.v1.UpdateModelProviderRequest\x1a).construct.v1.UpdateModelProviderResponse\"\x00\x12g\n" +
-	"\x0eDeleteProvider\x12(.construct.v1.DeleteModelProviderRequest\x1a).construct.v1.DeleteModelProviderResponse\"\x00B(Z&github.com/furisto/construct/api/go/v1b\x06proto3"
+	"\x1aMODEL_PROVIDER_TYPE_OPENAI\x10\x022\xb6\x04\n" +
+	"\x14ModelProviderService\x12l\n" +
+	"\x13CreateModelProvider\x12(.construct.v1.CreateModelProviderRequest\x1a).construct.v1.CreateModelProviderResponse\"\x00\x12f\n" +
+	"\x10GetModelProvider\x12%.construct.v1.GetModelProviderRequest\x1a&.construct.v1.GetModelProviderResponse\"\x03\x90\x02\x01\x12l\n" +
+	"\x12ListModelProviders\x12'.construct.v1.ListModelProvidersRequest\x1a(.construct.v1.ListModelProvidersResponse\"\x03\x90\x02\x01\x12l\n" +
+	"\x13UpdateModelProvider\x12(.construct.v1.UpdateModelProviderRequest\x1a).construct.v1.UpdateModelProviderResponse\"\x00\x12l\n" +
+	"\x13DeleteModelProvider\x12(.construct.v1.DeleteModelProviderRequest\x1a).construct.v1.DeleteModelProviderResponse\"\x00B(Z&github.com/furisto/construct/api/go/v1b\x06proto3"
 
 var (
 	file_construct_v1_modelprovider_proto_rawDescOnce sync.Once
@@ -782,21 +848,22 @@ var file_construct_v1_modelprovider_proto_depIdxs = []int32{
 	12, // 6: construct.v1.ListModelProvidersRequest.filter:type_name -> construct.v1.ListModelProvidersRequest.Filter
 	3,  // 7: construct.v1.ListModelProvidersResponse.model_providers:type_name -> construct.v1.ModelProvider
 	3,  // 8: construct.v1.UpdateModelProviderResponse.model_provider:type_name -> construct.v1.ModelProvider
-	1,  // 9: construct.v1.ModelProviderService.CreateProvider:input_type -> construct.v1.CreateModelProviderRequest
-	4,  // 10: construct.v1.ModelProviderService.GetProvider:input_type -> construct.v1.GetModelProviderRequest
-	6,  // 11: construct.v1.ModelProviderService.ListProviders:input_type -> construct.v1.ListModelProvidersRequest
-	8,  // 12: construct.v1.ModelProviderService.UpdateProvider:input_type -> construct.v1.UpdateModelProviderRequest
-	10, // 13: construct.v1.ModelProviderService.DeleteProvider:input_type -> construct.v1.DeleteModelProviderRequest
-	2,  // 14: construct.v1.ModelProviderService.CreateProvider:output_type -> construct.v1.CreateModelProviderResponse
-	5,  // 15: construct.v1.ModelProviderService.GetProvider:output_type -> construct.v1.GetModelProviderResponse
-	7,  // 16: construct.v1.ModelProviderService.ListProviders:output_type -> construct.v1.ListModelProvidersResponse
-	9,  // 17: construct.v1.ModelProviderService.UpdateProvider:output_type -> construct.v1.UpdateModelProviderResponse
-	11, // 18: construct.v1.ModelProviderService.DeleteProvider:output_type -> construct.v1.DeleteModelProviderResponse
-	14, // [14:19] is the sub-list for method output_type
-	9,  // [9:14] is the sub-list for method input_type
-	9,  // [9:9] is the sub-list for extension type_name
-	9,  // [9:9] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+	0,  // 9: construct.v1.ListModelProvidersRequest.Filter.provider_types:type_name -> construct.v1.ModelProviderType
+	1,  // 10: construct.v1.ModelProviderService.CreateModelProvider:input_type -> construct.v1.CreateModelProviderRequest
+	4,  // 11: construct.v1.ModelProviderService.GetModelProvider:input_type -> construct.v1.GetModelProviderRequest
+	6,  // 12: construct.v1.ModelProviderService.ListModelProviders:input_type -> construct.v1.ListModelProvidersRequest
+	8,  // 13: construct.v1.ModelProviderService.UpdateModelProvider:input_type -> construct.v1.UpdateModelProviderRequest
+	10, // 14: construct.v1.ModelProviderService.DeleteModelProvider:input_type -> construct.v1.DeleteModelProviderRequest
+	2,  // 15: construct.v1.ModelProviderService.CreateModelProvider:output_type -> construct.v1.CreateModelProviderResponse
+	5,  // 16: construct.v1.ModelProviderService.GetModelProvider:output_type -> construct.v1.GetModelProviderResponse
+	7,  // 17: construct.v1.ModelProviderService.ListModelProviders:output_type -> construct.v1.ListModelProvidersResponse
+	9,  // 18: construct.v1.ModelProviderService.UpdateModelProvider:output_type -> construct.v1.UpdateModelProviderResponse
+	11, // 19: construct.v1.ModelProviderService.DeleteModelProvider:output_type -> construct.v1.DeleteModelProviderResponse
+	15, // [15:20] is the sub-list for method output_type
+	10, // [10:15] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_construct_v1_modelprovider_proto_init() }
@@ -804,7 +871,13 @@ func file_construct_v1_modelprovider_proto_init() {
 	if File_construct_v1_modelprovider_proto != nil {
 		return
 	}
-	file_construct_v1_modelprovider_proto_msgTypes[7].OneofWrappers = []any{}
+	file_construct_v1_modelprovider_proto_msgTypes[0].OneofWrappers = []any{
+		(*CreateModelProviderRequest_ApiKey)(nil),
+	}
+	file_construct_v1_modelprovider_proto_msgTypes[7].OneofWrappers = []any{
+		(*UpdateModelProviderRequest_ApiKey)(nil),
+	}
+	file_construct_v1_modelprovider_proto_msgTypes[11].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

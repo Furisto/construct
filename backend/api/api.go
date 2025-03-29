@@ -4,29 +4,47 @@ import (
 	"net/http"
 
 	"connectrpc.com/connect"
+	"github.com/furisto/construct/api/go/v1/v1connect"
 	"github.com/furisto/construct/backend/memory"
+	"github.com/furisto/construct/backend/secret"
 )
 
 type HandlerOptions struct {
-	DB *memory.Client
+	DB         *memory.Client
+	Encryption *secret.Client
 }
 
 type Handler struct {
-	db *memory.Client
+	db         *memory.Client
+	encryption *secret.Client
+	mux        *http.ServeMux
 }
 
 func NewHandler(opts HandlerOptions) *Handler {
 	handler := &Handler{
-		db: opts.DB,
+		db:         opts.DB,
+		encryption: opts.Encryption,
+		mux:        http.NewServeMux(),
 	}
+
+	modelProviderHandler := NewModelProviderHandler(handler.db, handler.encryption)
+	handler.mux.Handle(v1connect.NewModelProviderServiceHandler(modelProviderHandler))
 
 	return handler
 }
 
-func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	
+func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.mux.ServeHTTP(w, r)
 }
 
-func apiError(error error) *connect.Error {
-	return connect.NewError(connect.CodeInternal, error)
+func apiError(err error) error {
+	if connect.CodeOf(err) != connect.CodeUnknown {
+		return err
+	}
+
+	if memory.IsNotFound(err) {
+		return connect.NewError(connect.CodeNotFound, err)
+	}
+
+	return connect.NewError(connect.CodeInternal, err)
 }

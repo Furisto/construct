@@ -33,30 +33,30 @@ const (
 // reflection-formatted method names, remove the leading slash and convert the remaining slash to a
 // period.
 const (
-	// ModelProviderServiceCreateProviderProcedure is the fully-qualified name of the
-	// ModelProviderService's CreateProvider RPC.
-	ModelProviderServiceCreateProviderProcedure = "/construct.v1.ModelProviderService/CreateProvider"
-	// ModelProviderServiceGetProviderProcedure is the fully-qualified name of the
-	// ModelProviderService's GetProvider RPC.
-	ModelProviderServiceGetProviderProcedure = "/construct.v1.ModelProviderService/GetProvider"
-	// ModelProviderServiceListProvidersProcedure is the fully-qualified name of the
-	// ModelProviderService's ListProviders RPC.
-	ModelProviderServiceListProvidersProcedure = "/construct.v1.ModelProviderService/ListProviders"
-	// ModelProviderServiceUpdateProviderProcedure is the fully-qualified name of the
-	// ModelProviderService's UpdateProvider RPC.
-	ModelProviderServiceUpdateProviderProcedure = "/construct.v1.ModelProviderService/UpdateProvider"
-	// ModelProviderServiceDeleteProviderProcedure is the fully-qualified name of the
-	// ModelProviderService's DeleteProvider RPC.
-	ModelProviderServiceDeleteProviderProcedure = "/construct.v1.ModelProviderService/DeleteProvider"
+	// ModelProviderServiceCreateModelProviderProcedure is the fully-qualified name of the
+	// ModelProviderService's CreateModelProvider RPC.
+	ModelProviderServiceCreateModelProviderProcedure = "/construct.v1.ModelProviderService/CreateModelProvider"
+	// ModelProviderServiceGetModelProviderProcedure is the fully-qualified name of the
+	// ModelProviderService's GetModelProvider RPC.
+	ModelProviderServiceGetModelProviderProcedure = "/construct.v1.ModelProviderService/GetModelProvider"
+	// ModelProviderServiceListModelProvidersProcedure is the fully-qualified name of the
+	// ModelProviderService's ListModelProviders RPC.
+	ModelProviderServiceListModelProvidersProcedure = "/construct.v1.ModelProviderService/ListModelProviders"
+	// ModelProviderServiceUpdateModelProviderProcedure is the fully-qualified name of the
+	// ModelProviderService's UpdateModelProvider RPC.
+	ModelProviderServiceUpdateModelProviderProcedure = "/construct.v1.ModelProviderService/UpdateModelProvider"
+	// ModelProviderServiceDeleteModelProviderProcedure is the fully-qualified name of the
+	// ModelProviderService's DeleteModelProvider RPC.
+	ModelProviderServiceDeleteModelProviderProcedure = "/construct.v1.ModelProviderService/DeleteModelProvider"
 )
 
 // ModelProviderServiceClient is a client for the construct.v1.ModelProviderService service.
 type ModelProviderServiceClient interface {
-	CreateProvider(context.Context, *connect.Request[v1.CreateModelProviderRequest]) (*connect.Response[v1.CreateModelProviderResponse], error)
-	GetProvider(context.Context, *connect.Request[v1.GetModelProviderRequest]) (*connect.Response[v1.GetModelProviderResponse], error)
-	ListProviders(context.Context, *connect.Request[v1.ListModelProvidersRequest]) (*connect.Response[v1.ListModelProvidersResponse], error)
-	UpdateProvider(context.Context, *connect.Request[v1.UpdateModelProviderRequest]) (*connect.Response[v1.UpdateModelProviderResponse], error)
-	DeleteProvider(context.Context, *connect.Request[v1.DeleteModelProviderRequest]) (*connect.Response[v1.DeleteModelProviderResponse], error)
+	CreateModelProvider(context.Context, *connect.Request[v1.CreateModelProviderRequest]) (*connect.Response[v1.CreateModelProviderResponse], error)
+	GetModelProvider(context.Context, *connect.Request[v1.GetModelProviderRequest]) (*connect.Response[v1.GetModelProviderResponse], error)
+	ListModelProviders(context.Context, *connect.Request[v1.ListModelProvidersRequest]) (*connect.Response[v1.ListModelProvidersResponse], error)
+	UpdateModelProvider(context.Context, *connect.Request[v1.UpdateModelProviderRequest]) (*connect.Response[v1.UpdateModelProviderResponse], error)
+	DeleteModelProvider(context.Context, *connect.Request[v1.DeleteModelProviderRequest]) (*connect.Response[v1.DeleteModelProviderResponse], error)
 }
 
 // NewModelProviderServiceClient constructs a client for the construct.v1.ModelProviderService
@@ -70,36 +70,36 @@ func NewModelProviderServiceClient(httpClient connect.HTTPClient, baseURL string
 	baseURL = strings.TrimRight(baseURL, "/")
 	modelProviderServiceMethods := v1.File_construct_v1_modelprovider_proto.Services().ByName("ModelProviderService").Methods()
 	return &modelProviderServiceClient{
-		createProvider: connect.NewClient[v1.CreateModelProviderRequest, v1.CreateModelProviderResponse](
+		createModelProvider: connect.NewClient[v1.CreateModelProviderRequest, v1.CreateModelProviderResponse](
 			httpClient,
-			baseURL+ModelProviderServiceCreateProviderProcedure,
-			connect.WithSchema(modelProviderServiceMethods.ByName("CreateProvider")),
+			baseURL+ModelProviderServiceCreateModelProviderProcedure,
+			connect.WithSchema(modelProviderServiceMethods.ByName("CreateModelProvider")),
 			connect.WithClientOptions(opts...),
 		),
-		getProvider: connect.NewClient[v1.GetModelProviderRequest, v1.GetModelProviderResponse](
+		getModelProvider: connect.NewClient[v1.GetModelProviderRequest, v1.GetModelProviderResponse](
 			httpClient,
-			baseURL+ModelProviderServiceGetProviderProcedure,
-			connect.WithSchema(modelProviderServiceMethods.ByName("GetProvider")),
+			baseURL+ModelProviderServiceGetModelProviderProcedure,
+			connect.WithSchema(modelProviderServiceMethods.ByName("GetModelProvider")),
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
-		listProviders: connect.NewClient[v1.ListModelProvidersRequest, v1.ListModelProvidersResponse](
+		listModelProviders: connect.NewClient[v1.ListModelProvidersRequest, v1.ListModelProvidersResponse](
 			httpClient,
-			baseURL+ModelProviderServiceListProvidersProcedure,
-			connect.WithSchema(modelProviderServiceMethods.ByName("ListProviders")),
+			baseURL+ModelProviderServiceListModelProvidersProcedure,
+			connect.WithSchema(modelProviderServiceMethods.ByName("ListModelProviders")),
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
-		updateProvider: connect.NewClient[v1.UpdateModelProviderRequest, v1.UpdateModelProviderResponse](
+		updateModelProvider: connect.NewClient[v1.UpdateModelProviderRequest, v1.UpdateModelProviderResponse](
 			httpClient,
-			baseURL+ModelProviderServiceUpdateProviderProcedure,
-			connect.WithSchema(modelProviderServiceMethods.ByName("UpdateProvider")),
+			baseURL+ModelProviderServiceUpdateModelProviderProcedure,
+			connect.WithSchema(modelProviderServiceMethods.ByName("UpdateModelProvider")),
 			connect.WithClientOptions(opts...),
 		),
-		deleteProvider: connect.NewClient[v1.DeleteModelProviderRequest, v1.DeleteModelProviderResponse](
+		deleteModelProvider: connect.NewClient[v1.DeleteModelProviderRequest, v1.DeleteModelProviderResponse](
 			httpClient,
-			baseURL+ModelProviderServiceDeleteProviderProcedure,
-			connect.WithSchema(modelProviderServiceMethods.ByName("DeleteProvider")),
+			baseURL+ModelProviderServiceDeleteModelProviderProcedure,
+			connect.WithSchema(modelProviderServiceMethods.ByName("DeleteModelProvider")),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -107,46 +107,46 @@ func NewModelProviderServiceClient(httpClient connect.HTTPClient, baseURL string
 
 // modelProviderServiceClient implements ModelProviderServiceClient.
 type modelProviderServiceClient struct {
-	createProvider *connect.Client[v1.CreateModelProviderRequest, v1.CreateModelProviderResponse]
-	getProvider    *connect.Client[v1.GetModelProviderRequest, v1.GetModelProviderResponse]
-	listProviders  *connect.Client[v1.ListModelProvidersRequest, v1.ListModelProvidersResponse]
-	updateProvider *connect.Client[v1.UpdateModelProviderRequest, v1.UpdateModelProviderResponse]
-	deleteProvider *connect.Client[v1.DeleteModelProviderRequest, v1.DeleteModelProviderResponse]
+	createModelProvider *connect.Client[v1.CreateModelProviderRequest, v1.CreateModelProviderResponse]
+	getModelProvider    *connect.Client[v1.GetModelProviderRequest, v1.GetModelProviderResponse]
+	listModelProviders  *connect.Client[v1.ListModelProvidersRequest, v1.ListModelProvidersResponse]
+	updateModelProvider *connect.Client[v1.UpdateModelProviderRequest, v1.UpdateModelProviderResponse]
+	deleteModelProvider *connect.Client[v1.DeleteModelProviderRequest, v1.DeleteModelProviderResponse]
 }
 
-// CreateProvider calls construct.v1.ModelProviderService.CreateProvider.
-func (c *modelProviderServiceClient) CreateProvider(ctx context.Context, req *connect.Request[v1.CreateModelProviderRequest]) (*connect.Response[v1.CreateModelProviderResponse], error) {
-	return c.createProvider.CallUnary(ctx, req)
+// CreateModelProvider calls construct.v1.ModelProviderService.CreateModelProvider.
+func (c *modelProviderServiceClient) CreateModelProvider(ctx context.Context, req *connect.Request[v1.CreateModelProviderRequest]) (*connect.Response[v1.CreateModelProviderResponse], error) {
+	return c.createModelProvider.CallUnary(ctx, req)
 }
 
-// GetProvider calls construct.v1.ModelProviderService.GetProvider.
-func (c *modelProviderServiceClient) GetProvider(ctx context.Context, req *connect.Request[v1.GetModelProviderRequest]) (*connect.Response[v1.GetModelProviderResponse], error) {
-	return c.getProvider.CallUnary(ctx, req)
+// GetModelProvider calls construct.v1.ModelProviderService.GetModelProvider.
+func (c *modelProviderServiceClient) GetModelProvider(ctx context.Context, req *connect.Request[v1.GetModelProviderRequest]) (*connect.Response[v1.GetModelProviderResponse], error) {
+	return c.getModelProvider.CallUnary(ctx, req)
 }
 
-// ListProviders calls construct.v1.ModelProviderService.ListProviders.
-func (c *modelProviderServiceClient) ListProviders(ctx context.Context, req *connect.Request[v1.ListModelProvidersRequest]) (*connect.Response[v1.ListModelProvidersResponse], error) {
-	return c.listProviders.CallUnary(ctx, req)
+// ListModelProviders calls construct.v1.ModelProviderService.ListModelProviders.
+func (c *modelProviderServiceClient) ListModelProviders(ctx context.Context, req *connect.Request[v1.ListModelProvidersRequest]) (*connect.Response[v1.ListModelProvidersResponse], error) {
+	return c.listModelProviders.CallUnary(ctx, req)
 }
 
-// UpdateProvider calls construct.v1.ModelProviderService.UpdateProvider.
-func (c *modelProviderServiceClient) UpdateProvider(ctx context.Context, req *connect.Request[v1.UpdateModelProviderRequest]) (*connect.Response[v1.UpdateModelProviderResponse], error) {
-	return c.updateProvider.CallUnary(ctx, req)
+// UpdateModelProvider calls construct.v1.ModelProviderService.UpdateModelProvider.
+func (c *modelProviderServiceClient) UpdateModelProvider(ctx context.Context, req *connect.Request[v1.UpdateModelProviderRequest]) (*connect.Response[v1.UpdateModelProviderResponse], error) {
+	return c.updateModelProvider.CallUnary(ctx, req)
 }
 
-// DeleteProvider calls construct.v1.ModelProviderService.DeleteProvider.
-func (c *modelProviderServiceClient) DeleteProvider(ctx context.Context, req *connect.Request[v1.DeleteModelProviderRequest]) (*connect.Response[v1.DeleteModelProviderResponse], error) {
-	return c.deleteProvider.CallUnary(ctx, req)
+// DeleteModelProvider calls construct.v1.ModelProviderService.DeleteModelProvider.
+func (c *modelProviderServiceClient) DeleteModelProvider(ctx context.Context, req *connect.Request[v1.DeleteModelProviderRequest]) (*connect.Response[v1.DeleteModelProviderResponse], error) {
+	return c.deleteModelProvider.CallUnary(ctx, req)
 }
 
 // ModelProviderServiceHandler is an implementation of the construct.v1.ModelProviderService
 // service.
 type ModelProviderServiceHandler interface {
-	CreateProvider(context.Context, *connect.Request[v1.CreateModelProviderRequest]) (*connect.Response[v1.CreateModelProviderResponse], error)
-	GetProvider(context.Context, *connect.Request[v1.GetModelProviderRequest]) (*connect.Response[v1.GetModelProviderResponse], error)
-	ListProviders(context.Context, *connect.Request[v1.ListModelProvidersRequest]) (*connect.Response[v1.ListModelProvidersResponse], error)
-	UpdateProvider(context.Context, *connect.Request[v1.UpdateModelProviderRequest]) (*connect.Response[v1.UpdateModelProviderResponse], error)
-	DeleteProvider(context.Context, *connect.Request[v1.DeleteModelProviderRequest]) (*connect.Response[v1.DeleteModelProviderResponse], error)
+	CreateModelProvider(context.Context, *connect.Request[v1.CreateModelProviderRequest]) (*connect.Response[v1.CreateModelProviderResponse], error)
+	GetModelProvider(context.Context, *connect.Request[v1.GetModelProviderRequest]) (*connect.Response[v1.GetModelProviderResponse], error)
+	ListModelProviders(context.Context, *connect.Request[v1.ListModelProvidersRequest]) (*connect.Response[v1.ListModelProvidersResponse], error)
+	UpdateModelProvider(context.Context, *connect.Request[v1.UpdateModelProviderRequest]) (*connect.Response[v1.UpdateModelProviderResponse], error)
+	DeleteModelProvider(context.Context, *connect.Request[v1.DeleteModelProviderRequest]) (*connect.Response[v1.DeleteModelProviderResponse], error)
 }
 
 // NewModelProviderServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -156,50 +156,50 @@ type ModelProviderServiceHandler interface {
 // and JSON codecs. They also support gzip compression.
 func NewModelProviderServiceHandler(svc ModelProviderServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
 	modelProviderServiceMethods := v1.File_construct_v1_modelprovider_proto.Services().ByName("ModelProviderService").Methods()
-	modelProviderServiceCreateProviderHandler := connect.NewUnaryHandler(
-		ModelProviderServiceCreateProviderProcedure,
-		svc.CreateProvider,
-		connect.WithSchema(modelProviderServiceMethods.ByName("CreateProvider")),
+	modelProviderServiceCreateModelProviderHandler := connect.NewUnaryHandler(
+		ModelProviderServiceCreateModelProviderProcedure,
+		svc.CreateModelProvider,
+		connect.WithSchema(modelProviderServiceMethods.ByName("CreateModelProvider")),
 		connect.WithHandlerOptions(opts...),
 	)
-	modelProviderServiceGetProviderHandler := connect.NewUnaryHandler(
-		ModelProviderServiceGetProviderProcedure,
-		svc.GetProvider,
-		connect.WithSchema(modelProviderServiceMethods.ByName("GetProvider")),
+	modelProviderServiceGetModelProviderHandler := connect.NewUnaryHandler(
+		ModelProviderServiceGetModelProviderProcedure,
+		svc.GetModelProvider,
+		connect.WithSchema(modelProviderServiceMethods.ByName("GetModelProvider")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
-	modelProviderServiceListProvidersHandler := connect.NewUnaryHandler(
-		ModelProviderServiceListProvidersProcedure,
-		svc.ListProviders,
-		connect.WithSchema(modelProviderServiceMethods.ByName("ListProviders")),
+	modelProviderServiceListModelProvidersHandler := connect.NewUnaryHandler(
+		ModelProviderServiceListModelProvidersProcedure,
+		svc.ListModelProviders,
+		connect.WithSchema(modelProviderServiceMethods.ByName("ListModelProviders")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
-	modelProviderServiceUpdateProviderHandler := connect.NewUnaryHandler(
-		ModelProviderServiceUpdateProviderProcedure,
-		svc.UpdateProvider,
-		connect.WithSchema(modelProviderServiceMethods.ByName("UpdateProvider")),
+	modelProviderServiceUpdateModelProviderHandler := connect.NewUnaryHandler(
+		ModelProviderServiceUpdateModelProviderProcedure,
+		svc.UpdateModelProvider,
+		connect.WithSchema(modelProviderServiceMethods.ByName("UpdateModelProvider")),
 		connect.WithHandlerOptions(opts...),
 	)
-	modelProviderServiceDeleteProviderHandler := connect.NewUnaryHandler(
-		ModelProviderServiceDeleteProviderProcedure,
-		svc.DeleteProvider,
-		connect.WithSchema(modelProviderServiceMethods.ByName("DeleteProvider")),
+	modelProviderServiceDeleteModelProviderHandler := connect.NewUnaryHandler(
+		ModelProviderServiceDeleteModelProviderProcedure,
+		svc.DeleteModelProvider,
+		connect.WithSchema(modelProviderServiceMethods.ByName("DeleteModelProvider")),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/construct.v1.ModelProviderService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case ModelProviderServiceCreateProviderProcedure:
-			modelProviderServiceCreateProviderHandler.ServeHTTP(w, r)
-		case ModelProviderServiceGetProviderProcedure:
-			modelProviderServiceGetProviderHandler.ServeHTTP(w, r)
-		case ModelProviderServiceListProvidersProcedure:
-			modelProviderServiceListProvidersHandler.ServeHTTP(w, r)
-		case ModelProviderServiceUpdateProviderProcedure:
-			modelProviderServiceUpdateProviderHandler.ServeHTTP(w, r)
-		case ModelProviderServiceDeleteProviderProcedure:
-			modelProviderServiceDeleteProviderHandler.ServeHTTP(w, r)
+		case ModelProviderServiceCreateModelProviderProcedure:
+			modelProviderServiceCreateModelProviderHandler.ServeHTTP(w, r)
+		case ModelProviderServiceGetModelProviderProcedure:
+			modelProviderServiceGetModelProviderHandler.ServeHTTP(w, r)
+		case ModelProviderServiceListModelProvidersProcedure:
+			modelProviderServiceListModelProvidersHandler.ServeHTTP(w, r)
+		case ModelProviderServiceUpdateModelProviderProcedure:
+			modelProviderServiceUpdateModelProviderHandler.ServeHTTP(w, r)
+		case ModelProviderServiceDeleteModelProviderProcedure:
+			modelProviderServiceDeleteModelProviderHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -209,22 +209,22 @@ func NewModelProviderServiceHandler(svc ModelProviderServiceHandler, opts ...con
 // UnimplementedModelProviderServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedModelProviderServiceHandler struct{}
 
-func (UnimplementedModelProviderServiceHandler) CreateProvider(context.Context, *connect.Request[v1.CreateModelProviderRequest]) (*connect.Response[v1.CreateModelProviderResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("construct.v1.ModelProviderService.CreateProvider is not implemented"))
+func (UnimplementedModelProviderServiceHandler) CreateModelProvider(context.Context, *connect.Request[v1.CreateModelProviderRequest]) (*connect.Response[v1.CreateModelProviderResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("construct.v1.ModelProviderService.CreateModelProvider is not implemented"))
 }
 
-func (UnimplementedModelProviderServiceHandler) GetProvider(context.Context, *connect.Request[v1.GetModelProviderRequest]) (*connect.Response[v1.GetModelProviderResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("construct.v1.ModelProviderService.GetProvider is not implemented"))
+func (UnimplementedModelProviderServiceHandler) GetModelProvider(context.Context, *connect.Request[v1.GetModelProviderRequest]) (*connect.Response[v1.GetModelProviderResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("construct.v1.ModelProviderService.GetModelProvider is not implemented"))
 }
 
-func (UnimplementedModelProviderServiceHandler) ListProviders(context.Context, *connect.Request[v1.ListModelProvidersRequest]) (*connect.Response[v1.ListModelProvidersResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("construct.v1.ModelProviderService.ListProviders is not implemented"))
+func (UnimplementedModelProviderServiceHandler) ListModelProviders(context.Context, *connect.Request[v1.ListModelProvidersRequest]) (*connect.Response[v1.ListModelProvidersResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("construct.v1.ModelProviderService.ListModelProviders is not implemented"))
 }
 
-func (UnimplementedModelProviderServiceHandler) UpdateProvider(context.Context, *connect.Request[v1.UpdateModelProviderRequest]) (*connect.Response[v1.UpdateModelProviderResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("construct.v1.ModelProviderService.UpdateProvider is not implemented"))
+func (UnimplementedModelProviderServiceHandler) UpdateModelProvider(context.Context, *connect.Request[v1.UpdateModelProviderRequest]) (*connect.Response[v1.UpdateModelProviderResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("construct.v1.ModelProviderService.UpdateModelProvider is not implemented"))
 }
 
-func (UnimplementedModelProviderServiceHandler) DeleteProvider(context.Context, *connect.Request[v1.DeleteModelProviderRequest]) (*connect.Response[v1.DeleteModelProviderResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("construct.v1.ModelProviderService.DeleteProvider is not implemented"))
+func (UnimplementedModelProviderServiceHandler) DeleteModelProvider(context.Context, *connect.Request[v1.DeleteModelProviderRequest]) (*connect.Response[v1.DeleteModelProviderResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("construct.v1.ModelProviderService.DeleteModelProvider is not implemented"))
 }
