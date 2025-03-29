@@ -4,6 +4,7 @@ package memory
 
 import (
 	"context"
+	"database/sql/driver"
 	"fmt"
 	"math"
 
@@ -11,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/furisto/construct/backend/memory/agent"
 	"github.com/furisto/construct/backend/memory/model"
 	"github.com/furisto/construct/backend/memory/modelprovider"
 	"github.com/furisto/construct/backend/memory/predicate"
@@ -25,6 +27,7 @@ type ModelQuery struct {
 	inters            []Interceptor
 	predicates        []predicate.Model
 	withModelProvider *ModelProviderQuery
+	withAgents        *AgentQuery
 	withFKs           bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
@@ -77,6 +80,28 @@ func (mq *ModelQuery) QueryModelProvider() *ModelProviderQuery {
 			sqlgraph.From(model.Table, model.FieldID, selector),
 			sqlgraph.To(modelprovider.Table, modelprovider.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, model.ModelProviderTable, model.ModelProviderColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(mq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryAgents chains the current query on the "agents" edge.
+func (mq *ModelQuery) QueryAgents() *AgentQuery {
+	query := (&AgentClient{config: mq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := mq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := mq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(model.Table, model.FieldID, selector),
+			sqlgraph.To(agent.Table, agent.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, model.AgentsTable, model.AgentsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(mq.driver.Dialect(), step)
 		return fromU, nil
@@ -277,6 +302,7 @@ func (mq *ModelQuery) Clone() *ModelQuery {
 		inters:            append([]Interceptor{}, mq.inters...),
 		predicates:        append([]predicate.Model{}, mq.predicates...),
 		withModelProvider: mq.withModelProvider.Clone(),
+		withAgents:        mq.withAgents.Clone(),
 		// clone intermediate query.
 		sql:  mq.sql.Clone(),
 		path: mq.path,
@@ -291,6 +317,17 @@ func (mq *ModelQuery) WithModelProvider(opts ...func(*ModelProviderQuery)) *Mode
 		opt(query)
 	}
 	mq.withModelProvider = query
+	return mq
+}
+
+// WithAgents tells the query-builder to eager-load the nodes that are connected to
+// the "agents" edge. The optional arguments are used to configure the query builder of the edge.
+func (mq *ModelQuery) WithAgents(opts ...func(*AgentQuery)) *ModelQuery {
+	query := (&AgentClient{config: mq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	mq.withAgents = query
 	return mq
 }
 
@@ -373,8 +410,9 @@ func (mq *ModelQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Model,
 		nodes       = []*Model{}
 		withFKs     = mq.withFKs
 		_spec       = mq.querySpec()
-		loadedTypes = [1]bool{
+		loadedTypes = [2]bool{
 			mq.withModelProvider != nil,
+			mq.withAgents != nil,
 		}
 	)
 	if mq.withModelProvider != nil {
@@ -404,6 +442,13 @@ func (mq *ModelQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Model,
 	if query := mq.withModelProvider; query != nil {
 		if err := mq.loadModelProvider(ctx, query, nodes, nil,
 			func(n *Model, e *ModelProvider) { n.Edges.ModelProvider = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := mq.withAgents; query != nil {
+		if err := mq.loadAgents(ctx, query, nodes,
+			func(n *Model) { n.Edges.Agents = []*Agent{} },
+			func(n *Model, e *Agent) { n.Edges.Agents = append(n.Edges.Agents, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -439,6 +484,37 @@ func (mq *ModelQuery) loadModelProvider(ctx context.Context, query *ModelProvide
 		for i := range nodes {
 			assign(nodes[i], n)
 		}
+	}
+	return nil
+}
+func (mq *ModelQuery) loadAgents(ctx context.Context, query *AgentQuery, nodes []*Model, init func(*Model), assign func(*Model, *Agent)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*Model)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	query.withFKs = true
+	query.Where(predicate.Agent(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(model.AgentsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.model_agents
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "model_agents" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "model_agents" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
 	}
 	return nil
 }

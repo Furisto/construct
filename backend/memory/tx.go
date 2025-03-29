@@ -12,6 +12,8 @@ import (
 // Tx is a transactional client that is created by calling Client.Tx().
 type Tx struct {
 	config
+	// Agent is the client for interacting with the Agent builders.
+	Agent *AgentClient
 	// Message is the client for interacting with the Message builders.
 	Message *MessageClient
 	// Model is the client for interacting with the Model builders.
@@ -151,6 +153,7 @@ func (tx *Tx) Client() *Client {
 }
 
 func (tx *Tx) init() {
+	tx.Agent = NewAgentClient(tx.config)
 	tx.Message = NewMessageClient(tx.config)
 	tx.Model = NewModelClient(tx.config)
 	tx.ModelProvider = NewModelProviderClient(tx.config)
@@ -164,7 +167,7 @@ func (tx *Tx) init() {
 // of them in order to commit or rollback the transaction.
 //
 // If a closed transaction is embedded in one of the generated entities, and the entity
-// applies a query, for example: Message.QueryXXX(), the query will be executed
+// applies a query, for example: Agent.QueryXXX(), the query will be executed
 // through the driver which created this transaction.
 //
 // Note that txDriver is not goroutine safe.

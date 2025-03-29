@@ -9,8 +9,10 @@ import (
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/furisto/construct/backend/memory/agent"
 	"github.com/furisto/construct/backend/memory/model"
 	"github.com/furisto/construct/backend/memory/modelprovider"
+	"github.com/furisto/construct/backend/memory/schema/types"
 	"github.com/google/uuid"
 )
 
@@ -30,6 +32,68 @@ func (mc *ModelCreate) SetName(s string) *ModelCreate {
 // SetContextWindow sets the "context_window" field.
 func (mc *ModelCreate) SetContextWindow(i int64) *ModelCreate {
 	mc.mutation.SetContextWindow(i)
+	return mc
+}
+
+// SetCapabilities sets the "capabilities" field.
+func (mc *ModelCreate) SetCapabilities(tc []types.ModelCapability) *ModelCreate {
+	mc.mutation.SetCapabilities(tc)
+	return mc
+}
+
+// SetInputCost sets the "input_cost" field.
+func (mc *ModelCreate) SetInputCost(f float64) *ModelCreate {
+	mc.mutation.SetInputCost(f)
+	return mc
+}
+
+// SetNillableInputCost sets the "input_cost" field if the given value is not nil.
+func (mc *ModelCreate) SetNillableInputCost(f *float64) *ModelCreate {
+	if f != nil {
+		mc.SetInputCost(*f)
+	}
+	return mc
+}
+
+// SetOutputCost sets the "output_cost" field.
+func (mc *ModelCreate) SetOutputCost(f float64) *ModelCreate {
+	mc.mutation.SetOutputCost(f)
+	return mc
+}
+
+// SetNillableOutputCost sets the "output_cost" field if the given value is not nil.
+func (mc *ModelCreate) SetNillableOutputCost(f *float64) *ModelCreate {
+	if f != nil {
+		mc.SetOutputCost(*f)
+	}
+	return mc
+}
+
+// SetCacheWriteCost sets the "cache_write_cost" field.
+func (mc *ModelCreate) SetCacheWriteCost(f float64) *ModelCreate {
+	mc.mutation.SetCacheWriteCost(f)
+	return mc
+}
+
+// SetNillableCacheWriteCost sets the "cache_write_cost" field if the given value is not nil.
+func (mc *ModelCreate) SetNillableCacheWriteCost(f *float64) *ModelCreate {
+	if f != nil {
+		mc.SetCacheWriteCost(*f)
+	}
+	return mc
+}
+
+// SetCacheReadCost sets the "cache_read_cost" field.
+func (mc *ModelCreate) SetCacheReadCost(f float64) *ModelCreate {
+	mc.mutation.SetCacheReadCost(f)
+	return mc
+}
+
+// SetNillableCacheReadCost sets the "cache_read_cost" field if the given value is not nil.
+func (mc *ModelCreate) SetNillableCacheReadCost(f *float64) *ModelCreate {
+	if f != nil {
+		mc.SetCacheReadCost(*f)
+	}
 	return mc
 }
 
@@ -80,6 +144,21 @@ func (mc *ModelCreate) SetModelProvider(m *ModelProvider) *ModelCreate {
 	return mc.SetModelProviderID(m.ID)
 }
 
+// AddAgentIDs adds the "agents" edge to the Agent entity by IDs.
+func (mc *ModelCreate) AddAgentIDs(ids ...uuid.UUID) *ModelCreate {
+	mc.mutation.AddAgentIDs(ids...)
+	return mc
+}
+
+// AddAgents adds the "agents" edges to the Agent entity.
+func (mc *ModelCreate) AddAgents(a ...*Agent) *ModelCreate {
+	ids := make([]uuid.UUID, len(a))
+	for i := range a {
+		ids[i] = a[i].ID
+	}
+	return mc.AddAgentIDs(ids...)
+}
+
 // Mutation returns the ModelMutation object of the builder.
 func (mc *ModelCreate) Mutation() *ModelMutation {
 	return mc.mutation
@@ -115,6 +194,22 @@ func (mc *ModelCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (mc *ModelCreate) defaults() {
+	if _, ok := mc.mutation.InputCost(); !ok {
+		v := model.DefaultInputCost
+		mc.mutation.SetInputCost(v)
+	}
+	if _, ok := mc.mutation.OutputCost(); !ok {
+		v := model.DefaultOutputCost
+		mc.mutation.SetOutputCost(v)
+	}
+	if _, ok := mc.mutation.CacheWriteCost(); !ok {
+		v := model.DefaultCacheWriteCost
+		mc.mutation.SetCacheWriteCost(v)
+	}
+	if _, ok := mc.mutation.CacheReadCost(); !ok {
+		v := model.DefaultCacheReadCost
+		mc.mutation.SetCacheReadCost(v)
+	}
 	if _, ok := mc.mutation.Enabled(); !ok {
 		v := model.DefaultEnabled
 		mc.mutation.SetEnabled(v)
@@ -132,6 +227,38 @@ func (mc *ModelCreate) check() error {
 	}
 	if _, ok := mc.mutation.ContextWindow(); !ok {
 		return &ValidationError{Name: "context_window", err: errors.New(`memory: missing required field "Model.context_window"`)}
+	}
+	if _, ok := mc.mutation.InputCost(); !ok {
+		return &ValidationError{Name: "input_cost", err: errors.New(`memory: missing required field "Model.input_cost"`)}
+	}
+	if v, ok := mc.mutation.InputCost(); ok {
+		if err := model.InputCostValidator(v); err != nil {
+			return &ValidationError{Name: "input_cost", err: fmt.Errorf(`memory: validator failed for field "Model.input_cost": %w`, err)}
+		}
+	}
+	if _, ok := mc.mutation.OutputCost(); !ok {
+		return &ValidationError{Name: "output_cost", err: errors.New(`memory: missing required field "Model.output_cost"`)}
+	}
+	if v, ok := mc.mutation.OutputCost(); ok {
+		if err := model.OutputCostValidator(v); err != nil {
+			return &ValidationError{Name: "output_cost", err: fmt.Errorf(`memory: validator failed for field "Model.output_cost": %w`, err)}
+		}
+	}
+	if _, ok := mc.mutation.CacheWriteCost(); !ok {
+		return &ValidationError{Name: "cache_write_cost", err: errors.New(`memory: missing required field "Model.cache_write_cost"`)}
+	}
+	if v, ok := mc.mutation.CacheWriteCost(); ok {
+		if err := model.CacheWriteCostValidator(v); err != nil {
+			return &ValidationError{Name: "cache_write_cost", err: fmt.Errorf(`memory: validator failed for field "Model.cache_write_cost": %w`, err)}
+		}
+	}
+	if _, ok := mc.mutation.CacheReadCost(); !ok {
+		return &ValidationError{Name: "cache_read_cost", err: errors.New(`memory: missing required field "Model.cache_read_cost"`)}
+	}
+	if v, ok := mc.mutation.CacheReadCost(); ok {
+		if err := model.CacheReadCostValidator(v); err != nil {
+			return &ValidationError{Name: "cache_read_cost", err: fmt.Errorf(`memory: validator failed for field "Model.cache_read_cost": %w`, err)}
+		}
 	}
 	if _, ok := mc.mutation.Enabled(); !ok {
 		return &ValidationError{Name: "enabled", err: errors.New(`memory: missing required field "Model.enabled"`)}
@@ -179,6 +306,26 @@ func (mc *ModelCreate) createSpec() (*Model, *sqlgraph.CreateSpec) {
 		_spec.SetField(model.FieldContextWindow, field.TypeInt64, value)
 		_node.ContextWindow = value
 	}
+	if value, ok := mc.mutation.Capabilities(); ok {
+		_spec.SetField(model.FieldCapabilities, field.TypeJSON, value)
+		_node.Capabilities = value
+	}
+	if value, ok := mc.mutation.InputCost(); ok {
+		_spec.SetField(model.FieldInputCost, field.TypeFloat64, value)
+		_node.InputCost = value
+	}
+	if value, ok := mc.mutation.OutputCost(); ok {
+		_spec.SetField(model.FieldOutputCost, field.TypeFloat64, value)
+		_node.OutputCost = value
+	}
+	if value, ok := mc.mutation.CacheWriteCost(); ok {
+		_spec.SetField(model.FieldCacheWriteCost, field.TypeFloat64, value)
+		_node.CacheWriteCost = value
+	}
+	if value, ok := mc.mutation.CacheReadCost(); ok {
+		_spec.SetField(model.FieldCacheReadCost, field.TypeFloat64, value)
+		_node.CacheReadCost = value
+	}
 	if value, ok := mc.mutation.Enabled(); ok {
 		_spec.SetField(model.FieldEnabled, field.TypeBool, value)
 		_node.Enabled = value
@@ -198,6 +345,22 @@ func (mc *ModelCreate) createSpec() (*Model, *sqlgraph.CreateSpec) {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.model_provider_models = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := mc.mutation.AgentsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   model.AgentsTable,
+			Columns: []string{model.AgentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

@@ -5,6 +5,7 @@ package memory
 import (
 	"time"
 
+	"github.com/furisto/construct/backend/memory/agent"
 	"github.com/furisto/construct/backend/memory/message"
 	"github.com/furisto/construct/backend/memory/model"
 	"github.com/furisto/construct/backend/memory/modelprovider"
@@ -17,6 +18,16 @@ import (
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
+	agentFields := schema.Agent{}.Fields()
+	_ = agentFields
+	// agentDescName is the schema descriptor for name field.
+	agentDescName := agentFields[1].Descriptor()
+	// agent.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	agent.NameValidator = agentDescName.Validators[0].(func(string) error)
+	// agentDescID is the schema descriptor for id field.
+	agentDescID := agentFields[0].Descriptor()
+	// agent.DefaultID holds the default value on creation for the id field.
+	agent.DefaultID = agentDescID.Default.(func() uuid.UUID)
 	messageMixin := schema.Message{}.Mixin()
 	messageMixinFields1 := messageMixin[1].Fields()
 	_ = messageMixinFields1
@@ -38,8 +49,32 @@ func init() {
 	message.DefaultID = messageDescID.Default.(func() uuid.UUID)
 	modelFields := schema.Model{}.Fields()
 	_ = modelFields
+	// modelDescInputCost is the schema descriptor for input_cost field.
+	modelDescInputCost := modelFields[4].Descriptor()
+	// model.DefaultInputCost holds the default value on creation for the input_cost field.
+	model.DefaultInputCost = modelDescInputCost.Default.(float64)
+	// model.InputCostValidator is a validator for the "input_cost" field. It is called by the builders before save.
+	model.InputCostValidator = modelDescInputCost.Validators[0].(func(float64) error)
+	// modelDescOutputCost is the schema descriptor for output_cost field.
+	modelDescOutputCost := modelFields[5].Descriptor()
+	// model.DefaultOutputCost holds the default value on creation for the output_cost field.
+	model.DefaultOutputCost = modelDescOutputCost.Default.(float64)
+	// model.OutputCostValidator is a validator for the "output_cost" field. It is called by the builders before save.
+	model.OutputCostValidator = modelDescOutputCost.Validators[0].(func(float64) error)
+	// modelDescCacheWriteCost is the schema descriptor for cache_write_cost field.
+	modelDescCacheWriteCost := modelFields[6].Descriptor()
+	// model.DefaultCacheWriteCost holds the default value on creation for the cache_write_cost field.
+	model.DefaultCacheWriteCost = modelDescCacheWriteCost.Default.(float64)
+	// model.CacheWriteCostValidator is a validator for the "cache_write_cost" field. It is called by the builders before save.
+	model.CacheWriteCostValidator = modelDescCacheWriteCost.Validators[0].(func(float64) error)
+	// modelDescCacheReadCost is the schema descriptor for cache_read_cost field.
+	modelDescCacheReadCost := modelFields[7].Descriptor()
+	// model.DefaultCacheReadCost holds the default value on creation for the cache_read_cost field.
+	model.DefaultCacheReadCost = modelDescCacheReadCost.Default.(float64)
+	// model.CacheReadCostValidator is a validator for the "cache_read_cost" field. It is called by the builders before save.
+	model.CacheReadCostValidator = modelDescCacheReadCost.Validators[0].(func(float64) error)
 	// modelDescEnabled is the schema descriptor for enabled field.
-	modelDescEnabled := modelFields[3].Descriptor()
+	modelDescEnabled := modelFields[8].Descriptor()
 	// model.DefaultEnabled holds the default value on creation for the enabled field.
 	model.DefaultEnabled = modelDescEnabled.Default.(bool)
 	// modelDescID is the schema descriptor for id field.
@@ -65,10 +100,6 @@ func init() {
 	modelproviderDescName := modelproviderFields[1].Descriptor()
 	// modelprovider.NameValidator is a validator for the "name" field. It is called by the builders before save.
 	modelprovider.NameValidator = modelproviderDescName.Validators[0].(func(string) error)
-	// modelproviderDescURL is the schema descriptor for url field.
-	modelproviderDescURL := modelproviderFields[3].Descriptor()
-	// modelprovider.URLValidator is a validator for the "url" field. It is called by the builders before save.
-	modelprovider.URLValidator = modelproviderDescURL.Validators[0].(func(string) error)
 	// modelproviderDescSecret is the schema descriptor for secret field.
 	modelproviderDescSecret := modelproviderFields[4].Descriptor()
 	// modelprovider.SecretValidator is a validator for the "secret" field. It is called by the builders before save.

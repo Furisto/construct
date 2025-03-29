@@ -17,10 +17,22 @@ const (
 	FieldName = "name"
 	// FieldContextWindow holds the string denoting the context_window field in the database.
 	FieldContextWindow = "context_window"
+	// FieldCapabilities holds the string denoting the capabilities field in the database.
+	FieldCapabilities = "capabilities"
+	// FieldInputCost holds the string denoting the input_cost field in the database.
+	FieldInputCost = "input_cost"
+	// FieldOutputCost holds the string denoting the output_cost field in the database.
+	FieldOutputCost = "output_cost"
+	// FieldCacheWriteCost holds the string denoting the cache_write_cost field in the database.
+	FieldCacheWriteCost = "cache_write_cost"
+	// FieldCacheReadCost holds the string denoting the cache_read_cost field in the database.
+	FieldCacheReadCost = "cache_read_cost"
 	// FieldEnabled holds the string denoting the enabled field in the database.
 	FieldEnabled = "enabled"
 	// EdgeModelProvider holds the string denoting the model_provider edge name in mutations.
 	EdgeModelProvider = "model_provider"
+	// EdgeAgents holds the string denoting the agents edge name in mutations.
+	EdgeAgents = "agents"
 	// Table holds the table name of the model in the database.
 	Table = "models"
 	// ModelProviderTable is the table that holds the model_provider relation/edge.
@@ -30,6 +42,13 @@ const (
 	ModelProviderInverseTable = "model_providers"
 	// ModelProviderColumn is the table column denoting the model_provider relation/edge.
 	ModelProviderColumn = "model_provider_models"
+	// AgentsTable is the table that holds the agents relation/edge.
+	AgentsTable = "agents"
+	// AgentsInverseTable is the table name for the Agent entity.
+	// It exists in this package in order to avoid circular dependency with the "agent" package.
+	AgentsInverseTable = "agents"
+	// AgentsColumn is the table column denoting the agents relation/edge.
+	AgentsColumn = "model_agents"
 )
 
 // Columns holds all SQL columns for model fields.
@@ -37,6 +56,11 @@ var Columns = []string{
 	FieldID,
 	FieldName,
 	FieldContextWindow,
+	FieldCapabilities,
+	FieldInputCost,
+	FieldOutputCost,
+	FieldCacheWriteCost,
+	FieldCacheReadCost,
 	FieldEnabled,
 }
 
@@ -62,6 +86,22 @@ func ValidColumn(column string) bool {
 }
 
 var (
+	// DefaultInputCost holds the default value on creation for the "input_cost" field.
+	DefaultInputCost float64
+	// InputCostValidator is a validator for the "input_cost" field. It is called by the builders before save.
+	InputCostValidator func(float64) error
+	// DefaultOutputCost holds the default value on creation for the "output_cost" field.
+	DefaultOutputCost float64
+	// OutputCostValidator is a validator for the "output_cost" field. It is called by the builders before save.
+	OutputCostValidator func(float64) error
+	// DefaultCacheWriteCost holds the default value on creation for the "cache_write_cost" field.
+	DefaultCacheWriteCost float64
+	// CacheWriteCostValidator is a validator for the "cache_write_cost" field. It is called by the builders before save.
+	CacheWriteCostValidator func(float64) error
+	// DefaultCacheReadCost holds the default value on creation for the "cache_read_cost" field.
+	DefaultCacheReadCost float64
+	// CacheReadCostValidator is a validator for the "cache_read_cost" field. It is called by the builders before save.
+	CacheReadCostValidator func(float64) error
 	// DefaultEnabled holds the default value on creation for the "enabled" field.
 	DefaultEnabled bool
 	// DefaultID holds the default value on creation for the "id" field.
@@ -86,6 +126,26 @@ func ByContextWindow(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldContextWindow, opts...).ToFunc()
 }
 
+// ByInputCost orders the results by the input_cost field.
+func ByInputCost(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldInputCost, opts...).ToFunc()
+}
+
+// ByOutputCost orders the results by the output_cost field.
+func ByOutputCost(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldOutputCost, opts...).ToFunc()
+}
+
+// ByCacheWriteCost orders the results by the cache_write_cost field.
+func ByCacheWriteCost(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCacheWriteCost, opts...).ToFunc()
+}
+
+// ByCacheReadCost orders the results by the cache_read_cost field.
+func ByCacheReadCost(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCacheReadCost, opts...).ToFunc()
+}
+
 // ByEnabled orders the results by the enabled field.
 func ByEnabled(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldEnabled, opts...).ToFunc()
@@ -97,10 +157,31 @@ func ByModelProviderField(field string, opts ...sql.OrderTermOption) OrderOption
 		sqlgraph.OrderByNeighborTerms(s, newModelProviderStep(), sql.OrderByField(field, opts...))
 	}
 }
+
+// ByAgentsCount orders the results by agents count.
+func ByAgentsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newAgentsStep(), opts...)
+	}
+}
+
+// ByAgents orders the results by agents terms.
+func ByAgents(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAgentsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newModelProviderStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ModelProviderInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, ModelProviderTable, ModelProviderColumn),
+	)
+}
+func newAgentsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AgentsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, AgentsTable, AgentsColumn),
 	)
 }

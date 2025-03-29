@@ -8,6 +8,28 @@ import (
 )
 
 var (
+	// AgentsColumns holds the columns for the "agents" table.
+	AgentsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID, Unique: true},
+		{Name: "name", Type: field.TypeString},
+		{Name: "description", Type: field.TypeString, Nullable: true},
+		{Name: "instructions", Type: field.TypeString},
+		{Name: "model_agents", Type: field.TypeUUID, Nullable: true},
+	}
+	// AgentsTable holds the schema information for the "agents" table.
+	AgentsTable = &schema.Table{
+		Name:       "agents",
+		Columns:    AgentsColumns,
+		PrimaryKey: []*schema.Column{AgentsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "agents_models_agents",
+				Columns:    []*schema.Column{AgentsColumns[4]},
+				RefColumns: []*schema.Column{ModelsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+	}
 	// MessagesColumns holds the columns for the "messages" table.
 	MessagesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID, Unique: true},
@@ -36,6 +58,11 @@ var (
 		{Name: "id", Type: field.TypeUUID, Unique: true},
 		{Name: "name", Type: field.TypeString},
 		{Name: "context_window", Type: field.TypeInt64},
+		{Name: "capabilities", Type: field.TypeJSON, Nullable: true},
+		{Name: "input_cost", Type: field.TypeFloat64, Default: 0},
+		{Name: "output_cost", Type: field.TypeFloat64, Default: 0},
+		{Name: "cache_write_cost", Type: field.TypeFloat64, Default: 0},
+		{Name: "cache_read_cost", Type: field.TypeFloat64, Default: 0},
 		{Name: "enabled", Type: field.TypeBool, Default: true},
 		{Name: "model_provider_models", Type: field.TypeUUID, Nullable: true},
 	}
@@ -47,7 +74,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "models_model_providers_models",
-				Columns:    []*schema.Column{ModelsColumns[4]},
+				Columns:    []*schema.Column{ModelsColumns[9]},
 				RefColumns: []*schema.Column{ModelProvidersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -60,7 +87,7 @@ var (
 		{Name: "update_time", Type: field.TypeTime},
 		{Name: "name", Type: field.TypeString},
 		{Name: "provider_type", Type: field.TypeEnum, Enums: []string{"anthropic", "openai"}},
-		{Name: "url", Type: field.TypeString},
+		{Name: "url", Type: field.TypeString, Nullable: true},
 		{Name: "secret", Type: field.TypeBytes},
 		{Name: "enabled", Type: field.TypeBool, Default: true},
 	}
@@ -96,6 +123,31 @@ var (
 			},
 		},
 	}
+	// AgentDelegatorsColumns holds the columns for the "agent_delegators" table.
+	AgentDelegatorsColumns = []*schema.Column{
+		{Name: "agent_id", Type: field.TypeUUID},
+		{Name: "delegate_id", Type: field.TypeUUID},
+	}
+	// AgentDelegatorsTable holds the schema information for the "agent_delegators" table.
+	AgentDelegatorsTable = &schema.Table{
+		Name:       "agent_delegators",
+		Columns:    AgentDelegatorsColumns,
+		PrimaryKey: []*schema.Column{AgentDelegatorsColumns[0], AgentDelegatorsColumns[1]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "agent_delegators_agent_id",
+				Columns:    []*schema.Column{AgentDelegatorsColumns[0]},
+				RefColumns: []*schema.Column{AgentsColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+			{
+				Symbol:     "agent_delegators_delegate_id",
+				Columns:    []*schema.Column{AgentDelegatorsColumns[1]},
+				RefColumns: []*schema.Column{AgentsColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
+	}
 	// TaskMessagesColumns holds the columns for the "task_messages" table.
 	TaskMessagesColumns = []*schema.Column{
 		{Name: "task_id", Type: field.TypeUUID},
@@ -123,16 +175,21 @@ var (
 	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
+		AgentsTable,
 		MessagesTable,
 		ModelsTable,
 		ModelProvidersTable,
 		TasksTable,
+		AgentDelegatorsTable,
 		TaskMessagesTable,
 	}
 )
 
 func init() {
+	AgentsTable.ForeignKeys[0].RefTable = ModelsTable
 	ModelsTable.ForeignKeys[0].RefTable = ModelProvidersTable
+	AgentDelegatorsTable.ForeignKeys[0].RefTable = AgentsTable
+	AgentDelegatorsTable.ForeignKeys[1].RefTable = AgentsTable
 	TaskMessagesTable.ForeignKeys[0].RefTable = TasksTable
 	TaskMessagesTable.ForeignKeys[1].RefTable = MessagesTable
 }

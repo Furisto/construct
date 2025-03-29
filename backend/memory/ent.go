@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"github.com/furisto/construct/backend/memory/agent"
 	"github.com/furisto/construct/backend/memory/message"
 	"github.com/furisto/construct/backend/memory/model"
 	"github.com/furisto/construct/backend/memory/modelprovider"
@@ -76,6 +77,7 @@ var (
 func checkColumn(table, column string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
+			agent.Table:         agent.ValidColumn,
 			message.Table:       message.ValidColumn,
 			model.Table:         model.ValidColumn,
 			modelprovider.Table: modelprovider.ValidColumn,

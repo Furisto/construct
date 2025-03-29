@@ -9,6 +9,18 @@ import (
 	"github.com/furisto/construct/backend/memory"
 )
 
+// The AgentFunc type is an adapter to allow the use of ordinary
+// function as Agent mutator.
+type AgentFunc func(context.Context, *memory.AgentMutation) (memory.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f AgentFunc) Mutate(ctx context.Context, m memory.Mutation) (memory.Value, error) {
+	if mv, ok := m.(*memory.AgentMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *memory.AgentMutation", m)
+}
+
 // The MessageFunc type is an adapter to allow the use of ordinary
 // function as Message mutator.
 type MessageFunc func(context.Context, *memory.MessageMutation) (memory.Value, error)
