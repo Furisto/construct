@@ -37,7 +37,6 @@ func TestClientEncryptDecrypt(t *testing.T) {
 		t.Fatal("Decrypted data doesn't match original plaintext")
 	}
 
-
 	_, err = client.Decrypt(ciphertext, []byte("wrong data"))
 	if err == nil {
 		t.Fatal("Decryption with wrong associated data should fail")

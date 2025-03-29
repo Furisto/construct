@@ -79,6 +79,12 @@ func (mpu *ModelProviderUpdate) SetNillableURL(s *string) *ModelProviderUpdate {
 	return mpu
 }
 
+// ClearURL clears the value of the "url" field.
+func (mpu *ModelProviderUpdate) ClearURL() *ModelProviderUpdate {
+	mpu.mutation.ClearURL()
+	return mpu
+}
+
 // SetSecret sets the "secret" field.
 func (mpu *ModelProviderUpdate) SetSecret(b []byte) *ModelProviderUpdate {
 	mpu.mutation.SetSecret(b)
@@ -188,11 +194,6 @@ func (mpu *ModelProviderUpdate) check() error {
 			return &ValidationError{Name: "provider_type", err: fmt.Errorf(`memory: validator failed for field "ModelProvider.provider_type": %w`, err)}
 		}
 	}
-	if v, ok := mpu.mutation.URL(); ok {
-		if err := modelprovider.URLValidator(v); err != nil {
-			return &ValidationError{Name: "url", err: fmt.Errorf(`memory: validator failed for field "ModelProvider.url": %w`, err)}
-		}
-	}
 	if v, ok := mpu.mutation.Secret(); ok {
 		if err := modelprovider.SecretValidator(v); err != nil {
 			return &ValidationError{Name: "secret", err: fmt.Errorf(`memory: validator failed for field "ModelProvider.secret": %w`, err)}
@@ -224,6 +225,9 @@ func (mpu *ModelProviderUpdate) sqlSave(ctx context.Context) (n int, err error) 
 	}
 	if value, ok := mpu.mutation.URL(); ok {
 		_spec.SetField(modelprovider.FieldURL, field.TypeString, value)
+	}
+	if mpu.mutation.URLCleared() {
+		_spec.ClearField(modelprovider.FieldURL, field.TypeString)
 	}
 	if value, ok := mpu.mutation.Secret(); ok {
 		_spec.SetField(modelprovider.FieldSecret, field.TypeBytes, value)
@@ -341,6 +345,12 @@ func (mpuo *ModelProviderUpdateOne) SetNillableURL(s *string) *ModelProviderUpda
 	if s != nil {
 		mpuo.SetURL(*s)
 	}
+	return mpuo
+}
+
+// ClearURL clears the value of the "url" field.
+func (mpuo *ModelProviderUpdateOne) ClearURL() *ModelProviderUpdateOne {
+	mpuo.mutation.ClearURL()
 	return mpuo
 }
 
@@ -466,11 +476,6 @@ func (mpuo *ModelProviderUpdateOne) check() error {
 			return &ValidationError{Name: "provider_type", err: fmt.Errorf(`memory: validator failed for field "ModelProvider.provider_type": %w`, err)}
 		}
 	}
-	if v, ok := mpuo.mutation.URL(); ok {
-		if err := modelprovider.URLValidator(v); err != nil {
-			return &ValidationError{Name: "url", err: fmt.Errorf(`memory: validator failed for field "ModelProvider.url": %w`, err)}
-		}
-	}
 	if v, ok := mpuo.mutation.Secret(); ok {
 		if err := modelprovider.SecretValidator(v); err != nil {
 			return &ValidationError{Name: "secret", err: fmt.Errorf(`memory: validator failed for field "ModelProvider.secret": %w`, err)}
@@ -519,6 +524,9 @@ func (mpuo *ModelProviderUpdateOne) sqlSave(ctx context.Context) (_node *ModelPr
 	}
 	if value, ok := mpuo.mutation.URL(); ok {
 		_spec.SetField(modelprovider.FieldURL, field.TypeString, value)
+	}
+	if mpuo.mutation.URLCleared() {
+		_spec.ClearField(modelprovider.FieldURL, field.TypeString)
 	}
 	if value, ok := mpuo.mutation.Secret(); ok {
 		_spec.SetField(modelprovider.FieldSecret, field.TypeBytes, value)

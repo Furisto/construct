@@ -15,10 +15,6 @@ type MessageContentBlock struct {
 	Text string                  `json:"text"`
 }
 
-
-
-
-
 type MessageRole string
 
 const (

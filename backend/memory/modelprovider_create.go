@@ -69,6 +69,14 @@ func (mpc *ModelProviderCreate) SetURL(s string) *ModelProviderCreate {
 	return mpc
 }
 
+// SetNillableURL sets the "url" field if the given value is not nil.
+func (mpc *ModelProviderCreate) SetNillableURL(s *string) *ModelProviderCreate {
+	if s != nil {
+		mpc.SetURL(*s)
+	}
+	return mpc
+}
+
 // SetSecret sets the "secret" field.
 func (mpc *ModelProviderCreate) SetSecret(b []byte) *ModelProviderCreate {
 	mpc.mutation.SetSecret(b)
@@ -193,14 +201,6 @@ func (mpc *ModelProviderCreate) check() error {
 	if v, ok := mpc.mutation.ProviderType(); ok {
 		if err := modelprovider.ProviderTypeValidator(v); err != nil {
 			return &ValidationError{Name: "provider_type", err: fmt.Errorf(`memory: validator failed for field "ModelProvider.provider_type": %w`, err)}
-		}
-	}
-	if _, ok := mpc.mutation.URL(); !ok {
-		return &ValidationError{Name: "url", err: errors.New(`memory: missing required field "ModelProvider.url"`)}
-	}
-	if v, ok := mpc.mutation.URL(); ok {
-		if err := modelprovider.URLValidator(v); err != nil {
-			return &ValidationError{Name: "url", err: fmt.Errorf(`memory: validator failed for field "ModelProvider.url": %w`, err)}
 		}
 	}
 	if _, ok := mpc.mutation.Secret(); !ok {

@@ -317,6 +317,16 @@ func URLHasSuffix(v string) predicate.ModelProvider {
 	return predicate.ModelProvider(sql.FieldHasSuffix(FieldURL, v))
 }
 
+// URLIsNil applies the IsNil predicate on the "url" field.
+func URLIsNil() predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldIsNull(FieldURL))
+}
+
+// URLNotNil applies the NotNil predicate on the "url" field.
+func URLNotNil() predicate.ModelProvider {
+	return predicate.ModelProvider(sql.FieldNotNull(FieldURL))
+}
+
 // URLEqualFold applies the EqualFold predicate on the "url" field.
 func URLEqualFold(v string) predicate.ModelProvider {
 	return predicate.ModelProvider(sql.FieldEqualFold(FieldURL, v))

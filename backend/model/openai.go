@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/openai/openai-go"
-	"github.com/openai/openai-go/option"
 )
 
 type OpenAIProvider struct {
@@ -18,7 +17,7 @@ func NewOpenAIProvider(apiKey string) (*OpenAIProvider, error) {
 	}
 
 	return &OpenAIProvider{
-		client: openai.NewClient(option.WithAPIKey(apiKey)),
+		// client: openai.NewClient(option.WithAPIKey(apiKey)),
 	}, nil
 }
 

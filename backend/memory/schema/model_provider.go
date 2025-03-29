@@ -18,7 +18,7 @@ func (ModelProvider) Fields() []ent.Field {
 		field.UUID("id", uuid.UUID{}).Default(uuid.New).Unique().Immutable(),
 		field.String("name").NotEmpty(),
 		field.Enum("provider_type").GoType(types.ModelProviderType("")),
-		field.String("url").NotEmpty(),
+		field.String("url").Optional(),
 		field.Bytes("secret").NotEmpty().Sensitive(),
 		field.Bool("enabled").Default(true),
 	}

@@ -75,8 +75,6 @@ var (
 	UpdateDefaultUpdateTime func() time.Time
 	// NameValidator is a validator for the "name" field. It is called by the builders before save.
 	NameValidator func(string) error
-	// URLValidator is a validator for the "url" field. It is called by the builders before save.
-	URLValidator func(string) error
 	// SecretValidator is a validator for the "secret" field. It is called by the builders before save.
 	SecretValidator func([]byte) error
 	// DefaultEnabled holds the default value on creation for the "enabled" field.
