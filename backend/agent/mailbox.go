@@ -1,8 +1,8 @@
 package agent
 
 import (
-	"sync"
 	"github.com/google/uuid"
+	"sync"
 )
 
 type TaskQueue struct {

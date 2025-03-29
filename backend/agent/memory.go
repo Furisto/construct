@@ -1,6 +1,7 @@
 package agent
 
 import "github.com/furisto/construct/backend/model"
+
 type Memory interface {
 	Append(messages []model.Message) error
 }
@@ -41,4 +42,3 @@ func (m *FileMemory) Append(messages []model.Message) error {
 func (m *FileMemory) GetMessages() []model.Message {
 	return nil
 }
-
