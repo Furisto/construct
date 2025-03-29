@@ -1,0 +1,109 @@
+syntax = "proto3";
+
+package construct.v1;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/furisto/construct/api/go/v1";
+
+service AgentService {
+  rpc CreateAgent(CreateAgentRequest) returns (CreateAgentResponse) {}
+  rpc GetAgent(GetAgentRequest) returns (GetAgentResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  rpc UpdateAgent(UpdateAgentRequest) returns (UpdateAgentResponse) {}
+  rpc DeleteAgent(DeleteAgentRequest) returns (DeleteAgentResponse) {}
+}
+
+message Agent {
+  string id = 1 [(buf.validate.field).string.uuid = true];
+  AgentMetadata metadata = 2;
+  AgentSpec spec = 3;
+}
+
+message AgentMetadata {
+  string name = 2 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 255
+  ];
+  optional string description = 3 [(buf.validate.field).string.max_len = 1000];
+  google.protobuf.Timestamp created_at = 7 [(buf.validate.field).required = true];
+  google.protobuf.Timestamp updated_at = 8 [(buf.validate.field).required = true];
+}
+
+message AgentSpec {
+  string instructions = 4 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 10000
+  ];
+  string model_id = 5 [(buf.validate.field).string.uuid = true];
+  repeated string delegate_ids = 6 [(buf.validate.field).repeated.items.string.uuid = true];
+}
+
+message CreateAgentRequest {
+  string name = 1 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 255
+  ];
+  optional string description = 2 [(buf.validate.field).string.max_len = 1000];
+  string instructions = 3 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 10000
+  ];
+  string model_id = 4 [(buf.validate.field).string.uuid = true];
+  repeated string delegate_ids = 5 [(buf.validate.field).repeated.items.string.uuid = true];
+}
+
+message CreateAgentResponse {
+  Agent agent = 1 [(buf.validate.field).required = true];
+}
+
+message GetAgentRequest {
+  string id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message GetAgentResponse {
+  Agent agent = 1 [(buf.validate.field).required = true];
+}
+
+message ListAgentsRequest {
+  message Filter {
+    optional string model_id = 1 [(buf.validate.field).string.uuid = true];
+  }
+  Filter filter = 1;
+  string page_token = 2 [(buf.validate.field).string.max_len = 255];
+}
+
+message ListAgentsResponse {
+  repeated Agent agents = 1;
+  string next_page_token = 2;
+}
+
+message UpdateAgentRequest {
+  string id = 1 [(buf.validate.field).string.uuid = true];
+  optional string name = 2 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 255
+  ];
+  optional string description = 3 [(buf.validate.field).string.max_len = 1000];
+  optional string instructions = 4 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 10000
+  ];
+  optional string model_id = 5 [(buf.validate.field).string.uuid = true];
+  repeated string delegate_ids = 6 [(buf.validate.field).repeated.items.string.uuid = true];
+}
+
+message UpdateAgentResponse {
+  Agent agent = 1 [(buf.validate.field).required = true];
+}
+
+message DeleteAgentRequest {
+  string id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message DeleteAgentResponse {}
