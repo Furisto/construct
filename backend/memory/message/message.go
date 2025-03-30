@@ -33,11 +33,13 @@ const (
 	EdgeTask = "task"
 	// Table holds the table name of the message in the database.
 	Table = "messages"
-	// TaskTable is the table that holds the task relation/edge. The primary key declared below.
-	TaskTable = "task_messages"
+	// TaskTable is the table that holds the task relation/edge.
+	TaskTable = "messages"
 	// TaskInverseTable is the table name for the Task entity.
 	// It exists in this package in order to avoid circular dependency with the "task" package.
 	TaskInverseTable = "tasks"
+	// TaskColumn is the table column denoting the task relation/edge.
+	TaskColumn = "task_messages"
 )
 
 // Columns holds all SQL columns for message fields.
@@ -51,16 +53,21 @@ var Columns = []string{
 	FieldUsage,
 }
 
-var (
-	// TaskPrimaryKey and TaskColumn2 are the table columns denoting the
-	// primary key for the task relation (M2M).
-	TaskPrimaryKey = []string{"task_id", "message_id"}
-)
+// ForeignKeys holds the SQL foreign-keys that are owned by the "messages"
+// table and are not defined as standalone fields in the schema.
+var ForeignKeys = []string{
+	"task_messages",
+}
 
 // ValidColumn reports if the column name is valid (part of the table columns).
 func ValidColumn(column string) bool {
 	for i := range Columns {
 		if column == Columns[i] {
+			return true
+		}
+	}
+	for i := range ForeignKeys {
+		if column == ForeignKeys[i] {
 			return true
 		}
 	}
@@ -116,23 +123,16 @@ func ByRole(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRole, opts...).ToFunc()
 }
 
-// ByTaskCount orders the results by task count.
-func ByTaskCount(opts ...sql.OrderTermOption) OrderOption {
+// ByTaskField orders the results by task field.
+func ByTaskField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborsCount(s, newTaskStep(), opts...)
-	}
-}
-
-// ByTask orders the results by task terms.
-func ByTask(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborTerms(s, newTaskStep(), append([]sql.OrderTerm{term}, terms...)...)
+		sqlgraph.OrderByNeighborTerms(s, newTaskStep(), sql.OrderByField(field, opts...))
 	}
 }
 func newTaskStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(TaskInverseTable, FieldID),
-		sqlgraph.Edge(sqlgraph.M2M, true, TaskTable, TaskPrimaryKey...),
+		sqlgraph.Edge(sqlgraph.M2O, true, TaskTable, TaskColumn),
 	)
 }

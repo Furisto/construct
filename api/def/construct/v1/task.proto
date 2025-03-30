@@ -2,4 +2,89 @@ syntax = "proto3";
 
 package construct.v1;
 
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
 
+option go_package = "github.com/furisto/construct/api/go/v1";
+
+service TaskService {
+  rpc CreateTask(CreateTaskRequest) returns (CreateTaskResponse) {}
+  rpc GetTask(GetTaskRequest) returns (GetTaskResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  rpc ListTasks(ListTasksRequest) returns (ListTasksResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  rpc UpdateTask(UpdateTaskRequest) returns (UpdateTaskResponse) {}
+  rpc DeleteTask(DeleteTaskRequest) returns (DeleteTaskResponse) {}
+}
+
+message Task {
+  string id = 1 [(buf.validate.field).string.uuid = true];
+  TaskMetadata metadata = 2;
+  TaskSpec spec = 3;
+  TaskStatus status = 4;
+}
+
+message TaskMetadata {
+  google.protobuf.Timestamp created_at = 2 [(buf.validate.field).required = true];
+  google.protobuf.Timestamp updated_at = 3 [(buf.validate.field).required = true];
+}
+
+message TaskSpec {
+  optional string agent_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message TaskStatus {
+  TaskUsage usage = 1;
+}
+
+message TaskUsage {
+  int64 input_tokens = 1;
+  int64 output_tokens = 2;
+  int64 cache_write_tokens = 3;
+  int64 cache_read_tokens = 4;
+  double cost = 5;
+}
+
+message CreateTaskRequest {}
+
+message CreateTaskResponse {
+  Task task = 1 [(buf.validate.field).required = true];
+}
+
+message GetTaskRequest {
+  string id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message GetTaskResponse {
+  Task task = 1 [(buf.validate.field).required = true];
+}
+
+message ListTasksRequest {
+  message Filter {
+    optional string agent_id = 1 [(buf.validate.field).string.uuid = true];
+  }
+  Filter filter = 1;
+  string page_token = 2 [(buf.validate.field).string.max_len = 255];
+}
+
+message ListTasksResponse {
+  repeated Task tasks = 1;
+  string next_page_token = 2;
+}
+
+message UpdateTaskRequest {
+  string id = 1 [(buf.validate.field).string.uuid = true];
+  optional string agent_id = 2 [(buf.validate.field).string.uuid = true];
+}
+
+message UpdateTaskResponse {
+  Task task = 1 [(buf.validate.field).required = true];
+}
+
+message DeleteTaskRequest {
+  string id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message DeleteTaskResponse {}

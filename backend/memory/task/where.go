@@ -56,11 +56,6 @@ func IDLTE(id uuid.UUID) predicate.Task {
 	return predicate.Task(sql.FieldLTE(FieldID, id))
 }
 
-// AgentID applies equality check predicate on the "agent_id" field. It's identical to AgentIDEQ.
-func AgentID(v uuid.UUID) predicate.Task {
-	return predicate.Task(sql.FieldEQ(FieldAgentID, v))
-}
-
 // CreateTime applies equality check predicate on the "create_time" field. It's identical to CreateTimeEQ.
 func CreateTime(v time.Time) predicate.Task {
 	return predicate.Task(sql.FieldEQ(FieldCreateTime, v))
@@ -91,44 +86,9 @@ func CacheReadTokens(v int64) predicate.Task {
 	return predicate.Task(sql.FieldEQ(FieldCacheReadTokens, v))
 }
 
-// AgentIDEQ applies the EQ predicate on the "agent_id" field.
-func AgentIDEQ(v uuid.UUID) predicate.Task {
-	return predicate.Task(sql.FieldEQ(FieldAgentID, v))
-}
-
-// AgentIDNEQ applies the NEQ predicate on the "agent_id" field.
-func AgentIDNEQ(v uuid.UUID) predicate.Task {
-	return predicate.Task(sql.FieldNEQ(FieldAgentID, v))
-}
-
-// AgentIDIn applies the In predicate on the "agent_id" field.
-func AgentIDIn(vs ...uuid.UUID) predicate.Task {
-	return predicate.Task(sql.FieldIn(FieldAgentID, vs...))
-}
-
-// AgentIDNotIn applies the NotIn predicate on the "agent_id" field.
-func AgentIDNotIn(vs ...uuid.UUID) predicate.Task {
-	return predicate.Task(sql.FieldNotIn(FieldAgentID, vs...))
-}
-
-// AgentIDGT applies the GT predicate on the "agent_id" field.
-func AgentIDGT(v uuid.UUID) predicate.Task {
-	return predicate.Task(sql.FieldGT(FieldAgentID, v))
-}
-
-// AgentIDGTE applies the GTE predicate on the "agent_id" field.
-func AgentIDGTE(v uuid.UUID) predicate.Task {
-	return predicate.Task(sql.FieldGTE(FieldAgentID, v))
-}
-
-// AgentIDLT applies the LT predicate on the "agent_id" field.
-func AgentIDLT(v uuid.UUID) predicate.Task {
-	return predicate.Task(sql.FieldLT(FieldAgentID, v))
-}
-
-// AgentIDLTE applies the LTE predicate on the "agent_id" field.
-func AgentIDLTE(v uuid.UUID) predicate.Task {
-	return predicate.Task(sql.FieldLTE(FieldAgentID, v))
+// Cost applies equality check predicate on the "cost" field. It's identical to CostEQ.
+func Cost(v float64) predicate.Task {
+	return predicate.Task(sql.FieldEQ(FieldCost, v))
 }
 
 // CreateTimeEQ applies the EQ predicate on the "create_time" field.
@@ -211,16 +171,6 @@ func UpdateTimeLTE(v time.Time) predicate.Task {
 	return predicate.Task(sql.FieldLTE(FieldUpdateTime, v))
 }
 
-// StatusIsNil applies the IsNil predicate on the "status" field.
-func StatusIsNil() predicate.Task {
-	return predicate.Task(sql.FieldIsNull(FieldStatus))
-}
-
-// StatusNotNil applies the NotNil predicate on the "status" field.
-func StatusNotNil() predicate.Task {
-	return predicate.Task(sql.FieldNotNull(FieldStatus))
-}
-
 // InputTokensEQ applies the EQ predicate on the "input_tokens" field.
 func InputTokensEQ(v int64) predicate.Task {
 	return predicate.Task(sql.FieldEQ(FieldInputTokens, v))
@@ -259,6 +209,16 @@ func InputTokensLT(v int64) predicate.Task {
 // InputTokensLTE applies the LTE predicate on the "input_tokens" field.
 func InputTokensLTE(v int64) predicate.Task {
 	return predicate.Task(sql.FieldLTE(FieldInputTokens, v))
+}
+
+// InputTokensIsNil applies the IsNil predicate on the "input_tokens" field.
+func InputTokensIsNil() predicate.Task {
+	return predicate.Task(sql.FieldIsNull(FieldInputTokens))
+}
+
+// InputTokensNotNil applies the NotNil predicate on the "input_tokens" field.
+func InputTokensNotNil() predicate.Task {
+	return predicate.Task(sql.FieldNotNull(FieldInputTokens))
 }
 
 // OutputTokensEQ applies the EQ predicate on the "output_tokens" field.
@@ -301,6 +261,16 @@ func OutputTokensLTE(v int64) predicate.Task {
 	return predicate.Task(sql.FieldLTE(FieldOutputTokens, v))
 }
 
+// OutputTokensIsNil applies the IsNil predicate on the "output_tokens" field.
+func OutputTokensIsNil() predicate.Task {
+	return predicate.Task(sql.FieldIsNull(FieldOutputTokens))
+}
+
+// OutputTokensNotNil applies the NotNil predicate on the "output_tokens" field.
+func OutputTokensNotNil() predicate.Task {
+	return predicate.Task(sql.FieldNotNull(FieldOutputTokens))
+}
+
 // CacheWriteTokensEQ applies the EQ predicate on the "cache_write_tokens" field.
 func CacheWriteTokensEQ(v int64) predicate.Task {
 	return predicate.Task(sql.FieldEQ(FieldCacheWriteTokens, v))
@@ -339,6 +309,16 @@ func CacheWriteTokensLT(v int64) predicate.Task {
 // CacheWriteTokensLTE applies the LTE predicate on the "cache_write_tokens" field.
 func CacheWriteTokensLTE(v int64) predicate.Task {
 	return predicate.Task(sql.FieldLTE(FieldCacheWriteTokens, v))
+}
+
+// CacheWriteTokensIsNil applies the IsNil predicate on the "cache_write_tokens" field.
+func CacheWriteTokensIsNil() predicate.Task {
+	return predicate.Task(sql.FieldIsNull(FieldCacheWriteTokens))
+}
+
+// CacheWriteTokensNotNil applies the NotNil predicate on the "cache_write_tokens" field.
+func CacheWriteTokensNotNil() predicate.Task {
+	return predicate.Task(sql.FieldNotNull(FieldCacheWriteTokens))
 }
 
 // CacheReadTokensEQ applies the EQ predicate on the "cache_read_tokens" field.
@@ -381,12 +361,72 @@ func CacheReadTokensLTE(v int64) predicate.Task {
 	return predicate.Task(sql.FieldLTE(FieldCacheReadTokens, v))
 }
 
+// CacheReadTokensIsNil applies the IsNil predicate on the "cache_read_tokens" field.
+func CacheReadTokensIsNil() predicate.Task {
+	return predicate.Task(sql.FieldIsNull(FieldCacheReadTokens))
+}
+
+// CacheReadTokensNotNil applies the NotNil predicate on the "cache_read_tokens" field.
+func CacheReadTokensNotNil() predicate.Task {
+	return predicate.Task(sql.FieldNotNull(FieldCacheReadTokens))
+}
+
+// CostEQ applies the EQ predicate on the "cost" field.
+func CostEQ(v float64) predicate.Task {
+	return predicate.Task(sql.FieldEQ(FieldCost, v))
+}
+
+// CostNEQ applies the NEQ predicate on the "cost" field.
+func CostNEQ(v float64) predicate.Task {
+	return predicate.Task(sql.FieldNEQ(FieldCost, v))
+}
+
+// CostIn applies the In predicate on the "cost" field.
+func CostIn(vs ...float64) predicate.Task {
+	return predicate.Task(sql.FieldIn(FieldCost, vs...))
+}
+
+// CostNotIn applies the NotIn predicate on the "cost" field.
+func CostNotIn(vs ...float64) predicate.Task {
+	return predicate.Task(sql.FieldNotIn(FieldCost, vs...))
+}
+
+// CostGT applies the GT predicate on the "cost" field.
+func CostGT(v float64) predicate.Task {
+	return predicate.Task(sql.FieldGT(FieldCost, v))
+}
+
+// CostGTE applies the GTE predicate on the "cost" field.
+func CostGTE(v float64) predicate.Task {
+	return predicate.Task(sql.FieldGTE(FieldCost, v))
+}
+
+// CostLT applies the LT predicate on the "cost" field.
+func CostLT(v float64) predicate.Task {
+	return predicate.Task(sql.FieldLT(FieldCost, v))
+}
+
+// CostLTE applies the LTE predicate on the "cost" field.
+func CostLTE(v float64) predicate.Task {
+	return predicate.Task(sql.FieldLTE(FieldCost, v))
+}
+
+// CostIsNil applies the IsNil predicate on the "cost" field.
+func CostIsNil() predicate.Task {
+	return predicate.Task(sql.FieldIsNull(FieldCost))
+}
+
+// CostNotNil applies the NotNil predicate on the "cost" field.
+func CostNotNil() predicate.Task {
+	return predicate.Task(sql.FieldNotNull(FieldCost))
+}
+
 // HasMessages applies the HasEdge predicate on the "messages" edge.
 func HasMessages() predicate.Task {
 	return predicate.Task(func(s *sql.Selector) {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2M, false, MessagesTable, MessagesPrimaryKey...),
+			sqlgraph.Edge(sqlgraph.O2M, false, MessagesTable, MessagesColumn),
 		)
 		sqlgraph.HasNeighbors(s, step)
 	})
@@ -396,6 +436,29 @@ func HasMessages() predicate.Task {
 func HasMessagesWith(preds ...predicate.Message) predicate.Task {
 	return predicate.Task(func(s *sql.Selector) {
 		step := newMessagesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasAgent applies the HasEdge predicate on the "agent" edge.
+func HasAgent() predicate.Task {
+	return predicate.Task(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, AgentTable, AgentColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasAgentWith applies the HasEdge predicate on the "agent" edge with a given conditions (other predicates).
+func HasAgentWith(preds ...predicate.Agent) predicate.Task {
+	return predicate.Task(func(s *sql.Selector) {
+		step := newAgentStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

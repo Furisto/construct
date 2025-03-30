@@ -3,14 +3,13 @@
 package memory
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/furisto/construct/backend/memory/schema/types"
+	"github.com/furisto/construct/backend/memory/agent"
 	"github.com/furisto/construct/backend/memory/task"
 	"github.com/google/uuid"
 )
@@ -20,16 +19,10 @@ type Task struct {
 	config `json:"-"`
 	// ID of the ent.
 	ID uuid.UUID `json:"id,omitempty"`
-	// AgentID holds the value of the "agent_id" field.
-	AgentID uuid.UUID `json:"agent_id,omitempty"`
 	// CreateTime holds the value of the "create_time" field.
 	CreateTime time.Time `json:"create_time,omitempty"`
 	// UpdateTime holds the value of the "update_time" field.
 	UpdateTime time.Time `json:"update_time,omitempty"`
-	// Spec holds the value of the "spec" field.
-	Spec *types.TaskSpec `json:"spec,omitempty"`
-	// Status holds the value of the "status" field.
-	Status *types.TaskStatus `json:"status,omitempty"`
 	// InputTokens holds the value of the "input_tokens" field.
 	InputTokens int64 `json:"input_tokens,omitempty"`
 	// OutputTokens holds the value of the "output_tokens" field.
@@ -38,9 +31,12 @@ type Task struct {
 	CacheWriteTokens int64 `json:"cache_write_tokens,omitempty"`
 	// CacheReadTokens holds the value of the "cache_read_tokens" field.
 	CacheReadTokens int64 `json:"cache_read_tokens,omitempty"`
+	// Cost holds the value of the "cost" field.
+	Cost float64 `json:"cost,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the TaskQuery when eager-loading is set.
 	Edges        TaskEdges `json:"edges"`
+	agent_tasks  *uuid.UUID
 	selectValues sql.SelectValues
 }
 
@@ -48,9 +44,11 @@ type Task struct {
 type TaskEdges struct {
 	// Messages holds the value of the messages edge.
 	Messages []*Message `json:"messages,omitempty"`
+	// Agent holds the value of the agent edge.
+	Agent *Agent `json:"agent,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [1]bool
+	loadedTypes [2]bool
 }
 
 // MessagesOrErr returns the Messages value or an error if the edge
@@ -62,19 +60,32 @@ func (e TaskEdges) MessagesOrErr() ([]*Message, error) {
 	return nil, &NotLoadedError{edge: "messages"}
 }
 
+// AgentOrErr returns the Agent value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e TaskEdges) AgentOrErr() (*Agent, error) {
+	if e.Agent != nil {
+		return e.Agent, nil
+	} else if e.loadedTypes[1] {
+		return nil, &NotFoundError{label: agent.Label}
+	}
+	return nil, &NotLoadedError{edge: "agent"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*Task) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case task.FieldSpec, task.FieldStatus:
-			values[i] = new([]byte)
+		case task.FieldCost:
+			values[i] = new(sql.NullFloat64)
 		case task.FieldInputTokens, task.FieldOutputTokens, task.FieldCacheWriteTokens, task.FieldCacheReadTokens:
 			values[i] = new(sql.NullInt64)
 		case task.FieldCreateTime, task.FieldUpdateTime:
 			values[i] = new(sql.NullTime)
-		case task.FieldID, task.FieldAgentID:
+		case task.FieldID:
 			values[i] = new(uuid.UUID)
+		case task.ForeignKeys[0]: // agent_tasks
+			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		default:
 			values[i] = new(sql.UnknownType)
 		}
@@ -96,12 +107,6 @@ func (t *Task) assignValues(columns []string, values []any) error {
 			} else if value != nil {
 				t.ID = *value
 			}
-		case task.FieldAgentID:
-			if value, ok := values[i].(*uuid.UUID); !ok {
-				return fmt.Errorf("unexpected type %T for field agent_id", values[i])
-			} else if value != nil {
-				t.AgentID = *value
-			}
 		case task.FieldCreateTime:
 			if value, ok := values[i].(*sql.NullTime); !ok {
 				return fmt.Errorf("unexpected type %T for field create_time", values[i])
@@ -113,22 +118,6 @@ func (t *Task) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field update_time", values[i])
 			} else if value.Valid {
 				t.UpdateTime = value.Time
-			}
-		case task.FieldSpec:
-			if value, ok := values[i].(*[]byte); !ok {
-				return fmt.Errorf("unexpected type %T for field spec", values[i])
-			} else if value != nil && len(*value) > 0 {
-				if err := json.Unmarshal(*value, &t.Spec); err != nil {
-					return fmt.Errorf("unmarshal field spec: %w", err)
-				}
-			}
-		case task.FieldStatus:
-			if value, ok := values[i].(*[]byte); !ok {
-				return fmt.Errorf("unexpected type %T for field status", values[i])
-			} else if value != nil && len(*value) > 0 {
-				if err := json.Unmarshal(*value, &t.Status); err != nil {
-					return fmt.Errorf("unmarshal field status: %w", err)
-				}
 			}
 		case task.FieldInputTokens:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -154,6 +143,19 @@ func (t *Task) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				t.CacheReadTokens = value.Int64
 			}
+		case task.FieldCost:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field cost", values[i])
+			} else if value.Valid {
+				t.Cost = value.Float64
+			}
+		case task.ForeignKeys[0]:
+			if value, ok := values[i].(*sql.NullScanner); !ok {
+				return fmt.Errorf("unexpected type %T for field agent_tasks", values[i])
+			} else if value.Valid {
+				t.agent_tasks = new(uuid.UUID)
+				*t.agent_tasks = *value.S.(*uuid.UUID)
+			}
 		default:
 			t.selectValues.Set(columns[i], values[i])
 		}
@@ -170,6 +172,11 @@ func (t *Task) Value(name string) (ent.Value, error) {
 // QueryMessages queries the "messages" edge of the Task entity.
 func (t *Task) QueryMessages() *MessageQuery {
 	return NewTaskClient(t.config).QueryMessages(t)
+}
+
+// QueryAgent queries the "agent" edge of the Task entity.
+func (t *Task) QueryAgent() *AgentQuery {
+	return NewTaskClient(t.config).QueryAgent(t)
 }
 
 // Update returns a builder for updating this Task.
@@ -195,20 +202,11 @@ func (t *Task) String() string {
 	var builder strings.Builder
 	builder.WriteString("Task(")
 	builder.WriteString(fmt.Sprintf("id=%v, ", t.ID))
-	builder.WriteString("agent_id=")
-	builder.WriteString(fmt.Sprintf("%v", t.AgentID))
-	builder.WriteString(", ")
 	builder.WriteString("create_time=")
 	builder.WriteString(t.CreateTime.Format(time.ANSIC))
 	builder.WriteString(", ")
 	builder.WriteString("update_time=")
 	builder.WriteString(t.UpdateTime.Format(time.ANSIC))
-	builder.WriteString(", ")
-	builder.WriteString("spec=")
-	builder.WriteString(fmt.Sprintf("%v", t.Spec))
-	builder.WriteString(", ")
-	builder.WriteString("status=")
-	builder.WriteString(fmt.Sprintf("%v", t.Status))
 	builder.WriteString(", ")
 	builder.WriteString("input_tokens=")
 	builder.WriteString(fmt.Sprintf("%v", t.InputTokens))
@@ -221,6 +219,9 @@ func (t *Task) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("cache_read_tokens=")
 	builder.WriteString(fmt.Sprintf("%v", t.CacheReadTokens))
+	builder.WriteString(", ")
+	builder.WriteString("cost=")
+	builder.WriteString(fmt.Sprintf("%v", t.Cost))
 	builder.WriteByte(')')
 	return builder.String()
 }

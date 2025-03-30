@@ -11,9 +11,9 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/furisto/construct/backend/memory/agent"
 	"github.com/furisto/construct/backend/memory/message"
 	"github.com/furisto/construct/backend/memory/predicate"
-	"github.com/furisto/construct/backend/memory/schema/types"
 	"github.com/furisto/construct/backend/memory/task"
 	"github.com/google/uuid"
 )
@@ -31,41 +31,9 @@ func (tu *TaskUpdate) Where(ps ...predicate.Task) *TaskUpdate {
 	return tu
 }
 
-// SetAgentID sets the "agent_id" field.
-func (tu *TaskUpdate) SetAgentID(u uuid.UUID) *TaskUpdate {
-	tu.mutation.SetAgentID(u)
-	return tu
-}
-
-// SetNillableAgentID sets the "agent_id" field if the given value is not nil.
-func (tu *TaskUpdate) SetNillableAgentID(u *uuid.UUID) *TaskUpdate {
-	if u != nil {
-		tu.SetAgentID(*u)
-	}
-	return tu
-}
-
 // SetUpdateTime sets the "update_time" field.
 func (tu *TaskUpdate) SetUpdateTime(t time.Time) *TaskUpdate {
 	tu.mutation.SetUpdateTime(t)
-	return tu
-}
-
-// SetSpec sets the "spec" field.
-func (tu *TaskUpdate) SetSpec(ts *types.TaskSpec) *TaskUpdate {
-	tu.mutation.SetSpec(ts)
-	return tu
-}
-
-// SetStatus sets the "status" field.
-func (tu *TaskUpdate) SetStatus(ts *types.TaskStatus) *TaskUpdate {
-	tu.mutation.SetStatus(ts)
-	return tu
-}
-
-// ClearStatus clears the value of the "status" field.
-func (tu *TaskUpdate) ClearStatus() *TaskUpdate {
-	tu.mutation.ClearStatus()
 	return tu
 }
 
@@ -90,6 +58,12 @@ func (tu *TaskUpdate) AddInputTokens(i int64) *TaskUpdate {
 	return tu
 }
 
+// ClearInputTokens clears the value of the "input_tokens" field.
+func (tu *TaskUpdate) ClearInputTokens() *TaskUpdate {
+	tu.mutation.ClearInputTokens()
+	return tu
+}
+
 // SetOutputTokens sets the "output_tokens" field.
 func (tu *TaskUpdate) SetOutputTokens(i int64) *TaskUpdate {
 	tu.mutation.ResetOutputTokens()
@@ -108,6 +82,12 @@ func (tu *TaskUpdate) SetNillableOutputTokens(i *int64) *TaskUpdate {
 // AddOutputTokens adds i to the "output_tokens" field.
 func (tu *TaskUpdate) AddOutputTokens(i int64) *TaskUpdate {
 	tu.mutation.AddOutputTokens(i)
+	return tu
+}
+
+// ClearOutputTokens clears the value of the "output_tokens" field.
+func (tu *TaskUpdate) ClearOutputTokens() *TaskUpdate {
+	tu.mutation.ClearOutputTokens()
 	return tu
 }
 
@@ -132,6 +112,12 @@ func (tu *TaskUpdate) AddCacheWriteTokens(i int64) *TaskUpdate {
 	return tu
 }
 
+// ClearCacheWriteTokens clears the value of the "cache_write_tokens" field.
+func (tu *TaskUpdate) ClearCacheWriteTokens() *TaskUpdate {
+	tu.mutation.ClearCacheWriteTokens()
+	return tu
+}
+
 // SetCacheReadTokens sets the "cache_read_tokens" field.
 func (tu *TaskUpdate) SetCacheReadTokens(i int64) *TaskUpdate {
 	tu.mutation.ResetCacheReadTokens()
@@ -153,6 +139,39 @@ func (tu *TaskUpdate) AddCacheReadTokens(i int64) *TaskUpdate {
 	return tu
 }
 
+// ClearCacheReadTokens clears the value of the "cache_read_tokens" field.
+func (tu *TaskUpdate) ClearCacheReadTokens() *TaskUpdate {
+	tu.mutation.ClearCacheReadTokens()
+	return tu
+}
+
+// SetCost sets the "cost" field.
+func (tu *TaskUpdate) SetCost(f float64) *TaskUpdate {
+	tu.mutation.ResetCost()
+	tu.mutation.SetCost(f)
+	return tu
+}
+
+// SetNillableCost sets the "cost" field if the given value is not nil.
+func (tu *TaskUpdate) SetNillableCost(f *float64) *TaskUpdate {
+	if f != nil {
+		tu.SetCost(*f)
+	}
+	return tu
+}
+
+// AddCost adds f to the "cost" field.
+func (tu *TaskUpdate) AddCost(f float64) *TaskUpdate {
+	tu.mutation.AddCost(f)
+	return tu
+}
+
+// ClearCost clears the value of the "cost" field.
+func (tu *TaskUpdate) ClearCost() *TaskUpdate {
+	tu.mutation.ClearCost()
+	return tu
+}
+
 // AddMessageIDs adds the "messages" edge to the Message entity by IDs.
 func (tu *TaskUpdate) AddMessageIDs(ids ...uuid.UUID) *TaskUpdate {
 	tu.mutation.AddMessageIDs(ids...)
@@ -166,6 +185,25 @@ func (tu *TaskUpdate) AddMessages(m ...*Message) *TaskUpdate {
 		ids[i] = m[i].ID
 	}
 	return tu.AddMessageIDs(ids...)
+}
+
+// SetAgentID sets the "agent" edge to the Agent entity by ID.
+func (tu *TaskUpdate) SetAgentID(id uuid.UUID) *TaskUpdate {
+	tu.mutation.SetAgentID(id)
+	return tu
+}
+
+// SetNillableAgentID sets the "agent" edge to the Agent entity by ID if the given value is not nil.
+func (tu *TaskUpdate) SetNillableAgentID(id *uuid.UUID) *TaskUpdate {
+	if id != nil {
+		tu = tu.SetAgentID(*id)
+	}
+	return tu
+}
+
+// SetAgent sets the "agent" edge to the Agent entity.
+func (tu *TaskUpdate) SetAgent(a *Agent) *TaskUpdate {
+	return tu.SetAgentID(a.ID)
 }
 
 // Mutation returns the TaskMutation object of the builder.
@@ -192,6 +230,12 @@ func (tu *TaskUpdate) RemoveMessages(m ...*Message) *TaskUpdate {
 		ids[i] = m[i].ID
 	}
 	return tu.RemoveMessageIDs(ids...)
+}
+
+// ClearAgent clears the "agent" edge to the Agent entity.
+func (tu *TaskUpdate) ClearAgent() *TaskUpdate {
+	tu.mutation.ClearAgent()
+	return tu
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -239,20 +283,8 @@ func (tu *TaskUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			}
 		}
 	}
-	if value, ok := tu.mutation.AgentID(); ok {
-		_spec.SetField(task.FieldAgentID, field.TypeUUID, value)
-	}
 	if value, ok := tu.mutation.UpdateTime(); ok {
 		_spec.SetField(task.FieldUpdateTime, field.TypeTime, value)
-	}
-	if value, ok := tu.mutation.Spec(); ok {
-		_spec.SetField(task.FieldSpec, field.TypeJSON, value)
-	}
-	if value, ok := tu.mutation.Status(); ok {
-		_spec.SetField(task.FieldStatus, field.TypeJSON, value)
-	}
-	if tu.mutation.StatusCleared() {
-		_spec.ClearField(task.FieldStatus, field.TypeJSON)
 	}
 	if value, ok := tu.mutation.InputTokens(); ok {
 		_spec.SetField(task.FieldInputTokens, field.TypeInt64, value)
@@ -260,11 +292,17 @@ func (tu *TaskUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if value, ok := tu.mutation.AddedInputTokens(); ok {
 		_spec.AddField(task.FieldInputTokens, field.TypeInt64, value)
 	}
+	if tu.mutation.InputTokensCleared() {
+		_spec.ClearField(task.FieldInputTokens, field.TypeInt64)
+	}
 	if value, ok := tu.mutation.OutputTokens(); ok {
 		_spec.SetField(task.FieldOutputTokens, field.TypeInt64, value)
 	}
 	if value, ok := tu.mutation.AddedOutputTokens(); ok {
 		_spec.AddField(task.FieldOutputTokens, field.TypeInt64, value)
+	}
+	if tu.mutation.OutputTokensCleared() {
+		_spec.ClearField(task.FieldOutputTokens, field.TypeInt64)
 	}
 	if value, ok := tu.mutation.CacheWriteTokens(); ok {
 		_spec.SetField(task.FieldCacheWriteTokens, field.TypeInt64, value)
@@ -272,18 +310,33 @@ func (tu *TaskUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if value, ok := tu.mutation.AddedCacheWriteTokens(); ok {
 		_spec.AddField(task.FieldCacheWriteTokens, field.TypeInt64, value)
 	}
+	if tu.mutation.CacheWriteTokensCleared() {
+		_spec.ClearField(task.FieldCacheWriteTokens, field.TypeInt64)
+	}
 	if value, ok := tu.mutation.CacheReadTokens(); ok {
 		_spec.SetField(task.FieldCacheReadTokens, field.TypeInt64, value)
 	}
 	if value, ok := tu.mutation.AddedCacheReadTokens(); ok {
 		_spec.AddField(task.FieldCacheReadTokens, field.TypeInt64, value)
 	}
+	if tu.mutation.CacheReadTokensCleared() {
+		_spec.ClearField(task.FieldCacheReadTokens, field.TypeInt64)
+	}
+	if value, ok := tu.mutation.Cost(); ok {
+		_spec.SetField(task.FieldCost, field.TypeFloat64, value)
+	}
+	if value, ok := tu.mutation.AddedCost(); ok {
+		_spec.AddField(task.FieldCost, field.TypeFloat64, value)
+	}
+	if tu.mutation.CostCleared() {
+		_spec.ClearField(task.FieldCost, field.TypeFloat64)
+	}
 	if tu.mutation.MessagesCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
+			Rel:     sqlgraph.O2M,
 			Inverse: false,
 			Table:   task.MessagesTable,
-			Columns: task.MessagesPrimaryKey,
+			Columns: []string{task.MessagesColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(message.FieldID, field.TypeUUID),
@@ -293,10 +346,10 @@ func (tu *TaskUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if nodes := tu.mutation.RemovedMessagesIDs(); len(nodes) > 0 && !tu.mutation.MessagesCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
+			Rel:     sqlgraph.O2M,
 			Inverse: false,
 			Table:   task.MessagesTable,
-			Columns: task.MessagesPrimaryKey,
+			Columns: []string{task.MessagesColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(message.FieldID, field.TypeUUID),
@@ -309,13 +362,42 @@ func (tu *TaskUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if nodes := tu.mutation.MessagesIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
+			Rel:     sqlgraph.O2M,
 			Inverse: false,
 			Table:   task.MessagesTable,
-			Columns: task.MessagesPrimaryKey,
+			Columns: []string{task.MessagesColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(message.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if tu.mutation.AgentCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   task.AgentTable,
+			Columns: []string{task.AgentColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := tu.mutation.AgentIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   task.AgentTable,
+			Columns: []string{task.AgentColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -343,41 +425,9 @@ type TaskUpdateOne struct {
 	mutation *TaskMutation
 }
 
-// SetAgentID sets the "agent_id" field.
-func (tuo *TaskUpdateOne) SetAgentID(u uuid.UUID) *TaskUpdateOne {
-	tuo.mutation.SetAgentID(u)
-	return tuo
-}
-
-// SetNillableAgentID sets the "agent_id" field if the given value is not nil.
-func (tuo *TaskUpdateOne) SetNillableAgentID(u *uuid.UUID) *TaskUpdateOne {
-	if u != nil {
-		tuo.SetAgentID(*u)
-	}
-	return tuo
-}
-
 // SetUpdateTime sets the "update_time" field.
 func (tuo *TaskUpdateOne) SetUpdateTime(t time.Time) *TaskUpdateOne {
 	tuo.mutation.SetUpdateTime(t)
-	return tuo
-}
-
-// SetSpec sets the "spec" field.
-func (tuo *TaskUpdateOne) SetSpec(ts *types.TaskSpec) *TaskUpdateOne {
-	tuo.mutation.SetSpec(ts)
-	return tuo
-}
-
-// SetStatus sets the "status" field.
-func (tuo *TaskUpdateOne) SetStatus(ts *types.TaskStatus) *TaskUpdateOne {
-	tuo.mutation.SetStatus(ts)
-	return tuo
-}
-
-// ClearStatus clears the value of the "status" field.
-func (tuo *TaskUpdateOne) ClearStatus() *TaskUpdateOne {
-	tuo.mutation.ClearStatus()
 	return tuo
 }
 
@@ -402,6 +452,12 @@ func (tuo *TaskUpdateOne) AddInputTokens(i int64) *TaskUpdateOne {
 	return tuo
 }
 
+// ClearInputTokens clears the value of the "input_tokens" field.
+func (tuo *TaskUpdateOne) ClearInputTokens() *TaskUpdateOne {
+	tuo.mutation.ClearInputTokens()
+	return tuo
+}
+
 // SetOutputTokens sets the "output_tokens" field.
 func (tuo *TaskUpdateOne) SetOutputTokens(i int64) *TaskUpdateOne {
 	tuo.mutation.ResetOutputTokens()
@@ -420,6 +476,12 @@ func (tuo *TaskUpdateOne) SetNillableOutputTokens(i *int64) *TaskUpdateOne {
 // AddOutputTokens adds i to the "output_tokens" field.
 func (tuo *TaskUpdateOne) AddOutputTokens(i int64) *TaskUpdateOne {
 	tuo.mutation.AddOutputTokens(i)
+	return tuo
+}
+
+// ClearOutputTokens clears the value of the "output_tokens" field.
+func (tuo *TaskUpdateOne) ClearOutputTokens() *TaskUpdateOne {
+	tuo.mutation.ClearOutputTokens()
 	return tuo
 }
 
@@ -444,6 +506,12 @@ func (tuo *TaskUpdateOne) AddCacheWriteTokens(i int64) *TaskUpdateOne {
 	return tuo
 }
 
+// ClearCacheWriteTokens clears the value of the "cache_write_tokens" field.
+func (tuo *TaskUpdateOne) ClearCacheWriteTokens() *TaskUpdateOne {
+	tuo.mutation.ClearCacheWriteTokens()
+	return tuo
+}
+
 // SetCacheReadTokens sets the "cache_read_tokens" field.
 func (tuo *TaskUpdateOne) SetCacheReadTokens(i int64) *TaskUpdateOne {
 	tuo.mutation.ResetCacheReadTokens()
@@ -465,6 +533,39 @@ func (tuo *TaskUpdateOne) AddCacheReadTokens(i int64) *TaskUpdateOne {
 	return tuo
 }
 
+// ClearCacheReadTokens clears the value of the "cache_read_tokens" field.
+func (tuo *TaskUpdateOne) ClearCacheReadTokens() *TaskUpdateOne {
+	tuo.mutation.ClearCacheReadTokens()
+	return tuo
+}
+
+// SetCost sets the "cost" field.
+func (tuo *TaskUpdateOne) SetCost(f float64) *TaskUpdateOne {
+	tuo.mutation.ResetCost()
+	tuo.mutation.SetCost(f)
+	return tuo
+}
+
+// SetNillableCost sets the "cost" field if the given value is not nil.
+func (tuo *TaskUpdateOne) SetNillableCost(f *float64) *TaskUpdateOne {
+	if f != nil {
+		tuo.SetCost(*f)
+	}
+	return tuo
+}
+
+// AddCost adds f to the "cost" field.
+func (tuo *TaskUpdateOne) AddCost(f float64) *TaskUpdateOne {
+	tuo.mutation.AddCost(f)
+	return tuo
+}
+
+// ClearCost clears the value of the "cost" field.
+func (tuo *TaskUpdateOne) ClearCost() *TaskUpdateOne {
+	tuo.mutation.ClearCost()
+	return tuo
+}
+
 // AddMessageIDs adds the "messages" edge to the Message entity by IDs.
 func (tuo *TaskUpdateOne) AddMessageIDs(ids ...uuid.UUID) *TaskUpdateOne {
 	tuo.mutation.AddMessageIDs(ids...)
@@ -478,6 +579,25 @@ func (tuo *TaskUpdateOne) AddMessages(m ...*Message) *TaskUpdateOne {
 		ids[i] = m[i].ID
 	}
 	return tuo.AddMessageIDs(ids...)
+}
+
+// SetAgentID sets the "agent" edge to the Agent entity by ID.
+func (tuo *TaskUpdateOne) SetAgentID(id uuid.UUID) *TaskUpdateOne {
+	tuo.mutation.SetAgentID(id)
+	return tuo
+}
+
+// SetNillableAgentID sets the "agent" edge to the Agent entity by ID if the given value is not nil.
+func (tuo *TaskUpdateOne) SetNillableAgentID(id *uuid.UUID) *TaskUpdateOne {
+	if id != nil {
+		tuo = tuo.SetAgentID(*id)
+	}
+	return tuo
+}
+
+// SetAgent sets the "agent" edge to the Agent entity.
+func (tuo *TaskUpdateOne) SetAgent(a *Agent) *TaskUpdateOne {
+	return tuo.SetAgentID(a.ID)
 }
 
 // Mutation returns the TaskMutation object of the builder.
@@ -504,6 +624,12 @@ func (tuo *TaskUpdateOne) RemoveMessages(m ...*Message) *TaskUpdateOne {
 		ids[i] = m[i].ID
 	}
 	return tuo.RemoveMessageIDs(ids...)
+}
+
+// ClearAgent clears the "agent" edge to the Agent entity.
+func (tuo *TaskUpdateOne) ClearAgent() *TaskUpdateOne {
+	tuo.mutation.ClearAgent()
+	return tuo
 }
 
 // Where appends a list predicates to the TaskUpdate builder.
@@ -581,20 +707,8 @@ func (tuo *TaskUpdateOne) sqlSave(ctx context.Context) (_node *Task, err error) 
 			}
 		}
 	}
-	if value, ok := tuo.mutation.AgentID(); ok {
-		_spec.SetField(task.FieldAgentID, field.TypeUUID, value)
-	}
 	if value, ok := tuo.mutation.UpdateTime(); ok {
 		_spec.SetField(task.FieldUpdateTime, field.TypeTime, value)
-	}
-	if value, ok := tuo.mutation.Spec(); ok {
-		_spec.SetField(task.FieldSpec, field.TypeJSON, value)
-	}
-	if value, ok := tuo.mutation.Status(); ok {
-		_spec.SetField(task.FieldStatus, field.TypeJSON, value)
-	}
-	if tuo.mutation.StatusCleared() {
-		_spec.ClearField(task.FieldStatus, field.TypeJSON)
 	}
 	if value, ok := tuo.mutation.InputTokens(); ok {
 		_spec.SetField(task.FieldInputTokens, field.TypeInt64, value)
@@ -602,11 +716,17 @@ func (tuo *TaskUpdateOne) sqlSave(ctx context.Context) (_node *Task, err error) 
 	if value, ok := tuo.mutation.AddedInputTokens(); ok {
 		_spec.AddField(task.FieldInputTokens, field.TypeInt64, value)
 	}
+	if tuo.mutation.InputTokensCleared() {
+		_spec.ClearField(task.FieldInputTokens, field.TypeInt64)
+	}
 	if value, ok := tuo.mutation.OutputTokens(); ok {
 		_spec.SetField(task.FieldOutputTokens, field.TypeInt64, value)
 	}
 	if value, ok := tuo.mutation.AddedOutputTokens(); ok {
 		_spec.AddField(task.FieldOutputTokens, field.TypeInt64, value)
+	}
+	if tuo.mutation.OutputTokensCleared() {
+		_spec.ClearField(task.FieldOutputTokens, field.TypeInt64)
 	}
 	if value, ok := tuo.mutation.CacheWriteTokens(); ok {
 		_spec.SetField(task.FieldCacheWriteTokens, field.TypeInt64, value)
@@ -614,18 +734,33 @@ func (tuo *TaskUpdateOne) sqlSave(ctx context.Context) (_node *Task, err error) 
 	if value, ok := tuo.mutation.AddedCacheWriteTokens(); ok {
 		_spec.AddField(task.FieldCacheWriteTokens, field.TypeInt64, value)
 	}
+	if tuo.mutation.CacheWriteTokensCleared() {
+		_spec.ClearField(task.FieldCacheWriteTokens, field.TypeInt64)
+	}
 	if value, ok := tuo.mutation.CacheReadTokens(); ok {
 		_spec.SetField(task.FieldCacheReadTokens, field.TypeInt64, value)
 	}
 	if value, ok := tuo.mutation.AddedCacheReadTokens(); ok {
 		_spec.AddField(task.FieldCacheReadTokens, field.TypeInt64, value)
 	}
+	if tuo.mutation.CacheReadTokensCleared() {
+		_spec.ClearField(task.FieldCacheReadTokens, field.TypeInt64)
+	}
+	if value, ok := tuo.mutation.Cost(); ok {
+		_spec.SetField(task.FieldCost, field.TypeFloat64, value)
+	}
+	if value, ok := tuo.mutation.AddedCost(); ok {
+		_spec.AddField(task.FieldCost, field.TypeFloat64, value)
+	}
+	if tuo.mutation.CostCleared() {
+		_spec.ClearField(task.FieldCost, field.TypeFloat64)
+	}
 	if tuo.mutation.MessagesCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
+			Rel:     sqlgraph.O2M,
 			Inverse: false,
 			Table:   task.MessagesTable,
-			Columns: task.MessagesPrimaryKey,
+			Columns: []string{task.MessagesColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(message.FieldID, field.TypeUUID),
@@ -635,10 +770,10 @@ func (tuo *TaskUpdateOne) sqlSave(ctx context.Context) (_node *Task, err error) 
 	}
 	if nodes := tuo.mutation.RemovedMessagesIDs(); len(nodes) > 0 && !tuo.mutation.MessagesCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
+			Rel:     sqlgraph.O2M,
 			Inverse: false,
 			Table:   task.MessagesTable,
-			Columns: task.MessagesPrimaryKey,
+			Columns: []string{task.MessagesColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(message.FieldID, field.TypeUUID),
@@ -651,13 +786,42 @@ func (tuo *TaskUpdateOne) sqlSave(ctx context.Context) (_node *Task, err error) 
 	}
 	if nodes := tuo.mutation.MessagesIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
+			Rel:     sqlgraph.O2M,
 			Inverse: false,
 			Table:   task.MessagesTable,
-			Columns: task.MessagesPrimaryKey,
+			Columns: []string{task.MessagesColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(message.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if tuo.mutation.AgentCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   task.AgentTable,
+			Columns: []string{task.AgentColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := tuo.mutation.AgentIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   task.AgentTable,
+			Columns: []string{task.AgentColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

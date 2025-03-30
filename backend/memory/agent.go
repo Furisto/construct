@@ -44,9 +44,11 @@ type AgentEdges struct {
 	Delegates []*Agent `json:"delegates,omitempty"`
 	// Delegators holds the value of the delegators edge.
 	Delegators []*Agent `json:"delegators,omitempty"`
+	// Tasks holds the value of the tasks edge.
+	Tasks []*Task `json:"tasks,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [3]bool
+	loadedTypes [4]bool
 }
 
 // ModelOrErr returns the Model value or an error if the edge
@@ -76,6 +78,15 @@ func (e AgentEdges) DelegatorsOrErr() ([]*Agent, error) {
 		return e.Delegators, nil
 	}
 	return nil, &NotLoadedError{edge: "delegators"}
+}
+
+// TasksOrErr returns the Tasks value or an error if the edge
+// was not loaded in eager-loading.
+func (e AgentEdges) TasksOrErr() ([]*Task, error) {
+	if e.loadedTypes[3] {
+		return e.Tasks, nil
+	}
+	return nil, &NotLoadedError{edge: "tasks"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -175,6 +186,11 @@ func (a *Agent) QueryDelegates() *AgentQuery {
 // QueryDelegators queries the "delegators" edge of the Agent entity.
 func (a *Agent) QueryDelegators() *AgentQuery {
 	return NewAgentClient(a.config).QueryDelegators(a)
+}
+
+// QueryTasks queries the "tasks" edge of the Agent entity.
+func (a *Agent) QueryTasks() *TaskQuery {
+	return NewAgentClient(a.config).QueryTasks(a)
 }
 
 // Update returns a builder for updating this Agent.

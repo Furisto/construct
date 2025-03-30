@@ -134,4 +134,9 @@ func (s *TestServer) ClearDatabase(ctx context.Context) {
 	s.Options.DB.ModelProvider.Delete().Exec(ctx)
 	s.Options.DB.Model.Delete().Exec(ctx)
 	s.Options.DB.Agent.Delete().Exec(ctx)
+	s.Options.DB.Task.Delete().Exec(ctx)
+}
+
+func strPtr(s string) *string {
+	return &s
 }

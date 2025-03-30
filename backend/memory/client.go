@@ -394,6 +394,22 @@ func (c *AgentClient) QueryDelegators(a *Agent) *AgentQuery {
 	return query
 }
 
+// QueryTasks queries the tasks edge of a Agent.
+func (c *AgentClient) QueryTasks(a *Agent) *TaskQuery {
+	query := (&TaskClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := a.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(agent.Table, agent.FieldID, id),
+			sqlgraph.To(task.Table, task.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, agent.TasksTable, agent.TasksColumn),
+		)
+		fromV = sqlgraph.Neighbors(a.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *AgentClient) Hooks() []Hook {
 	return c.hooks.Agent
@@ -535,7 +551,7 @@ func (c *MessageClient) QueryTask(m *Message) *TaskQuery {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(message.Table, message.FieldID, id),
 			sqlgraph.To(task.Table, task.FieldID),
-			sqlgraph.Edge(sqlgraph.M2M, true, message.TaskTable, message.TaskPrimaryKey...),
+			sqlgraph.Edge(sqlgraph.M2O, true, message.TaskTable, message.TaskColumn),
 		)
 		fromV = sqlgraph.Neighbors(m.driver.Dialect(), step)
 		return fromV, nil
@@ -998,7 +1014,23 @@ func (c *TaskClient) QueryMessages(t *Task) *MessageQuery {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(task.Table, task.FieldID, id),
 			sqlgraph.To(message.Table, message.FieldID),
-			sqlgraph.Edge(sqlgraph.M2M, false, task.MessagesTable, task.MessagesPrimaryKey...),
+			sqlgraph.Edge(sqlgraph.O2M, false, task.MessagesTable, task.MessagesColumn),
+		)
+		fromV = sqlgraph.Neighbors(t.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryAgent queries the agent edge of a Task.
+func (c *TaskClient) QueryAgent(t *Task) *AgentQuery {
+	query := (&AgentClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := t.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(task.Table, task.FieldID, id),
+			sqlgraph.To(agent.Table, agent.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, task.AgentTable, task.AgentColumn),
 		)
 		fromV = sqlgraph.Neighbors(t.driver.Dialect(), step)
 		return fromV, nil
