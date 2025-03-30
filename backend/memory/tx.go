@@ -14,6 +14,8 @@ type Tx struct {
 	config
 	// Agent is the client for interacting with the Agent builders.
 	Agent *AgentClient
+	// Mailbox is the client for interacting with the Mailbox builders.
+	Mailbox *MailboxClient
 	// Message is the client for interacting with the Message builders.
 	Message *MessageClient
 	// Model is the client for interacting with the Model builders.
@@ -154,6 +156,7 @@ func (tx *Tx) Client() *Client {
 
 func (tx *Tx) init() {
 	tx.Agent = NewAgentClient(tx.config)
+	tx.Mailbox = NewMailboxClient(tx.config)
 	tx.Message = NewMessageClient(tx.config)
 	tx.Model = NewModelClient(tx.config)
 	tx.ModelProvider = NewModelProviderClient(tx.config)

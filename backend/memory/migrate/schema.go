@@ -32,6 +32,17 @@ var (
 			},
 		},
 	}
+	// MailboxesColumns holds the columns for the "mailboxes" table.
+	MailboxesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID, Unique: true},
+		{Name: "content", Type: field.TypeJSON},
+	}
+	// MailboxesTable holds the schema information for the "mailboxes" table.
+	MailboxesTable = &schema.Table{
+		Name:       "mailboxes",
+		Columns:    MailboxesColumns,
+		PrimaryKey: []*schema.Column{MailboxesColumns[0]},
+	}
 	// MessagesColumns holds the columns for the "messages" table.
 	MessagesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID, Unique: true},
@@ -164,6 +175,7 @@ var (
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		AgentsTable,
+		MailboxesTable,
 		MessagesTable,
 		ModelsTable,
 		ModelProvidersTable,

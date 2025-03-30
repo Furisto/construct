@@ -21,6 +21,18 @@ func (f AgentFunc) Mutate(ctx context.Context, m memory.Mutation) (memory.Value,
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *memory.AgentMutation", m)
 }
 
+// The MailboxFunc type is an adapter to allow the use of ordinary
+// function as Mailbox mutator.
+type MailboxFunc func(context.Context, *memory.MailboxMutation) (memory.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f MailboxFunc) Mutate(ctx context.Context, m memory.Mutation) (memory.Value, error) {
+	if mv, ok := m.(*memory.MailboxMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *memory.MailboxMutation", m)
+}
+
 // The MessageFunc type is an adapter to allow the use of ordinary
 // function as Message mutator.
 type MessageFunc func(context.Context, *memory.MessageMutation) (memory.Value, error)
