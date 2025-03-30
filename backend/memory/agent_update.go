@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
@@ -26,6 +27,12 @@ type AgentUpdate struct {
 // Where appends a list predicates to the AgentUpdate builder.
 func (au *AgentUpdate) Where(ps ...predicate.Agent) *AgentUpdate {
 	au.mutation.Where(ps...)
+	return au
+}
+
+// SetUpdateTime sets the "update_time" field.
+func (au *AgentUpdate) SetUpdateTime(t time.Time) *AgentUpdate {
+	au.mutation.SetUpdateTime(t)
 	return au
 }
 
@@ -181,6 +188,7 @@ func (au *AgentUpdate) RemoveDelegators(a ...*Agent) *AgentUpdate {
 
 // Save executes the query and returns the number of nodes affected by the update operation.
 func (au *AgentUpdate) Save(ctx context.Context) (int, error) {
+	au.defaults()
 	return withHooks(ctx, au.sqlSave, au.mutation, au.hooks)
 }
 
@@ -206,6 +214,14 @@ func (au *AgentUpdate) ExecX(ctx context.Context) {
 	}
 }
 
+// defaults sets the default values of the builder before save.
+func (au *AgentUpdate) defaults() {
+	if _, ok := au.mutation.UpdateTime(); !ok {
+		v := agent.UpdateDefaultUpdateTime()
+		au.mutation.SetUpdateTime(v)
+	}
+}
+
 // check runs all checks and user-defined validators on the builder.
 func (au *AgentUpdate) check() error {
 	if v, ok := au.mutation.Name(); ok {
@@ -227,6 +243,9 @@ func (au *AgentUpdate) sqlSave(ctx context.Context) (n int, err error) {
 				ps[i](selector)
 			}
 		}
+	}
+	if value, ok := au.mutation.UpdateTime(); ok {
+		_spec.SetField(agent.FieldUpdateTime, field.TypeTime, value)
 	}
 	if value, ok := au.mutation.Name(); ok {
 		_spec.SetField(agent.FieldName, field.TypeString, value)
@@ -377,6 +396,12 @@ type AgentUpdateOne struct {
 	fields   []string
 	hooks    []Hook
 	mutation *AgentMutation
+}
+
+// SetUpdateTime sets the "update_time" field.
+func (auo *AgentUpdateOne) SetUpdateTime(t time.Time) *AgentUpdateOne {
+	auo.mutation.SetUpdateTime(t)
+	return auo
 }
 
 // SetName sets the "name" field.
@@ -544,6 +569,7 @@ func (auo *AgentUpdateOne) Select(field string, fields ...string) *AgentUpdateOn
 
 // Save executes the query and returns the updated Agent entity.
 func (auo *AgentUpdateOne) Save(ctx context.Context) (*Agent, error) {
+	auo.defaults()
 	return withHooks(ctx, auo.sqlSave, auo.mutation, auo.hooks)
 }
 
@@ -566,6 +592,14 @@ func (auo *AgentUpdateOne) Exec(ctx context.Context) error {
 func (auo *AgentUpdateOne) ExecX(ctx context.Context) {
 	if err := auo.Exec(ctx); err != nil {
 		panic(err)
+	}
+}
+
+// defaults sets the default values of the builder before save.
+func (auo *AgentUpdateOne) defaults() {
+	if _, ok := auo.mutation.UpdateTime(); !ok {
+		v := agent.UpdateDefaultUpdateTime()
+		auo.mutation.SetUpdateTime(v)
 	}
 }
 
@@ -607,6 +641,9 @@ func (auo *AgentUpdateOne) sqlSave(ctx context.Context) (_node *Agent, err error
 				ps[i](selector)
 			}
 		}
+	}
+	if value, ok := auo.mutation.UpdateTime(); ok {
+		_spec.SetField(agent.FieldUpdateTime, field.TypeTime, value)
 	}
 	if value, ok := auo.mutation.Name(); ok {
 		_spec.SetField(agent.FieldName, field.TypeString, value)

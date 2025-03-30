@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
@@ -29,6 +30,12 @@ type ModelUpdate struct {
 // Where appends a list predicates to the ModelUpdate builder.
 func (mu *ModelUpdate) Where(ps ...predicate.Model) *ModelUpdate {
 	mu.mutation.Where(ps...)
+	return mu
+}
+
+// SetUpdateTime sets the "update_time" field.
+func (mu *ModelUpdate) SetUpdateTime(t time.Time) *ModelUpdate {
+	mu.mutation.SetUpdateTime(t)
 	return mu
 }
 
@@ -251,6 +258,7 @@ func (mu *ModelUpdate) RemoveAgents(a ...*Agent) *ModelUpdate {
 
 // Save executes the query and returns the number of nodes affected by the update operation.
 func (mu *ModelUpdate) Save(ctx context.Context) (int, error) {
+	mu.defaults()
 	return withHooks(ctx, mu.sqlSave, mu.mutation, mu.hooks)
 }
 
@@ -273,6 +281,14 @@ func (mu *ModelUpdate) Exec(ctx context.Context) error {
 func (mu *ModelUpdate) ExecX(ctx context.Context) {
 	if err := mu.Exec(ctx); err != nil {
 		panic(err)
+	}
+}
+
+// defaults sets the default values of the builder before save.
+func (mu *ModelUpdate) defaults() {
+	if _, ok := mu.mutation.UpdateTime(); !ok {
+		v := model.UpdateDefaultUpdateTime()
+		mu.mutation.SetUpdateTime(v)
 	}
 }
 
@@ -312,6 +328,9 @@ func (mu *ModelUpdate) sqlSave(ctx context.Context) (n int, err error) {
 				ps[i](selector)
 			}
 		}
+	}
+	if value, ok := mu.mutation.UpdateTime(); ok {
+		_spec.SetField(model.FieldUpdateTime, field.TypeTime, value)
 	}
 	if value, ok := mu.mutation.Name(); ok {
 		_spec.SetField(model.FieldName, field.TypeString, value)
@@ -452,6 +471,12 @@ type ModelUpdateOne struct {
 	fields   []string
 	hooks    []Hook
 	mutation *ModelMutation
+}
+
+// SetUpdateTime sets the "update_time" field.
+func (muo *ModelUpdateOne) SetUpdateTime(t time.Time) *ModelUpdateOne {
+	muo.mutation.SetUpdateTime(t)
+	return muo
 }
 
 // SetName sets the "name" field.
@@ -686,6 +711,7 @@ func (muo *ModelUpdateOne) Select(field string, fields ...string) *ModelUpdateOn
 
 // Save executes the query and returns the updated Model entity.
 func (muo *ModelUpdateOne) Save(ctx context.Context) (*Model, error) {
+	muo.defaults()
 	return withHooks(ctx, muo.sqlSave, muo.mutation, muo.hooks)
 }
 
@@ -708,6 +734,14 @@ func (muo *ModelUpdateOne) Exec(ctx context.Context) error {
 func (muo *ModelUpdateOne) ExecX(ctx context.Context) {
 	if err := muo.Exec(ctx); err != nil {
 		panic(err)
+	}
+}
+
+// defaults sets the default values of the builder before save.
+func (muo *ModelUpdateOne) defaults() {
+	if _, ok := muo.mutation.UpdateTime(); !ok {
+		v := model.UpdateDefaultUpdateTime()
+		muo.mutation.SetUpdateTime(v)
 	}
 }
 
@@ -764,6 +798,9 @@ func (muo *ModelUpdateOne) sqlSave(ctx context.Context) (_node *Model, err error
 				ps[i](selector)
 			}
 		}
+	}
+	if value, ok := muo.mutation.UpdateTime(); ok {
+		_spec.SetField(model.FieldUpdateTime, field.TypeTime, value)
 	}
 	if value, ok := muo.mutation.Name(); ok {
 		_spec.SetField(model.FieldName, field.TypeString, value)

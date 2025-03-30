@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
@@ -21,6 +22,34 @@ type ModelCreate struct {
 	config
 	mutation *ModelMutation
 	hooks    []Hook
+}
+
+// SetCreateTime sets the "create_time" field.
+func (mc *ModelCreate) SetCreateTime(t time.Time) *ModelCreate {
+	mc.mutation.SetCreateTime(t)
+	return mc
+}
+
+// SetNillableCreateTime sets the "create_time" field if the given value is not nil.
+func (mc *ModelCreate) SetNillableCreateTime(t *time.Time) *ModelCreate {
+	if t != nil {
+		mc.SetCreateTime(*t)
+	}
+	return mc
+}
+
+// SetUpdateTime sets the "update_time" field.
+func (mc *ModelCreate) SetUpdateTime(t time.Time) *ModelCreate {
+	mc.mutation.SetUpdateTime(t)
+	return mc
+}
+
+// SetNillableUpdateTime sets the "update_time" field if the given value is not nil.
+func (mc *ModelCreate) SetNillableUpdateTime(t *time.Time) *ModelCreate {
+	if t != nil {
+		mc.SetUpdateTime(*t)
+	}
+	return mc
 }
 
 // SetName sets the "name" field.
@@ -194,6 +223,14 @@ func (mc *ModelCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (mc *ModelCreate) defaults() {
+	if _, ok := mc.mutation.CreateTime(); !ok {
+		v := model.DefaultCreateTime()
+		mc.mutation.SetCreateTime(v)
+	}
+	if _, ok := mc.mutation.UpdateTime(); !ok {
+		v := model.DefaultUpdateTime()
+		mc.mutation.SetUpdateTime(v)
+	}
 	if _, ok := mc.mutation.InputCost(); !ok {
 		v := model.DefaultInputCost
 		mc.mutation.SetInputCost(v)
@@ -222,6 +259,12 @@ func (mc *ModelCreate) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (mc *ModelCreate) check() error {
+	if _, ok := mc.mutation.CreateTime(); !ok {
+		return &ValidationError{Name: "create_time", err: errors.New(`memory: missing required field "Model.create_time"`)}
+	}
+	if _, ok := mc.mutation.UpdateTime(); !ok {
+		return &ValidationError{Name: "update_time", err: errors.New(`memory: missing required field "Model.update_time"`)}
+	}
 	if _, ok := mc.mutation.Name(); !ok {
 		return &ValidationError{Name: "name", err: errors.New(`memory: missing required field "Model.name"`)}
 	}
@@ -297,6 +340,14 @@ func (mc *ModelCreate) createSpec() (*Model, *sqlgraph.CreateSpec) {
 	if id, ok := mc.mutation.ID(); ok {
 		_node.ID = id
 		_spec.ID.Value = &id
+	}
+	if value, ok := mc.mutation.CreateTime(); ok {
+		_spec.SetField(model.FieldCreateTime, field.TypeTime, value)
+		_node.CreateTime = value
+	}
+	if value, ok := mc.mutation.UpdateTime(); ok {
+		_spec.SetField(model.FieldUpdateTime, field.TypeTime, value)
+		_node.UpdateTime = value
 	}
 	if value, ok := mc.mutation.Name(); ok {
 		_spec.SetField(model.FieldName, field.TypeString, value)

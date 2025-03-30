@@ -18,8 +18,21 @@ import (
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
+	agentMixin := schema.Agent{}.Mixin()
+	agentMixinFields0 := agentMixin[0].Fields()
+	_ = agentMixinFields0
 	agentFields := schema.Agent{}.Fields()
 	_ = agentFields
+	// agentDescCreateTime is the schema descriptor for create_time field.
+	agentDescCreateTime := agentMixinFields0[0].Descriptor()
+	// agent.DefaultCreateTime holds the default value on creation for the create_time field.
+	agent.DefaultCreateTime = agentDescCreateTime.Default.(func() time.Time)
+	// agentDescUpdateTime is the schema descriptor for update_time field.
+	agentDescUpdateTime := agentMixinFields0[1].Descriptor()
+	// agent.DefaultUpdateTime holds the default value on creation for the update_time field.
+	agent.DefaultUpdateTime = agentDescUpdateTime.Default.(func() time.Time)
+	// agent.UpdateDefaultUpdateTime holds the default value on update for the update_time field.
+	agent.UpdateDefaultUpdateTime = agentDescUpdateTime.UpdateDefault.(func() time.Time)
 	// agentDescName is the schema descriptor for name field.
 	agentDescName := agentFields[1].Descriptor()
 	// agent.NameValidator is a validator for the "name" field. It is called by the builders before save.
@@ -47,8 +60,21 @@ func init() {
 	messageDescID := messageFields[0].Descriptor()
 	// message.DefaultID holds the default value on creation for the id field.
 	message.DefaultID = messageDescID.Default.(func() uuid.UUID)
+	modelMixin := schema.Model{}.Mixin()
+	modelMixinFields0 := modelMixin[0].Fields()
+	_ = modelMixinFields0
 	modelFields := schema.Model{}.Fields()
 	_ = modelFields
+	// modelDescCreateTime is the schema descriptor for create_time field.
+	modelDescCreateTime := modelMixinFields0[0].Descriptor()
+	// model.DefaultCreateTime holds the default value on creation for the create_time field.
+	model.DefaultCreateTime = modelDescCreateTime.Default.(func() time.Time)
+	// modelDescUpdateTime is the schema descriptor for update_time field.
+	modelDescUpdateTime := modelMixinFields0[1].Descriptor()
+	// model.DefaultUpdateTime holds the default value on creation for the update_time field.
+	model.DefaultUpdateTime = modelDescUpdateTime.Default.(func() time.Time)
+	// model.UpdateDefaultUpdateTime holds the default value on update for the update_time field.
+	model.UpdateDefaultUpdateTime = modelDescUpdateTime.UpdateDefault.(func() time.Time)
 	// modelDescInputCost is the schema descriptor for input_cost field.
 	modelDescInputCost := modelFields[4].Descriptor()
 	// model.DefaultInputCost holds the default value on creation for the input_cost field.
