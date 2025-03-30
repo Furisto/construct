@@ -1,3 +1,114 @@
 syntax = "proto3";
 
 package construct.v1;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/furisto/construct/api/go/v1";
+
+service MessageService {
+  rpc CreateMessage(CreateMessageRequest) returns (CreateMessageResponse) {}
+  rpc GetMessage(GetMessageRequest) returns (GetMessageResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  rpc ListMessages(ListMessagesRequest) returns (ListMessagesResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  rpc UpdateMessage(UpdateMessageRequest) returns (UpdateMessageResponse) {}
+  rpc DeleteMessage(DeleteMessageRequest) returns (DeleteMessageResponse) {}
+  rpc Subscribe(SubscribeRequest) returns (stream SubscribeResponse) {}
+}
+
+enum MessageRole {
+  MESSAGE_ROLE_UNSPECIFIED = 0;
+  MESSAGE_ROLE_USER = 1;
+  MESSAGE_ROLE_ASSISTANT = 2;
+}
+
+message MessageContent {
+  oneof content {
+    string text = 1;
+  }
+}
+
+message Message {
+  string id = 1 [(buf.validate.field).string.uuid = true];
+  MessageMetadata metadata = 2;
+  MessageContent content = 3;
+}
+
+message MessageMetadata {
+  google.protobuf.Timestamp created_at = 6 [(buf.validate.field).required = true];
+  google.protobuf.Timestamp updated_at = 7 [(buf.validate.field).required = true];
+  string task_id = 2 [(buf.validate.field).string.uuid = true];
+  string agent_id = 3 [(buf.validate.field).string.uuid = true];
+  string model_id = 4 [(buf.validate.field).string.uuid = true];
+  MessageRole role = 1;
+  MessageUsage usage = 5;
+}
+
+message MessageUsage {
+  int64 input_tokens = 1;
+  int64 output_tokens = 2;
+  int64 cache_write_tokens = 3;
+  int64 cache_read_tokens = 4;
+  double cost = 5;
+}
+
+message CreateMessageRequest {
+  string task_id = 1 [(buf.validate.field).string.uuid = true];
+  string content = 2 [(buf.validate.field).string.min_len = 1];
+}
+
+message CreateMessageResponse {
+  Message message = 1 [(buf.validate.field).required = true];
+}
+
+message GetMessageRequest {
+  string id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message GetMessageResponse {
+  Message message = 1 [(buf.validate.field).required = true];
+}
+
+message ListMessagesRequest {
+  message Filter {
+    optional string task_id = 1 [(buf.validate.field).string.uuid = true];
+    optional string agent_id = 2 [(buf.validate.field).string.uuid = true];
+    optional MessageRole role = 3;
+  }
+  Filter filter = 1;
+  string page_token = 2 [(buf.validate.field).string.max_len = 255];
+}
+
+message ListMessagesResponse {
+  repeated Message messages = 1;
+  string next_page_token = 2;
+}
+
+message UpdateMessageRequest {
+  string id = 1 [(buf.validate.field).string.uuid = true];
+  string content = 2 [(buf.validate.field).string.min_len = 1];
+}
+
+message UpdateMessageResponse {
+  Message message = 1 [(buf.validate.field).required = true];
+}
+
+message DeleteMessageRequest {
+  string id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message DeleteMessageResponse {}
+
+message SubscribeRequest {
+  string task_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message SubscribeResponse {
+  oneof event {
+    Message message_event = 1;
+  }
+}
