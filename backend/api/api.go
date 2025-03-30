@@ -1,7 +1,9 @@
 package api
 
 import (
+	"errors"
 	"net/http"
+	"strings"
 
 	"connectrpc.com/connect"
 	"github.com/furisto/construct/api/go/v1/v1connect"
@@ -30,6 +32,9 @@ func NewHandler(opts HandlerOptions) *Handler {
 	modelProviderHandler := NewModelProviderHandler(handler.db, handler.encryption)
 	handler.mux.Handle(v1connect.NewModelProviderServiceHandler(modelProviderHandler))
 
+	agentHandler := NewAgentHandler(handler.db)
+	handler.mux.Handle(v1connect.NewAgentServiceHandler(agentHandler))
+
 	return handler
 }
 
@@ -43,6 +48,7 @@ func apiError(err error) error {
 	}
 
 	if memory.IsNotFound(err) {
+		err = errors.New(strings.TrimPrefix(err.Error(), "memory: "))
 		return connect.NewError(connect.CodeNotFound, err)
 	}
 
