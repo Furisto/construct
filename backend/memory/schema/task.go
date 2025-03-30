@@ -18,10 +18,6 @@ func (Task) Fields() []ent.Field {
 		field.UUID("id", uuid.UUID{}).Default(uuid.New).Unique().Immutable(),
 		field.JSON("spec", &types.TaskSpec{}),
 		field.JSON("status", &types.TaskStatus{}).Optional(),
-		field.Int64("input_tokens"),
-		field.Int64("output_tokens"),
-		field.Int64("cache_write_tokens"),
-		field.Int64("cache_read_tokens"),
 	}
 }
 
