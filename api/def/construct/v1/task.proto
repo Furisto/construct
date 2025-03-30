@@ -32,7 +32,7 @@ message TaskMetadata {
 }
 
 message TaskSpec {
-  string agent_id = 1 [(buf.validate.field).string.uuid = true];
+  optional string agent_id = 1 [(buf.validate.field).string.uuid = true];
 }
 
 message TaskStatus {

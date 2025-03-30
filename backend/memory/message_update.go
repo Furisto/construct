@@ -83,19 +83,23 @@ func (mu *MessageUpdate) ClearUsage() *MessageUpdate {
 	return mu
 }
 
-// AddTaskIDs adds the "task" edge to the Task entity by IDs.
-func (mu *MessageUpdate) AddTaskIDs(ids ...uuid.UUID) *MessageUpdate {
-	mu.mutation.AddTaskIDs(ids...)
+// SetTaskID sets the "task" edge to the Task entity by ID.
+func (mu *MessageUpdate) SetTaskID(id uuid.UUID) *MessageUpdate {
+	mu.mutation.SetTaskID(id)
 	return mu
 }
 
-// AddTask adds the "task" edges to the Task entity.
-func (mu *MessageUpdate) AddTask(t ...*Task) *MessageUpdate {
-	ids := make([]uuid.UUID, len(t))
-	for i := range t {
-		ids[i] = t[i].ID
+// SetNillableTaskID sets the "task" edge to the Task entity by ID if the given value is not nil.
+func (mu *MessageUpdate) SetNillableTaskID(id *uuid.UUID) *MessageUpdate {
+	if id != nil {
+		mu = mu.SetTaskID(*id)
 	}
-	return mu.AddTaskIDs(ids...)
+	return mu
+}
+
+// SetTask sets the "task" edge to the Task entity.
+func (mu *MessageUpdate) SetTask(t *Task) *MessageUpdate {
+	return mu.SetTaskID(t.ID)
 }
 
 // Mutation returns the MessageMutation object of the builder.
@@ -103,25 +107,10 @@ func (mu *MessageUpdate) Mutation() *MessageMutation {
 	return mu.mutation
 }
 
-// ClearTask clears all "task" edges to the Task entity.
+// ClearTask clears the "task" edge to the Task entity.
 func (mu *MessageUpdate) ClearTask() *MessageUpdate {
 	mu.mutation.ClearTask()
 	return mu
-}
-
-// RemoveTaskIDs removes the "task" edge to Task entities by IDs.
-func (mu *MessageUpdate) RemoveTaskIDs(ids ...uuid.UUID) *MessageUpdate {
-	mu.mutation.RemoveTaskIDs(ids...)
-	return mu
-}
-
-// RemoveTask removes "task" edges to Task entities.
-func (mu *MessageUpdate) RemoveTask(t ...*Task) *MessageUpdate {
-	ids := make([]uuid.UUID, len(t))
-	for i := range t {
-		ids[i] = t[i].ID
-	}
-	return mu.RemoveTaskIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -202,39 +191,23 @@ func (mu *MessageUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if mu.mutation.TaskCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
+			Rel:     sqlgraph.M2O,
 			Inverse: true,
 			Table:   message.TaskTable,
-			Columns: message.TaskPrimaryKey,
+			Columns: []string{message.TaskColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(task.FieldID, field.TypeUUID),
 			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := mu.mutation.RemovedTaskIDs(); len(nodes) > 0 && !mu.mutation.TaskCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
-			Inverse: true,
-			Table:   message.TaskTable,
-			Columns: message.TaskPrimaryKey,
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(task.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
 	if nodes := mu.mutation.TaskIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
+			Rel:     sqlgraph.M2O,
 			Inverse: true,
 			Table:   message.TaskTable,
-			Columns: message.TaskPrimaryKey,
+			Columns: []string{message.TaskColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(task.FieldID, field.TypeUUID),
@@ -317,19 +290,23 @@ func (muo *MessageUpdateOne) ClearUsage() *MessageUpdateOne {
 	return muo
 }
 
-// AddTaskIDs adds the "task" edge to the Task entity by IDs.
-func (muo *MessageUpdateOne) AddTaskIDs(ids ...uuid.UUID) *MessageUpdateOne {
-	muo.mutation.AddTaskIDs(ids...)
+// SetTaskID sets the "task" edge to the Task entity by ID.
+func (muo *MessageUpdateOne) SetTaskID(id uuid.UUID) *MessageUpdateOne {
+	muo.mutation.SetTaskID(id)
 	return muo
 }
 
-// AddTask adds the "task" edges to the Task entity.
-func (muo *MessageUpdateOne) AddTask(t ...*Task) *MessageUpdateOne {
-	ids := make([]uuid.UUID, len(t))
-	for i := range t {
-		ids[i] = t[i].ID
+// SetNillableTaskID sets the "task" edge to the Task entity by ID if the given value is not nil.
+func (muo *MessageUpdateOne) SetNillableTaskID(id *uuid.UUID) *MessageUpdateOne {
+	if id != nil {
+		muo = muo.SetTaskID(*id)
 	}
-	return muo.AddTaskIDs(ids...)
+	return muo
+}
+
+// SetTask sets the "task" edge to the Task entity.
+func (muo *MessageUpdateOne) SetTask(t *Task) *MessageUpdateOne {
+	return muo.SetTaskID(t.ID)
 }
 
 // Mutation returns the MessageMutation object of the builder.
@@ -337,25 +314,10 @@ func (muo *MessageUpdateOne) Mutation() *MessageMutation {
 	return muo.mutation
 }
 
-// ClearTask clears all "task" edges to the Task entity.
+// ClearTask clears the "task" edge to the Task entity.
 func (muo *MessageUpdateOne) ClearTask() *MessageUpdateOne {
 	muo.mutation.ClearTask()
 	return muo
-}
-
-// RemoveTaskIDs removes the "task" edge to Task entities by IDs.
-func (muo *MessageUpdateOne) RemoveTaskIDs(ids ...uuid.UUID) *MessageUpdateOne {
-	muo.mutation.RemoveTaskIDs(ids...)
-	return muo
-}
-
-// RemoveTask removes "task" edges to Task entities.
-func (muo *MessageUpdateOne) RemoveTask(t ...*Task) *MessageUpdateOne {
-	ids := make([]uuid.UUID, len(t))
-	for i := range t {
-		ids[i] = t[i].ID
-	}
-	return muo.RemoveTaskIDs(ids...)
 }
 
 // Where appends a list predicates to the MessageUpdate builder.
@@ -466,39 +428,23 @@ func (muo *MessageUpdateOne) sqlSave(ctx context.Context) (_node *Message, err e
 	}
 	if muo.mutation.TaskCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
+			Rel:     sqlgraph.M2O,
 			Inverse: true,
 			Table:   message.TaskTable,
-			Columns: message.TaskPrimaryKey,
+			Columns: []string{message.TaskColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(task.FieldID, field.TypeUUID),
 			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := muo.mutation.RemovedTaskIDs(); len(nodes) > 0 && !muo.mutation.TaskCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
-			Inverse: true,
-			Table:   message.TaskTable,
-			Columns: message.TaskPrimaryKey,
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(task.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
 	if nodes := muo.mutation.TaskIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
+			Rel:     sqlgraph.M2O,
 			Inverse: true,
 			Table:   message.TaskTable,
-			Columns: message.TaskPrimaryKey,
+			Columns: []string{message.TaskColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(task.FieldID, field.TypeUUID),

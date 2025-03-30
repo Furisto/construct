@@ -41,12 +41,21 @@ var (
 		{Name: "content", Type: field.TypeJSON},
 		{Name: "role", Type: field.TypeEnum, Enums: []string{"user", "assistant"}},
 		{Name: "usage", Type: field.TypeJSON, Nullable: true},
+		{Name: "task_messages", Type: field.TypeUUID, Nullable: true},
 	}
 	// MessagesTable holds the schema information for the "messages" table.
 	MessagesTable = &schema.Table{
 		Name:       "messages",
 		Columns:    MessagesColumns,
 		PrimaryKey: []*schema.Column{MessagesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "messages_tasks_messages",
+				Columns:    []*schema.Column{MessagesColumns[7]},
+				RefColumns: []*schema.Column{TasksColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
 		Indexes: []*schema.Index{
 			{
 				Name:    "message_agent_id",
@@ -104,26 +113,26 @@ var (
 	// TasksColumns holds the columns for the "tasks" table.
 	TasksColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID, Unique: true},
-		{Name: "agent_id", Type: field.TypeUUID},
 		{Name: "create_time", Type: field.TypeTime},
 		{Name: "update_time", Type: field.TypeTime},
-		{Name: "spec", Type: field.TypeJSON},
-		{Name: "status", Type: field.TypeJSON, Nullable: true},
-		{Name: "input_tokens", Type: field.TypeInt64},
-		{Name: "output_tokens", Type: field.TypeInt64},
-		{Name: "cache_write_tokens", Type: field.TypeInt64},
-		{Name: "cache_read_tokens", Type: field.TypeInt64},
+		{Name: "input_tokens", Type: field.TypeInt64, Nullable: true},
+		{Name: "output_tokens", Type: field.TypeInt64, Nullable: true},
+		{Name: "cache_write_tokens", Type: field.TypeInt64, Nullable: true},
+		{Name: "cache_read_tokens", Type: field.TypeInt64, Nullable: true},
+		{Name: "cost", Type: field.TypeFloat64, Nullable: true},
+		{Name: "agent_tasks", Type: field.TypeUUID, Nullable: true},
 	}
 	// TasksTable holds the schema information for the "tasks" table.
 	TasksTable = &schema.Table{
 		Name:       "tasks",
 		Columns:    TasksColumns,
 		PrimaryKey: []*schema.Column{TasksColumns[0]},
-		Indexes: []*schema.Index{
+		ForeignKeys: []*schema.ForeignKey{
 			{
-				Name:    "task_agent_id",
-				Unique:  false,
-				Columns: []*schema.Column{TasksColumns[1]},
+				Symbol:     "tasks_agents_tasks",
+				Columns:    []*schema.Column{TasksColumns[8]},
+				RefColumns: []*schema.Column{AgentsColumns[0]},
+				OnDelete:   schema.SetNull,
 			},
 		},
 	}
@@ -152,31 +161,6 @@ var (
 			},
 		},
 	}
-	// TaskMessagesColumns holds the columns for the "task_messages" table.
-	TaskMessagesColumns = []*schema.Column{
-		{Name: "task_id", Type: field.TypeUUID},
-		{Name: "message_id", Type: field.TypeUUID},
-	}
-	// TaskMessagesTable holds the schema information for the "task_messages" table.
-	TaskMessagesTable = &schema.Table{
-		Name:       "task_messages",
-		Columns:    TaskMessagesColumns,
-		PrimaryKey: []*schema.Column{TaskMessagesColumns[0], TaskMessagesColumns[1]},
-		ForeignKeys: []*schema.ForeignKey{
-			{
-				Symbol:     "task_messages_task_id",
-				Columns:    []*schema.Column{TaskMessagesColumns[0]},
-				RefColumns: []*schema.Column{TasksColumns[0]},
-				OnDelete:   schema.Cascade,
-			},
-			{
-				Symbol:     "task_messages_message_id",
-				Columns:    []*schema.Column{TaskMessagesColumns[1]},
-				RefColumns: []*schema.Column{MessagesColumns[0]},
-				OnDelete:   schema.Cascade,
-			},
-		},
-	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		AgentsTable,
@@ -185,15 +169,14 @@ var (
 		ModelProvidersTable,
 		TasksTable,
 		AgentDelegatorsTable,
-		TaskMessagesTable,
 	}
 )
 
 func init() {
 	AgentsTable.ForeignKeys[0].RefTable = ModelsTable
+	MessagesTable.ForeignKeys[0].RefTable = TasksTable
 	ModelsTable.ForeignKeys[0].RefTable = ModelProvidersTable
+	TasksTable.ForeignKeys[0].RefTable = AgentsTable
 	AgentDelegatorsTable.ForeignKeys[0].RefTable = AgentsTable
 	AgentDelegatorsTable.ForeignKeys[1].RefTable = AgentsTable
-	TaskMessagesTable.ForeignKeys[0].RefTable = TasksTable
-	TaskMessagesTable.ForeignKeys[1].RefTable = MessagesTable
 }

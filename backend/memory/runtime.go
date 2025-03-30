@@ -139,16 +139,16 @@ func init() {
 	// modelprovider.DefaultID holds the default value on creation for the id field.
 	modelprovider.DefaultID = modelproviderDescID.Default.(func() uuid.UUID)
 	taskMixin := schema.Task{}.Mixin()
-	taskMixinFields1 := taskMixin[1].Fields()
-	_ = taskMixinFields1
+	taskMixinFields0 := taskMixin[0].Fields()
+	_ = taskMixinFields0
 	taskFields := schema.Task{}.Fields()
 	_ = taskFields
 	// taskDescCreateTime is the schema descriptor for create_time field.
-	taskDescCreateTime := taskMixinFields1[0].Descriptor()
+	taskDescCreateTime := taskMixinFields0[0].Descriptor()
 	// task.DefaultCreateTime holds the default value on creation for the create_time field.
 	task.DefaultCreateTime = taskDescCreateTime.Default.(func() time.Time)
 	// taskDescUpdateTime is the schema descriptor for update_time field.
-	taskDescUpdateTime := taskMixinFields1[1].Descriptor()
+	taskDescUpdateTime := taskMixinFields0[1].Descriptor()
 	// task.DefaultUpdateTime holds the default value on creation for the update_time field.
 	task.DefaultUpdateTime = taskDescUpdateTime.Default.(func() time.Time)
 	// task.UpdateDefaultUpdateTime holds the default value on update for the update_time field.

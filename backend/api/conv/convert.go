@@ -38,3 +38,7 @@ func ConvertTimeToTimestamp(t time.Time) *timestamppb.Timestamp {
 func ConvertTimestampToTime(t *timestamppb.Timestamp) time.Time {
 	return t.AsTime()
 }
+
+func strPtr(s string) *string {
+	return &s
+}

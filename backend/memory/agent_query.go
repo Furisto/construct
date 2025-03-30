@@ -15,6 +15,7 @@ import (
 	"github.com/furisto/construct/backend/memory/agent"
 	"github.com/furisto/construct/backend/memory/model"
 	"github.com/furisto/construct/backend/memory/predicate"
+	"github.com/furisto/construct/backend/memory/task"
 	"github.com/google/uuid"
 )
 
@@ -28,6 +29,7 @@ type AgentQuery struct {
 	withModel      *ModelQuery
 	withDelegates  *AgentQuery
 	withDelegators *AgentQuery
+	withTasks      *TaskQuery
 	withFKs        bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
@@ -124,6 +126,28 @@ func (aq *AgentQuery) QueryDelegators() *AgentQuery {
 			sqlgraph.From(agent.Table, agent.FieldID, selector),
 			sqlgraph.To(agent.Table, agent.FieldID),
 			sqlgraph.Edge(sqlgraph.M2M, false, agent.DelegatorsTable, agent.DelegatorsPrimaryKey...),
+		)
+		fromU = sqlgraph.SetNeighbors(aq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryTasks chains the current query on the "tasks" edge.
+func (aq *AgentQuery) QueryTasks() *TaskQuery {
+	query := (&TaskClient{config: aq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := aq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := aq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(agent.Table, agent.FieldID, selector),
+			sqlgraph.To(task.Table, task.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, agent.TasksTable, agent.TasksColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(aq.driver.Dialect(), step)
 		return fromU, nil
@@ -326,6 +350,7 @@ func (aq *AgentQuery) Clone() *AgentQuery {
 		withModel:      aq.withModel.Clone(),
 		withDelegates:  aq.withDelegates.Clone(),
 		withDelegators: aq.withDelegators.Clone(),
+		withTasks:      aq.withTasks.Clone(),
 		// clone intermediate query.
 		sql:  aq.sql.Clone(),
 		path: aq.path,
@@ -362,6 +387,17 @@ func (aq *AgentQuery) WithDelegators(opts ...func(*AgentQuery)) *AgentQuery {
 		opt(query)
 	}
 	aq.withDelegators = query
+	return aq
+}
+
+// WithTasks tells the query-builder to eager-load the nodes that are connected to
+// the "tasks" edge. The optional arguments are used to configure the query builder of the edge.
+func (aq *AgentQuery) WithTasks(opts ...func(*TaskQuery)) *AgentQuery {
+	query := (&TaskClient{config: aq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	aq.withTasks = query
 	return aq
 }
 
@@ -444,10 +480,11 @@ func (aq *AgentQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Agent,
 		nodes       = []*Agent{}
 		withFKs     = aq.withFKs
 		_spec       = aq.querySpec()
-		loadedTypes = [3]bool{
+		loadedTypes = [4]bool{
 			aq.withModel != nil,
 			aq.withDelegates != nil,
 			aq.withDelegators != nil,
+			aq.withTasks != nil,
 		}
 	)
 	if aq.withModel != nil {
@@ -491,6 +528,13 @@ func (aq *AgentQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Agent,
 		if err := aq.loadDelegators(ctx, query, nodes,
 			func(n *Agent) { n.Edges.Delegators = []*Agent{} },
 			func(n *Agent, e *Agent) { n.Edges.Delegators = append(n.Edges.Delegators, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := aq.withTasks; query != nil {
+		if err := aq.loadTasks(ctx, query, nodes,
+			func(n *Agent) { n.Edges.Tasks = []*Task{} },
+			func(n *Agent, e *Task) { n.Edges.Tasks = append(n.Edges.Tasks, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -648,6 +692,37 @@ func (aq *AgentQuery) loadDelegators(ctx context.Context, query *AgentQuery, nod
 		for kn := range nodes {
 			assign(kn, n)
 		}
+	}
+	return nil
+}
+func (aq *AgentQuery) loadTasks(ctx context.Context, query *TaskQuery, nodes []*Agent, init func(*Agent), assign func(*Agent, *Task)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*Agent)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	query.withFKs = true
+	query.Where(predicate.Task(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(agent.TasksColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.agent_tasks
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "agent_tasks" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "agent_tasks" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
 	}
 	return nil
 }

@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/furisto/construct/backend/memory/agent"
 	"github.com/furisto/construct/backend/memory/model"
+	"github.com/furisto/construct/backend/memory/task"
 	"github.com/google/uuid"
 )
 
@@ -137,6 +138,21 @@ func (ac *AgentCreate) AddDelegators(a ...*Agent) *AgentCreate {
 		ids[i] = a[i].ID
 	}
 	return ac.AddDelegatorIDs(ids...)
+}
+
+// AddTaskIDs adds the "tasks" edge to the Task entity by IDs.
+func (ac *AgentCreate) AddTaskIDs(ids ...uuid.UUID) *AgentCreate {
+	ac.mutation.AddTaskIDs(ids...)
+	return ac
+}
+
+// AddTasks adds the "tasks" edges to the Task entity.
+func (ac *AgentCreate) AddTasks(t ...*Task) *AgentCreate {
+	ids := make([]uuid.UUID, len(t))
+	for i := range t {
+		ids[i] = t[i].ID
+	}
+	return ac.AddTaskIDs(ids...)
 }
 
 // Mutation returns the AgentMutation object of the builder.
@@ -304,6 +320,22 @@ func (ac *AgentCreate) createSpec() (*Agent, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := ac.mutation.TasksIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   agent.TasksTable,
+			Columns: []string{agent.TasksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(task.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

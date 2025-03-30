@@ -10,8 +10,8 @@ import (
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/furisto/construct/backend/memory/agent"
 	"github.com/furisto/construct/backend/memory/message"
-	"github.com/furisto/construct/backend/memory/schema/types"
 	"github.com/furisto/construct/backend/memory/task"
 	"github.com/google/uuid"
 )
@@ -21,12 +21,6 @@ type TaskCreate struct {
 	config
 	mutation *TaskMutation
 	hooks    []Hook
-}
-
-// SetAgentID sets the "agent_id" field.
-func (tc *TaskCreate) SetAgentID(u uuid.UUID) *TaskCreate {
-	tc.mutation.SetAgentID(u)
-	return tc
 }
 
 // SetCreateTime sets the "create_time" field.
@@ -57,21 +51,17 @@ func (tc *TaskCreate) SetNillableUpdateTime(t *time.Time) *TaskCreate {
 	return tc
 }
 
-// SetSpec sets the "spec" field.
-func (tc *TaskCreate) SetSpec(ts *types.TaskSpec) *TaskCreate {
-	tc.mutation.SetSpec(ts)
-	return tc
-}
-
-// SetStatus sets the "status" field.
-func (tc *TaskCreate) SetStatus(ts *types.TaskStatus) *TaskCreate {
-	tc.mutation.SetStatus(ts)
-	return tc
-}
-
 // SetInputTokens sets the "input_tokens" field.
 func (tc *TaskCreate) SetInputTokens(i int64) *TaskCreate {
 	tc.mutation.SetInputTokens(i)
+	return tc
+}
+
+// SetNillableInputTokens sets the "input_tokens" field if the given value is not nil.
+func (tc *TaskCreate) SetNillableInputTokens(i *int64) *TaskCreate {
+	if i != nil {
+		tc.SetInputTokens(*i)
+	}
 	return tc
 }
 
@@ -81,15 +71,53 @@ func (tc *TaskCreate) SetOutputTokens(i int64) *TaskCreate {
 	return tc
 }
 
+// SetNillableOutputTokens sets the "output_tokens" field if the given value is not nil.
+func (tc *TaskCreate) SetNillableOutputTokens(i *int64) *TaskCreate {
+	if i != nil {
+		tc.SetOutputTokens(*i)
+	}
+	return tc
+}
+
 // SetCacheWriteTokens sets the "cache_write_tokens" field.
 func (tc *TaskCreate) SetCacheWriteTokens(i int64) *TaskCreate {
 	tc.mutation.SetCacheWriteTokens(i)
 	return tc
 }
 
+// SetNillableCacheWriteTokens sets the "cache_write_tokens" field if the given value is not nil.
+func (tc *TaskCreate) SetNillableCacheWriteTokens(i *int64) *TaskCreate {
+	if i != nil {
+		tc.SetCacheWriteTokens(*i)
+	}
+	return tc
+}
+
 // SetCacheReadTokens sets the "cache_read_tokens" field.
 func (tc *TaskCreate) SetCacheReadTokens(i int64) *TaskCreate {
 	tc.mutation.SetCacheReadTokens(i)
+	return tc
+}
+
+// SetNillableCacheReadTokens sets the "cache_read_tokens" field if the given value is not nil.
+func (tc *TaskCreate) SetNillableCacheReadTokens(i *int64) *TaskCreate {
+	if i != nil {
+		tc.SetCacheReadTokens(*i)
+	}
+	return tc
+}
+
+// SetCost sets the "cost" field.
+func (tc *TaskCreate) SetCost(f float64) *TaskCreate {
+	tc.mutation.SetCost(f)
+	return tc
+}
+
+// SetNillableCost sets the "cost" field if the given value is not nil.
+func (tc *TaskCreate) SetNillableCost(f *float64) *TaskCreate {
+	if f != nil {
+		tc.SetCost(*f)
+	}
 	return tc
 }
 
@@ -120,6 +148,25 @@ func (tc *TaskCreate) AddMessages(m ...*Message) *TaskCreate {
 		ids[i] = m[i].ID
 	}
 	return tc.AddMessageIDs(ids...)
+}
+
+// SetAgentID sets the "agent" edge to the Agent entity by ID.
+func (tc *TaskCreate) SetAgentID(id uuid.UUID) *TaskCreate {
+	tc.mutation.SetAgentID(id)
+	return tc
+}
+
+// SetNillableAgentID sets the "agent" edge to the Agent entity by ID if the given value is not nil.
+func (tc *TaskCreate) SetNillableAgentID(id *uuid.UUID) *TaskCreate {
+	if id != nil {
+		tc = tc.SetAgentID(*id)
+	}
+	return tc
+}
+
+// SetAgent sets the "agent" edge to the Agent entity.
+func (tc *TaskCreate) SetAgent(a *Agent) *TaskCreate {
+	return tc.SetAgentID(a.ID)
 }
 
 // Mutation returns the TaskMutation object of the builder.
@@ -173,29 +220,11 @@ func (tc *TaskCreate) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (tc *TaskCreate) check() error {
-	if _, ok := tc.mutation.AgentID(); !ok {
-		return &ValidationError{Name: "agent_id", err: errors.New(`memory: missing required field "Task.agent_id"`)}
-	}
 	if _, ok := tc.mutation.CreateTime(); !ok {
 		return &ValidationError{Name: "create_time", err: errors.New(`memory: missing required field "Task.create_time"`)}
 	}
 	if _, ok := tc.mutation.UpdateTime(); !ok {
 		return &ValidationError{Name: "update_time", err: errors.New(`memory: missing required field "Task.update_time"`)}
-	}
-	if _, ok := tc.mutation.Spec(); !ok {
-		return &ValidationError{Name: "spec", err: errors.New(`memory: missing required field "Task.spec"`)}
-	}
-	if _, ok := tc.mutation.InputTokens(); !ok {
-		return &ValidationError{Name: "input_tokens", err: errors.New(`memory: missing required field "Task.input_tokens"`)}
-	}
-	if _, ok := tc.mutation.OutputTokens(); !ok {
-		return &ValidationError{Name: "output_tokens", err: errors.New(`memory: missing required field "Task.output_tokens"`)}
-	}
-	if _, ok := tc.mutation.CacheWriteTokens(); !ok {
-		return &ValidationError{Name: "cache_write_tokens", err: errors.New(`memory: missing required field "Task.cache_write_tokens"`)}
-	}
-	if _, ok := tc.mutation.CacheReadTokens(); !ok {
-		return &ValidationError{Name: "cache_read_tokens", err: errors.New(`memory: missing required field "Task.cache_read_tokens"`)}
 	}
 	return nil
 }
@@ -232,10 +261,6 @@ func (tc *TaskCreate) createSpec() (*Task, *sqlgraph.CreateSpec) {
 		_node.ID = id
 		_spec.ID.Value = &id
 	}
-	if value, ok := tc.mutation.AgentID(); ok {
-		_spec.SetField(task.FieldAgentID, field.TypeUUID, value)
-		_node.AgentID = value
-	}
 	if value, ok := tc.mutation.CreateTime(); ok {
 		_spec.SetField(task.FieldCreateTime, field.TypeTime, value)
 		_node.CreateTime = value
@@ -243,14 +268,6 @@ func (tc *TaskCreate) createSpec() (*Task, *sqlgraph.CreateSpec) {
 	if value, ok := tc.mutation.UpdateTime(); ok {
 		_spec.SetField(task.FieldUpdateTime, field.TypeTime, value)
 		_node.UpdateTime = value
-	}
-	if value, ok := tc.mutation.Spec(); ok {
-		_spec.SetField(task.FieldSpec, field.TypeJSON, value)
-		_node.Spec = value
-	}
-	if value, ok := tc.mutation.Status(); ok {
-		_spec.SetField(task.FieldStatus, field.TypeJSON, value)
-		_node.Status = value
 	}
 	if value, ok := tc.mutation.InputTokens(); ok {
 		_spec.SetField(task.FieldInputTokens, field.TypeInt64, value)
@@ -268,12 +285,16 @@ func (tc *TaskCreate) createSpec() (*Task, *sqlgraph.CreateSpec) {
 		_spec.SetField(task.FieldCacheReadTokens, field.TypeInt64, value)
 		_node.CacheReadTokens = value
 	}
+	if value, ok := tc.mutation.Cost(); ok {
+		_spec.SetField(task.FieldCost, field.TypeFloat64, value)
+		_node.Cost = value
+	}
 	if nodes := tc.mutation.MessagesIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
+			Rel:     sqlgraph.O2M,
 			Inverse: false,
 			Table:   task.MessagesTable,
-			Columns: task.MessagesPrimaryKey,
+			Columns: []string{task.MessagesColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(message.FieldID, field.TypeUUID),
@@ -282,6 +303,23 @@ func (tc *TaskCreate) createSpec() (*Task, *sqlgraph.CreateSpec) {
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := tc.mutation.AgentIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   task.AgentTable,
+			Columns: []string{task.AgentColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.agent_tasks = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

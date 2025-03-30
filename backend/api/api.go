@@ -35,6 +35,9 @@ func NewHandler(opts HandlerOptions) *Handler {
 	agentHandler := NewAgentHandler(handler.db)
 	handler.mux.Handle(v1connect.NewAgentServiceHandler(agentHandler))
 
+	taskHandler := NewTaskHandler(handler.db)
+	handler.mux.Handle(v1connect.NewTaskServiceHandler(taskHandler))
+
 	return handler
 }
 

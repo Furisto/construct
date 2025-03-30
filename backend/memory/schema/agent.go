@@ -26,6 +26,7 @@ func (Agent) Edges() []ent.Edge {
 		edge.From("model", Model.Type).Ref("agents").Unique(),
 		edge.To("delegators", Agent.Type).
 			From("delegates"),
+		edge.To("tasks", Task.Type),
 	}
 }
 

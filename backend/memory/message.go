@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"github.com/furisto/construct/backend/memory/message"
 	"github.com/furisto/construct/backend/memory/schema/types"
+	"github.com/furisto/construct/backend/memory/task"
 	"github.com/google/uuid"
 )
 
@@ -34,24 +35,27 @@ type Message struct {
 	Usage *types.MessageUsage `json:"usage,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the MessageQuery when eager-loading is set.
-	Edges        MessageEdges `json:"edges"`
-	selectValues sql.SelectValues
+	Edges         MessageEdges `json:"edges"`
+	task_messages *uuid.UUID
+	selectValues  sql.SelectValues
 }
 
 // MessageEdges holds the relations/edges for other nodes in the graph.
 type MessageEdges struct {
 	// Task holds the value of the task edge.
-	Task []*Task `json:"task,omitempty"`
+	Task *Task `json:"task,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
 	loadedTypes [1]bool
 }
 
 // TaskOrErr returns the Task value or an error if the edge
-// was not loaded in eager-loading.
-func (e MessageEdges) TaskOrErr() ([]*Task, error) {
-	if e.loadedTypes[0] {
+// was not loaded in eager-loading, or loaded but was not found.
+func (e MessageEdges) TaskOrErr() (*Task, error) {
+	if e.Task != nil {
 		return e.Task, nil
+	} else if e.loadedTypes[0] {
+		return nil, &NotFoundError{label: task.Label}
 	}
 	return nil, &NotLoadedError{edge: "task"}
 }
@@ -69,6 +73,8 @@ func (*Message) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullTime)
 		case message.FieldID, message.FieldAgentID:
 			values[i] = new(uuid.UUID)
+		case message.ForeignKeys[0]: // task_messages
+			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		default:
 			values[i] = new(sql.UnknownType)
 		}
@@ -129,6 +135,13 @@ func (m *Message) assignValues(columns []string, values []any) error {
 				if err := json.Unmarshal(*value, &m.Usage); err != nil {
 					return fmt.Errorf("unmarshal field usage: %w", err)
 				}
+			}
+		case message.ForeignKeys[0]:
+			if value, ok := values[i].(*sql.NullScanner); !ok {
+				return fmt.Errorf("unexpected type %T for field task_messages", values[i])
+			} else if value.Valid {
+				m.task_messages = new(uuid.UUID)
+				*m.task_messages = *value.S.(*uuid.UUID)
 			}
 		default:
 			m.selectValues.Set(columns[i], values[i])
