@@ -91,7 +91,7 @@ func TestGetModelProvider(t *testing.T) {
 				Id: "01234567-89ab-cdef-0123-456789abcdef",
 			},
 			Expected: ServiceTestExpectation[v1.GetModelProviderResponse]{
-				Error: "not_found: memory: model_provider not found",
+				Error: "not_found: model_provider not found",
 			},
 		},
 		{
@@ -311,7 +311,7 @@ func TestDeleteModelProvider(t *testing.T) {
 				Id: "01234567-89ab-cdef-0123-456789abcdef",
 			},
 			Expected: ServiceTestExpectation[v1.DeleteModelProviderResponse]{
-				Error: "not_found: memory: model_provider not found",
+				Error: "not_found: model_provider not found",
 			},
 		},
 		{

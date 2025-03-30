@@ -86,7 +86,7 @@ func (x *Agent) GetSpec() *AgentSpec {
 type AgentMetadata struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Description   *string                `protobuf:"bytes,3,opt,name=description,proto3,oneof" json:"description,omitempty"`
+	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -131,8 +131,8 @@ func (x *AgentMetadata) GetName() string {
 }
 
 func (x *AgentMetadata) GetDescription() string {
-	if x != nil && x.Description != nil {
-		return *x.Description
+	if x != nil {
+		return x.Description
 	}
 	return ""
 }
@@ -214,7 +214,7 @@ func (x *AgentSpec) GetDelegateIds() []string {
 type CreateAgentRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Description   *string                `protobuf:"bytes,2,opt,name=description,proto3,oneof" json:"description,omitempty"`
+	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
 	Instructions  string                 `protobuf:"bytes,3,opt,name=instructions,proto3" json:"instructions,omitempty"`
 	ModelId       string                 `protobuf:"bytes,4,opt,name=model_id,json=modelId,proto3" json:"model_id,omitempty"`
 	DelegateIds   []string               `protobuf:"bytes,5,rep,name=delegate_ids,json=delegateIds,proto3" json:"delegate_ids,omitempty"`
@@ -260,8 +260,8 @@ func (x *CreateAgentRequest) GetName() string {
 }
 
 func (x *CreateAgentRequest) GetDescription() string {
-	if x != nil && x.Description != nil {
-		return *x.Description
+	if x != nil {
+		return x.Description
 	}
 	return ""
 }
@@ -783,32 +783,30 @@ const file_construct_v1_agent_proto_rawDesc = "" +
 	"\x05Agent\x12\x18\n" +
 	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\x127\n" +
 	"\bmetadata\x18\x02 \x01(\v2\x1b.construct.v1.AgentMetadataR\bmetadata\x12+\n" +
-	"\x04spec\x18\x03 \x01(\v2\x17.construct.v1.AgentSpecR\x04spec\"\xf6\x01\n" +
+	"\x04spec\x18\x03 \x01(\v2\x17.construct.v1.AgentSpecR\x04spec\"\xe1\x01\n" +
 	"\rAgentMetadata\x12\x1e\n" +
 	"\x04name\x18\x02 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\xff\x01R\x04name\x12/\n" +
-	"\vdescription\x18\x03 \x01(\tB\b\xbaH\x05r\x03\x18\xe8\aH\x00R\vdescription\x88\x01\x01\x12A\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xff\x01R\x04name\x12*\n" +
+	"\vdescription\x18\x03 \x01(\tB\b\xbaH\x05r\x03\x18\xe8\aR\vdescription\x12A\n" +
 	"\n" +
 	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\tcreatedAt\x12A\n" +
 	"\n" +
-	"updated_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\tupdatedAtB\x0e\n" +
-	"\f_description\"\x92\x01\n" +
+	"updated_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\tupdatedAt\"\x92\x01\n" +
 	"\tAgentSpec\x12.\n" +
 	"\finstructions\x18\x04 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x90NR\finstructions\x12#\n" +
 	"\bmodel_id\x18\x05 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\amodelId\x120\n" +
 	"\fdelegate_ids\x18\x06 \x03(\tB\r\xbaH\n" +
-	"\x92\x01\a\"\x05r\x03\xb0\x01\x01R\vdelegateIds\"\xfc\x01\n" +
+	"\x92\x01\a\"\x05r\x03\xb0\x01\x01R\vdelegateIds\"\xe7\x01\n" +
 	"\x12CreateAgentRequest\x12\x1e\n" +
 	"\x04name\x18\x01 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\xff\x01R\x04name\x12/\n" +
-	"\vdescription\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x18\xe8\aH\x00R\vdescription\x88\x01\x01\x12.\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xff\x01R\x04name\x12*\n" +
+	"\vdescription\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x18\xe8\aR\vdescription\x12.\n" +
 	"\finstructions\x18\x03 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x90NR\finstructions\x12#\n" +
 	"\bmodel_id\x18\x04 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\amodelId\x120\n" +
 	"\fdelegate_ids\x18\x05 \x03(\tB\r\xbaH\n" +
-	"\x92\x01\a\"\x05r\x03\xb0\x01\x01R\vdelegateIdsB\x0e\n" +
-	"\f_description\"H\n" +
+	"\x92\x01\a\"\x05r\x03\xb0\x01\x01R\vdelegateIds\"H\n" +
 	"\x13CreateAgentResponse\x121\n" +
 	"\x05agent\x18\x01 \x01(\v2\x13.construct.v1.AgentB\x06\xbaH\x03\xc8\x01\x01R\x05agent\"+\n" +
 	"\x0fGetAgentRequest\x12\x18\n" +
@@ -914,8 +912,6 @@ func file_construct_v1_agent_proto_init() {
 	if File_construct_v1_agent_proto != nil {
 		return
 	}
-	file_construct_v1_agent_proto_msgTypes[1].OneofWrappers = []any{}
-	file_construct_v1_agent_proto_msgTypes[3].OneofWrappers = []any{}
 	file_construct_v1_agent_proto_msgTypes[9].OneofWrappers = []any{}
 	file_construct_v1_agent_proto_msgTypes[13].OneofWrappers = []any{}
 	type x struct{}

@@ -30,7 +30,7 @@ message AgentMetadata {
     (buf.validate.field).string.min_len = 1,
     (buf.validate.field).string.max_len = 255
   ];
-  optional string description = 3 [(buf.validate.field).string.max_len = 1000];
+  string description = 3 [(buf.validate.field).string.max_len = 1000];
   google.protobuf.Timestamp created_at = 7 [(buf.validate.field).required = true];
   google.protobuf.Timestamp updated_at = 8 [(buf.validate.field).required = true];
 }
@@ -49,7 +49,7 @@ message CreateAgentRequest {
     (buf.validate.field).string.min_len = 1,
     (buf.validate.field).string.max_len = 255
   ];
-  optional string description = 2 [(buf.validate.field).string.max_len = 1000];
+  string description = 2 [(buf.validate.field).string.max_len = 1000];
   string instructions = 3 [
     (buf.validate.field).string.min_len = 1,
     (buf.validate.field).string.max_len = 10000
