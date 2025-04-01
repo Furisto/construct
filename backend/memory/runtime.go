@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/furisto/construct/backend/memory/agent"
-	"github.com/furisto/construct/backend/memory/mailbox"
 	"github.com/furisto/construct/backend/memory/message"
 	"github.com/furisto/construct/backend/memory/model"
 	"github.com/furisto/construct/backend/memory/modelprovider"
@@ -42,12 +41,6 @@ func init() {
 	agentDescID := agentFields[0].Descriptor()
 	// agent.DefaultID holds the default value on creation for the id field.
 	agent.DefaultID = agentDescID.Default.(func() uuid.UUID)
-	mailboxFields := schema.Mailbox{}.Fields()
-	_ = mailboxFields
-	// mailboxDescID is the schema descriptor for id field.
-	mailboxDescID := mailboxFields[0].Descriptor()
-	// mailbox.DefaultID holds the default value on creation for the id field.
-	mailbox.DefaultID = mailboxDescID.Default.(func() uuid.UUID)
 	messageMixin := schema.Message{}.Mixin()
 	messageMixinFields1 := messageMixin[1].Fields()
 	_ = messageMixinFields1

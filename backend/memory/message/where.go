@@ -72,6 +72,11 @@ func UpdateTime(v time.Time) predicate.Message {
 	return predicate.Message(sql.FieldEQ(FieldUpdateTime, v))
 }
 
+// ProcessedTime applies equality check predicate on the "processed_time" field. It's identical to ProcessedTimeEQ.
+func ProcessedTime(v time.Time) predicate.Message {
+	return predicate.Message(sql.FieldEQ(FieldProcessedTime, v))
+}
+
 // AgentIDEQ applies the EQ predicate on the "agent_id" field.
 func AgentIDEQ(v uuid.UUID) predicate.Message {
 	return predicate.Message(sql.FieldEQ(FieldAgentID, v))
@@ -230,6 +235,56 @@ func UsageIsNil() predicate.Message {
 // UsageNotNil applies the NotNil predicate on the "usage" field.
 func UsageNotNil() predicate.Message {
 	return predicate.Message(sql.FieldNotNull(FieldUsage))
+}
+
+// ProcessedTimeEQ applies the EQ predicate on the "processed_time" field.
+func ProcessedTimeEQ(v time.Time) predicate.Message {
+	return predicate.Message(sql.FieldEQ(FieldProcessedTime, v))
+}
+
+// ProcessedTimeNEQ applies the NEQ predicate on the "processed_time" field.
+func ProcessedTimeNEQ(v time.Time) predicate.Message {
+	return predicate.Message(sql.FieldNEQ(FieldProcessedTime, v))
+}
+
+// ProcessedTimeIn applies the In predicate on the "processed_time" field.
+func ProcessedTimeIn(vs ...time.Time) predicate.Message {
+	return predicate.Message(sql.FieldIn(FieldProcessedTime, vs...))
+}
+
+// ProcessedTimeNotIn applies the NotIn predicate on the "processed_time" field.
+func ProcessedTimeNotIn(vs ...time.Time) predicate.Message {
+	return predicate.Message(sql.FieldNotIn(FieldProcessedTime, vs...))
+}
+
+// ProcessedTimeGT applies the GT predicate on the "processed_time" field.
+func ProcessedTimeGT(v time.Time) predicate.Message {
+	return predicate.Message(sql.FieldGT(FieldProcessedTime, v))
+}
+
+// ProcessedTimeGTE applies the GTE predicate on the "processed_time" field.
+func ProcessedTimeGTE(v time.Time) predicate.Message {
+	return predicate.Message(sql.FieldGTE(FieldProcessedTime, v))
+}
+
+// ProcessedTimeLT applies the LT predicate on the "processed_time" field.
+func ProcessedTimeLT(v time.Time) predicate.Message {
+	return predicate.Message(sql.FieldLT(FieldProcessedTime, v))
+}
+
+// ProcessedTimeLTE applies the LTE predicate on the "processed_time" field.
+func ProcessedTimeLTE(v time.Time) predicate.Message {
+	return predicate.Message(sql.FieldLTE(FieldProcessedTime, v))
+}
+
+// ProcessedTimeIsNil applies the IsNil predicate on the "processed_time" field.
+func ProcessedTimeIsNil() predicate.Message {
+	return predicate.Message(sql.FieldIsNull(FieldProcessedTime))
+}
+
+// ProcessedTimeNotNil applies the NotNil predicate on the "processed_time" field.
+func ProcessedTimeNotNil() predicate.Message {
+	return predicate.Message(sql.FieldNotNull(FieldProcessedTime))
 }
 
 // HasTask applies the HasEdge predicate on the "task" edge.

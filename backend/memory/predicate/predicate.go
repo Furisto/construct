@@ -9,9 +9,6 @@ import (
 // Agent is the predicate function for agent builders.
 type Agent func(*sql.Selector)
 
-// Mailbox is the predicate function for mailbox builders.
-type Mailbox func(*sql.Selector)
-
 // Message is the predicate function for message builders.
 type Message func(*sql.Selector)
 

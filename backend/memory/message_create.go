@@ -75,6 +75,20 @@ func (mc *MessageCreate) SetUsage(tu *types.MessageUsage) *MessageCreate {
 	return mc
 }
 
+// SetProcessedTime sets the "processed_time" field.
+func (mc *MessageCreate) SetProcessedTime(t time.Time) *MessageCreate {
+	mc.mutation.SetProcessedTime(t)
+	return mc
+}
+
+// SetNillableProcessedTime sets the "processed_time" field if the given value is not nil.
+func (mc *MessageCreate) SetNillableProcessedTime(t *time.Time) *MessageCreate {
+	if t != nil {
+		mc.SetProcessedTime(*t)
+	}
+	return mc
+}
+
 // SetID sets the "id" field.
 func (mc *MessageCreate) SetID(u uuid.UUID) *MessageCreate {
 	mc.mutation.SetID(u)
@@ -237,6 +251,10 @@ func (mc *MessageCreate) createSpec() (*Message, *sqlgraph.CreateSpec) {
 	if value, ok := mc.mutation.Usage(); ok {
 		_spec.SetField(message.FieldUsage, field.TypeJSON, value)
 		_node.Usage = value
+	}
+	if value, ok := mc.mutation.ProcessedTime(); ok {
+		_spec.SetField(message.FieldProcessedTime, field.TypeTime, value)
+		_node.ProcessedTime = value
 	}
 	if nodes := mc.mutation.TaskIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

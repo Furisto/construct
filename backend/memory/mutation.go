@@ -12,7 +12,6 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/furisto/construct/backend/memory/agent"
-	"github.com/furisto/construct/backend/memory/mailbox"
 	"github.com/furisto/construct/backend/memory/message"
 	"github.com/furisto/construct/backend/memory/model"
 	"github.com/furisto/construct/backend/memory/modelprovider"
@@ -32,7 +31,6 @@ const (
 
 	// Node types.
 	TypeAgent         = "Agent"
-	TypeMailbox       = "Mailbox"
 	TypeMessage       = "Message"
 	TypeModel         = "Model"
 	TypeModelProvider = "ModelProvider"
@@ -927,356 +925,25 @@ func (m *AgentMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown Agent edge %s", name)
 }
 
-// MailboxMutation represents an operation that mutates the Mailbox nodes in the graph.
-type MailboxMutation struct {
-	config
-	op            Op
-	typ           string
-	id            *uuid.UUID
-	content       **types.MessageContent
-	clearedFields map[string]struct{}
-	done          bool
-	oldValue      func(context.Context) (*Mailbox, error)
-	predicates    []predicate.Mailbox
-}
-
-var _ ent.Mutation = (*MailboxMutation)(nil)
-
-// mailboxOption allows management of the mutation configuration using functional options.
-type mailboxOption func(*MailboxMutation)
-
-// newMailboxMutation creates new mutation for the Mailbox entity.
-func newMailboxMutation(c config, op Op, opts ...mailboxOption) *MailboxMutation {
-	m := &MailboxMutation{
-		config:        c,
-		op:            op,
-		typ:           TypeMailbox,
-		clearedFields: make(map[string]struct{}),
-	}
-	for _, opt := range opts {
-		opt(m)
-	}
-	return m
-}
-
-// withMailboxID sets the ID field of the mutation.
-func withMailboxID(id uuid.UUID) mailboxOption {
-	return func(m *MailboxMutation) {
-		var (
-			err   error
-			once  sync.Once
-			value *Mailbox
-		)
-		m.oldValue = func(ctx context.Context) (*Mailbox, error) {
-			once.Do(func() {
-				if m.done {
-					err = errors.New("querying old values post mutation is not allowed")
-				} else {
-					value, err = m.Client().Mailbox.Get(ctx, id)
-				}
-			})
-			return value, err
-		}
-		m.id = &id
-	}
-}
-
-// withMailbox sets the old Mailbox of the mutation.
-func withMailbox(node *Mailbox) mailboxOption {
-	return func(m *MailboxMutation) {
-		m.oldValue = func(context.Context) (*Mailbox, error) {
-			return node, nil
-		}
-		m.id = &node.ID
-	}
-}
-
-// Client returns a new `ent.Client` from the mutation. If the mutation was
-// executed in a transaction (ent.Tx), a transactional client is returned.
-func (m MailboxMutation) Client() *Client {
-	client := &Client{config: m.config}
-	client.init()
-	return client
-}
-
-// Tx returns an `ent.Tx` for mutations that were executed in transactions;
-// it returns an error otherwise.
-func (m MailboxMutation) Tx() (*Tx, error) {
-	if _, ok := m.driver.(*txDriver); !ok {
-		return nil, errors.New("memory: mutation is not running in a transaction")
-	}
-	tx := &Tx{config: m.config}
-	tx.init()
-	return tx, nil
-}
-
-// SetID sets the value of the id field. Note that this
-// operation is only accepted on creation of Mailbox entities.
-func (m *MailboxMutation) SetID(id uuid.UUID) {
-	m.id = &id
-}
-
-// ID returns the ID value in the mutation. Note that the ID is only available
-// if it was provided to the builder or after it was returned from the database.
-func (m *MailboxMutation) ID() (id uuid.UUID, exists bool) {
-	if m.id == nil {
-		return
-	}
-	return *m.id, true
-}
-
-// IDs queries the database and returns the entity ids that match the mutation's predicate.
-// That means, if the mutation is applied within a transaction with an isolation level such
-// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
-// or updated by the mutation.
-func (m *MailboxMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
-	switch {
-	case m.op.Is(OpUpdateOne | OpDeleteOne):
-		id, exists := m.ID()
-		if exists {
-			return []uuid.UUID{id}, nil
-		}
-		fallthrough
-	case m.op.Is(OpUpdate | OpDelete):
-		return m.Client().Mailbox.Query().Where(m.predicates...).IDs(ctx)
-	default:
-		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
-	}
-}
-
-// SetContent sets the "content" field.
-func (m *MailboxMutation) SetContent(tc *types.MessageContent) {
-	m.content = &tc
-}
-
-// Content returns the value of the "content" field in the mutation.
-func (m *MailboxMutation) Content() (r *types.MessageContent, exists bool) {
-	v := m.content
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldContent returns the old "content" field's value of the Mailbox entity.
-// If the Mailbox object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *MailboxMutation) OldContent(ctx context.Context) (v *types.MessageContent, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldContent is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldContent requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldContent: %w", err)
-	}
-	return oldValue.Content, nil
-}
-
-// ResetContent resets all changes to the "content" field.
-func (m *MailboxMutation) ResetContent() {
-	m.content = nil
-}
-
-// Where appends a list predicates to the MailboxMutation builder.
-func (m *MailboxMutation) Where(ps ...predicate.Mailbox) {
-	m.predicates = append(m.predicates, ps...)
-}
-
-// WhereP appends storage-level predicates to the MailboxMutation builder. Using this method,
-// users can use type-assertion to append predicates that do not depend on any generated package.
-func (m *MailboxMutation) WhereP(ps ...func(*sql.Selector)) {
-	p := make([]predicate.Mailbox, len(ps))
-	for i := range ps {
-		p[i] = ps[i]
-	}
-	m.Where(p...)
-}
-
-// Op returns the operation name.
-func (m *MailboxMutation) Op() Op {
-	return m.op
-}
-
-// SetOp allows setting the mutation operation.
-func (m *MailboxMutation) SetOp(op Op) {
-	m.op = op
-}
-
-// Type returns the node type of this mutation (Mailbox).
-func (m *MailboxMutation) Type() string {
-	return m.typ
-}
-
-// Fields returns all fields that were changed during this mutation. Note that in
-// order to get all numeric fields that were incremented/decremented, call
-// AddedFields().
-func (m *MailboxMutation) Fields() []string {
-	fields := make([]string, 0, 1)
-	if m.content != nil {
-		fields = append(fields, mailbox.FieldContent)
-	}
-	return fields
-}
-
-// Field returns the value of a field with the given name. The second boolean
-// return value indicates that this field was not set, or was not defined in the
-// schema.
-func (m *MailboxMutation) Field(name string) (ent.Value, bool) {
-	switch name {
-	case mailbox.FieldContent:
-		return m.Content()
-	}
-	return nil, false
-}
-
-// OldField returns the old value of the field from the database. An error is
-// returned if the mutation operation is not UpdateOne, or the query to the
-// database failed.
-func (m *MailboxMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
-	switch name {
-	case mailbox.FieldContent:
-		return m.OldContent(ctx)
-	}
-	return nil, fmt.Errorf("unknown Mailbox field %s", name)
-}
-
-// SetField sets the value of a field with the given name. It returns an error if
-// the field is not defined in the schema, or if the type mismatched the field
-// type.
-func (m *MailboxMutation) SetField(name string, value ent.Value) error {
-	switch name {
-	case mailbox.FieldContent:
-		v, ok := value.(*types.MessageContent)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetContent(v)
-		return nil
-	}
-	return fmt.Errorf("unknown Mailbox field %s", name)
-}
-
-// AddedFields returns all numeric fields that were incremented/decremented during
-// this mutation.
-func (m *MailboxMutation) AddedFields() []string {
-	return nil
-}
-
-// AddedField returns the numeric value that was incremented/decremented on a field
-// with the given name. The second boolean return value indicates that this field
-// was not set, or was not defined in the schema.
-func (m *MailboxMutation) AddedField(name string) (ent.Value, bool) {
-	return nil, false
-}
-
-// AddField adds the value to the field with the given name. It returns an error if
-// the field is not defined in the schema, or if the type mismatched the field
-// type.
-func (m *MailboxMutation) AddField(name string, value ent.Value) error {
-	switch name {
-	}
-	return fmt.Errorf("unknown Mailbox numeric field %s", name)
-}
-
-// ClearedFields returns all nullable fields that were cleared during this
-// mutation.
-func (m *MailboxMutation) ClearedFields() []string {
-	return nil
-}
-
-// FieldCleared returns a boolean indicating if a field with the given name was
-// cleared in this mutation.
-func (m *MailboxMutation) FieldCleared(name string) bool {
-	_, ok := m.clearedFields[name]
-	return ok
-}
-
-// ClearField clears the value of the field with the given name. It returns an
-// error if the field is not defined in the schema.
-func (m *MailboxMutation) ClearField(name string) error {
-	return fmt.Errorf("unknown Mailbox nullable field %s", name)
-}
-
-// ResetField resets all changes in the mutation for the field with the given name.
-// It returns an error if the field is not defined in the schema.
-func (m *MailboxMutation) ResetField(name string) error {
-	switch name {
-	case mailbox.FieldContent:
-		m.ResetContent()
-		return nil
-	}
-	return fmt.Errorf("unknown Mailbox field %s", name)
-}
-
-// AddedEdges returns all edge names that were set/added in this mutation.
-func (m *MailboxMutation) AddedEdges() []string {
-	edges := make([]string, 0, 0)
-	return edges
-}
-
-// AddedIDs returns all IDs (to other nodes) that were added for the given edge
-// name in this mutation.
-func (m *MailboxMutation) AddedIDs(name string) []ent.Value {
-	return nil
-}
-
-// RemovedEdges returns all edge names that were removed in this mutation.
-func (m *MailboxMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 0)
-	return edges
-}
-
-// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
-// the given name in this mutation.
-func (m *MailboxMutation) RemovedIDs(name string) []ent.Value {
-	return nil
-}
-
-// ClearedEdges returns all edge names that were cleared in this mutation.
-func (m *MailboxMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 0)
-	return edges
-}
-
-// EdgeCleared returns a boolean which indicates if the edge with the given name
-// was cleared in this mutation.
-func (m *MailboxMutation) EdgeCleared(name string) bool {
-	return false
-}
-
-// ClearEdge clears the value of the edge with the given name. It returns an error
-// if that edge is not defined in the schema.
-func (m *MailboxMutation) ClearEdge(name string) error {
-	return fmt.Errorf("unknown Mailbox unique edge %s", name)
-}
-
-// ResetEdge resets all changes to the edge with the given name in this mutation.
-// It returns an error if the edge is not defined in the schema.
-func (m *MailboxMutation) ResetEdge(name string) error {
-	return fmt.Errorf("unknown Mailbox edge %s", name)
-}
-
 // MessageMutation represents an operation that mutates the Message nodes in the graph.
 type MessageMutation struct {
 	config
-	op            Op
-	typ           string
-	id            *uuid.UUID
-	agent_id      *uuid.UUID
-	create_time   *time.Time
-	update_time   *time.Time
-	content       **types.MessageContent
-	role          *types.MessageRole
-	usage         **types.MessageUsage
-	clearedFields map[string]struct{}
-	task          *uuid.UUID
-	clearedtask   bool
-	done          bool
-	oldValue      func(context.Context) (*Message, error)
-	predicates    []predicate.Message
+	op             Op
+	typ            string
+	id             *uuid.UUID
+	agent_id       *uuid.UUID
+	create_time    *time.Time
+	update_time    *time.Time
+	content        **types.MessageContent
+	role           *types.MessageRole
+	usage          **types.MessageUsage
+	processed_time *time.Time
+	clearedFields  map[string]struct{}
+	task           *uuid.UUID
+	clearedtask    bool
+	done           bool
+	oldValue       func(context.Context) (*Message, error)
+	predicates     []predicate.Message
 }
 
 var _ ent.Mutation = (*MessageMutation)(nil)
@@ -1612,6 +1279,55 @@ func (m *MessageMutation) ResetUsage() {
 	delete(m.clearedFields, message.FieldUsage)
 }
 
+// SetProcessedTime sets the "processed_time" field.
+func (m *MessageMutation) SetProcessedTime(t time.Time) {
+	m.processed_time = &t
+}
+
+// ProcessedTime returns the value of the "processed_time" field in the mutation.
+func (m *MessageMutation) ProcessedTime() (r time.Time, exists bool) {
+	v := m.processed_time
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProcessedTime returns the old "processed_time" field's value of the Message entity.
+// If the Message object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MessageMutation) OldProcessedTime(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProcessedTime is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProcessedTime requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProcessedTime: %w", err)
+	}
+	return oldValue.ProcessedTime, nil
+}
+
+// ClearProcessedTime clears the value of the "processed_time" field.
+func (m *MessageMutation) ClearProcessedTime() {
+	m.processed_time = nil
+	m.clearedFields[message.FieldProcessedTime] = struct{}{}
+}
+
+// ProcessedTimeCleared returns if the "processed_time" field was cleared in this mutation.
+func (m *MessageMutation) ProcessedTimeCleared() bool {
+	_, ok := m.clearedFields[message.FieldProcessedTime]
+	return ok
+}
+
+// ResetProcessedTime resets all changes to the "processed_time" field.
+func (m *MessageMutation) ResetProcessedTime() {
+	m.processed_time = nil
+	delete(m.clearedFields, message.FieldProcessedTime)
+}
+
 // SetTaskID sets the "task" edge to the Task entity by id.
 func (m *MessageMutation) SetTaskID(id uuid.UUID) {
 	m.task = &id
@@ -1685,7 +1401,7 @@ func (m *MessageMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *MessageMutation) Fields() []string {
-	fields := make([]string, 0, 6)
+	fields := make([]string, 0, 7)
 	if m.agent_id != nil {
 		fields = append(fields, message.FieldAgentID)
 	}
@@ -1703,6 +1419,9 @@ func (m *MessageMutation) Fields() []string {
 	}
 	if m.usage != nil {
 		fields = append(fields, message.FieldUsage)
+	}
+	if m.processed_time != nil {
+		fields = append(fields, message.FieldProcessedTime)
 	}
 	return fields
 }
@@ -1724,6 +1443,8 @@ func (m *MessageMutation) Field(name string) (ent.Value, bool) {
 		return m.Role()
 	case message.FieldUsage:
 		return m.Usage()
+	case message.FieldProcessedTime:
+		return m.ProcessedTime()
 	}
 	return nil, false
 }
@@ -1745,6 +1466,8 @@ func (m *MessageMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldRole(ctx)
 	case message.FieldUsage:
 		return m.OldUsage(ctx)
+	case message.FieldProcessedTime:
+		return m.OldProcessedTime(ctx)
 	}
 	return nil, fmt.Errorf("unknown Message field %s", name)
 }
@@ -1796,6 +1519,13 @@ func (m *MessageMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetUsage(v)
 		return nil
+	case message.FieldProcessedTime:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProcessedTime(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Message field %s", name)
 }
@@ -1829,6 +1559,9 @@ func (m *MessageMutation) ClearedFields() []string {
 	if m.FieldCleared(message.FieldUsage) {
 		fields = append(fields, message.FieldUsage)
 	}
+	if m.FieldCleared(message.FieldProcessedTime) {
+		fields = append(fields, message.FieldProcessedTime)
+	}
 	return fields
 }
 
@@ -1845,6 +1578,9 @@ func (m *MessageMutation) ClearField(name string) error {
 	switch name {
 	case message.FieldUsage:
 		m.ClearUsage()
+		return nil
+	case message.FieldProcessedTime:
+		m.ClearProcessedTime()
 		return nil
 	}
 	return fmt.Errorf("unknown Message nullable field %s", name)
@@ -1871,6 +1607,9 @@ func (m *MessageMutation) ResetField(name string) error {
 		return nil
 	case message.FieldUsage:
 		m.ResetUsage()
+		return nil
+	case message.FieldProcessedTime:
+		m.ResetProcessedTime()
 		return nil
 	}
 	return fmt.Errorf("unknown Message field %s", name)

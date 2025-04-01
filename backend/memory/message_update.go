@@ -83,6 +83,26 @@ func (mu *MessageUpdate) ClearUsage() *MessageUpdate {
 	return mu
 }
 
+// SetProcessedTime sets the "processed_time" field.
+func (mu *MessageUpdate) SetProcessedTime(t time.Time) *MessageUpdate {
+	mu.mutation.SetProcessedTime(t)
+	return mu
+}
+
+// SetNillableProcessedTime sets the "processed_time" field if the given value is not nil.
+func (mu *MessageUpdate) SetNillableProcessedTime(t *time.Time) *MessageUpdate {
+	if t != nil {
+		mu.SetProcessedTime(*t)
+	}
+	return mu
+}
+
+// ClearProcessedTime clears the value of the "processed_time" field.
+func (mu *MessageUpdate) ClearProcessedTime() *MessageUpdate {
+	mu.mutation.ClearProcessedTime()
+	return mu
+}
+
 // SetTaskID sets the "task" edge to the Task entity by ID.
 func (mu *MessageUpdate) SetTaskID(id uuid.UUID) *MessageUpdate {
 	mu.mutation.SetTaskID(id)
@@ -189,6 +209,12 @@ func (mu *MessageUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if mu.mutation.UsageCleared() {
 		_spec.ClearField(message.FieldUsage, field.TypeJSON)
 	}
+	if value, ok := mu.mutation.ProcessedTime(); ok {
+		_spec.SetField(message.FieldProcessedTime, field.TypeTime, value)
+	}
+	if mu.mutation.ProcessedTimeCleared() {
+		_spec.ClearField(message.FieldProcessedTime, field.TypeTime)
+	}
 	if mu.mutation.TaskCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
@@ -287,6 +313,26 @@ func (muo *MessageUpdateOne) SetUsage(tu *types.MessageUsage) *MessageUpdateOne 
 // ClearUsage clears the value of the "usage" field.
 func (muo *MessageUpdateOne) ClearUsage() *MessageUpdateOne {
 	muo.mutation.ClearUsage()
+	return muo
+}
+
+// SetProcessedTime sets the "processed_time" field.
+func (muo *MessageUpdateOne) SetProcessedTime(t time.Time) *MessageUpdateOne {
+	muo.mutation.SetProcessedTime(t)
+	return muo
+}
+
+// SetNillableProcessedTime sets the "processed_time" field if the given value is not nil.
+func (muo *MessageUpdateOne) SetNillableProcessedTime(t *time.Time) *MessageUpdateOne {
+	if t != nil {
+		muo.SetProcessedTime(*t)
+	}
+	return muo
+}
+
+// ClearProcessedTime clears the value of the "processed_time" field.
+func (muo *MessageUpdateOne) ClearProcessedTime() *MessageUpdateOne {
+	muo.mutation.ClearProcessedTime()
 	return muo
 }
 
@@ -425,6 +471,12 @@ func (muo *MessageUpdateOne) sqlSave(ctx context.Context) (_node *Message, err e
 	}
 	if muo.mutation.UsageCleared() {
 		_spec.ClearField(message.FieldUsage, field.TypeJSON)
+	}
+	if value, ok := muo.mutation.ProcessedTime(); ok {
+		_spec.SetField(message.FieldProcessedTime, field.TypeTime, value)
+	}
+	if muo.mutation.ProcessedTimeCleared() {
+		_spec.ClearField(message.FieldProcessedTime, field.TypeTime)
 	}
 	if muo.mutation.TaskCleared() {
 		edge := &sqlgraph.EdgeSpec{

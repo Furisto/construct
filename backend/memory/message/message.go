@@ -29,6 +29,8 @@ const (
 	FieldRole = "role"
 	// FieldUsage holds the string denoting the usage field in the database.
 	FieldUsage = "usage"
+	// FieldProcessedTime holds the string denoting the processed_time field in the database.
+	FieldProcessedTime = "processed_time"
 	// EdgeTask holds the string denoting the task edge name in mutations.
 	EdgeTask = "task"
 	// Table holds the table name of the message in the database.
@@ -51,6 +53,7 @@ var Columns = []string{
 	FieldContent,
 	FieldRole,
 	FieldUsage,
+	FieldProcessedTime,
 }
 
 // ForeignKeys holds the SQL foreign-keys that are owned by the "messages"
@@ -121,6 +124,11 @@ func ByUpdateTime(opts ...sql.OrderTermOption) OrderOption {
 // ByRole orders the results by the role field.
 func ByRole(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRole, opts...).ToFunc()
+}
+
+// ByProcessedTime orders the results by the processed_time field.
+func ByProcessedTime(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldProcessedTime, opts...).ToFunc()
 }
 
 // ByTaskField orders the results by task field.

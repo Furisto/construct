@@ -32,17 +32,6 @@ var (
 			},
 		},
 	}
-	// MailboxesColumns holds the columns for the "mailboxes" table.
-	MailboxesColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeUUID, Unique: true},
-		{Name: "content", Type: field.TypeJSON},
-	}
-	// MailboxesTable holds the schema information for the "mailboxes" table.
-	MailboxesTable = &schema.Table{
-		Name:       "mailboxes",
-		Columns:    MailboxesColumns,
-		PrimaryKey: []*schema.Column{MailboxesColumns[0]},
-	}
 	// MessagesColumns holds the columns for the "messages" table.
 	MessagesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID, Unique: true},
@@ -52,6 +41,7 @@ var (
 		{Name: "content", Type: field.TypeJSON},
 		{Name: "role", Type: field.TypeEnum, Enums: []string{"user", "assistant"}},
 		{Name: "usage", Type: field.TypeJSON, Nullable: true},
+		{Name: "processed_time", Type: field.TypeTime, Nullable: true},
 		{Name: "task_messages", Type: field.TypeUUID, Nullable: true},
 	}
 	// MessagesTable holds the schema information for the "messages" table.
@@ -62,7 +52,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "messages_tasks_messages",
-				Columns:    []*schema.Column{MessagesColumns[7]},
+				Columns:    []*schema.Column{MessagesColumns[8]},
 				RefColumns: []*schema.Column{TasksColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -175,7 +165,6 @@ var (
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		AgentsTable,
-		MailboxesTable,
 		MessagesTable,
 		ModelsTable,
 		ModelProvidersTable,

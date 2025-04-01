@@ -19,6 +19,7 @@ func (Message) Fields() []ent.Field {
 		field.JSON("content", &types.MessageContent{}),
 		field.Enum("role").GoType(types.MessageRole("")),
 		field.JSON("usage", &types.MessageUsage{}).Optional(),
+		field.Time("processed_time").Optional(),
 	}
 }
 

@@ -33,6 +33,8 @@ type Message struct {
 	Role types.MessageRole `json:"role,omitempty"`
 	// Usage holds the value of the "usage" field.
 	Usage *types.MessageUsage `json:"usage,omitempty"`
+	// ProcessedTime holds the value of the "processed_time" field.
+	ProcessedTime time.Time `json:"processed_time,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the MessageQuery when eager-loading is set.
 	Edges         MessageEdges `json:"edges"`
@@ -69,7 +71,7 @@ func (*Message) scanValues(columns []string) ([]any, error) {
 			values[i] = new([]byte)
 		case message.FieldRole:
 			values[i] = new(sql.NullString)
-		case message.FieldCreateTime, message.FieldUpdateTime:
+		case message.FieldCreateTime, message.FieldUpdateTime, message.FieldProcessedTime:
 			values[i] = new(sql.NullTime)
 		case message.FieldID, message.FieldAgentID:
 			values[i] = new(uuid.UUID)
@@ -136,6 +138,12 @@ func (m *Message) assignValues(columns []string, values []any) error {
 					return fmt.Errorf("unmarshal field usage: %w", err)
 				}
 			}
+		case message.FieldProcessedTime:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field processed_time", values[i])
+			} else if value.Valid {
+				m.ProcessedTime = value.Time
+			}
 		case message.ForeignKeys[0]:
 			if value, ok := values[i].(*sql.NullScanner); !ok {
 				return fmt.Errorf("unexpected type %T for field task_messages", values[i])
@@ -201,6 +209,9 @@ func (m *Message) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("usage=")
 	builder.WriteString(fmt.Sprintf("%v", m.Usage))
+	builder.WriteString(", ")
+	builder.WriteString("processed_time=")
+	builder.WriteString(m.ProcessedTime.Format(time.ANSIC))
 	builder.WriteByte(')')
 	return builder.String()
 }
