@@ -33,20 +33,32 @@ type Task struct {
 	CacheReadTokens int64 `json:"cache_read_tokens,omitempty"`
 	// Cost holds the value of the "cost" field.
 	Cost float64 `json:"cost,omitempty"`
+	// AgentID holds the value of the "agent_id" field.
+	AgentID uuid.UUID `json:"agent_id,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the TaskQuery when eager-loading is set.
 	Edges        TaskEdges `json:"edges"`
-	agent_tasks  *uuid.UUID
 	selectValues sql.SelectValues
 }
 
 // TaskEdges holds the relations/edges for other nodes in the graph.
 type TaskEdges struct {
+	// Messages holds the value of the messages edge.
+	Messages []*Message `json:"messages,omitempty"`
 	// Agent holds the value of the agent edge.
 	Agent *Agent `json:"agent,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [1]bool
+	loadedTypes [2]bool
+}
+
+// MessagesOrErr returns the Messages value or an error if the edge
+// was not loaded in eager-loading.
+func (e TaskEdges) MessagesOrErr() ([]*Message, error) {
+	if e.loadedTypes[0] {
+		return e.Messages, nil
+	}
+	return nil, &NotLoadedError{edge: "messages"}
 }
 
 // AgentOrErr returns the Agent value or an error if the edge
@@ -54,7 +66,7 @@ type TaskEdges struct {
 func (e TaskEdges) AgentOrErr() (*Agent, error) {
 	if e.Agent != nil {
 		return e.Agent, nil
-	} else if e.loadedTypes[0] {
+	} else if e.loadedTypes[1] {
 		return nil, &NotFoundError{label: agent.Label}
 	}
 	return nil, &NotLoadedError{edge: "agent"}
@@ -71,10 +83,8 @@ func (*Task) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullInt64)
 		case task.FieldCreateTime, task.FieldUpdateTime:
 			values[i] = new(sql.NullTime)
-		case task.FieldID:
+		case task.FieldID, task.FieldAgentID:
 			values[i] = new(uuid.UUID)
-		case task.ForeignKeys[0]: // agent_tasks
-			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		default:
 			values[i] = new(sql.UnknownType)
 		}
@@ -138,12 +148,11 @@ func (t *Task) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				t.Cost = value.Float64
 			}
-		case task.ForeignKeys[0]:
-			if value, ok := values[i].(*sql.NullScanner); !ok {
-				return fmt.Errorf("unexpected type %T for field agent_tasks", values[i])
-			} else if value.Valid {
-				t.agent_tasks = new(uuid.UUID)
-				*t.agent_tasks = *value.S.(*uuid.UUID)
+		case task.FieldAgentID:
+			if value, ok := values[i].(*uuid.UUID); !ok {
+				return fmt.Errorf("unexpected type %T for field agent_id", values[i])
+			} else if value != nil {
+				t.AgentID = *value
 			}
 		default:
 			t.selectValues.Set(columns[i], values[i])
@@ -156,6 +165,11 @@ func (t *Task) assignValues(columns []string, values []any) error {
 // This includes values selected through modifiers, order, etc.
 func (t *Task) Value(name string) (ent.Value, error) {
 	return t.selectValues.Get(name)
+}
+
+// QueryMessages queries the "messages" edge of the Task entity.
+func (t *Task) QueryMessages() *MessageQuery {
+	return NewTaskClient(t.config).QueryMessages(t)
 }
 
 // QueryAgent queries the "agent" edge of the Task entity.
@@ -206,6 +220,9 @@ func (t *Task) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("cost=")
 	builder.WriteString(fmt.Sprintf("%v", t.Cost))
+	builder.WriteString(", ")
+	builder.WriteString("agent_id=")
+	builder.WriteString(fmt.Sprintf("%v", t.AgentID))
 	builder.WriteByte(')')
 	return builder.String()
 }

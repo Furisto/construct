@@ -20,15 +20,15 @@ func (Task) Fields() []ent.Field {
 		field.Int64("cache_write_tokens").Optional(),
 		field.Int64("cache_read_tokens").Optional(),
 		field.Float("cost").Optional(),
+
+		field.UUID("agent_id", uuid.UUID{}).Optional(),
 	}
 }
 
 func (Task) Edges() []ent.Edge {
 	return []ent.Edge{
-		// edge.To("messages", Message.Type),
-		edge.From("agent", Agent.Type).
-			Ref("tasks").
-			Unique(),
+		edge.From("messages", Message.Type).Ref("task"),
+		edge.To("agent", Agent.Type).Field("agent_id").Unique(),
 	}
 }
 

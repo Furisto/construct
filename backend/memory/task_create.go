@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/furisto/construct/backend/memory/agent"
+	"github.com/furisto/construct/backend/memory/message"
 	"github.com/furisto/construct/backend/memory/task"
 	"github.com/google/uuid"
 )
@@ -120,6 +121,20 @@ func (tc *TaskCreate) SetNillableCost(f *float64) *TaskCreate {
 	return tc
 }
 
+// SetAgentID sets the "agent_id" field.
+func (tc *TaskCreate) SetAgentID(u uuid.UUID) *TaskCreate {
+	tc.mutation.SetAgentID(u)
+	return tc
+}
+
+// SetNillableAgentID sets the "agent_id" field if the given value is not nil.
+func (tc *TaskCreate) SetNillableAgentID(u *uuid.UUID) *TaskCreate {
+	if u != nil {
+		tc.SetAgentID(*u)
+	}
+	return tc
+}
+
 // SetID sets the "id" field.
 func (tc *TaskCreate) SetID(u uuid.UUID) *TaskCreate {
 	tc.mutation.SetID(u)
@@ -134,18 +149,19 @@ func (tc *TaskCreate) SetNillableID(u *uuid.UUID) *TaskCreate {
 	return tc
 }
 
-// SetAgentID sets the "agent" edge to the Agent entity by ID.
-func (tc *TaskCreate) SetAgentID(id uuid.UUID) *TaskCreate {
-	tc.mutation.SetAgentID(id)
+// AddMessageIDs adds the "messages" edge to the Message entity by IDs.
+func (tc *TaskCreate) AddMessageIDs(ids ...uuid.UUID) *TaskCreate {
+	tc.mutation.AddMessageIDs(ids...)
 	return tc
 }
 
-// SetNillableAgentID sets the "agent" edge to the Agent entity by ID if the given value is not nil.
-func (tc *TaskCreate) SetNillableAgentID(id *uuid.UUID) *TaskCreate {
-	if id != nil {
-		tc = tc.SetAgentID(*id)
+// AddMessages adds the "messages" edges to the Message entity.
+func (tc *TaskCreate) AddMessages(m ...*Message) *TaskCreate {
+	ids := make([]uuid.UUID, len(m))
+	for i := range m {
+		ids[i] = m[i].ID
 	}
-	return tc
+	return tc.AddMessageIDs(ids...)
 }
 
 // SetAgent sets the "agent" edge to the Agent entity.
@@ -273,10 +289,26 @@ func (tc *TaskCreate) createSpec() (*Task, *sqlgraph.CreateSpec) {
 		_spec.SetField(task.FieldCost, field.TypeFloat64, value)
 		_node.Cost = value
 	}
+	if nodes := tc.mutation.MessagesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   task.MessagesTable,
+			Columns: []string{task.MessagesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(message.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
 	if nodes := tc.mutation.AgentIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
-			Inverse: true,
+			Inverse: false,
 			Table:   task.AgentTable,
 			Columns: []string{task.AgentColumn},
 			Bidi:    false,
@@ -287,7 +319,7 @@ func (tc *TaskCreate) createSpec() (*Task, *sqlgraph.CreateSpec) {
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
-		_node.agent_tasks = &nodes[0]
+		_node.AgentID = nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

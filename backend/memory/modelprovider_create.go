@@ -280,7 +280,7 @@ func (mpc *ModelProviderCreate) createSpec() (*ModelProvider, *sqlgraph.CreateSp
 	if nodes := mpc.mutation.ModelsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
-			Inverse: false,
+			Inverse: true,
 			Table:   modelprovider.ModelsTable,
 			Columns: []string{modelprovider.ModelsColumn},
 			Bidi:    false,

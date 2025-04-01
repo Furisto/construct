@@ -26,7 +26,7 @@ func (ModelProvider) Fields() []ent.Field {
 
 func (ModelProvider) Edges() []ent.Edge {
 	return []ent.Edge{
-		edge.To("models", Model.Type),
+		edge.From("models", Model.Type).Ref("model_providers"),
 	}
 }
 

@@ -5,7 +5,6 @@ package memory
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
@@ -19,20 +18,11 @@ type Agent struct {
 	config `json:"-"`
 	// ID of the ent.
 	ID uuid.UUID `json:"id,omitempty"`
-	// CreateTime holds the value of the "create_time" field.
-	CreateTime time.Time `json:"create_time,omitempty"`
-	// UpdateTime holds the value of the "update_time" field.
-	UpdateTime time.Time `json:"update_time,omitempty"`
-	// Name holds the value of the "name" field.
-	Name string `json:"name,omitempty"`
-	// Description holds the value of the "description" field.
-	Description string `json:"description,omitempty"`
-	// Instructions holds the value of the "instructions" field.
-	Instructions string `json:"instructions,omitempty"`
+	// DefaultModel holds the value of the "default_model" field.
+	DefaultModel uuid.UUID `json:"default_model,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the AgentQuery when eager-loading is set.
 	Edges        AgentEdges `json:"edges"`
-	model_agents *uuid.UUID
 	selectValues sql.SelectValues
 }
 
@@ -40,15 +30,13 @@ type Agent struct {
 type AgentEdges struct {
 	// Model holds the value of the model edge.
 	Model *Model `json:"model,omitempty"`
-	// Delegates holds the value of the delegates edge.
-	Delegates []*Agent `json:"delegates,omitempty"`
-	// Delegators holds the value of the delegators edge.
-	Delegators []*Agent `json:"delegators,omitempty"`
 	// Tasks holds the value of the tasks edge.
 	Tasks []*Task `json:"tasks,omitempty"`
+	// Messages holds the value of the messages edge.
+	Messages []*Message `json:"messages,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [4]bool
+	loadedTypes [3]bool
 }
 
 // ModelOrErr returns the Model value or an error if the edge
@@ -62,31 +50,22 @@ func (e AgentEdges) ModelOrErr() (*Model, error) {
 	return nil, &NotLoadedError{edge: "model"}
 }
 
-// DelegatesOrErr returns the Delegates value or an error if the edge
-// was not loaded in eager-loading.
-func (e AgentEdges) DelegatesOrErr() ([]*Agent, error) {
-	if e.loadedTypes[1] {
-		return e.Delegates, nil
-	}
-	return nil, &NotLoadedError{edge: "delegates"}
-}
-
-// DelegatorsOrErr returns the Delegators value or an error if the edge
-// was not loaded in eager-loading.
-func (e AgentEdges) DelegatorsOrErr() ([]*Agent, error) {
-	if e.loadedTypes[2] {
-		return e.Delegators, nil
-	}
-	return nil, &NotLoadedError{edge: "delegators"}
-}
-
 // TasksOrErr returns the Tasks value or an error if the edge
 // was not loaded in eager-loading.
 func (e AgentEdges) TasksOrErr() ([]*Task, error) {
-	if e.loadedTypes[3] {
+	if e.loadedTypes[1] {
 		return e.Tasks, nil
 	}
 	return nil, &NotLoadedError{edge: "tasks"}
+}
+
+// MessagesOrErr returns the Messages value or an error if the edge
+// was not loaded in eager-loading.
+func (e AgentEdges) MessagesOrErr() ([]*Message, error) {
+	if e.loadedTypes[2] {
+		return e.Messages, nil
+	}
+	return nil, &NotLoadedError{edge: "messages"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -94,14 +73,8 @@ func (*Agent) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case agent.FieldName, agent.FieldDescription, agent.FieldInstructions:
-			values[i] = new(sql.NullString)
-		case agent.FieldCreateTime, agent.FieldUpdateTime:
-			values[i] = new(sql.NullTime)
-		case agent.FieldID:
+		case agent.FieldID, agent.FieldDefaultModel:
 			values[i] = new(uuid.UUID)
-		case agent.ForeignKeys[0]: // model_agents
-			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		default:
 			values[i] = new(sql.UnknownType)
 		}
@@ -123,42 +96,11 @@ func (a *Agent) assignValues(columns []string, values []any) error {
 			} else if value != nil {
 				a.ID = *value
 			}
-		case agent.FieldCreateTime:
-			if value, ok := values[i].(*sql.NullTime); !ok {
-				return fmt.Errorf("unexpected type %T for field create_time", values[i])
-			} else if value.Valid {
-				a.CreateTime = value.Time
-			}
-		case agent.FieldUpdateTime:
-			if value, ok := values[i].(*sql.NullTime); !ok {
-				return fmt.Errorf("unexpected type %T for field update_time", values[i])
-			} else if value.Valid {
-				a.UpdateTime = value.Time
-			}
-		case agent.FieldName:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field name", values[i])
-			} else if value.Valid {
-				a.Name = value.String
-			}
-		case agent.FieldDescription:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field description", values[i])
-			} else if value.Valid {
-				a.Description = value.String
-			}
-		case agent.FieldInstructions:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field instructions", values[i])
-			} else if value.Valid {
-				a.Instructions = value.String
-			}
-		case agent.ForeignKeys[0]:
-			if value, ok := values[i].(*sql.NullScanner); !ok {
-				return fmt.Errorf("unexpected type %T for field model_agents", values[i])
-			} else if value.Valid {
-				a.model_agents = new(uuid.UUID)
-				*a.model_agents = *value.S.(*uuid.UUID)
+		case agent.FieldDefaultModel:
+			if value, ok := values[i].(*uuid.UUID); !ok {
+				return fmt.Errorf("unexpected type %T for field default_model", values[i])
+			} else if value != nil {
+				a.DefaultModel = *value
 			}
 		default:
 			a.selectValues.Set(columns[i], values[i])
@@ -178,19 +120,14 @@ func (a *Agent) QueryModel() *ModelQuery {
 	return NewAgentClient(a.config).QueryModel(a)
 }
 
-// QueryDelegates queries the "delegates" edge of the Agent entity.
-func (a *Agent) QueryDelegates() *AgentQuery {
-	return NewAgentClient(a.config).QueryDelegates(a)
-}
-
-// QueryDelegators queries the "delegators" edge of the Agent entity.
-func (a *Agent) QueryDelegators() *AgentQuery {
-	return NewAgentClient(a.config).QueryDelegators(a)
-}
-
 // QueryTasks queries the "tasks" edge of the Agent entity.
 func (a *Agent) QueryTasks() *TaskQuery {
 	return NewAgentClient(a.config).QueryTasks(a)
+}
+
+// QueryMessages queries the "messages" edge of the Agent entity.
+func (a *Agent) QueryMessages() *MessageQuery {
+	return NewAgentClient(a.config).QueryMessages(a)
 }
 
 // Update returns a builder for updating this Agent.
@@ -216,20 +153,8 @@ func (a *Agent) String() string {
 	var builder strings.Builder
 	builder.WriteString("Agent(")
 	builder.WriteString(fmt.Sprintf("id=%v, ", a.ID))
-	builder.WriteString("create_time=")
-	builder.WriteString(a.CreateTime.Format(time.ANSIC))
-	builder.WriteString(", ")
-	builder.WriteString("update_time=")
-	builder.WriteString(a.UpdateTime.Format(time.ANSIC))
-	builder.WriteString(", ")
-	builder.WriteString("name=")
-	builder.WriteString(a.Name)
-	builder.WriteString(", ")
-	builder.WriteString("description=")
-	builder.WriteString(a.Description)
-	builder.WriteString(", ")
-	builder.WriteString("instructions=")
-	builder.WriteString(a.Instructions)
+	builder.WriteString("default_model=")
+	builder.WriteString(fmt.Sprintf("%v", a.DefaultModel))
 	builder.WriteByte(')')
 	return builder.String()
 }

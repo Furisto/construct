@@ -6,17 +6,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
-	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
 	"github.com/furisto/construct/backend/memory/agent"
+	"github.com/furisto/construct/backend/memory/message"
 	"github.com/furisto/construct/backend/memory/model"
 	"github.com/furisto/construct/backend/memory/modelprovider"
 	"github.com/furisto/construct/backend/memory/predicate"
-	"github.com/furisto/construct/backend/memory/schema/types"
 	"github.com/google/uuid"
 )
 
@@ -33,180 +31,18 @@ func (mu *ModelUpdate) Where(ps ...predicate.Model) *ModelUpdate {
 	return mu
 }
 
-// SetUpdateTime sets the "update_time" field.
-func (mu *ModelUpdate) SetUpdateTime(t time.Time) *ModelUpdate {
-	mu.mutation.SetUpdateTime(t)
+// SetModelProvider sets the "model_provider" field.
+func (mu *ModelUpdate) SetModelProvider(u uuid.UUID) *ModelUpdate {
+	mu.mutation.SetModelProvider(u)
 	return mu
 }
 
-// SetName sets the "name" field.
-func (mu *ModelUpdate) SetName(s string) *ModelUpdate {
-	mu.mutation.SetName(s)
-	return mu
-}
-
-// SetNillableName sets the "name" field if the given value is not nil.
-func (mu *ModelUpdate) SetNillableName(s *string) *ModelUpdate {
-	if s != nil {
-		mu.SetName(*s)
+// SetNillableModelProvider sets the "model_provider" field if the given value is not nil.
+func (mu *ModelUpdate) SetNillableModelProvider(u *uuid.UUID) *ModelUpdate {
+	if u != nil {
+		mu.SetModelProvider(*u)
 	}
 	return mu
-}
-
-// SetContextWindow sets the "context_window" field.
-func (mu *ModelUpdate) SetContextWindow(i int64) *ModelUpdate {
-	mu.mutation.ResetContextWindow()
-	mu.mutation.SetContextWindow(i)
-	return mu
-}
-
-// SetNillableContextWindow sets the "context_window" field if the given value is not nil.
-func (mu *ModelUpdate) SetNillableContextWindow(i *int64) *ModelUpdate {
-	if i != nil {
-		mu.SetContextWindow(*i)
-	}
-	return mu
-}
-
-// AddContextWindow adds i to the "context_window" field.
-func (mu *ModelUpdate) AddContextWindow(i int64) *ModelUpdate {
-	mu.mutation.AddContextWindow(i)
-	return mu
-}
-
-// SetCapabilities sets the "capabilities" field.
-func (mu *ModelUpdate) SetCapabilities(tc []types.ModelCapability) *ModelUpdate {
-	mu.mutation.SetCapabilities(tc)
-	return mu
-}
-
-// AppendCapabilities appends tc to the "capabilities" field.
-func (mu *ModelUpdate) AppendCapabilities(tc []types.ModelCapability) *ModelUpdate {
-	mu.mutation.AppendCapabilities(tc)
-	return mu
-}
-
-// ClearCapabilities clears the value of the "capabilities" field.
-func (mu *ModelUpdate) ClearCapabilities() *ModelUpdate {
-	mu.mutation.ClearCapabilities()
-	return mu
-}
-
-// SetInputCost sets the "input_cost" field.
-func (mu *ModelUpdate) SetInputCost(f float64) *ModelUpdate {
-	mu.mutation.ResetInputCost()
-	mu.mutation.SetInputCost(f)
-	return mu
-}
-
-// SetNillableInputCost sets the "input_cost" field if the given value is not nil.
-func (mu *ModelUpdate) SetNillableInputCost(f *float64) *ModelUpdate {
-	if f != nil {
-		mu.SetInputCost(*f)
-	}
-	return mu
-}
-
-// AddInputCost adds f to the "input_cost" field.
-func (mu *ModelUpdate) AddInputCost(f float64) *ModelUpdate {
-	mu.mutation.AddInputCost(f)
-	return mu
-}
-
-// SetOutputCost sets the "output_cost" field.
-func (mu *ModelUpdate) SetOutputCost(f float64) *ModelUpdate {
-	mu.mutation.ResetOutputCost()
-	mu.mutation.SetOutputCost(f)
-	return mu
-}
-
-// SetNillableOutputCost sets the "output_cost" field if the given value is not nil.
-func (mu *ModelUpdate) SetNillableOutputCost(f *float64) *ModelUpdate {
-	if f != nil {
-		mu.SetOutputCost(*f)
-	}
-	return mu
-}
-
-// AddOutputCost adds f to the "output_cost" field.
-func (mu *ModelUpdate) AddOutputCost(f float64) *ModelUpdate {
-	mu.mutation.AddOutputCost(f)
-	return mu
-}
-
-// SetCacheWriteCost sets the "cache_write_cost" field.
-func (mu *ModelUpdate) SetCacheWriteCost(f float64) *ModelUpdate {
-	mu.mutation.ResetCacheWriteCost()
-	mu.mutation.SetCacheWriteCost(f)
-	return mu
-}
-
-// SetNillableCacheWriteCost sets the "cache_write_cost" field if the given value is not nil.
-func (mu *ModelUpdate) SetNillableCacheWriteCost(f *float64) *ModelUpdate {
-	if f != nil {
-		mu.SetCacheWriteCost(*f)
-	}
-	return mu
-}
-
-// AddCacheWriteCost adds f to the "cache_write_cost" field.
-func (mu *ModelUpdate) AddCacheWriteCost(f float64) *ModelUpdate {
-	mu.mutation.AddCacheWriteCost(f)
-	return mu
-}
-
-// SetCacheReadCost sets the "cache_read_cost" field.
-func (mu *ModelUpdate) SetCacheReadCost(f float64) *ModelUpdate {
-	mu.mutation.ResetCacheReadCost()
-	mu.mutation.SetCacheReadCost(f)
-	return mu
-}
-
-// SetNillableCacheReadCost sets the "cache_read_cost" field if the given value is not nil.
-func (mu *ModelUpdate) SetNillableCacheReadCost(f *float64) *ModelUpdate {
-	if f != nil {
-		mu.SetCacheReadCost(*f)
-	}
-	return mu
-}
-
-// AddCacheReadCost adds f to the "cache_read_cost" field.
-func (mu *ModelUpdate) AddCacheReadCost(f float64) *ModelUpdate {
-	mu.mutation.AddCacheReadCost(f)
-	return mu
-}
-
-// SetEnabled sets the "enabled" field.
-func (mu *ModelUpdate) SetEnabled(b bool) *ModelUpdate {
-	mu.mutation.SetEnabled(b)
-	return mu
-}
-
-// SetNillableEnabled sets the "enabled" field if the given value is not nil.
-func (mu *ModelUpdate) SetNillableEnabled(b *bool) *ModelUpdate {
-	if b != nil {
-		mu.SetEnabled(*b)
-	}
-	return mu
-}
-
-// SetModelProviderID sets the "model_provider" edge to the ModelProvider entity by ID.
-func (mu *ModelUpdate) SetModelProviderID(id uuid.UUID) *ModelUpdate {
-	mu.mutation.SetModelProviderID(id)
-	return mu
-}
-
-// SetNillableModelProviderID sets the "model_provider" edge to the ModelProvider entity by ID if the given value is not nil.
-func (mu *ModelUpdate) SetNillableModelProviderID(id *uuid.UUID) *ModelUpdate {
-	if id != nil {
-		mu = mu.SetModelProviderID(*id)
-	}
-	return mu
-}
-
-// SetModelProvider sets the "model_provider" edge to the ModelProvider entity.
-func (mu *ModelUpdate) SetModelProvider(m *ModelProvider) *ModelUpdate {
-	return mu.SetModelProviderID(m.ID)
 }
 
 // AddAgentIDs adds the "agents" edge to the Agent entity by IDs.
@@ -224,15 +60,35 @@ func (mu *ModelUpdate) AddAgents(a ...*Agent) *ModelUpdate {
 	return mu.AddAgentIDs(ids...)
 }
 
+// SetModelProvidersID sets the "model_providers" edge to the ModelProvider entity by ID.
+func (mu *ModelUpdate) SetModelProvidersID(id uuid.UUID) *ModelUpdate {
+	mu.mutation.SetModelProvidersID(id)
+	return mu
+}
+
+// SetModelProviders sets the "model_providers" edge to the ModelProvider entity.
+func (mu *ModelUpdate) SetModelProviders(m *ModelProvider) *ModelUpdate {
+	return mu.SetModelProvidersID(m.ID)
+}
+
+// AddMessageIDs adds the "messages" edge to the Message entity by IDs.
+func (mu *ModelUpdate) AddMessageIDs(ids ...uuid.UUID) *ModelUpdate {
+	mu.mutation.AddMessageIDs(ids...)
+	return mu
+}
+
+// AddMessages adds the "messages" edges to the Message entity.
+func (mu *ModelUpdate) AddMessages(m ...*Message) *ModelUpdate {
+	ids := make([]uuid.UUID, len(m))
+	for i := range m {
+		ids[i] = m[i].ID
+	}
+	return mu.AddMessageIDs(ids...)
+}
+
 // Mutation returns the ModelMutation object of the builder.
 func (mu *ModelUpdate) Mutation() *ModelMutation {
 	return mu.mutation
-}
-
-// ClearModelProvider clears the "model_provider" edge to the ModelProvider entity.
-func (mu *ModelUpdate) ClearModelProvider() *ModelUpdate {
-	mu.mutation.ClearModelProvider()
-	return mu
 }
 
 // ClearAgents clears all "agents" edges to the Agent entity.
@@ -256,9 +112,35 @@ func (mu *ModelUpdate) RemoveAgents(a ...*Agent) *ModelUpdate {
 	return mu.RemoveAgentIDs(ids...)
 }
 
+// ClearModelProviders clears the "model_providers" edge to the ModelProvider entity.
+func (mu *ModelUpdate) ClearModelProviders() *ModelUpdate {
+	mu.mutation.ClearModelProviders()
+	return mu
+}
+
+// ClearMessages clears all "messages" edges to the Message entity.
+func (mu *ModelUpdate) ClearMessages() *ModelUpdate {
+	mu.mutation.ClearMessages()
+	return mu
+}
+
+// RemoveMessageIDs removes the "messages" edge to Message entities by IDs.
+func (mu *ModelUpdate) RemoveMessageIDs(ids ...uuid.UUID) *ModelUpdate {
+	mu.mutation.RemoveMessageIDs(ids...)
+	return mu
+}
+
+// RemoveMessages removes "messages" edges to Message entities.
+func (mu *ModelUpdate) RemoveMessages(m ...*Message) *ModelUpdate {
+	ids := make([]uuid.UUID, len(m))
+	for i := range m {
+		ids[i] = m[i].ID
+	}
+	return mu.RemoveMessageIDs(ids...)
+}
+
 // Save executes the query and returns the number of nodes affected by the update operation.
 func (mu *ModelUpdate) Save(ctx context.Context) (int, error) {
-	mu.defaults()
 	return withHooks(ctx, mu.sqlSave, mu.mutation, mu.hooks)
 }
 
@@ -284,35 +166,10 @@ func (mu *ModelUpdate) ExecX(ctx context.Context) {
 	}
 }
 
-// defaults sets the default values of the builder before save.
-func (mu *ModelUpdate) defaults() {
-	if _, ok := mu.mutation.UpdateTime(); !ok {
-		v := model.UpdateDefaultUpdateTime()
-		mu.mutation.SetUpdateTime(v)
-	}
-}
-
 // check runs all checks and user-defined validators on the builder.
 func (mu *ModelUpdate) check() error {
-	if v, ok := mu.mutation.InputCost(); ok {
-		if err := model.InputCostValidator(v); err != nil {
-			return &ValidationError{Name: "input_cost", err: fmt.Errorf(`memory: validator failed for field "Model.input_cost": %w`, err)}
-		}
-	}
-	if v, ok := mu.mutation.OutputCost(); ok {
-		if err := model.OutputCostValidator(v); err != nil {
-			return &ValidationError{Name: "output_cost", err: fmt.Errorf(`memory: validator failed for field "Model.output_cost": %w`, err)}
-		}
-	}
-	if v, ok := mu.mutation.CacheWriteCost(); ok {
-		if err := model.CacheWriteCostValidator(v); err != nil {
-			return &ValidationError{Name: "cache_write_cost", err: fmt.Errorf(`memory: validator failed for field "Model.cache_write_cost": %w`, err)}
-		}
-	}
-	if v, ok := mu.mutation.CacheReadCost(); ok {
-		if err := model.CacheReadCostValidator(v); err != nil {
-			return &ValidationError{Name: "cache_read_cost", err: fmt.Errorf(`memory: validator failed for field "Model.cache_read_cost": %w`, err)}
-		}
+	if mu.mutation.ModelProvidersCleared() && len(mu.mutation.ModelProvidersIDs()) > 0 {
+		return errors.New(`memory: clearing a required unique edge "Model.model_providers"`)
 	}
 	return nil
 }
@@ -329,89 +186,10 @@ func (mu *ModelUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			}
 		}
 	}
-	if value, ok := mu.mutation.UpdateTime(); ok {
-		_spec.SetField(model.FieldUpdateTime, field.TypeTime, value)
-	}
-	if value, ok := mu.mutation.Name(); ok {
-		_spec.SetField(model.FieldName, field.TypeString, value)
-	}
-	if value, ok := mu.mutation.ContextWindow(); ok {
-		_spec.SetField(model.FieldContextWindow, field.TypeInt64, value)
-	}
-	if value, ok := mu.mutation.AddedContextWindow(); ok {
-		_spec.AddField(model.FieldContextWindow, field.TypeInt64, value)
-	}
-	if value, ok := mu.mutation.Capabilities(); ok {
-		_spec.SetField(model.FieldCapabilities, field.TypeJSON, value)
-	}
-	if value, ok := mu.mutation.AppendedCapabilities(); ok {
-		_spec.AddModifier(func(u *sql.UpdateBuilder) {
-			sqljson.Append(u, model.FieldCapabilities, value)
-		})
-	}
-	if mu.mutation.CapabilitiesCleared() {
-		_spec.ClearField(model.FieldCapabilities, field.TypeJSON)
-	}
-	if value, ok := mu.mutation.InputCost(); ok {
-		_spec.SetField(model.FieldInputCost, field.TypeFloat64, value)
-	}
-	if value, ok := mu.mutation.AddedInputCost(); ok {
-		_spec.AddField(model.FieldInputCost, field.TypeFloat64, value)
-	}
-	if value, ok := mu.mutation.OutputCost(); ok {
-		_spec.SetField(model.FieldOutputCost, field.TypeFloat64, value)
-	}
-	if value, ok := mu.mutation.AddedOutputCost(); ok {
-		_spec.AddField(model.FieldOutputCost, field.TypeFloat64, value)
-	}
-	if value, ok := mu.mutation.CacheWriteCost(); ok {
-		_spec.SetField(model.FieldCacheWriteCost, field.TypeFloat64, value)
-	}
-	if value, ok := mu.mutation.AddedCacheWriteCost(); ok {
-		_spec.AddField(model.FieldCacheWriteCost, field.TypeFloat64, value)
-	}
-	if value, ok := mu.mutation.CacheReadCost(); ok {
-		_spec.SetField(model.FieldCacheReadCost, field.TypeFloat64, value)
-	}
-	if value, ok := mu.mutation.AddedCacheReadCost(); ok {
-		_spec.AddField(model.FieldCacheReadCost, field.TypeFloat64, value)
-	}
-	if value, ok := mu.mutation.Enabled(); ok {
-		_spec.SetField(model.FieldEnabled, field.TypeBool, value)
-	}
-	if mu.mutation.ModelProviderCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   model.ModelProviderTable,
-			Columns: []string{model.ModelProviderColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(modelprovider.FieldID, field.TypeUUID),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := mu.mutation.ModelProviderIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   model.ModelProviderTable,
-			Columns: []string{model.ModelProviderColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(modelprovider.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
 	if mu.mutation.AgentsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
-			Inverse: false,
+			Inverse: true,
 			Table:   model.AgentsTable,
 			Columns: []string{model.AgentsColumn},
 			Bidi:    false,
@@ -424,7 +202,7 @@ func (mu *ModelUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if nodes := mu.mutation.RemovedAgentsIDs(); len(nodes) > 0 && !mu.mutation.AgentsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
-			Inverse: false,
+			Inverse: true,
 			Table:   model.AgentsTable,
 			Columns: []string{model.AgentsColumn},
 			Bidi:    false,
@@ -440,12 +218,86 @@ func (mu *ModelUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if nodes := mu.mutation.AgentsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
-			Inverse: false,
+			Inverse: true,
 			Table:   model.AgentsTable,
 			Columns: []string{model.AgentsColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if mu.mutation.ModelProvidersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   model.ModelProvidersTable,
+			Columns: []string{model.ModelProvidersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(modelprovider.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := mu.mutation.ModelProvidersIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   model.ModelProvidersTable,
+			Columns: []string{model.ModelProvidersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(modelprovider.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if mu.mutation.MessagesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   model.MessagesTable,
+			Columns: []string{model.MessagesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(message.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := mu.mutation.RemovedMessagesIDs(); len(nodes) > 0 && !mu.mutation.MessagesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   model.MessagesTable,
+			Columns: []string{model.MessagesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(message.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := mu.mutation.MessagesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   model.MessagesTable,
+			Columns: []string{model.MessagesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(message.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -473,180 +325,18 @@ type ModelUpdateOne struct {
 	mutation *ModelMutation
 }
 
-// SetUpdateTime sets the "update_time" field.
-func (muo *ModelUpdateOne) SetUpdateTime(t time.Time) *ModelUpdateOne {
-	muo.mutation.SetUpdateTime(t)
+// SetModelProvider sets the "model_provider" field.
+func (muo *ModelUpdateOne) SetModelProvider(u uuid.UUID) *ModelUpdateOne {
+	muo.mutation.SetModelProvider(u)
 	return muo
 }
 
-// SetName sets the "name" field.
-func (muo *ModelUpdateOne) SetName(s string) *ModelUpdateOne {
-	muo.mutation.SetName(s)
-	return muo
-}
-
-// SetNillableName sets the "name" field if the given value is not nil.
-func (muo *ModelUpdateOne) SetNillableName(s *string) *ModelUpdateOne {
-	if s != nil {
-		muo.SetName(*s)
+// SetNillableModelProvider sets the "model_provider" field if the given value is not nil.
+func (muo *ModelUpdateOne) SetNillableModelProvider(u *uuid.UUID) *ModelUpdateOne {
+	if u != nil {
+		muo.SetModelProvider(*u)
 	}
 	return muo
-}
-
-// SetContextWindow sets the "context_window" field.
-func (muo *ModelUpdateOne) SetContextWindow(i int64) *ModelUpdateOne {
-	muo.mutation.ResetContextWindow()
-	muo.mutation.SetContextWindow(i)
-	return muo
-}
-
-// SetNillableContextWindow sets the "context_window" field if the given value is not nil.
-func (muo *ModelUpdateOne) SetNillableContextWindow(i *int64) *ModelUpdateOne {
-	if i != nil {
-		muo.SetContextWindow(*i)
-	}
-	return muo
-}
-
-// AddContextWindow adds i to the "context_window" field.
-func (muo *ModelUpdateOne) AddContextWindow(i int64) *ModelUpdateOne {
-	muo.mutation.AddContextWindow(i)
-	return muo
-}
-
-// SetCapabilities sets the "capabilities" field.
-func (muo *ModelUpdateOne) SetCapabilities(tc []types.ModelCapability) *ModelUpdateOne {
-	muo.mutation.SetCapabilities(tc)
-	return muo
-}
-
-// AppendCapabilities appends tc to the "capabilities" field.
-func (muo *ModelUpdateOne) AppendCapabilities(tc []types.ModelCapability) *ModelUpdateOne {
-	muo.mutation.AppendCapabilities(tc)
-	return muo
-}
-
-// ClearCapabilities clears the value of the "capabilities" field.
-func (muo *ModelUpdateOne) ClearCapabilities() *ModelUpdateOne {
-	muo.mutation.ClearCapabilities()
-	return muo
-}
-
-// SetInputCost sets the "input_cost" field.
-func (muo *ModelUpdateOne) SetInputCost(f float64) *ModelUpdateOne {
-	muo.mutation.ResetInputCost()
-	muo.mutation.SetInputCost(f)
-	return muo
-}
-
-// SetNillableInputCost sets the "input_cost" field if the given value is not nil.
-func (muo *ModelUpdateOne) SetNillableInputCost(f *float64) *ModelUpdateOne {
-	if f != nil {
-		muo.SetInputCost(*f)
-	}
-	return muo
-}
-
-// AddInputCost adds f to the "input_cost" field.
-func (muo *ModelUpdateOne) AddInputCost(f float64) *ModelUpdateOne {
-	muo.mutation.AddInputCost(f)
-	return muo
-}
-
-// SetOutputCost sets the "output_cost" field.
-func (muo *ModelUpdateOne) SetOutputCost(f float64) *ModelUpdateOne {
-	muo.mutation.ResetOutputCost()
-	muo.mutation.SetOutputCost(f)
-	return muo
-}
-
-// SetNillableOutputCost sets the "output_cost" field if the given value is not nil.
-func (muo *ModelUpdateOne) SetNillableOutputCost(f *float64) *ModelUpdateOne {
-	if f != nil {
-		muo.SetOutputCost(*f)
-	}
-	return muo
-}
-
-// AddOutputCost adds f to the "output_cost" field.
-func (muo *ModelUpdateOne) AddOutputCost(f float64) *ModelUpdateOne {
-	muo.mutation.AddOutputCost(f)
-	return muo
-}
-
-// SetCacheWriteCost sets the "cache_write_cost" field.
-func (muo *ModelUpdateOne) SetCacheWriteCost(f float64) *ModelUpdateOne {
-	muo.mutation.ResetCacheWriteCost()
-	muo.mutation.SetCacheWriteCost(f)
-	return muo
-}
-
-// SetNillableCacheWriteCost sets the "cache_write_cost" field if the given value is not nil.
-func (muo *ModelUpdateOne) SetNillableCacheWriteCost(f *float64) *ModelUpdateOne {
-	if f != nil {
-		muo.SetCacheWriteCost(*f)
-	}
-	return muo
-}
-
-// AddCacheWriteCost adds f to the "cache_write_cost" field.
-func (muo *ModelUpdateOne) AddCacheWriteCost(f float64) *ModelUpdateOne {
-	muo.mutation.AddCacheWriteCost(f)
-	return muo
-}
-
-// SetCacheReadCost sets the "cache_read_cost" field.
-func (muo *ModelUpdateOne) SetCacheReadCost(f float64) *ModelUpdateOne {
-	muo.mutation.ResetCacheReadCost()
-	muo.mutation.SetCacheReadCost(f)
-	return muo
-}
-
-// SetNillableCacheReadCost sets the "cache_read_cost" field if the given value is not nil.
-func (muo *ModelUpdateOne) SetNillableCacheReadCost(f *float64) *ModelUpdateOne {
-	if f != nil {
-		muo.SetCacheReadCost(*f)
-	}
-	return muo
-}
-
-// AddCacheReadCost adds f to the "cache_read_cost" field.
-func (muo *ModelUpdateOne) AddCacheReadCost(f float64) *ModelUpdateOne {
-	muo.mutation.AddCacheReadCost(f)
-	return muo
-}
-
-// SetEnabled sets the "enabled" field.
-func (muo *ModelUpdateOne) SetEnabled(b bool) *ModelUpdateOne {
-	muo.mutation.SetEnabled(b)
-	return muo
-}
-
-// SetNillableEnabled sets the "enabled" field if the given value is not nil.
-func (muo *ModelUpdateOne) SetNillableEnabled(b *bool) *ModelUpdateOne {
-	if b != nil {
-		muo.SetEnabled(*b)
-	}
-	return muo
-}
-
-// SetModelProviderID sets the "model_provider" edge to the ModelProvider entity by ID.
-func (muo *ModelUpdateOne) SetModelProviderID(id uuid.UUID) *ModelUpdateOne {
-	muo.mutation.SetModelProviderID(id)
-	return muo
-}
-
-// SetNillableModelProviderID sets the "model_provider" edge to the ModelProvider entity by ID if the given value is not nil.
-func (muo *ModelUpdateOne) SetNillableModelProviderID(id *uuid.UUID) *ModelUpdateOne {
-	if id != nil {
-		muo = muo.SetModelProviderID(*id)
-	}
-	return muo
-}
-
-// SetModelProvider sets the "model_provider" edge to the ModelProvider entity.
-func (muo *ModelUpdateOne) SetModelProvider(m *ModelProvider) *ModelUpdateOne {
-	return muo.SetModelProviderID(m.ID)
 }
 
 // AddAgentIDs adds the "agents" edge to the Agent entity by IDs.
@@ -664,15 +354,35 @@ func (muo *ModelUpdateOne) AddAgents(a ...*Agent) *ModelUpdateOne {
 	return muo.AddAgentIDs(ids...)
 }
 
+// SetModelProvidersID sets the "model_providers" edge to the ModelProvider entity by ID.
+func (muo *ModelUpdateOne) SetModelProvidersID(id uuid.UUID) *ModelUpdateOne {
+	muo.mutation.SetModelProvidersID(id)
+	return muo
+}
+
+// SetModelProviders sets the "model_providers" edge to the ModelProvider entity.
+func (muo *ModelUpdateOne) SetModelProviders(m *ModelProvider) *ModelUpdateOne {
+	return muo.SetModelProvidersID(m.ID)
+}
+
+// AddMessageIDs adds the "messages" edge to the Message entity by IDs.
+func (muo *ModelUpdateOne) AddMessageIDs(ids ...uuid.UUID) *ModelUpdateOne {
+	muo.mutation.AddMessageIDs(ids...)
+	return muo
+}
+
+// AddMessages adds the "messages" edges to the Message entity.
+func (muo *ModelUpdateOne) AddMessages(m ...*Message) *ModelUpdateOne {
+	ids := make([]uuid.UUID, len(m))
+	for i := range m {
+		ids[i] = m[i].ID
+	}
+	return muo.AddMessageIDs(ids...)
+}
+
 // Mutation returns the ModelMutation object of the builder.
 func (muo *ModelUpdateOne) Mutation() *ModelMutation {
 	return muo.mutation
-}
-
-// ClearModelProvider clears the "model_provider" edge to the ModelProvider entity.
-func (muo *ModelUpdateOne) ClearModelProvider() *ModelUpdateOne {
-	muo.mutation.ClearModelProvider()
-	return muo
 }
 
 // ClearAgents clears all "agents" edges to the Agent entity.
@@ -696,6 +406,33 @@ func (muo *ModelUpdateOne) RemoveAgents(a ...*Agent) *ModelUpdateOne {
 	return muo.RemoveAgentIDs(ids...)
 }
 
+// ClearModelProviders clears the "model_providers" edge to the ModelProvider entity.
+func (muo *ModelUpdateOne) ClearModelProviders() *ModelUpdateOne {
+	muo.mutation.ClearModelProviders()
+	return muo
+}
+
+// ClearMessages clears all "messages" edges to the Message entity.
+func (muo *ModelUpdateOne) ClearMessages() *ModelUpdateOne {
+	muo.mutation.ClearMessages()
+	return muo
+}
+
+// RemoveMessageIDs removes the "messages" edge to Message entities by IDs.
+func (muo *ModelUpdateOne) RemoveMessageIDs(ids ...uuid.UUID) *ModelUpdateOne {
+	muo.mutation.RemoveMessageIDs(ids...)
+	return muo
+}
+
+// RemoveMessages removes "messages" edges to Message entities.
+func (muo *ModelUpdateOne) RemoveMessages(m ...*Message) *ModelUpdateOne {
+	ids := make([]uuid.UUID, len(m))
+	for i := range m {
+		ids[i] = m[i].ID
+	}
+	return muo.RemoveMessageIDs(ids...)
+}
+
 // Where appends a list predicates to the ModelUpdate builder.
 func (muo *ModelUpdateOne) Where(ps ...predicate.Model) *ModelUpdateOne {
 	muo.mutation.Where(ps...)
@@ -711,7 +448,6 @@ func (muo *ModelUpdateOne) Select(field string, fields ...string) *ModelUpdateOn
 
 // Save executes the query and returns the updated Model entity.
 func (muo *ModelUpdateOne) Save(ctx context.Context) (*Model, error) {
-	muo.defaults()
 	return withHooks(ctx, muo.sqlSave, muo.mutation, muo.hooks)
 }
 
@@ -737,35 +473,10 @@ func (muo *ModelUpdateOne) ExecX(ctx context.Context) {
 	}
 }
 
-// defaults sets the default values of the builder before save.
-func (muo *ModelUpdateOne) defaults() {
-	if _, ok := muo.mutation.UpdateTime(); !ok {
-		v := model.UpdateDefaultUpdateTime()
-		muo.mutation.SetUpdateTime(v)
-	}
-}
-
 // check runs all checks and user-defined validators on the builder.
 func (muo *ModelUpdateOne) check() error {
-	if v, ok := muo.mutation.InputCost(); ok {
-		if err := model.InputCostValidator(v); err != nil {
-			return &ValidationError{Name: "input_cost", err: fmt.Errorf(`memory: validator failed for field "Model.input_cost": %w`, err)}
-		}
-	}
-	if v, ok := muo.mutation.OutputCost(); ok {
-		if err := model.OutputCostValidator(v); err != nil {
-			return &ValidationError{Name: "output_cost", err: fmt.Errorf(`memory: validator failed for field "Model.output_cost": %w`, err)}
-		}
-	}
-	if v, ok := muo.mutation.CacheWriteCost(); ok {
-		if err := model.CacheWriteCostValidator(v); err != nil {
-			return &ValidationError{Name: "cache_write_cost", err: fmt.Errorf(`memory: validator failed for field "Model.cache_write_cost": %w`, err)}
-		}
-	}
-	if v, ok := muo.mutation.CacheReadCost(); ok {
-		if err := model.CacheReadCostValidator(v); err != nil {
-			return &ValidationError{Name: "cache_read_cost", err: fmt.Errorf(`memory: validator failed for field "Model.cache_read_cost": %w`, err)}
-		}
+	if muo.mutation.ModelProvidersCleared() && len(muo.mutation.ModelProvidersIDs()) > 0 {
+		return errors.New(`memory: clearing a required unique edge "Model.model_providers"`)
 	}
 	return nil
 }
@@ -799,89 +510,10 @@ func (muo *ModelUpdateOne) sqlSave(ctx context.Context) (_node *Model, err error
 			}
 		}
 	}
-	if value, ok := muo.mutation.UpdateTime(); ok {
-		_spec.SetField(model.FieldUpdateTime, field.TypeTime, value)
-	}
-	if value, ok := muo.mutation.Name(); ok {
-		_spec.SetField(model.FieldName, field.TypeString, value)
-	}
-	if value, ok := muo.mutation.ContextWindow(); ok {
-		_spec.SetField(model.FieldContextWindow, field.TypeInt64, value)
-	}
-	if value, ok := muo.mutation.AddedContextWindow(); ok {
-		_spec.AddField(model.FieldContextWindow, field.TypeInt64, value)
-	}
-	if value, ok := muo.mutation.Capabilities(); ok {
-		_spec.SetField(model.FieldCapabilities, field.TypeJSON, value)
-	}
-	if value, ok := muo.mutation.AppendedCapabilities(); ok {
-		_spec.AddModifier(func(u *sql.UpdateBuilder) {
-			sqljson.Append(u, model.FieldCapabilities, value)
-		})
-	}
-	if muo.mutation.CapabilitiesCleared() {
-		_spec.ClearField(model.FieldCapabilities, field.TypeJSON)
-	}
-	if value, ok := muo.mutation.InputCost(); ok {
-		_spec.SetField(model.FieldInputCost, field.TypeFloat64, value)
-	}
-	if value, ok := muo.mutation.AddedInputCost(); ok {
-		_spec.AddField(model.FieldInputCost, field.TypeFloat64, value)
-	}
-	if value, ok := muo.mutation.OutputCost(); ok {
-		_spec.SetField(model.FieldOutputCost, field.TypeFloat64, value)
-	}
-	if value, ok := muo.mutation.AddedOutputCost(); ok {
-		_spec.AddField(model.FieldOutputCost, field.TypeFloat64, value)
-	}
-	if value, ok := muo.mutation.CacheWriteCost(); ok {
-		_spec.SetField(model.FieldCacheWriteCost, field.TypeFloat64, value)
-	}
-	if value, ok := muo.mutation.AddedCacheWriteCost(); ok {
-		_spec.AddField(model.FieldCacheWriteCost, field.TypeFloat64, value)
-	}
-	if value, ok := muo.mutation.CacheReadCost(); ok {
-		_spec.SetField(model.FieldCacheReadCost, field.TypeFloat64, value)
-	}
-	if value, ok := muo.mutation.AddedCacheReadCost(); ok {
-		_spec.AddField(model.FieldCacheReadCost, field.TypeFloat64, value)
-	}
-	if value, ok := muo.mutation.Enabled(); ok {
-		_spec.SetField(model.FieldEnabled, field.TypeBool, value)
-	}
-	if muo.mutation.ModelProviderCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   model.ModelProviderTable,
-			Columns: []string{model.ModelProviderColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(modelprovider.FieldID, field.TypeUUID),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := muo.mutation.ModelProviderIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   model.ModelProviderTable,
-			Columns: []string{model.ModelProviderColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(modelprovider.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
 	if muo.mutation.AgentsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
-			Inverse: false,
+			Inverse: true,
 			Table:   model.AgentsTable,
 			Columns: []string{model.AgentsColumn},
 			Bidi:    false,
@@ -894,7 +526,7 @@ func (muo *ModelUpdateOne) sqlSave(ctx context.Context) (_node *Model, err error
 	if nodes := muo.mutation.RemovedAgentsIDs(); len(nodes) > 0 && !muo.mutation.AgentsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
-			Inverse: false,
+			Inverse: true,
 			Table:   model.AgentsTable,
 			Columns: []string{model.AgentsColumn},
 			Bidi:    false,
@@ -910,12 +542,86 @@ func (muo *ModelUpdateOne) sqlSave(ctx context.Context) (_node *Model, err error
 	if nodes := muo.mutation.AgentsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
-			Inverse: false,
+			Inverse: true,
 			Table:   model.AgentsTable,
 			Columns: []string{model.AgentsColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if muo.mutation.ModelProvidersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   model.ModelProvidersTable,
+			Columns: []string{model.ModelProvidersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(modelprovider.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := muo.mutation.ModelProvidersIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   model.ModelProvidersTable,
+			Columns: []string{model.ModelProvidersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(modelprovider.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if muo.mutation.MessagesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   model.MessagesTable,
+			Columns: []string{model.MessagesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(message.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := muo.mutation.RemovedMessagesIDs(); len(nodes) > 0 && !muo.mutation.MessagesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   model.MessagesTable,
+			Columns: []string{model.MessagesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(message.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := muo.mutation.MessagesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   model.MessagesTable,
+			Columns: []string{model.MessagesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(message.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

@@ -3,8 +3,6 @@
 package agent
 
 import (
-	"time"
-
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/google/uuid"
@@ -15,24 +13,14 @@ const (
 	Label = "agent"
 	// FieldID holds the string denoting the id field in the database.
 	FieldID = "id"
-	// FieldCreateTime holds the string denoting the create_time field in the database.
-	FieldCreateTime = "create_time"
-	// FieldUpdateTime holds the string denoting the update_time field in the database.
-	FieldUpdateTime = "update_time"
-	// FieldName holds the string denoting the name field in the database.
-	FieldName = "name"
-	// FieldDescription holds the string denoting the description field in the database.
-	FieldDescription = "description"
-	// FieldInstructions holds the string denoting the instructions field in the database.
-	FieldInstructions = "instructions"
+	// FieldDefaultModel holds the string denoting the default_model field in the database.
+	FieldDefaultModel = "default_model"
 	// EdgeModel holds the string denoting the model edge name in mutations.
 	EdgeModel = "model"
-	// EdgeDelegates holds the string denoting the delegates edge name in mutations.
-	EdgeDelegates = "delegates"
-	// EdgeDelegators holds the string denoting the delegators edge name in mutations.
-	EdgeDelegators = "delegators"
 	// EdgeTasks holds the string denoting the tasks edge name in mutations.
 	EdgeTasks = "tasks"
+	// EdgeMessages holds the string denoting the messages edge name in mutations.
+	EdgeMessages = "messages"
 	// Table holds the table name of the agent in the database.
 	Table = "agents"
 	// ModelTable is the table that holds the model relation/edge.
@@ -41,44 +29,28 @@ const (
 	// It exists in this package in order to avoid circular dependency with the "model" package.
 	ModelInverseTable = "models"
 	// ModelColumn is the table column denoting the model relation/edge.
-	ModelColumn = "model_agents"
-	// DelegatesTable is the table that holds the delegates relation/edge. The primary key declared below.
-	DelegatesTable = "agent_delegators"
-	// DelegatorsTable is the table that holds the delegators relation/edge. The primary key declared below.
-	DelegatorsTable = "agent_delegators"
+	ModelColumn = "default_model"
 	// TasksTable is the table that holds the tasks relation/edge.
 	TasksTable = "tasks"
 	// TasksInverseTable is the table name for the Task entity.
 	// It exists in this package in order to avoid circular dependency with the "task" package.
 	TasksInverseTable = "tasks"
 	// TasksColumn is the table column denoting the tasks relation/edge.
-	TasksColumn = "agent_tasks"
+	TasksColumn = "agent_id"
+	// MessagesTable is the table that holds the messages relation/edge.
+	MessagesTable = "messages"
+	// MessagesInverseTable is the table name for the Message entity.
+	// It exists in this package in order to avoid circular dependency with the "message" package.
+	MessagesInverseTable = "messages"
+	// MessagesColumn is the table column denoting the messages relation/edge.
+	MessagesColumn = "agent_id"
 )
 
 // Columns holds all SQL columns for agent fields.
 var Columns = []string{
 	FieldID,
-	FieldCreateTime,
-	FieldUpdateTime,
-	FieldName,
-	FieldDescription,
-	FieldInstructions,
+	FieldDefaultModel,
 }
-
-// ForeignKeys holds the SQL foreign-keys that are owned by the "agents"
-// table and are not defined as standalone fields in the schema.
-var ForeignKeys = []string{
-	"model_agents",
-}
-
-var (
-	// DelegatesPrimaryKey and DelegatesColumn2 are the table columns denoting the
-	// primary key for the delegates relation (M2M).
-	DelegatesPrimaryKey = []string{"agent_id", "delegate_id"}
-	// DelegatorsPrimaryKey and DelegatorsColumn2 are the table columns denoting the
-	// primary key for the delegators relation (M2M).
-	DelegatorsPrimaryKey = []string{"agent_id", "delegate_id"}
-)
 
 // ValidColumn reports if the column name is valid (part of the table columns).
 func ValidColumn(column string) bool {
@@ -87,23 +59,10 @@ func ValidColumn(column string) bool {
 			return true
 		}
 	}
-	for i := range ForeignKeys {
-		if column == ForeignKeys[i] {
-			return true
-		}
-	}
 	return false
 }
 
 var (
-	// DefaultCreateTime holds the default value on creation for the "create_time" field.
-	DefaultCreateTime func() time.Time
-	// DefaultUpdateTime holds the default value on creation for the "update_time" field.
-	DefaultUpdateTime func() time.Time
-	// UpdateDefaultUpdateTime holds the default value on update for the "update_time" field.
-	UpdateDefaultUpdateTime func() time.Time
-	// NameValidator is a validator for the "name" field. It is called by the builders before save.
-	NameValidator func(string) error
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() uuid.UUID
 )
@@ -116,63 +75,15 @@ func ByID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldID, opts...).ToFunc()
 }
 
-// ByCreateTime orders the results by the create_time field.
-func ByCreateTime(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldCreateTime, opts...).ToFunc()
-}
-
-// ByUpdateTime orders the results by the update_time field.
-func ByUpdateTime(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldUpdateTime, opts...).ToFunc()
-}
-
-// ByName orders the results by the name field.
-func ByName(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldName, opts...).ToFunc()
-}
-
-// ByDescription orders the results by the description field.
-func ByDescription(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldDescription, opts...).ToFunc()
-}
-
-// ByInstructions orders the results by the instructions field.
-func ByInstructions(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldInstructions, opts...).ToFunc()
+// ByDefaultModel orders the results by the default_model field.
+func ByDefaultModel(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDefaultModel, opts...).ToFunc()
 }
 
 // ByModelField orders the results by model field.
 func ByModelField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
 		sqlgraph.OrderByNeighborTerms(s, newModelStep(), sql.OrderByField(field, opts...))
-	}
-}
-
-// ByDelegatesCount orders the results by delegates count.
-func ByDelegatesCount(opts ...sql.OrderTermOption) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborsCount(s, newDelegatesStep(), opts...)
-	}
-}
-
-// ByDelegates orders the results by delegates terms.
-func ByDelegates(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborTerms(s, newDelegatesStep(), append([]sql.OrderTerm{term}, terms...)...)
-	}
-}
-
-// ByDelegatorsCount orders the results by delegators count.
-func ByDelegatorsCount(opts ...sql.OrderTermOption) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborsCount(s, newDelegatorsStep(), opts...)
-	}
-}
-
-// ByDelegators orders the results by delegators terms.
-func ByDelegators(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborTerms(s, newDelegatorsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
 
@@ -189,31 +100,38 @@ func ByTasks(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newTasksStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByMessagesCount orders the results by messages count.
+func ByMessagesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newMessagesStep(), opts...)
+	}
+}
+
+// ByMessages orders the results by messages terms.
+func ByMessages(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newMessagesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newModelStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ModelInverseTable, FieldID),
-		sqlgraph.Edge(sqlgraph.M2O, true, ModelTable, ModelColumn),
-	)
-}
-func newDelegatesStep() *sqlgraph.Step {
-	return sqlgraph.NewStep(
-		sqlgraph.From(Table, FieldID),
-		sqlgraph.To(Table, FieldID),
-		sqlgraph.Edge(sqlgraph.M2M, true, DelegatesTable, DelegatesPrimaryKey...),
-	)
-}
-func newDelegatorsStep() *sqlgraph.Step {
-	return sqlgraph.NewStep(
-		sqlgraph.From(Table, FieldID),
-		sqlgraph.To(Table, FieldID),
-		sqlgraph.Edge(sqlgraph.M2M, false, DelegatorsTable, DelegatorsPrimaryKey...),
+		sqlgraph.Edge(sqlgraph.M2O, false, ModelTable, ModelColumn),
 	)
 }
 func newTasksStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(TasksInverseTable, FieldID),
-		sqlgraph.Edge(sqlgraph.O2M, false, TasksTable, TasksColumn),
+		sqlgraph.Edge(sqlgraph.O2M, true, TasksTable, TasksColumn),
+	)
+}
+func newMessagesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(MessagesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, true, MessagesTable, MessagesColumn),
 	)
 }

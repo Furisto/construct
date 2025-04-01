@@ -354,39 +354,7 @@ func (c *AgentClient) QueryModel(a *Agent) *ModelQuery {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(agent.Table, agent.FieldID, id),
 			sqlgraph.To(model.Table, model.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, agent.ModelTable, agent.ModelColumn),
-		)
-		fromV = sqlgraph.Neighbors(a.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
-}
-
-// QueryDelegates queries the delegates edge of a Agent.
-func (c *AgentClient) QueryDelegates(a *Agent) *AgentQuery {
-	query := (&AgentClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := a.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(agent.Table, agent.FieldID, id),
-			sqlgraph.To(agent.Table, agent.FieldID),
-			sqlgraph.Edge(sqlgraph.M2M, true, agent.DelegatesTable, agent.DelegatesPrimaryKey...),
-		)
-		fromV = sqlgraph.Neighbors(a.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
-}
-
-// QueryDelegators queries the delegators edge of a Agent.
-func (c *AgentClient) QueryDelegators(a *Agent) *AgentQuery {
-	query := (&AgentClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := a.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(agent.Table, agent.FieldID, id),
-			sqlgraph.To(agent.Table, agent.FieldID),
-			sqlgraph.Edge(sqlgraph.M2M, false, agent.DelegatorsTable, agent.DelegatorsPrimaryKey...),
+			sqlgraph.Edge(sqlgraph.M2O, false, agent.ModelTable, agent.ModelColumn),
 		)
 		fromV = sqlgraph.Neighbors(a.driver.Dialect(), step)
 		return fromV, nil
@@ -402,7 +370,23 @@ func (c *AgentClient) QueryTasks(a *Agent) *TaskQuery {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(agent.Table, agent.FieldID, id),
 			sqlgraph.To(task.Table, task.FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, agent.TasksTable, agent.TasksColumn),
+			sqlgraph.Edge(sqlgraph.O2M, true, agent.TasksTable, agent.TasksColumn),
+		)
+		fromV = sqlgraph.Neighbors(a.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryMessages queries the messages edge of a Agent.
+func (c *AgentClient) QueryMessages(a *Agent) *MessageQuery {
+	query := (&MessageClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := a.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(agent.Table, agent.FieldID, id),
+			sqlgraph.To(message.Table, message.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, agent.MessagesTable, agent.MessagesColumn),
 		)
 		fromV = sqlgraph.Neighbors(a.driver.Dialect(), step)
 		return fromV, nil
@@ -724,22 +708,6 @@ func (c *ModelClient) GetX(ctx context.Context, id uuid.UUID) *Model {
 	return obj
 }
 
-// QueryModelProvider queries the model_provider edge of a Model.
-func (c *ModelClient) QueryModelProvider(m *Model) *ModelProviderQuery {
-	query := (&ModelProviderClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := m.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(model.Table, model.FieldID, id),
-			sqlgraph.To(modelprovider.Table, modelprovider.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, model.ModelProviderTable, model.ModelProviderColumn),
-		)
-		fromV = sqlgraph.Neighbors(m.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
-}
-
 // QueryAgents queries the agents edge of a Model.
 func (c *ModelClient) QueryAgents(m *Model) *AgentQuery {
 	query := (&AgentClient{config: c.config}).Query()
@@ -748,7 +716,39 @@ func (c *ModelClient) QueryAgents(m *Model) *AgentQuery {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(model.Table, model.FieldID, id),
 			sqlgraph.To(agent.Table, agent.FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, model.AgentsTable, model.AgentsColumn),
+			sqlgraph.Edge(sqlgraph.O2M, true, model.AgentsTable, model.AgentsColumn),
+		)
+		fromV = sqlgraph.Neighbors(m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryModelProviders queries the model_providers edge of a Model.
+func (c *ModelClient) QueryModelProviders(m *Model) *ModelProviderQuery {
+	query := (&ModelProviderClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(model.Table, model.FieldID, id),
+			sqlgraph.To(modelprovider.Table, modelprovider.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, model.ModelProvidersTable, model.ModelProvidersColumn),
+		)
+		fromV = sqlgraph.Neighbors(m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryMessages queries the messages edge of a Model.
+func (c *ModelClient) QueryMessages(m *Model) *MessageQuery {
+	query := (&MessageClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(model.Table, model.FieldID, id),
+			sqlgraph.To(message.Table, message.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, model.MessagesTable, model.MessagesColumn),
 		)
 		fromV = sqlgraph.Neighbors(m.driver.Dialect(), step)
 		return fromV, nil
@@ -897,7 +897,7 @@ func (c *ModelProviderClient) QueryModels(mp *ModelProvider) *ModelQuery {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(modelprovider.Table, modelprovider.FieldID, id),
 			sqlgraph.To(model.Table, model.FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, modelprovider.ModelsTable, modelprovider.ModelsColumn),
+			sqlgraph.Edge(sqlgraph.O2M, true, modelprovider.ModelsTable, modelprovider.ModelsColumn),
 		)
 		fromV = sqlgraph.Neighbors(mp.driver.Dialect(), step)
 		return fromV, nil
@@ -1038,6 +1038,22 @@ func (c *TaskClient) GetX(ctx context.Context, id uuid.UUID) *Task {
 	return obj
 }
 
+// QueryMessages queries the messages edge of a Task.
+func (c *TaskClient) QueryMessages(t *Task) *MessageQuery {
+	query := (&MessageClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := t.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(task.Table, task.FieldID, id),
+			sqlgraph.To(message.Table, message.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, task.MessagesTable, task.MessagesColumn),
+		)
+		fromV = sqlgraph.Neighbors(t.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryAgent queries the agent edge of a Task.
 func (c *TaskClient) QueryAgent(t *Task) *AgentQuery {
 	query := (&AgentClient{config: c.config}).Query()
@@ -1046,7 +1062,7 @@ func (c *TaskClient) QueryAgent(t *Task) *AgentQuery {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(task.Table, task.FieldID, id),
 			sqlgraph.To(agent.Table, agent.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, task.AgentTable, task.AgentColumn),
+			sqlgraph.Edge(sqlgraph.M2O, false, task.AgentTable, task.AgentColumn),
 		)
 		fromV = sqlgraph.Neighbors(t.driver.Dialect(), step)
 		return fromV, nil

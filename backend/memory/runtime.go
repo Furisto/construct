@@ -18,25 +18,8 @@ import (
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
-	agentMixin := schema.Agent{}.Mixin()
-	agentMixinFields0 := agentMixin[0].Fields()
-	_ = agentMixinFields0
 	agentFields := schema.Agent{}.Fields()
 	_ = agentFields
-	// agentDescCreateTime is the schema descriptor for create_time field.
-	agentDescCreateTime := agentMixinFields0[0].Descriptor()
-	// agent.DefaultCreateTime holds the default value on creation for the create_time field.
-	agent.DefaultCreateTime = agentDescCreateTime.Default.(func() time.Time)
-	// agentDescUpdateTime is the schema descriptor for update_time field.
-	agentDescUpdateTime := agentMixinFields0[1].Descriptor()
-	// agent.DefaultUpdateTime holds the default value on creation for the update_time field.
-	agent.DefaultUpdateTime = agentDescUpdateTime.Default.(func() time.Time)
-	// agent.UpdateDefaultUpdateTime holds the default value on update for the update_time field.
-	agent.UpdateDefaultUpdateTime = agentDescUpdateTime.UpdateDefault.(func() time.Time)
-	// agentDescName is the schema descriptor for name field.
-	agentDescName := agentFields[1].Descriptor()
-	// agent.NameValidator is a validator for the "name" field. It is called by the builders before save.
-	agent.NameValidator = agentDescName.Validators[0].(func(string) error)
 	// agentDescID is the schema descriptor for id field.
 	agentDescID := agentFields[0].Descriptor()
 	// agent.DefaultID holds the default value on creation for the id field.
@@ -60,49 +43,8 @@ func init() {
 	messageDescID := messageFields[0].Descriptor()
 	// message.DefaultID holds the default value on creation for the id field.
 	message.DefaultID = messageDescID.Default.(func() uuid.UUID)
-	modelMixin := schema.Model{}.Mixin()
-	modelMixinFields0 := modelMixin[0].Fields()
-	_ = modelMixinFields0
 	modelFields := schema.Model{}.Fields()
 	_ = modelFields
-	// modelDescCreateTime is the schema descriptor for create_time field.
-	modelDescCreateTime := modelMixinFields0[0].Descriptor()
-	// model.DefaultCreateTime holds the default value on creation for the create_time field.
-	model.DefaultCreateTime = modelDescCreateTime.Default.(func() time.Time)
-	// modelDescUpdateTime is the schema descriptor for update_time field.
-	modelDescUpdateTime := modelMixinFields0[1].Descriptor()
-	// model.DefaultUpdateTime holds the default value on creation for the update_time field.
-	model.DefaultUpdateTime = modelDescUpdateTime.Default.(func() time.Time)
-	// model.UpdateDefaultUpdateTime holds the default value on update for the update_time field.
-	model.UpdateDefaultUpdateTime = modelDescUpdateTime.UpdateDefault.(func() time.Time)
-	// modelDescInputCost is the schema descriptor for input_cost field.
-	modelDescInputCost := modelFields[4].Descriptor()
-	// model.DefaultInputCost holds the default value on creation for the input_cost field.
-	model.DefaultInputCost = modelDescInputCost.Default.(float64)
-	// model.InputCostValidator is a validator for the "input_cost" field. It is called by the builders before save.
-	model.InputCostValidator = modelDescInputCost.Validators[0].(func(float64) error)
-	// modelDescOutputCost is the schema descriptor for output_cost field.
-	modelDescOutputCost := modelFields[5].Descriptor()
-	// model.DefaultOutputCost holds the default value on creation for the output_cost field.
-	model.DefaultOutputCost = modelDescOutputCost.Default.(float64)
-	// model.OutputCostValidator is a validator for the "output_cost" field. It is called by the builders before save.
-	model.OutputCostValidator = modelDescOutputCost.Validators[0].(func(float64) error)
-	// modelDescCacheWriteCost is the schema descriptor for cache_write_cost field.
-	modelDescCacheWriteCost := modelFields[6].Descriptor()
-	// model.DefaultCacheWriteCost holds the default value on creation for the cache_write_cost field.
-	model.DefaultCacheWriteCost = modelDescCacheWriteCost.Default.(float64)
-	// model.CacheWriteCostValidator is a validator for the "cache_write_cost" field. It is called by the builders before save.
-	model.CacheWriteCostValidator = modelDescCacheWriteCost.Validators[0].(func(float64) error)
-	// modelDescCacheReadCost is the schema descriptor for cache_read_cost field.
-	modelDescCacheReadCost := modelFields[7].Descriptor()
-	// model.DefaultCacheReadCost holds the default value on creation for the cache_read_cost field.
-	model.DefaultCacheReadCost = modelDescCacheReadCost.Default.(float64)
-	// model.CacheReadCostValidator is a validator for the "cache_read_cost" field. It is called by the builders before save.
-	model.CacheReadCostValidator = modelDescCacheReadCost.Validators[0].(func(float64) error)
-	// modelDescEnabled is the schema descriptor for enabled field.
-	modelDescEnabled := modelFields[8].Descriptor()
-	// model.DefaultEnabled holds the default value on creation for the enabled field.
-	model.DefaultEnabled = modelDescEnabled.Default.(bool)
 	// modelDescID is the schema descriptor for id field.
 	modelDescID := modelFields[0].Descriptor()
 	// model.DefaultID holds the default value on creation for the id field.

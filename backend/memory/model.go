@@ -3,16 +3,13 @@
 package memory
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/furisto/construct/backend/memory/model"
 	"github.com/furisto/construct/backend/memory/modelprovider"
-	"github.com/furisto/construct/backend/memory/schema/types"
 	"github.com/google/uuid"
 )
 
@@ -21,62 +18,54 @@ type Model struct {
 	config `json:"-"`
 	// ID of the ent.
 	ID uuid.UUID `json:"id,omitempty"`
-	// CreateTime holds the value of the "create_time" field.
-	CreateTime time.Time `json:"create_time,omitempty"`
-	// UpdateTime holds the value of the "update_time" field.
-	UpdateTime time.Time `json:"update_time,omitempty"`
-	// Name holds the value of the "name" field.
-	Name string `json:"name,omitempty"`
-	// ContextWindow holds the value of the "context_window" field.
-	ContextWindow int64 `json:"context_window,omitempty"`
-	// Capabilities holds the value of the "capabilities" field.
-	Capabilities []types.ModelCapability `json:"capabilities,omitempty"`
-	// InputCost holds the value of the "input_cost" field.
-	InputCost float64 `json:"input_cost,omitempty"`
-	// OutputCost holds the value of the "output_cost" field.
-	OutputCost float64 `json:"output_cost,omitempty"`
-	// CacheWriteCost holds the value of the "cache_write_cost" field.
-	CacheWriteCost float64 `json:"cache_write_cost,omitempty"`
-	// CacheReadCost holds the value of the "cache_read_cost" field.
-	CacheReadCost float64 `json:"cache_read_cost,omitempty"`
-	// Enabled holds the value of the "enabled" field.
-	Enabled bool `json:"enabled,omitempty"`
+	// ModelProvider holds the value of the "model_provider" field.
+	ModelProvider uuid.UUID `json:"model_provider,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the ModelQuery when eager-loading is set.
-	Edges                 ModelEdges `json:"edges"`
-	model_provider_models *uuid.UUID
-	selectValues          sql.SelectValues
+	Edges        ModelEdges `json:"edges"`
+	selectValues sql.SelectValues
 }
 
 // ModelEdges holds the relations/edges for other nodes in the graph.
 type ModelEdges struct {
-	// ModelProvider holds the value of the model_provider edge.
-	ModelProvider *ModelProvider `json:"model_provider,omitempty"`
 	// Agents holds the value of the agents edge.
 	Agents []*Agent `json:"agents,omitempty"`
+	// ModelProviders holds the value of the model_providers edge.
+	ModelProviders *ModelProvider `json:"model_providers,omitempty"`
+	// Messages holds the value of the messages edge.
+	Messages []*Message `json:"messages,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [2]bool
-}
-
-// ModelProviderOrErr returns the ModelProvider value or an error if the edge
-// was not loaded in eager-loading, or loaded but was not found.
-func (e ModelEdges) ModelProviderOrErr() (*ModelProvider, error) {
-	if e.ModelProvider != nil {
-		return e.ModelProvider, nil
-	} else if e.loadedTypes[0] {
-		return nil, &NotFoundError{label: modelprovider.Label}
-	}
-	return nil, &NotLoadedError{edge: "model_provider"}
+	loadedTypes [3]bool
 }
 
 // AgentsOrErr returns the Agents value or an error if the edge
 // was not loaded in eager-loading.
 func (e ModelEdges) AgentsOrErr() ([]*Agent, error) {
-	if e.loadedTypes[1] {
+	if e.loadedTypes[0] {
 		return e.Agents, nil
 	}
 	return nil, &NotLoadedError{edge: "agents"}
+}
+
+// ModelProvidersOrErr returns the ModelProviders value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e ModelEdges) ModelProvidersOrErr() (*ModelProvider, error) {
+	if e.ModelProviders != nil {
+		return e.ModelProviders, nil
+	} else if e.loadedTypes[1] {
+		return nil, &NotFoundError{label: modelprovider.Label}
+	}
+	return nil, &NotLoadedError{edge: "model_providers"}
+}
+
+// MessagesOrErr returns the Messages value or an error if the edge
+// was not loaded in eager-loading.
+func (e ModelEdges) MessagesOrErr() ([]*Message, error) {
+	if e.loadedTypes[2] {
+		return e.Messages, nil
+	}
+	return nil, &NotLoadedError{edge: "messages"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -84,22 +73,8 @@ func (*Model) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case model.FieldCapabilities:
-			values[i] = new([]byte)
-		case model.FieldEnabled:
-			values[i] = new(sql.NullBool)
-		case model.FieldInputCost, model.FieldOutputCost, model.FieldCacheWriteCost, model.FieldCacheReadCost:
-			values[i] = new(sql.NullFloat64)
-		case model.FieldContextWindow:
-			values[i] = new(sql.NullInt64)
-		case model.FieldName:
-			values[i] = new(sql.NullString)
-		case model.FieldCreateTime, model.FieldUpdateTime:
-			values[i] = new(sql.NullTime)
-		case model.FieldID:
+		case model.FieldID, model.FieldModelProvider:
 			values[i] = new(uuid.UUID)
-		case model.ForeignKeys[0]: // model_provider_models
-			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		default:
 			values[i] = new(sql.UnknownType)
 		}
@@ -121,74 +96,11 @@ func (m *Model) assignValues(columns []string, values []any) error {
 			} else if value != nil {
 				m.ID = *value
 			}
-		case model.FieldCreateTime:
-			if value, ok := values[i].(*sql.NullTime); !ok {
-				return fmt.Errorf("unexpected type %T for field create_time", values[i])
-			} else if value.Valid {
-				m.CreateTime = value.Time
-			}
-		case model.FieldUpdateTime:
-			if value, ok := values[i].(*sql.NullTime); !ok {
-				return fmt.Errorf("unexpected type %T for field update_time", values[i])
-			} else if value.Valid {
-				m.UpdateTime = value.Time
-			}
-		case model.FieldName:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field name", values[i])
-			} else if value.Valid {
-				m.Name = value.String
-			}
-		case model.FieldContextWindow:
-			if value, ok := values[i].(*sql.NullInt64); !ok {
-				return fmt.Errorf("unexpected type %T for field context_window", values[i])
-			} else if value.Valid {
-				m.ContextWindow = value.Int64
-			}
-		case model.FieldCapabilities:
-			if value, ok := values[i].(*[]byte); !ok {
-				return fmt.Errorf("unexpected type %T for field capabilities", values[i])
-			} else if value != nil && len(*value) > 0 {
-				if err := json.Unmarshal(*value, &m.Capabilities); err != nil {
-					return fmt.Errorf("unmarshal field capabilities: %w", err)
-				}
-			}
-		case model.FieldInputCost:
-			if value, ok := values[i].(*sql.NullFloat64); !ok {
-				return fmt.Errorf("unexpected type %T for field input_cost", values[i])
-			} else if value.Valid {
-				m.InputCost = value.Float64
-			}
-		case model.FieldOutputCost:
-			if value, ok := values[i].(*sql.NullFloat64); !ok {
-				return fmt.Errorf("unexpected type %T for field output_cost", values[i])
-			} else if value.Valid {
-				m.OutputCost = value.Float64
-			}
-		case model.FieldCacheWriteCost:
-			if value, ok := values[i].(*sql.NullFloat64); !ok {
-				return fmt.Errorf("unexpected type %T for field cache_write_cost", values[i])
-			} else if value.Valid {
-				m.CacheWriteCost = value.Float64
-			}
-		case model.FieldCacheReadCost:
-			if value, ok := values[i].(*sql.NullFloat64); !ok {
-				return fmt.Errorf("unexpected type %T for field cache_read_cost", values[i])
-			} else if value.Valid {
-				m.CacheReadCost = value.Float64
-			}
-		case model.FieldEnabled:
-			if value, ok := values[i].(*sql.NullBool); !ok {
-				return fmt.Errorf("unexpected type %T for field enabled", values[i])
-			} else if value.Valid {
-				m.Enabled = value.Bool
-			}
-		case model.ForeignKeys[0]:
-			if value, ok := values[i].(*sql.NullScanner); !ok {
-				return fmt.Errorf("unexpected type %T for field model_provider_models", values[i])
-			} else if value.Valid {
-				m.model_provider_models = new(uuid.UUID)
-				*m.model_provider_models = *value.S.(*uuid.UUID)
+		case model.FieldModelProvider:
+			if value, ok := values[i].(*uuid.UUID); !ok {
+				return fmt.Errorf("unexpected type %T for field model_provider", values[i])
+			} else if value != nil {
+				m.ModelProvider = *value
 			}
 		default:
 			m.selectValues.Set(columns[i], values[i])
@@ -203,14 +115,19 @@ func (m *Model) Value(name string) (ent.Value, error) {
 	return m.selectValues.Get(name)
 }
 
-// QueryModelProvider queries the "model_provider" edge of the Model entity.
-func (m *Model) QueryModelProvider() *ModelProviderQuery {
-	return NewModelClient(m.config).QueryModelProvider(m)
-}
-
 // QueryAgents queries the "agents" edge of the Model entity.
 func (m *Model) QueryAgents() *AgentQuery {
 	return NewModelClient(m.config).QueryAgents(m)
+}
+
+// QueryModelProviders queries the "model_providers" edge of the Model entity.
+func (m *Model) QueryModelProviders() *ModelProviderQuery {
+	return NewModelClient(m.config).QueryModelProviders(m)
+}
+
+// QueryMessages queries the "messages" edge of the Model entity.
+func (m *Model) QueryMessages() *MessageQuery {
+	return NewModelClient(m.config).QueryMessages(m)
 }
 
 // Update returns a builder for updating this Model.
@@ -236,35 +153,8 @@ func (m *Model) String() string {
 	var builder strings.Builder
 	builder.WriteString("Model(")
 	builder.WriteString(fmt.Sprintf("id=%v, ", m.ID))
-	builder.WriteString("create_time=")
-	builder.WriteString(m.CreateTime.Format(time.ANSIC))
-	builder.WriteString(", ")
-	builder.WriteString("update_time=")
-	builder.WriteString(m.UpdateTime.Format(time.ANSIC))
-	builder.WriteString(", ")
-	builder.WriteString("name=")
-	builder.WriteString(m.Name)
-	builder.WriteString(", ")
-	builder.WriteString("context_window=")
-	builder.WriteString(fmt.Sprintf("%v", m.ContextWindow))
-	builder.WriteString(", ")
-	builder.WriteString("capabilities=")
-	builder.WriteString(fmt.Sprintf("%v", m.Capabilities))
-	builder.WriteString(", ")
-	builder.WriteString("input_cost=")
-	builder.WriteString(fmt.Sprintf("%v", m.InputCost))
-	builder.WriteString(", ")
-	builder.WriteString("output_cost=")
-	builder.WriteString(fmt.Sprintf("%v", m.OutputCost))
-	builder.WriteString(", ")
-	builder.WriteString("cache_write_cost=")
-	builder.WriteString(fmt.Sprintf("%v", m.CacheWriteCost))
-	builder.WriteString(", ")
-	builder.WriteString("cache_read_cost=")
-	builder.WriteString(fmt.Sprintf("%v", m.CacheReadCost))
-	builder.WriteString(", ")
-	builder.WriteString("enabled=")
-	builder.WriteString(fmt.Sprintf("%v", m.Enabled))
+	builder.WriteString("model_provider=")
+	builder.WriteString(fmt.Sprintf("%v", m.ModelProvider))
 	builder.WriteByte(')')
 	return builder.String()
 }

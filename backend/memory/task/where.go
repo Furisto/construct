@@ -91,6 +91,11 @@ func Cost(v float64) predicate.Task {
 	return predicate.Task(sql.FieldEQ(FieldCost, v))
 }
 
+// AgentID applies equality check predicate on the "agent_id" field. It's identical to AgentIDEQ.
+func AgentID(v uuid.UUID) predicate.Task {
+	return predicate.Task(sql.FieldEQ(FieldAgentID, v))
+}
+
 // CreateTimeEQ applies the EQ predicate on the "create_time" field.
 func CreateTimeEQ(v time.Time) predicate.Task {
 	return predicate.Task(sql.FieldEQ(FieldCreateTime, v))
@@ -421,12 +426,65 @@ func CostNotNil() predicate.Task {
 	return predicate.Task(sql.FieldNotNull(FieldCost))
 }
 
+// AgentIDEQ applies the EQ predicate on the "agent_id" field.
+func AgentIDEQ(v uuid.UUID) predicate.Task {
+	return predicate.Task(sql.FieldEQ(FieldAgentID, v))
+}
+
+// AgentIDNEQ applies the NEQ predicate on the "agent_id" field.
+func AgentIDNEQ(v uuid.UUID) predicate.Task {
+	return predicate.Task(sql.FieldNEQ(FieldAgentID, v))
+}
+
+// AgentIDIn applies the In predicate on the "agent_id" field.
+func AgentIDIn(vs ...uuid.UUID) predicate.Task {
+	return predicate.Task(sql.FieldIn(FieldAgentID, vs...))
+}
+
+// AgentIDNotIn applies the NotIn predicate on the "agent_id" field.
+func AgentIDNotIn(vs ...uuid.UUID) predicate.Task {
+	return predicate.Task(sql.FieldNotIn(FieldAgentID, vs...))
+}
+
+// AgentIDIsNil applies the IsNil predicate on the "agent_id" field.
+func AgentIDIsNil() predicate.Task {
+	return predicate.Task(sql.FieldIsNull(FieldAgentID))
+}
+
+// AgentIDNotNil applies the NotNil predicate on the "agent_id" field.
+func AgentIDNotNil() predicate.Task {
+	return predicate.Task(sql.FieldNotNull(FieldAgentID))
+}
+
+// HasMessages applies the HasEdge predicate on the "messages" edge.
+func HasMessages() predicate.Task {
+	return predicate.Task(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, MessagesTable, MessagesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasMessagesWith applies the HasEdge predicate on the "messages" edge with a given conditions (other predicates).
+func HasMessagesWith(preds ...predicate.Message) predicate.Task {
+	return predicate.Task(func(s *sql.Selector) {
+		step := newMessagesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasAgent applies the HasEdge predicate on the "agent" edge.
 func HasAgent() predicate.Task {
 	return predicate.Task(func(s *sql.Selector) {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, AgentTable, AgentColumn),
+			sqlgraph.Edge(sqlgraph.M2O, false, AgentTable, AgentColumn),
 		)
 		sqlgraph.HasNeighbors(s, step)
 	})

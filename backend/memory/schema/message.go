@@ -2,6 +2,7 @@ package schema
 
 import (
 	"entgo.io/ent"
+	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/mixin"
@@ -29,10 +30,13 @@ func (Message) Fields() []ent.Field {
 
 func (Message) Edges() []ent.Edge {
 	return []ent.Edge{
-		edge.To("task", Task.Type).Field("task_id").Unique().Required(),
+		edge.To("task", Task.Type).Field("task_id").Unique().Required().Annotations(
+			entsql.Annotation{
+				OnDelete: entsql.Cascade,
+			},
+		),
 		edge.To("agent", Agent.Type).Field("agent_id").Unique(),
 		edge.To("model", Model.Type).Field("model_id").Unique(),
-		// edge.From("task", Task.Type).Ref("messages").Unique().Field("task_id"),
 	}
 }
 
