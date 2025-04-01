@@ -394,6 +394,38 @@ func (c *AgentClient) QueryMessages(a *Agent) *MessageQuery {
 	return query
 }
 
+// QueryDelegates queries the delegates edge of a Agent.
+func (c *AgentClient) QueryDelegates(a *Agent) *AgentQuery {
+	query := (&AgentClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := a.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(agent.Table, agent.FieldID, id),
+			sqlgraph.To(agent.Table, agent.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, true, agent.DelegatesTable, agent.DelegatesPrimaryKey...),
+		)
+		fromV = sqlgraph.Neighbors(a.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryDelegators queries the delegators edge of a Agent.
+func (c *AgentClient) QueryDelegators(a *Agent) *AgentQuery {
+	query := (&AgentClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := a.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(agent.Table, agent.FieldID, id),
+			sqlgraph.To(agent.Table, agent.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, false, agent.DelegatorsTable, agent.DelegatorsPrimaryKey...),
+		)
+		fromV = sqlgraph.Neighbors(a.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *AgentClient) Hooks() []Hook {
 	return c.hooks.Agent
@@ -724,15 +756,15 @@ func (c *ModelClient) QueryAgents(m *Model) *AgentQuery {
 	return query
 }
 
-// QueryModelProviders queries the model_providers edge of a Model.
-func (c *ModelClient) QueryModelProviders(m *Model) *ModelProviderQuery {
+// QueryModelProvider queries the model_provider edge of a Model.
+func (c *ModelClient) QueryModelProvider(m *Model) *ModelProviderQuery {
 	query := (&ModelProviderClient{config: c.config}).Query()
 	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
 		id := m.ID
 		step := sqlgraph.NewStep(
 			sqlgraph.From(model.Table, model.FieldID, id),
 			sqlgraph.To(modelprovider.Table, modelprovider.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, false, model.ModelProvidersTable, model.ModelProvidersColumn),
+			sqlgraph.Edge(sqlgraph.M2O, true, model.ModelProviderTable, model.ModelProviderColumn),
 		)
 		fromV = sqlgraph.Neighbors(m.driver.Dialect(), step)
 		return fromV, nil
@@ -897,7 +929,7 @@ func (c *ModelProviderClient) QueryModels(mp *ModelProvider) *ModelQuery {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(modelprovider.Table, modelprovider.FieldID, id),
 			sqlgraph.To(model.Table, model.FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, true, modelprovider.ModelsTable, modelprovider.ModelsColumn),
+			sqlgraph.Edge(sqlgraph.O2M, false, modelprovider.ModelsTable, modelprovider.ModelsColumn),
 		)
 		fromV = sqlgraph.Neighbors(mp.driver.Dialect(), step)
 		return fromV, nil

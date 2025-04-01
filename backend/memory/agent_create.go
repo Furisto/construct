@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
@@ -21,6 +22,34 @@ type AgentCreate struct {
 	config
 	mutation *AgentMutation
 	hooks    []Hook
+}
+
+// SetCreateTime sets the "create_time" field.
+func (ac *AgentCreate) SetCreateTime(t time.Time) *AgentCreate {
+	ac.mutation.SetCreateTime(t)
+	return ac
+}
+
+// SetNillableCreateTime sets the "create_time" field if the given value is not nil.
+func (ac *AgentCreate) SetNillableCreateTime(t *time.Time) *AgentCreate {
+	if t != nil {
+		ac.SetCreateTime(*t)
+	}
+	return ac
+}
+
+// SetUpdateTime sets the "update_time" field.
+func (ac *AgentCreate) SetUpdateTime(t time.Time) *AgentCreate {
+	ac.mutation.SetUpdateTime(t)
+	return ac
+}
+
+// SetNillableUpdateTime sets the "update_time" field if the given value is not nil.
+func (ac *AgentCreate) SetNillableUpdateTime(t *time.Time) *AgentCreate {
+	if t != nil {
+		ac.SetUpdateTime(*t)
+	}
+	return ac
 }
 
 // SetName sets the "name" field.
@@ -110,6 +139,36 @@ func (ac *AgentCreate) AddMessages(m ...*Message) *AgentCreate {
 	return ac.AddMessageIDs(ids...)
 }
 
+// AddDelegateIDs adds the "delegates" edge to the Agent entity by IDs.
+func (ac *AgentCreate) AddDelegateIDs(ids ...uuid.UUID) *AgentCreate {
+	ac.mutation.AddDelegateIDs(ids...)
+	return ac
+}
+
+// AddDelegates adds the "delegates" edges to the Agent entity.
+func (ac *AgentCreate) AddDelegates(a ...*Agent) *AgentCreate {
+	ids := make([]uuid.UUID, len(a))
+	for i := range a {
+		ids[i] = a[i].ID
+	}
+	return ac.AddDelegateIDs(ids...)
+}
+
+// AddDelegatorIDs adds the "delegators" edge to the Agent entity by IDs.
+func (ac *AgentCreate) AddDelegatorIDs(ids ...uuid.UUID) *AgentCreate {
+	ac.mutation.AddDelegatorIDs(ids...)
+	return ac
+}
+
+// AddDelegators adds the "delegators" edges to the Agent entity.
+func (ac *AgentCreate) AddDelegators(a ...*Agent) *AgentCreate {
+	ids := make([]uuid.UUID, len(a))
+	for i := range a {
+		ids[i] = a[i].ID
+	}
+	return ac.AddDelegatorIDs(ids...)
+}
+
 // Mutation returns the AgentMutation object of the builder.
 func (ac *AgentCreate) Mutation() *AgentMutation {
 	return ac.mutation
@@ -145,6 +204,14 @@ func (ac *AgentCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (ac *AgentCreate) defaults() {
+	if _, ok := ac.mutation.CreateTime(); !ok {
+		v := agent.DefaultCreateTime()
+		ac.mutation.SetCreateTime(v)
+	}
+	if _, ok := ac.mutation.UpdateTime(); !ok {
+		v := agent.DefaultUpdateTime()
+		ac.mutation.SetUpdateTime(v)
+	}
 	if _, ok := ac.mutation.ID(); !ok {
 		v := agent.DefaultID()
 		ac.mutation.SetID(v)
@@ -153,6 +220,12 @@ func (ac *AgentCreate) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (ac *AgentCreate) check() error {
+	if _, ok := ac.mutation.CreateTime(); !ok {
+		return &ValidationError{Name: "create_time", err: errors.New(`memory: missing required field "Agent.create_time"`)}
+	}
+	if _, ok := ac.mutation.UpdateTime(); !ok {
+		return &ValidationError{Name: "update_time", err: errors.New(`memory: missing required field "Agent.update_time"`)}
+	}
 	if _, ok := ac.mutation.Name(); !ok {
 		return &ValidationError{Name: "name", err: errors.New(`memory: missing required field "Agent.name"`)}
 	}
@@ -204,6 +277,14 @@ func (ac *AgentCreate) createSpec() (*Agent, *sqlgraph.CreateSpec) {
 	if id, ok := ac.mutation.ID(); ok {
 		_node.ID = id
 		_spec.ID.Value = &id
+	}
+	if value, ok := ac.mutation.CreateTime(); ok {
+		_spec.SetField(agent.FieldCreateTime, field.TypeTime, value)
+		_node.CreateTime = value
+	}
+	if value, ok := ac.mutation.UpdateTime(); ok {
+		_spec.SetField(agent.FieldUpdateTime, field.TypeTime, value)
+		_node.UpdateTime = value
 	}
 	if value, ok := ac.mutation.Name(); ok {
 		_spec.SetField(agent.FieldName, field.TypeString, value)
@@ -259,6 +340,38 @@ func (ac *AgentCreate) createSpec() (*Agent, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(message.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := ac.mutation.DelegatesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   agent.DelegatesTable,
+			Columns: agent.DelegatesPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := ac.mutation.DelegatorsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   agent.DelegatorsTable,
+			Columns: agent.DelegatorsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

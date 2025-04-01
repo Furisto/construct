@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
@@ -22,6 +23,34 @@ type ModelCreate struct {
 	config
 	mutation *ModelMutation
 	hooks    []Hook
+}
+
+// SetCreateTime sets the "create_time" field.
+func (mc *ModelCreate) SetCreateTime(t time.Time) *ModelCreate {
+	mc.mutation.SetCreateTime(t)
+	return mc
+}
+
+// SetNillableCreateTime sets the "create_time" field if the given value is not nil.
+func (mc *ModelCreate) SetNillableCreateTime(t *time.Time) *ModelCreate {
+	if t != nil {
+		mc.SetCreateTime(*t)
+	}
+	return mc
+}
+
+// SetUpdateTime sets the "update_time" field.
+func (mc *ModelCreate) SetUpdateTime(t time.Time) *ModelCreate {
+	mc.mutation.SetUpdateTime(t)
+	return mc
+}
+
+// SetNillableUpdateTime sets the "update_time" field if the given value is not nil.
+func (mc *ModelCreate) SetNillableUpdateTime(t *time.Time) *ModelCreate {
+	if t != nil {
+		mc.SetUpdateTime(*t)
+	}
+	return mc
 }
 
 // SetName sets the "name" field.
@@ -112,9 +141,9 @@ func (mc *ModelCreate) SetNillableEnabled(b *bool) *ModelCreate {
 	return mc
 }
 
-// SetModelProvider sets the "model_provider" field.
-func (mc *ModelCreate) SetModelProvider(u uuid.UUID) *ModelCreate {
-	mc.mutation.SetModelProvider(u)
+// SetModelProviderID sets the "model_provider_id" field.
+func (mc *ModelCreate) SetModelProviderID(u uuid.UUID) *ModelCreate {
+	mc.mutation.SetModelProviderID(u)
 	return mc
 }
 
@@ -147,15 +176,9 @@ func (mc *ModelCreate) AddAgents(a ...*Agent) *ModelCreate {
 	return mc.AddAgentIDs(ids...)
 }
 
-// SetModelProvidersID sets the "model_providers" edge to the ModelProvider entity by ID.
-func (mc *ModelCreate) SetModelProvidersID(id uuid.UUID) *ModelCreate {
-	mc.mutation.SetModelProvidersID(id)
-	return mc
-}
-
-// SetModelProviders sets the "model_providers" edge to the ModelProvider entity.
-func (mc *ModelCreate) SetModelProviders(m *ModelProvider) *ModelCreate {
-	return mc.SetModelProvidersID(m.ID)
+// SetModelProvider sets the "model_provider" edge to the ModelProvider entity.
+func (mc *ModelCreate) SetModelProvider(m *ModelProvider) *ModelCreate {
+	return mc.SetModelProviderID(m.ID)
 }
 
 // AddMessageIDs adds the "messages" edge to the Message entity by IDs.
@@ -208,6 +231,14 @@ func (mc *ModelCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (mc *ModelCreate) defaults() {
+	if _, ok := mc.mutation.CreateTime(); !ok {
+		v := model.DefaultCreateTime()
+		mc.mutation.SetCreateTime(v)
+	}
+	if _, ok := mc.mutation.UpdateTime(); !ok {
+		v := model.DefaultUpdateTime()
+		mc.mutation.SetUpdateTime(v)
+	}
 	if _, ok := mc.mutation.InputCost(); !ok {
 		v := model.DefaultInputCost
 		mc.mutation.SetInputCost(v)
@@ -236,6 +267,12 @@ func (mc *ModelCreate) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (mc *ModelCreate) check() error {
+	if _, ok := mc.mutation.CreateTime(); !ok {
+		return &ValidationError{Name: "create_time", err: errors.New(`memory: missing required field "Model.create_time"`)}
+	}
+	if _, ok := mc.mutation.UpdateTime(); !ok {
+		return &ValidationError{Name: "update_time", err: errors.New(`memory: missing required field "Model.update_time"`)}
+	}
 	if _, ok := mc.mutation.Name(); !ok {
 		return &ValidationError{Name: "name", err: errors.New(`memory: missing required field "Model.name"`)}
 	}
@@ -277,11 +314,11 @@ func (mc *ModelCreate) check() error {
 	if _, ok := mc.mutation.Enabled(); !ok {
 		return &ValidationError{Name: "enabled", err: errors.New(`memory: missing required field "Model.enabled"`)}
 	}
-	if _, ok := mc.mutation.ModelProvider(); !ok {
-		return &ValidationError{Name: "model_provider", err: errors.New(`memory: missing required field "Model.model_provider"`)}
+	if _, ok := mc.mutation.ModelProviderID(); !ok {
+		return &ValidationError{Name: "model_provider_id", err: errors.New(`memory: missing required field "Model.model_provider_id"`)}
 	}
-	if len(mc.mutation.ModelProvidersIDs()) == 0 {
-		return &ValidationError{Name: "model_providers", err: errors.New(`memory: missing required edge "Model.model_providers"`)}
+	if len(mc.mutation.ModelProviderIDs()) == 0 {
+		return &ValidationError{Name: "model_provider", err: errors.New(`memory: missing required edge "Model.model_provider"`)}
 	}
 	return nil
 }
@@ -317,6 +354,14 @@ func (mc *ModelCreate) createSpec() (*Model, *sqlgraph.CreateSpec) {
 	if id, ok := mc.mutation.ID(); ok {
 		_node.ID = id
 		_spec.ID.Value = &id
+	}
+	if value, ok := mc.mutation.CreateTime(); ok {
+		_spec.SetField(model.FieldCreateTime, field.TypeTime, value)
+		_node.CreateTime = value
+	}
+	if value, ok := mc.mutation.UpdateTime(); ok {
+		_spec.SetField(model.FieldUpdateTime, field.TypeTime, value)
+		_node.UpdateTime = value
 	}
 	if value, ok := mc.mutation.Name(); ok {
 		_spec.SetField(model.FieldName, field.TypeString, value)
@@ -366,12 +411,12 @@ func (mc *ModelCreate) createSpec() (*Model, *sqlgraph.CreateSpec) {
 		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
-	if nodes := mc.mutation.ModelProvidersIDs(); len(nodes) > 0 {
+	if nodes := mc.mutation.ModelProviderIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
-			Inverse: false,
-			Table:   model.ModelProvidersTable,
-			Columns: []string{model.ModelProvidersColumn},
+			Inverse: true,
+			Table:   model.ModelProviderTable,
+			Columns: []string{model.ModelProviderColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(modelprovider.FieldID, field.TypeUUID),
@@ -380,7 +425,7 @@ func (mc *ModelCreate) createSpec() (*Model, *sqlgraph.CreateSpec) {
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
-		_node.ModelProvider = nodes[0]
+		_node.ModelProviderID = nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := mc.mutation.MessagesIDs(); len(nodes) > 0 {

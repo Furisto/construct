@@ -5,6 +5,7 @@ package memory
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
@@ -18,6 +19,10 @@ type Agent struct {
 	config `json:"-"`
 	// ID of the ent.
 	ID uuid.UUID `json:"id,omitempty"`
+	// CreateTime holds the value of the "create_time" field.
+	CreateTime time.Time `json:"create_time,omitempty"`
+	// UpdateTime holds the value of the "update_time" field.
+	UpdateTime time.Time `json:"update_time,omitempty"`
 	// Name holds the value of the "name" field.
 	Name string `json:"name,omitempty"`
 	// Description holds the value of the "description" field.
@@ -40,9 +45,13 @@ type AgentEdges struct {
 	Tasks []*Task `json:"tasks,omitempty"`
 	// Messages holds the value of the messages edge.
 	Messages []*Message `json:"messages,omitempty"`
+	// Delegates holds the value of the delegates edge.
+	Delegates []*Agent `json:"delegates,omitempty"`
+	// Delegators holds the value of the delegators edge.
+	Delegators []*Agent `json:"delegators,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [3]bool
+	loadedTypes [5]bool
 }
 
 // ModelOrErr returns the Model value or an error if the edge
@@ -74,6 +83,24 @@ func (e AgentEdges) MessagesOrErr() ([]*Message, error) {
 	return nil, &NotLoadedError{edge: "messages"}
 }
 
+// DelegatesOrErr returns the Delegates value or an error if the edge
+// was not loaded in eager-loading.
+func (e AgentEdges) DelegatesOrErr() ([]*Agent, error) {
+	if e.loadedTypes[3] {
+		return e.Delegates, nil
+	}
+	return nil, &NotLoadedError{edge: "delegates"}
+}
+
+// DelegatorsOrErr returns the Delegators value or an error if the edge
+// was not loaded in eager-loading.
+func (e AgentEdges) DelegatorsOrErr() ([]*Agent, error) {
+	if e.loadedTypes[4] {
+		return e.Delegators, nil
+	}
+	return nil, &NotLoadedError{edge: "delegators"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*Agent) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
@@ -81,6 +108,8 @@ func (*Agent) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case agent.FieldName, agent.FieldDescription, agent.FieldInstructions:
 			values[i] = new(sql.NullString)
+		case agent.FieldCreateTime, agent.FieldUpdateTime:
+			values[i] = new(sql.NullTime)
 		case agent.FieldID, agent.FieldDefaultModel:
 			values[i] = new(uuid.UUID)
 		default:
@@ -103,6 +132,18 @@ func (a *Agent) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field id", values[i])
 			} else if value != nil {
 				a.ID = *value
+			}
+		case agent.FieldCreateTime:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field create_time", values[i])
+			} else if value.Valid {
+				a.CreateTime = value.Time
+			}
+		case agent.FieldUpdateTime:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field update_time", values[i])
+			} else if value.Valid {
+				a.UpdateTime = value.Time
 			}
 		case agent.FieldName:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -156,6 +197,16 @@ func (a *Agent) QueryMessages() *MessageQuery {
 	return NewAgentClient(a.config).QueryMessages(a)
 }
 
+// QueryDelegates queries the "delegates" edge of the Agent entity.
+func (a *Agent) QueryDelegates() *AgentQuery {
+	return NewAgentClient(a.config).QueryDelegates(a)
+}
+
+// QueryDelegators queries the "delegators" edge of the Agent entity.
+func (a *Agent) QueryDelegators() *AgentQuery {
+	return NewAgentClient(a.config).QueryDelegators(a)
+}
+
 // Update returns a builder for updating this Agent.
 // Note that you need to call Agent.Unwrap() before calling this method if this Agent
 // was returned from a transaction, and the transaction was committed or rolled back.
@@ -179,6 +230,12 @@ func (a *Agent) String() string {
 	var builder strings.Builder
 	builder.WriteString("Agent(")
 	builder.WriteString(fmt.Sprintf("id=%v, ", a.ID))
+	builder.WriteString("create_time=")
+	builder.WriteString(a.CreateTime.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("update_time=")
+	builder.WriteString(a.UpdateTime.Format(time.ANSIC))
+	builder.WriteString(", ")
 	builder.WriteString("name=")
 	builder.WriteString(a.Name)
 	builder.WriteString(", ")

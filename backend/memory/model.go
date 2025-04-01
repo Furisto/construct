@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
@@ -20,6 +21,10 @@ type Model struct {
 	config `json:"-"`
 	// ID of the ent.
 	ID uuid.UUID `json:"id,omitempty"`
+	// CreateTime holds the value of the "create_time" field.
+	CreateTime time.Time `json:"create_time,omitempty"`
+	// UpdateTime holds the value of the "update_time" field.
+	UpdateTime time.Time `json:"update_time,omitempty"`
 	// Name holds the value of the "name" field.
 	Name string `json:"name,omitempty"`
 	// ContextWindow holds the value of the "context_window" field.
@@ -36,8 +41,8 @@ type Model struct {
 	CacheReadCost float64 `json:"cache_read_cost,omitempty"`
 	// Enabled holds the value of the "enabled" field.
 	Enabled bool `json:"enabled,omitempty"`
-	// ModelProvider holds the value of the "model_provider" field.
-	ModelProvider uuid.UUID `json:"model_provider,omitempty"`
+	// ModelProviderID holds the value of the "model_provider_id" field.
+	ModelProviderID uuid.UUID `json:"model_provider_id,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the ModelQuery when eager-loading is set.
 	Edges        ModelEdges `json:"edges"`
@@ -48,8 +53,8 @@ type Model struct {
 type ModelEdges struct {
 	// Agents holds the value of the agents edge.
 	Agents []*Agent `json:"agents,omitempty"`
-	// ModelProviders holds the value of the model_providers edge.
-	ModelProviders *ModelProvider `json:"model_providers,omitempty"`
+	// ModelProvider holds the value of the model_provider edge.
+	ModelProvider *ModelProvider `json:"model_provider,omitempty"`
 	// Messages holds the value of the messages edge.
 	Messages []*Message `json:"messages,omitempty"`
 	// loadedTypes holds the information for reporting if a
@@ -66,15 +71,15 @@ func (e ModelEdges) AgentsOrErr() ([]*Agent, error) {
 	return nil, &NotLoadedError{edge: "agents"}
 }
 
-// ModelProvidersOrErr returns the ModelProviders value or an error if the edge
+// ModelProviderOrErr returns the ModelProvider value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
-func (e ModelEdges) ModelProvidersOrErr() (*ModelProvider, error) {
-	if e.ModelProviders != nil {
-		return e.ModelProviders, nil
+func (e ModelEdges) ModelProviderOrErr() (*ModelProvider, error) {
+	if e.ModelProvider != nil {
+		return e.ModelProvider, nil
 	} else if e.loadedTypes[1] {
 		return nil, &NotFoundError{label: modelprovider.Label}
 	}
-	return nil, &NotLoadedError{edge: "model_providers"}
+	return nil, &NotLoadedError{edge: "model_provider"}
 }
 
 // MessagesOrErr returns the Messages value or an error if the edge
@@ -101,7 +106,9 @@ func (*Model) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullInt64)
 		case model.FieldName:
 			values[i] = new(sql.NullString)
-		case model.FieldID, model.FieldModelProvider:
+		case model.FieldCreateTime, model.FieldUpdateTime:
+			values[i] = new(sql.NullTime)
+		case model.FieldID, model.FieldModelProviderID:
 			values[i] = new(uuid.UUID)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -123,6 +130,18 @@ func (m *Model) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field id", values[i])
 			} else if value != nil {
 				m.ID = *value
+			}
+		case model.FieldCreateTime:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field create_time", values[i])
+			} else if value.Valid {
+				m.CreateTime = value.Time
+			}
+		case model.FieldUpdateTime:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field update_time", values[i])
+			} else if value.Valid {
+				m.UpdateTime = value.Time
 			}
 		case model.FieldName:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -174,11 +193,11 @@ func (m *Model) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				m.Enabled = value.Bool
 			}
-		case model.FieldModelProvider:
+		case model.FieldModelProviderID:
 			if value, ok := values[i].(*uuid.UUID); !ok {
-				return fmt.Errorf("unexpected type %T for field model_provider", values[i])
+				return fmt.Errorf("unexpected type %T for field model_provider_id", values[i])
 			} else if value != nil {
-				m.ModelProvider = *value
+				m.ModelProviderID = *value
 			}
 		default:
 			m.selectValues.Set(columns[i], values[i])
@@ -198,9 +217,9 @@ func (m *Model) QueryAgents() *AgentQuery {
 	return NewModelClient(m.config).QueryAgents(m)
 }
 
-// QueryModelProviders queries the "model_providers" edge of the Model entity.
-func (m *Model) QueryModelProviders() *ModelProviderQuery {
-	return NewModelClient(m.config).QueryModelProviders(m)
+// QueryModelProvider queries the "model_provider" edge of the Model entity.
+func (m *Model) QueryModelProvider() *ModelProviderQuery {
+	return NewModelClient(m.config).QueryModelProvider(m)
 }
 
 // QueryMessages queries the "messages" edge of the Model entity.
@@ -231,6 +250,12 @@ func (m *Model) String() string {
 	var builder strings.Builder
 	builder.WriteString("Model(")
 	builder.WriteString(fmt.Sprintf("id=%v, ", m.ID))
+	builder.WriteString("create_time=")
+	builder.WriteString(m.CreateTime.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("update_time=")
+	builder.WriteString(m.UpdateTime.Format(time.ANSIC))
+	builder.WriteString(", ")
 	builder.WriteString("name=")
 	builder.WriteString(m.Name)
 	builder.WriteString(", ")
@@ -255,8 +280,8 @@ func (m *Model) String() string {
 	builder.WriteString("enabled=")
 	builder.WriteString(fmt.Sprintf("%v", m.Enabled))
 	builder.WriteString(", ")
-	builder.WriteString("model_provider=")
-	builder.WriteString(fmt.Sprintf("%v", m.ModelProvider))
+	builder.WriteString("model_provider_id=")
+	builder.WriteString(fmt.Sprintf("%v", m.ModelProviderID))
 	builder.WriteByte(')')
 	return builder.String()
 }

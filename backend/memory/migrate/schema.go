@@ -11,6 +11,8 @@ var (
 	// AgentsColumns holds the columns for the "agents" table.
 	AgentsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID, Unique: true},
+		{Name: "create_time", Type: field.TypeTime},
+		{Name: "update_time", Type: field.TypeTime},
 		{Name: "name", Type: field.TypeString},
 		{Name: "description", Type: field.TypeString, Nullable: true},
 		{Name: "instructions", Type: field.TypeString},
@@ -24,7 +26,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "agents_models_model",
-				Columns:    []*schema.Column{AgentsColumns[4]},
+				Columns:    []*schema.Column{AgentsColumns[6]},
 				RefColumns: []*schema.Column{ModelsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -72,6 +74,8 @@ var (
 	// ModelsColumns holds the columns for the "models" table.
 	ModelsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID, Unique: true},
+		{Name: "create_time", Type: field.TypeTime},
+		{Name: "update_time", Type: field.TypeTime},
 		{Name: "name", Type: field.TypeString},
 		{Name: "context_window", Type: field.TypeInt64},
 		{Name: "capabilities", Type: field.TypeJSON, Nullable: true},
@@ -80,7 +84,7 @@ var (
 		{Name: "cache_write_cost", Type: field.TypeFloat64, Default: 0},
 		{Name: "cache_read_cost", Type: field.TypeFloat64, Default: 0},
 		{Name: "enabled", Type: field.TypeBool, Default: true},
-		{Name: "model_provider", Type: field.TypeUUID},
+		{Name: "model_provider_id", Type: field.TypeUUID},
 	}
 	// ModelsTable holds the schema information for the "models" table.
 	ModelsTable = &schema.Table{
@@ -89,8 +93,8 @@ var (
 		PrimaryKey: []*schema.Column{ModelsColumns[0]},
 		ForeignKeys: []*schema.ForeignKey{
 			{
-				Symbol:     "models_model_providers_model_providers",
-				Columns:    []*schema.Column{ModelsColumns[9]},
+				Symbol:     "models_model_providers_models",
+				Columns:    []*schema.Column{ModelsColumns[11]},
 				RefColumns: []*schema.Column{ModelProvidersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -139,6 +143,31 @@ var (
 			},
 		},
 	}
+	// AgentDelegatorsColumns holds the columns for the "agent_delegators" table.
+	AgentDelegatorsColumns = []*schema.Column{
+		{Name: "agent_id", Type: field.TypeUUID},
+		{Name: "delegate_id", Type: field.TypeUUID},
+	}
+	// AgentDelegatorsTable holds the schema information for the "agent_delegators" table.
+	AgentDelegatorsTable = &schema.Table{
+		Name:       "agent_delegators",
+		Columns:    AgentDelegatorsColumns,
+		PrimaryKey: []*schema.Column{AgentDelegatorsColumns[0], AgentDelegatorsColumns[1]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "agent_delegators_agent_id",
+				Columns:    []*schema.Column{AgentDelegatorsColumns[0]},
+				RefColumns: []*schema.Column{AgentsColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+			{
+				Symbol:     "agent_delegators_delegate_id",
+				Columns:    []*schema.Column{AgentDelegatorsColumns[1]},
+				RefColumns: []*schema.Column{AgentsColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
+	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		AgentsTable,
@@ -146,6 +175,7 @@ var (
 		ModelsTable,
 		ModelProvidersTable,
 		TasksTable,
+		AgentDelegatorsTable,
 	}
 )
 
@@ -156,4 +186,6 @@ func init() {
 	MessagesTable.ForeignKeys[2].RefTable = ModelsTable
 	ModelsTable.ForeignKeys[0].RefTable = ModelProvidersTable
 	TasksTable.ForeignKeys[0].RefTable = AgentsTable
+	AgentDelegatorsTable.ForeignKeys[0].RefTable = AgentsTable
+	AgentDelegatorsTable.ForeignKeys[1].RefTable = AgentsTable
 }

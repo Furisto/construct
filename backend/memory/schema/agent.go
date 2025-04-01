@@ -4,6 +4,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
+	"entgo.io/ent/schema/mixin"
 	"github.com/google/uuid"
 )
 
@@ -27,11 +28,13 @@ func (Agent) Edges() []ent.Edge {
 		edge.To("model", Model.Type).Field("default_model").Unique().Required(),
 		edge.From("tasks", Task.Type).Ref("agent"),
 		edge.From("messages", Message.Type).Ref("agent"),
+		edge.To("delegators", Agent.Type).
+			From("delegates"),
 	}
 }
 
 func (Agent) Mixin() []ent.Mixin {
 	return []ent.Mixin{
-		// mixin.Time{},
+		mixin.Time{},
 	}
 }

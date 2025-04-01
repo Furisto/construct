@@ -23,13 +23,15 @@ import (
 // AgentQuery is the builder for querying Agent entities.
 type AgentQuery struct {
 	config
-	ctx          *QueryContext
-	order        []agent.OrderOption
-	inters       []Interceptor
-	predicates   []predicate.Agent
-	withModel    *ModelQuery
-	withTasks    *TaskQuery
-	withMessages *MessageQuery
+	ctx            *QueryContext
+	order          []agent.OrderOption
+	inters         []Interceptor
+	predicates     []predicate.Agent
+	withModel      *ModelQuery
+	withTasks      *TaskQuery
+	withMessages   *MessageQuery
+	withDelegates  *AgentQuery
+	withDelegators *AgentQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -125,6 +127,50 @@ func (aq *AgentQuery) QueryMessages() *MessageQuery {
 			sqlgraph.From(agent.Table, agent.FieldID, selector),
 			sqlgraph.To(message.Table, message.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, true, agent.MessagesTable, agent.MessagesColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(aq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryDelegates chains the current query on the "delegates" edge.
+func (aq *AgentQuery) QueryDelegates() *AgentQuery {
+	query := (&AgentClient{config: aq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := aq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := aq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(agent.Table, agent.FieldID, selector),
+			sqlgraph.To(agent.Table, agent.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, true, agent.DelegatesTable, agent.DelegatesPrimaryKey...),
+		)
+		fromU = sqlgraph.SetNeighbors(aq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryDelegators chains the current query on the "delegators" edge.
+func (aq *AgentQuery) QueryDelegators() *AgentQuery {
+	query := (&AgentClient{config: aq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := aq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := aq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(agent.Table, agent.FieldID, selector),
+			sqlgraph.To(agent.Table, agent.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, false, agent.DelegatorsTable, agent.DelegatorsPrimaryKey...),
 		)
 		fromU = sqlgraph.SetNeighbors(aq.driver.Dialect(), step)
 		return fromU, nil
@@ -319,14 +365,16 @@ func (aq *AgentQuery) Clone() *AgentQuery {
 		return nil
 	}
 	return &AgentQuery{
-		config:       aq.config,
-		ctx:          aq.ctx.Clone(),
-		order:        append([]agent.OrderOption{}, aq.order...),
-		inters:       append([]Interceptor{}, aq.inters...),
-		predicates:   append([]predicate.Agent{}, aq.predicates...),
-		withModel:    aq.withModel.Clone(),
-		withTasks:    aq.withTasks.Clone(),
-		withMessages: aq.withMessages.Clone(),
+		config:         aq.config,
+		ctx:            aq.ctx.Clone(),
+		order:          append([]agent.OrderOption{}, aq.order...),
+		inters:         append([]Interceptor{}, aq.inters...),
+		predicates:     append([]predicate.Agent{}, aq.predicates...),
+		withModel:      aq.withModel.Clone(),
+		withTasks:      aq.withTasks.Clone(),
+		withMessages:   aq.withMessages.Clone(),
+		withDelegates:  aq.withDelegates.Clone(),
+		withDelegators: aq.withDelegators.Clone(),
 		// clone intermediate query.
 		sql:  aq.sql.Clone(),
 		path: aq.path,
@@ -366,18 +414,40 @@ func (aq *AgentQuery) WithMessages(opts ...func(*MessageQuery)) *AgentQuery {
 	return aq
 }
 
+// WithDelegates tells the query-builder to eager-load the nodes that are connected to
+// the "delegates" edge. The optional arguments are used to configure the query builder of the edge.
+func (aq *AgentQuery) WithDelegates(opts ...func(*AgentQuery)) *AgentQuery {
+	query := (&AgentClient{config: aq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	aq.withDelegates = query
+	return aq
+}
+
+// WithDelegators tells the query-builder to eager-load the nodes that are connected to
+// the "delegators" edge. The optional arguments are used to configure the query builder of the edge.
+func (aq *AgentQuery) WithDelegators(opts ...func(*AgentQuery)) *AgentQuery {
+	query := (&AgentClient{config: aq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	aq.withDelegators = query
+	return aq
+}
+
 // GroupBy is used to group vertices by one or more fields/columns.
 // It is often used with aggregate functions, like: count, max, mean, min, sum.
 //
 // Example:
 //
 //	var v []struct {
-//		Name string `json:"name,omitempty"`
+//		CreateTime time.Time `json:"create_time,omitempty"`
 //		Count int `json:"count,omitempty"`
 //	}
 //
 //	client.Agent.Query().
-//		GroupBy(agent.FieldName).
+//		GroupBy(agent.FieldCreateTime).
 //		Aggregate(memory.Count()).
 //		Scan(ctx, &v)
 func (aq *AgentQuery) GroupBy(field string, fields ...string) *AgentGroupBy {
@@ -395,11 +465,11 @@ func (aq *AgentQuery) GroupBy(field string, fields ...string) *AgentGroupBy {
 // Example:
 //
 //	var v []struct {
-//		Name string `json:"name,omitempty"`
+//		CreateTime time.Time `json:"create_time,omitempty"`
 //	}
 //
 //	client.Agent.Query().
-//		Select(agent.FieldName).
+//		Select(agent.FieldCreateTime).
 //		Scan(ctx, &v)
 func (aq *AgentQuery) Select(fields ...string) *AgentSelect {
 	aq.ctx.Fields = append(aq.ctx.Fields, fields...)
@@ -444,10 +514,12 @@ func (aq *AgentQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Agent,
 	var (
 		nodes       = []*Agent{}
 		_spec       = aq.querySpec()
-		loadedTypes = [3]bool{
+		loadedTypes = [5]bool{
 			aq.withModel != nil,
 			aq.withTasks != nil,
 			aq.withMessages != nil,
+			aq.withDelegates != nil,
+			aq.withDelegators != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -485,6 +557,20 @@ func (aq *AgentQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Agent,
 		if err := aq.loadMessages(ctx, query, nodes,
 			func(n *Agent) { n.Edges.Messages = []*Message{} },
 			func(n *Agent, e *Message) { n.Edges.Messages = append(n.Edges.Messages, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := aq.withDelegates; query != nil {
+		if err := aq.loadDelegates(ctx, query, nodes,
+			func(n *Agent) { n.Edges.Delegates = []*Agent{} },
+			func(n *Agent, e *Agent) { n.Edges.Delegates = append(n.Edges.Delegates, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := aq.withDelegators; query != nil {
+		if err := aq.loadDelegators(ctx, query, nodes,
+			func(n *Agent) { n.Edges.Delegators = []*Agent{} },
+			func(n *Agent, e *Agent) { n.Edges.Delegators = append(n.Edges.Delegators, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -577,6 +663,128 @@ func (aq *AgentQuery) loadMessages(ctx context.Context, query *MessageQuery, nod
 			return fmt.Errorf(`unexpected referenced foreign-key "agent_id" returned %v for node %v`, fk, n.ID)
 		}
 		assign(node, n)
+	}
+	return nil
+}
+func (aq *AgentQuery) loadDelegates(ctx context.Context, query *AgentQuery, nodes []*Agent, init func(*Agent), assign func(*Agent, *Agent)) error {
+	edgeIDs := make([]driver.Value, len(nodes))
+	byID := make(map[uuid.UUID]*Agent)
+	nids := make(map[uuid.UUID]map[*Agent]struct{})
+	for i, node := range nodes {
+		edgeIDs[i] = node.ID
+		byID[node.ID] = node
+		if init != nil {
+			init(node)
+		}
+	}
+	query.Where(func(s *sql.Selector) {
+		joinT := sql.Table(agent.DelegatesTable)
+		s.Join(joinT).On(s.C(agent.FieldID), joinT.C(agent.DelegatesPrimaryKey[0]))
+		s.Where(sql.InValues(joinT.C(agent.DelegatesPrimaryKey[1]), edgeIDs...))
+		columns := s.SelectedColumns()
+		s.Select(joinT.C(agent.DelegatesPrimaryKey[1]))
+		s.AppendSelect(columns...)
+		s.SetDistinct(false)
+	})
+	if err := query.prepareQuery(ctx); err != nil {
+		return err
+	}
+	qr := QuerierFunc(func(ctx context.Context, q Query) (Value, error) {
+		return query.sqlAll(ctx, func(_ context.Context, spec *sqlgraph.QuerySpec) {
+			assign := spec.Assign
+			values := spec.ScanValues
+			spec.ScanValues = func(columns []string) ([]any, error) {
+				values, err := values(columns[1:])
+				if err != nil {
+					return nil, err
+				}
+				return append([]any{new(uuid.UUID)}, values...), nil
+			}
+			spec.Assign = func(columns []string, values []any) error {
+				outValue := *values[0].(*uuid.UUID)
+				inValue := *values[1].(*uuid.UUID)
+				if nids[inValue] == nil {
+					nids[inValue] = map[*Agent]struct{}{byID[outValue]: {}}
+					return assign(columns[1:], values[1:])
+				}
+				nids[inValue][byID[outValue]] = struct{}{}
+				return nil
+			}
+		})
+	})
+	neighbors, err := withInterceptors[[]*Agent](ctx, query, qr, query.inters)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected "delegates" node returned %v`, n.ID)
+		}
+		for kn := range nodes {
+			assign(kn, n)
+		}
+	}
+	return nil
+}
+func (aq *AgentQuery) loadDelegators(ctx context.Context, query *AgentQuery, nodes []*Agent, init func(*Agent), assign func(*Agent, *Agent)) error {
+	edgeIDs := make([]driver.Value, len(nodes))
+	byID := make(map[uuid.UUID]*Agent)
+	nids := make(map[uuid.UUID]map[*Agent]struct{})
+	for i, node := range nodes {
+		edgeIDs[i] = node.ID
+		byID[node.ID] = node
+		if init != nil {
+			init(node)
+		}
+	}
+	query.Where(func(s *sql.Selector) {
+		joinT := sql.Table(agent.DelegatorsTable)
+		s.Join(joinT).On(s.C(agent.FieldID), joinT.C(agent.DelegatorsPrimaryKey[1]))
+		s.Where(sql.InValues(joinT.C(agent.DelegatorsPrimaryKey[0]), edgeIDs...))
+		columns := s.SelectedColumns()
+		s.Select(joinT.C(agent.DelegatorsPrimaryKey[0]))
+		s.AppendSelect(columns...)
+		s.SetDistinct(false)
+	})
+	if err := query.prepareQuery(ctx); err != nil {
+		return err
+	}
+	qr := QuerierFunc(func(ctx context.Context, q Query) (Value, error) {
+		return query.sqlAll(ctx, func(_ context.Context, spec *sqlgraph.QuerySpec) {
+			assign := spec.Assign
+			values := spec.ScanValues
+			spec.ScanValues = func(columns []string) ([]any, error) {
+				values, err := values(columns[1:])
+				if err != nil {
+					return nil, err
+				}
+				return append([]any{new(uuid.UUID)}, values...), nil
+			}
+			spec.Assign = func(columns []string, values []any) error {
+				outValue := *values[0].(*uuid.UUID)
+				inValue := *values[1].(*uuid.UUID)
+				if nids[inValue] == nil {
+					nids[inValue] = map[*Agent]struct{}{byID[outValue]: {}}
+					return assign(columns[1:], values[1:])
+				}
+				nids[inValue][byID[outValue]] = struct{}{}
+				return nil
+			}
+		})
+	})
+	neighbors, err := withInterceptors[[]*Agent](ctx, query, qr, query.inters)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected "delegators" node returned %v`, n.ID)
+		}
+		for kn := range nodes {
+			assign(kn, n)
+		}
 	}
 	return nil
 }

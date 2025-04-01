@@ -392,7 +392,7 @@ func HasModels() predicate.ModelProvider {
 	return predicate.ModelProvider(func(s *sql.Selector) {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, true, ModelsTable, ModelsColumn),
+			sqlgraph.Edge(sqlgraph.O2M, false, ModelsTable, ModelsColumn),
 		)
 		sqlgraph.HasNeighbors(s, step)
 	})

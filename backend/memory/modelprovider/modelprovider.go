@@ -41,7 +41,7 @@ const (
 	// It exists in this package in order to avoid circular dependency with the "model" package.
 	ModelsInverseTable = "models"
 	// ModelsColumn is the table column denoting the models relation/edge.
-	ModelsColumn = "model_provider"
+	ModelsColumn = "model_provider_id"
 )
 
 // Columns holds all SQL columns for modelprovider fields.
@@ -148,6 +148,6 @@ func newModelsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ModelsInverseTable, FieldID),
-		sqlgraph.Edge(sqlgraph.O2M, true, ModelsTable, ModelsColumn),
+		sqlgraph.Edge(sqlgraph.O2M, false, ModelsTable, ModelsColumn),
 	)
 }

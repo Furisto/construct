@@ -40,24 +40,32 @@ const (
 // AgentMutation represents an operation that mutates the Agent nodes in the graph.
 type AgentMutation struct {
 	config
-	op              Op
-	typ             string
-	id              *uuid.UUID
-	name            *string
-	description     *string
-	instructions    *string
-	clearedFields   map[string]struct{}
-	model           *uuid.UUID
-	clearedmodel    bool
-	tasks           map[uuid.UUID]struct{}
-	removedtasks    map[uuid.UUID]struct{}
-	clearedtasks    bool
-	messages        map[uuid.UUID]struct{}
-	removedmessages map[uuid.UUID]struct{}
-	clearedmessages bool
-	done            bool
-	oldValue        func(context.Context) (*Agent, error)
-	predicates      []predicate.Agent
+	op                Op
+	typ               string
+	id                *uuid.UUID
+	create_time       *time.Time
+	update_time       *time.Time
+	name              *string
+	description       *string
+	instructions      *string
+	clearedFields     map[string]struct{}
+	model             *uuid.UUID
+	clearedmodel      bool
+	tasks             map[uuid.UUID]struct{}
+	removedtasks      map[uuid.UUID]struct{}
+	clearedtasks      bool
+	messages          map[uuid.UUID]struct{}
+	removedmessages   map[uuid.UUID]struct{}
+	clearedmessages   bool
+	delegates         map[uuid.UUID]struct{}
+	removeddelegates  map[uuid.UUID]struct{}
+	cleareddelegates  bool
+	delegators        map[uuid.UUID]struct{}
+	removeddelegators map[uuid.UUID]struct{}
+	cleareddelegators bool
+	done              bool
+	oldValue          func(context.Context) (*Agent, error)
+	predicates        []predicate.Agent
 }
 
 var _ ent.Mutation = (*AgentMutation)(nil)
@@ -162,6 +170,78 @@ func (m *AgentMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
 	default:
 		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
 	}
+}
+
+// SetCreateTime sets the "create_time" field.
+func (m *AgentMutation) SetCreateTime(t time.Time) {
+	m.create_time = &t
+}
+
+// CreateTime returns the value of the "create_time" field in the mutation.
+func (m *AgentMutation) CreateTime() (r time.Time, exists bool) {
+	v := m.create_time
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreateTime returns the old "create_time" field's value of the Agent entity.
+// If the Agent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentMutation) OldCreateTime(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreateTime is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreateTime requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreateTime: %w", err)
+	}
+	return oldValue.CreateTime, nil
+}
+
+// ResetCreateTime resets all changes to the "create_time" field.
+func (m *AgentMutation) ResetCreateTime() {
+	m.create_time = nil
+}
+
+// SetUpdateTime sets the "update_time" field.
+func (m *AgentMutation) SetUpdateTime(t time.Time) {
+	m.update_time = &t
+}
+
+// UpdateTime returns the value of the "update_time" field in the mutation.
+func (m *AgentMutation) UpdateTime() (r time.Time, exists bool) {
+	v := m.update_time
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdateTime returns the old "update_time" field's value of the Agent entity.
+// If the Agent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentMutation) OldUpdateTime(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdateTime is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdateTime requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdateTime: %w", err)
+	}
+	return oldValue.UpdateTime, nil
+}
+
+// ResetUpdateTime resets all changes to the "update_time" field.
+func (m *AgentMutation) ResetUpdateTime() {
+	m.update_time = nil
 }
 
 // SetName sets the "name" field.
@@ -469,6 +549,114 @@ func (m *AgentMutation) ResetMessages() {
 	m.removedmessages = nil
 }
 
+// AddDelegateIDs adds the "delegates" edge to the Agent entity by ids.
+func (m *AgentMutation) AddDelegateIDs(ids ...uuid.UUID) {
+	if m.delegates == nil {
+		m.delegates = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.delegates[ids[i]] = struct{}{}
+	}
+}
+
+// ClearDelegates clears the "delegates" edge to the Agent entity.
+func (m *AgentMutation) ClearDelegates() {
+	m.cleareddelegates = true
+}
+
+// DelegatesCleared reports if the "delegates" edge to the Agent entity was cleared.
+func (m *AgentMutation) DelegatesCleared() bool {
+	return m.cleareddelegates
+}
+
+// RemoveDelegateIDs removes the "delegates" edge to the Agent entity by IDs.
+func (m *AgentMutation) RemoveDelegateIDs(ids ...uuid.UUID) {
+	if m.removeddelegates == nil {
+		m.removeddelegates = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.delegates, ids[i])
+		m.removeddelegates[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedDelegates returns the removed IDs of the "delegates" edge to the Agent entity.
+func (m *AgentMutation) RemovedDelegatesIDs() (ids []uuid.UUID) {
+	for id := range m.removeddelegates {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// DelegatesIDs returns the "delegates" edge IDs in the mutation.
+func (m *AgentMutation) DelegatesIDs() (ids []uuid.UUID) {
+	for id := range m.delegates {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetDelegates resets all changes to the "delegates" edge.
+func (m *AgentMutation) ResetDelegates() {
+	m.delegates = nil
+	m.cleareddelegates = false
+	m.removeddelegates = nil
+}
+
+// AddDelegatorIDs adds the "delegators" edge to the Agent entity by ids.
+func (m *AgentMutation) AddDelegatorIDs(ids ...uuid.UUID) {
+	if m.delegators == nil {
+		m.delegators = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.delegators[ids[i]] = struct{}{}
+	}
+}
+
+// ClearDelegators clears the "delegators" edge to the Agent entity.
+func (m *AgentMutation) ClearDelegators() {
+	m.cleareddelegators = true
+}
+
+// DelegatorsCleared reports if the "delegators" edge to the Agent entity was cleared.
+func (m *AgentMutation) DelegatorsCleared() bool {
+	return m.cleareddelegators
+}
+
+// RemoveDelegatorIDs removes the "delegators" edge to the Agent entity by IDs.
+func (m *AgentMutation) RemoveDelegatorIDs(ids ...uuid.UUID) {
+	if m.removeddelegators == nil {
+		m.removeddelegators = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.delegators, ids[i])
+		m.removeddelegators[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedDelegators returns the removed IDs of the "delegators" edge to the Agent entity.
+func (m *AgentMutation) RemovedDelegatorsIDs() (ids []uuid.UUID) {
+	for id := range m.removeddelegators {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// DelegatorsIDs returns the "delegators" edge IDs in the mutation.
+func (m *AgentMutation) DelegatorsIDs() (ids []uuid.UUID) {
+	for id := range m.delegators {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetDelegators resets all changes to the "delegators" edge.
+func (m *AgentMutation) ResetDelegators() {
+	m.delegators = nil
+	m.cleareddelegators = false
+	m.removeddelegators = nil
+}
+
 // Where appends a list predicates to the AgentMutation builder.
 func (m *AgentMutation) Where(ps ...predicate.Agent) {
 	m.predicates = append(m.predicates, ps...)
@@ -503,7 +691,13 @@ func (m *AgentMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AgentMutation) Fields() []string {
-	fields := make([]string, 0, 4)
+	fields := make([]string, 0, 6)
+	if m.create_time != nil {
+		fields = append(fields, agent.FieldCreateTime)
+	}
+	if m.update_time != nil {
+		fields = append(fields, agent.FieldUpdateTime)
+	}
 	if m.name != nil {
 		fields = append(fields, agent.FieldName)
 	}
@@ -524,6 +718,10 @@ func (m *AgentMutation) Fields() []string {
 // schema.
 func (m *AgentMutation) Field(name string) (ent.Value, bool) {
 	switch name {
+	case agent.FieldCreateTime:
+		return m.CreateTime()
+	case agent.FieldUpdateTime:
+		return m.UpdateTime()
 	case agent.FieldName:
 		return m.Name()
 	case agent.FieldDescription:
@@ -541,6 +739,10 @@ func (m *AgentMutation) Field(name string) (ent.Value, bool) {
 // database failed.
 func (m *AgentMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
 	switch name {
+	case agent.FieldCreateTime:
+		return m.OldCreateTime(ctx)
+	case agent.FieldUpdateTime:
+		return m.OldUpdateTime(ctx)
 	case agent.FieldName:
 		return m.OldName(ctx)
 	case agent.FieldDescription:
@@ -558,6 +760,20 @@ func (m *AgentMutation) OldField(ctx context.Context, name string) (ent.Value, e
 // type.
 func (m *AgentMutation) SetField(name string, value ent.Value) error {
 	switch name {
+	case agent.FieldCreateTime:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreateTime(v)
+		return nil
+	case agent.FieldUpdateTime:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdateTime(v)
+		return nil
 	case agent.FieldName:
 		v, ok := value.(string)
 		if !ok {
@@ -644,6 +860,12 @@ func (m *AgentMutation) ClearField(name string) error {
 // It returns an error if the field is not defined in the schema.
 func (m *AgentMutation) ResetField(name string) error {
 	switch name {
+	case agent.FieldCreateTime:
+		m.ResetCreateTime()
+		return nil
+	case agent.FieldUpdateTime:
+		m.ResetUpdateTime()
+		return nil
 	case agent.FieldName:
 		m.ResetName()
 		return nil
@@ -662,7 +884,7 @@ func (m *AgentMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *AgentMutation) AddedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 5)
 	if m.model != nil {
 		edges = append(edges, agent.EdgeModel)
 	}
@@ -671,6 +893,12 @@ func (m *AgentMutation) AddedEdges() []string {
 	}
 	if m.messages != nil {
 		edges = append(edges, agent.EdgeMessages)
+	}
+	if m.delegates != nil {
+		edges = append(edges, agent.EdgeDelegates)
+	}
+	if m.delegators != nil {
+		edges = append(edges, agent.EdgeDelegators)
 	}
 	return edges
 }
@@ -695,18 +923,36 @@ func (m *AgentMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case agent.EdgeDelegates:
+		ids := make([]ent.Value, 0, len(m.delegates))
+		for id := range m.delegates {
+			ids = append(ids, id)
+		}
+		return ids
+	case agent.EdgeDelegators:
+		ids := make([]ent.Value, 0, len(m.delegators))
+		for id := range m.delegators {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *AgentMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 5)
 	if m.removedtasks != nil {
 		edges = append(edges, agent.EdgeTasks)
 	}
 	if m.removedmessages != nil {
 		edges = append(edges, agent.EdgeMessages)
+	}
+	if m.removeddelegates != nil {
+		edges = append(edges, agent.EdgeDelegates)
+	}
+	if m.removeddelegators != nil {
+		edges = append(edges, agent.EdgeDelegators)
 	}
 	return edges
 }
@@ -727,13 +973,25 @@ func (m *AgentMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case agent.EdgeDelegates:
+		ids := make([]ent.Value, 0, len(m.removeddelegates))
+		for id := range m.removeddelegates {
+			ids = append(ids, id)
+		}
+		return ids
+	case agent.EdgeDelegators:
+		ids := make([]ent.Value, 0, len(m.removeddelegators))
+		for id := range m.removeddelegators {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *AgentMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 5)
 	if m.clearedmodel {
 		edges = append(edges, agent.EdgeModel)
 	}
@@ -742,6 +1000,12 @@ func (m *AgentMutation) ClearedEdges() []string {
 	}
 	if m.clearedmessages {
 		edges = append(edges, agent.EdgeMessages)
+	}
+	if m.cleareddelegates {
+		edges = append(edges, agent.EdgeDelegates)
+	}
+	if m.cleareddelegators {
+		edges = append(edges, agent.EdgeDelegators)
 	}
 	return edges
 }
@@ -756,6 +1020,10 @@ func (m *AgentMutation) EdgeCleared(name string) bool {
 		return m.clearedtasks
 	case agent.EdgeMessages:
 		return m.clearedmessages
+	case agent.EdgeDelegates:
+		return m.cleareddelegates
+	case agent.EdgeDelegators:
+		return m.cleareddelegators
 	}
 	return false
 }
@@ -783,6 +1051,12 @@ func (m *AgentMutation) ResetEdge(name string) error {
 		return nil
 	case agent.EdgeMessages:
 		m.ResetMessages()
+		return nil
+	case agent.EdgeDelegates:
+		m.ResetDelegates()
+		return nil
+	case agent.EdgeDelegators:
+		m.ResetDelegators()
 		return nil
 	}
 	return fmt.Errorf("unknown Agent edge %s", name)
@@ -1780,35 +2054,37 @@ func (m *MessageMutation) ResetEdge(name string) error {
 // ModelMutation represents an operation that mutates the Model nodes in the graph.
 type ModelMutation struct {
 	config
-	op                     Op
-	typ                    string
-	id                     *uuid.UUID
-	name                   *string
-	context_window         *int64
-	addcontext_window      *int64
-	capabilities           *[]types.ModelCapability
-	appendcapabilities     []types.ModelCapability
-	input_cost             *float64
-	addinput_cost          *float64
-	output_cost            *float64
-	addoutput_cost         *float64
-	cache_write_cost       *float64
-	addcache_write_cost    *float64
-	cache_read_cost        *float64
-	addcache_read_cost     *float64
-	enabled                *bool
-	clearedFields          map[string]struct{}
-	agents                 map[uuid.UUID]struct{}
-	removedagents          map[uuid.UUID]struct{}
-	clearedagents          bool
-	model_providers        *uuid.UUID
-	clearedmodel_providers bool
-	messages               map[uuid.UUID]struct{}
-	removedmessages        map[uuid.UUID]struct{}
-	clearedmessages        bool
-	done                   bool
-	oldValue               func(context.Context) (*Model, error)
-	predicates             []predicate.Model
+	op                    Op
+	typ                   string
+	id                    *uuid.UUID
+	create_time           *time.Time
+	update_time           *time.Time
+	name                  *string
+	context_window        *int64
+	addcontext_window     *int64
+	capabilities          *[]types.ModelCapability
+	appendcapabilities    []types.ModelCapability
+	input_cost            *float64
+	addinput_cost         *float64
+	output_cost           *float64
+	addoutput_cost        *float64
+	cache_write_cost      *float64
+	addcache_write_cost   *float64
+	cache_read_cost       *float64
+	addcache_read_cost    *float64
+	enabled               *bool
+	clearedFields         map[string]struct{}
+	agents                map[uuid.UUID]struct{}
+	removedagents         map[uuid.UUID]struct{}
+	clearedagents         bool
+	model_provider        *uuid.UUID
+	clearedmodel_provider bool
+	messages              map[uuid.UUID]struct{}
+	removedmessages       map[uuid.UUID]struct{}
+	clearedmessages       bool
+	done                  bool
+	oldValue              func(context.Context) (*Model, error)
+	predicates            []predicate.Model
 }
 
 var _ ent.Mutation = (*ModelMutation)(nil)
@@ -1913,6 +2189,78 @@ func (m *ModelMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
 	default:
 		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
 	}
+}
+
+// SetCreateTime sets the "create_time" field.
+func (m *ModelMutation) SetCreateTime(t time.Time) {
+	m.create_time = &t
+}
+
+// CreateTime returns the value of the "create_time" field in the mutation.
+func (m *ModelMutation) CreateTime() (r time.Time, exists bool) {
+	v := m.create_time
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreateTime returns the old "create_time" field's value of the Model entity.
+// If the Model object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ModelMutation) OldCreateTime(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreateTime is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreateTime requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreateTime: %w", err)
+	}
+	return oldValue.CreateTime, nil
+}
+
+// ResetCreateTime resets all changes to the "create_time" field.
+func (m *ModelMutation) ResetCreateTime() {
+	m.create_time = nil
+}
+
+// SetUpdateTime sets the "update_time" field.
+func (m *ModelMutation) SetUpdateTime(t time.Time) {
+	m.update_time = &t
+}
+
+// UpdateTime returns the value of the "update_time" field in the mutation.
+func (m *ModelMutation) UpdateTime() (r time.Time, exists bool) {
+	v := m.update_time
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdateTime returns the old "update_time" field's value of the Model entity.
+// If the Model object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ModelMutation) OldUpdateTime(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdateTime is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdateTime requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdateTime: %w", err)
+	}
+	return oldValue.UpdateTime, nil
+}
+
+// ResetUpdateTime resets all changes to the "update_time" field.
+func (m *ModelMutation) ResetUpdateTime() {
+	m.update_time = nil
 }
 
 // SetName sets the "name" field.
@@ -2332,40 +2680,40 @@ func (m *ModelMutation) ResetEnabled() {
 	m.enabled = nil
 }
 
-// SetModelProvider sets the "model_provider" field.
-func (m *ModelMutation) SetModelProvider(u uuid.UUID) {
-	m.model_providers = &u
+// SetModelProviderID sets the "model_provider_id" field.
+func (m *ModelMutation) SetModelProviderID(u uuid.UUID) {
+	m.model_provider = &u
 }
 
-// ModelProvider returns the value of the "model_provider" field in the mutation.
-func (m *ModelMutation) ModelProvider() (r uuid.UUID, exists bool) {
-	v := m.model_providers
+// ModelProviderID returns the value of the "model_provider_id" field in the mutation.
+func (m *ModelMutation) ModelProviderID() (r uuid.UUID, exists bool) {
+	v := m.model_provider
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// OldModelProvider returns the old "model_provider" field's value of the Model entity.
+// OldModelProviderID returns the old "model_provider_id" field's value of the Model entity.
 // If the Model object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ModelMutation) OldModelProvider(ctx context.Context) (v uuid.UUID, err error) {
+func (m *ModelMutation) OldModelProviderID(ctx context.Context) (v uuid.UUID, err error) {
 	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldModelProvider is only allowed on UpdateOne operations")
+		return v, errors.New("OldModelProviderID is only allowed on UpdateOne operations")
 	}
 	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldModelProvider requires an ID field in the mutation")
+		return v, errors.New("OldModelProviderID requires an ID field in the mutation")
 	}
 	oldValue, err := m.oldValue(ctx)
 	if err != nil {
-		return v, fmt.Errorf("querying old value for OldModelProvider: %w", err)
+		return v, fmt.Errorf("querying old value for OldModelProviderID: %w", err)
 	}
-	return oldValue.ModelProvider, nil
+	return oldValue.ModelProviderID, nil
 }
 
-// ResetModelProvider resets all changes to the "model_provider" field.
-func (m *ModelMutation) ResetModelProvider() {
-	m.model_providers = nil
+// ResetModelProviderID resets all changes to the "model_provider_id" field.
+func (m *ModelMutation) ResetModelProviderID() {
+	m.model_provider = nil
 }
 
 // AddAgentIDs adds the "agents" edge to the Agent entity by ids.
@@ -2422,44 +2770,31 @@ func (m *ModelMutation) ResetAgents() {
 	m.removedagents = nil
 }
 
-// SetModelProvidersID sets the "model_providers" edge to the ModelProvider entity by id.
-func (m *ModelMutation) SetModelProvidersID(id uuid.UUID) {
-	m.model_providers = &id
+// ClearModelProvider clears the "model_provider" edge to the ModelProvider entity.
+func (m *ModelMutation) ClearModelProvider() {
+	m.clearedmodel_provider = true
+	m.clearedFields[model.FieldModelProviderID] = struct{}{}
 }
 
-// ClearModelProviders clears the "model_providers" edge to the ModelProvider entity.
-func (m *ModelMutation) ClearModelProviders() {
-	m.clearedmodel_providers = true
-	m.clearedFields[model.FieldModelProvider] = struct{}{}
+// ModelProviderCleared reports if the "model_provider" edge to the ModelProvider entity was cleared.
+func (m *ModelMutation) ModelProviderCleared() bool {
+	return m.clearedmodel_provider
 }
 
-// ModelProvidersCleared reports if the "model_providers" edge to the ModelProvider entity was cleared.
-func (m *ModelMutation) ModelProvidersCleared() bool {
-	return m.clearedmodel_providers
-}
-
-// ModelProvidersID returns the "model_providers" edge ID in the mutation.
-func (m *ModelMutation) ModelProvidersID() (id uuid.UUID, exists bool) {
-	if m.model_providers != nil {
-		return *m.model_providers, true
-	}
-	return
-}
-
-// ModelProvidersIDs returns the "model_providers" edge IDs in the mutation.
+// ModelProviderIDs returns the "model_provider" edge IDs in the mutation.
 // Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
-// ModelProvidersID instead. It exists only for internal usage by the builders.
-func (m *ModelMutation) ModelProvidersIDs() (ids []uuid.UUID) {
-	if id := m.model_providers; id != nil {
+// ModelProviderID instead. It exists only for internal usage by the builders.
+func (m *ModelMutation) ModelProviderIDs() (ids []uuid.UUID) {
+	if id := m.model_provider; id != nil {
 		ids = append(ids, *id)
 	}
 	return
 }
 
-// ResetModelProviders resets all changes to the "model_providers" edge.
-func (m *ModelMutation) ResetModelProviders() {
-	m.model_providers = nil
-	m.clearedmodel_providers = false
+// ResetModelProvider resets all changes to the "model_provider" edge.
+func (m *ModelMutation) ResetModelProvider() {
+	m.model_provider = nil
+	m.clearedmodel_provider = false
 }
 
 // AddMessageIDs adds the "messages" edge to the Message entity by ids.
@@ -2550,7 +2885,13 @@ func (m *ModelMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ModelMutation) Fields() []string {
-	fields := make([]string, 0, 9)
+	fields := make([]string, 0, 11)
+	if m.create_time != nil {
+		fields = append(fields, model.FieldCreateTime)
+	}
+	if m.update_time != nil {
+		fields = append(fields, model.FieldUpdateTime)
+	}
 	if m.name != nil {
 		fields = append(fields, model.FieldName)
 	}
@@ -2575,8 +2916,8 @@ func (m *ModelMutation) Fields() []string {
 	if m.enabled != nil {
 		fields = append(fields, model.FieldEnabled)
 	}
-	if m.model_providers != nil {
-		fields = append(fields, model.FieldModelProvider)
+	if m.model_provider != nil {
+		fields = append(fields, model.FieldModelProviderID)
 	}
 	return fields
 }
@@ -2586,6 +2927,10 @@ func (m *ModelMutation) Fields() []string {
 // schema.
 func (m *ModelMutation) Field(name string) (ent.Value, bool) {
 	switch name {
+	case model.FieldCreateTime:
+		return m.CreateTime()
+	case model.FieldUpdateTime:
+		return m.UpdateTime()
 	case model.FieldName:
 		return m.Name()
 	case model.FieldContextWindow:
@@ -2602,8 +2947,8 @@ func (m *ModelMutation) Field(name string) (ent.Value, bool) {
 		return m.CacheReadCost()
 	case model.FieldEnabled:
 		return m.Enabled()
-	case model.FieldModelProvider:
-		return m.ModelProvider()
+	case model.FieldModelProviderID:
+		return m.ModelProviderID()
 	}
 	return nil, false
 }
@@ -2613,6 +2958,10 @@ func (m *ModelMutation) Field(name string) (ent.Value, bool) {
 // database failed.
 func (m *ModelMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
 	switch name {
+	case model.FieldCreateTime:
+		return m.OldCreateTime(ctx)
+	case model.FieldUpdateTime:
+		return m.OldUpdateTime(ctx)
 	case model.FieldName:
 		return m.OldName(ctx)
 	case model.FieldContextWindow:
@@ -2629,8 +2978,8 @@ func (m *ModelMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldCacheReadCost(ctx)
 	case model.FieldEnabled:
 		return m.OldEnabled(ctx)
-	case model.FieldModelProvider:
-		return m.OldModelProvider(ctx)
+	case model.FieldModelProviderID:
+		return m.OldModelProviderID(ctx)
 	}
 	return nil, fmt.Errorf("unknown Model field %s", name)
 }
@@ -2640,6 +2989,20 @@ func (m *ModelMutation) OldField(ctx context.Context, name string) (ent.Value, e
 // type.
 func (m *ModelMutation) SetField(name string, value ent.Value) error {
 	switch name {
+	case model.FieldCreateTime:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreateTime(v)
+		return nil
+	case model.FieldUpdateTime:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdateTime(v)
+		return nil
 	case model.FieldName:
 		v, ok := value.(string)
 		if !ok {
@@ -2696,12 +3059,12 @@ func (m *ModelMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetEnabled(v)
 		return nil
-	case model.FieldModelProvider:
+	case model.FieldModelProviderID:
 		v, ok := value.(uuid.UUID)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.SetModelProvider(v)
+		m.SetModelProviderID(v)
 		return nil
 	}
 	return fmt.Errorf("unknown Model field %s", name)
@@ -2824,6 +3187,12 @@ func (m *ModelMutation) ClearField(name string) error {
 // It returns an error if the field is not defined in the schema.
 func (m *ModelMutation) ResetField(name string) error {
 	switch name {
+	case model.FieldCreateTime:
+		m.ResetCreateTime()
+		return nil
+	case model.FieldUpdateTime:
+		m.ResetUpdateTime()
+		return nil
 	case model.FieldName:
 		m.ResetName()
 		return nil
@@ -2848,8 +3217,8 @@ func (m *ModelMutation) ResetField(name string) error {
 	case model.FieldEnabled:
 		m.ResetEnabled()
 		return nil
-	case model.FieldModelProvider:
-		m.ResetModelProvider()
+	case model.FieldModelProviderID:
+		m.ResetModelProviderID()
 		return nil
 	}
 	return fmt.Errorf("unknown Model field %s", name)
@@ -2861,8 +3230,8 @@ func (m *ModelMutation) AddedEdges() []string {
 	if m.agents != nil {
 		edges = append(edges, model.EdgeAgents)
 	}
-	if m.model_providers != nil {
-		edges = append(edges, model.EdgeModelProviders)
+	if m.model_provider != nil {
+		edges = append(edges, model.EdgeModelProvider)
 	}
 	if m.messages != nil {
 		edges = append(edges, model.EdgeMessages)
@@ -2880,8 +3249,8 @@ func (m *ModelMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
-	case model.EdgeModelProviders:
-		if id := m.model_providers; id != nil {
+	case model.EdgeModelProvider:
+		if id := m.model_provider; id != nil {
 			return []ent.Value{*id}
 		}
 	case model.EdgeMessages:
@@ -2932,8 +3301,8 @@ func (m *ModelMutation) ClearedEdges() []string {
 	if m.clearedagents {
 		edges = append(edges, model.EdgeAgents)
 	}
-	if m.clearedmodel_providers {
-		edges = append(edges, model.EdgeModelProviders)
+	if m.clearedmodel_provider {
+		edges = append(edges, model.EdgeModelProvider)
 	}
 	if m.clearedmessages {
 		edges = append(edges, model.EdgeMessages)
@@ -2947,8 +3316,8 @@ func (m *ModelMutation) EdgeCleared(name string) bool {
 	switch name {
 	case model.EdgeAgents:
 		return m.clearedagents
-	case model.EdgeModelProviders:
-		return m.clearedmodel_providers
+	case model.EdgeModelProvider:
+		return m.clearedmodel_provider
 	case model.EdgeMessages:
 		return m.clearedmessages
 	}
@@ -2959,8 +3328,8 @@ func (m *ModelMutation) EdgeCleared(name string) bool {
 // if that edge is not defined in the schema.
 func (m *ModelMutation) ClearEdge(name string) error {
 	switch name {
-	case model.EdgeModelProviders:
-		m.ClearModelProviders()
+	case model.EdgeModelProvider:
+		m.ClearModelProvider()
 		return nil
 	}
 	return fmt.Errorf("unknown Model unique edge %s", name)
@@ -2973,8 +3342,8 @@ func (m *ModelMutation) ResetEdge(name string) error {
 	case model.EdgeAgents:
 		m.ResetAgents()
 		return nil
-	case model.EdgeModelProviders:
-		m.ResetModelProviders()
+	case model.EdgeModelProvider:
+		m.ResetModelProvider()
 		return nil
 	case model.EdgeMessages:
 		m.ResetMessages()

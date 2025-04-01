@@ -3,6 +3,8 @@
 package agent
 
 import (
+	"time"
+
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/google/uuid"
@@ -13,6 +15,10 @@ const (
 	Label = "agent"
 	// FieldID holds the string denoting the id field in the database.
 	FieldID = "id"
+	// FieldCreateTime holds the string denoting the create_time field in the database.
+	FieldCreateTime = "create_time"
+	// FieldUpdateTime holds the string denoting the update_time field in the database.
+	FieldUpdateTime = "update_time"
 	// FieldName holds the string denoting the name field in the database.
 	FieldName = "name"
 	// FieldDescription holds the string denoting the description field in the database.
@@ -27,6 +33,10 @@ const (
 	EdgeTasks = "tasks"
 	// EdgeMessages holds the string denoting the messages edge name in mutations.
 	EdgeMessages = "messages"
+	// EdgeDelegates holds the string denoting the delegates edge name in mutations.
+	EdgeDelegates = "delegates"
+	// EdgeDelegators holds the string denoting the delegators edge name in mutations.
+	EdgeDelegators = "delegators"
 	// Table holds the table name of the agent in the database.
 	Table = "agents"
 	// ModelTable is the table that holds the model relation/edge.
@@ -50,16 +60,31 @@ const (
 	MessagesInverseTable = "messages"
 	// MessagesColumn is the table column denoting the messages relation/edge.
 	MessagesColumn = "agent_id"
+	// DelegatesTable is the table that holds the delegates relation/edge. The primary key declared below.
+	DelegatesTable = "agent_delegators"
+	// DelegatorsTable is the table that holds the delegators relation/edge. The primary key declared below.
+	DelegatorsTable = "agent_delegators"
 )
 
 // Columns holds all SQL columns for agent fields.
 var Columns = []string{
 	FieldID,
+	FieldCreateTime,
+	FieldUpdateTime,
 	FieldName,
 	FieldDescription,
 	FieldInstructions,
 	FieldDefaultModel,
 }
+
+var (
+	// DelegatesPrimaryKey and DelegatesColumn2 are the table columns denoting the
+	// primary key for the delegates relation (M2M).
+	DelegatesPrimaryKey = []string{"agent_id", "delegate_id"}
+	// DelegatorsPrimaryKey and DelegatorsColumn2 are the table columns denoting the
+	// primary key for the delegators relation (M2M).
+	DelegatorsPrimaryKey = []string{"agent_id", "delegate_id"}
+)
 
 // ValidColumn reports if the column name is valid (part of the table columns).
 func ValidColumn(column string) bool {
@@ -72,6 +97,12 @@ func ValidColumn(column string) bool {
 }
 
 var (
+	// DefaultCreateTime holds the default value on creation for the "create_time" field.
+	DefaultCreateTime func() time.Time
+	// DefaultUpdateTime holds the default value on creation for the "update_time" field.
+	DefaultUpdateTime func() time.Time
+	// UpdateDefaultUpdateTime holds the default value on update for the "update_time" field.
+	UpdateDefaultUpdateTime func() time.Time
 	// NameValidator is a validator for the "name" field. It is called by the builders before save.
 	NameValidator func(string) error
 	// DefaultID holds the default value on creation for the "id" field.
@@ -84,6 +115,16 @@ type OrderOption func(*sql.Selector)
 // ByID orders the results by the id field.
 func ByID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldID, opts...).ToFunc()
+}
+
+// ByCreateTime orders the results by the create_time field.
+func ByCreateTime(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCreateTime, opts...).ToFunc()
+}
+
+// ByUpdateTime orders the results by the update_time field.
+func ByUpdateTime(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldUpdateTime, opts...).ToFunc()
 }
 
 // ByName orders the results by the name field.
@@ -140,6 +181,34 @@ func ByMessages(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newMessagesStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByDelegatesCount orders the results by delegates count.
+func ByDelegatesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newDelegatesStep(), opts...)
+	}
+}
+
+// ByDelegates orders the results by delegates terms.
+func ByDelegates(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newDelegatesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByDelegatorsCount orders the results by delegators count.
+func ByDelegatorsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newDelegatorsStep(), opts...)
+	}
+}
+
+// ByDelegators orders the results by delegators terms.
+func ByDelegators(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newDelegatorsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newModelStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -159,5 +228,19 @@ func newMessagesStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(MessagesInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, true, MessagesTable, MessagesColumn),
+	)
+}
+func newDelegatesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(Table, FieldID),
+		sqlgraph.Edge(sqlgraph.M2M, true, DelegatesTable, DelegatesPrimaryKey...),
+	)
+}
+func newDelegatorsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(Table, FieldID),
+		sqlgraph.Edge(sqlgraph.M2M, false, DelegatorsTable, DelegatorsPrimaryKey...),
 	)
 }

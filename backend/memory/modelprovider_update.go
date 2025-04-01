@@ -238,7 +238,7 @@ func (mpu *ModelProviderUpdate) sqlSave(ctx context.Context) (n int, err error) 
 	if mpu.mutation.ModelsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
-			Inverse: true,
+			Inverse: false,
 			Table:   modelprovider.ModelsTable,
 			Columns: []string{modelprovider.ModelsColumn},
 			Bidi:    false,
@@ -251,7 +251,7 @@ func (mpu *ModelProviderUpdate) sqlSave(ctx context.Context) (n int, err error) 
 	if nodes := mpu.mutation.RemovedModelsIDs(); len(nodes) > 0 && !mpu.mutation.ModelsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
-			Inverse: true,
+			Inverse: false,
 			Table:   modelprovider.ModelsTable,
 			Columns: []string{modelprovider.ModelsColumn},
 			Bidi:    false,
@@ -267,7 +267,7 @@ func (mpu *ModelProviderUpdate) sqlSave(ctx context.Context) (n int, err error) 
 	if nodes := mpu.mutation.ModelsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
-			Inverse: true,
+			Inverse: false,
 			Table:   modelprovider.ModelsTable,
 			Columns: []string{modelprovider.ModelsColumn},
 			Bidi:    false,
@@ -537,7 +537,7 @@ func (mpuo *ModelProviderUpdateOne) sqlSave(ctx context.Context) (_node *ModelPr
 	if mpuo.mutation.ModelsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
-			Inverse: true,
+			Inverse: false,
 			Table:   modelprovider.ModelsTable,
 			Columns: []string{modelprovider.ModelsColumn},
 			Bidi:    false,
@@ -550,7 +550,7 @@ func (mpuo *ModelProviderUpdateOne) sqlSave(ctx context.Context) (_node *ModelPr
 	if nodes := mpuo.mutation.RemovedModelsIDs(); len(nodes) > 0 && !mpuo.mutation.ModelsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
-			Inverse: true,
+			Inverse: false,
 			Table:   modelprovider.ModelsTable,
 			Columns: []string{modelprovider.ModelsColumn},
 			Bidi:    false,
@@ -566,7 +566,7 @@ func (mpuo *ModelProviderUpdateOne) sqlSave(ctx context.Context) (_node *ModelPr
 	if nodes := mpuo.mutation.ModelsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
-			Inverse: true,
+			Inverse: false,
 			Table:   modelprovider.ModelsTable,
 			Columns: []string{modelprovider.ModelsColumn},
 			Bidi:    false,

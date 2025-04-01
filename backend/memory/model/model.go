@@ -3,6 +3,8 @@
 package model
 
 import (
+	"time"
+
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/google/uuid"
@@ -13,6 +15,10 @@ const (
 	Label = "model"
 	// FieldID holds the string denoting the id field in the database.
 	FieldID = "id"
+	// FieldCreateTime holds the string denoting the create_time field in the database.
+	FieldCreateTime = "create_time"
+	// FieldUpdateTime holds the string denoting the update_time field in the database.
+	FieldUpdateTime = "update_time"
 	// FieldName holds the string denoting the name field in the database.
 	FieldName = "name"
 	// FieldContextWindow holds the string denoting the context_window field in the database.
@@ -29,12 +35,12 @@ const (
 	FieldCacheReadCost = "cache_read_cost"
 	// FieldEnabled holds the string denoting the enabled field in the database.
 	FieldEnabled = "enabled"
-	// FieldModelProvider holds the string denoting the model_provider field in the database.
-	FieldModelProvider = "model_provider"
+	// FieldModelProviderID holds the string denoting the model_provider_id field in the database.
+	FieldModelProviderID = "model_provider_id"
 	// EdgeAgents holds the string denoting the agents edge name in mutations.
 	EdgeAgents = "agents"
-	// EdgeModelProviders holds the string denoting the model_providers edge name in mutations.
-	EdgeModelProviders = "model_providers"
+	// EdgeModelProvider holds the string denoting the model_provider edge name in mutations.
+	EdgeModelProvider = "model_provider"
 	// EdgeMessages holds the string denoting the messages edge name in mutations.
 	EdgeMessages = "messages"
 	// Table holds the table name of the model in the database.
@@ -46,13 +52,13 @@ const (
 	AgentsInverseTable = "agents"
 	// AgentsColumn is the table column denoting the agents relation/edge.
 	AgentsColumn = "default_model"
-	// ModelProvidersTable is the table that holds the model_providers relation/edge.
-	ModelProvidersTable = "models"
-	// ModelProvidersInverseTable is the table name for the ModelProvider entity.
+	// ModelProviderTable is the table that holds the model_provider relation/edge.
+	ModelProviderTable = "models"
+	// ModelProviderInverseTable is the table name for the ModelProvider entity.
 	// It exists in this package in order to avoid circular dependency with the "modelprovider" package.
-	ModelProvidersInverseTable = "model_providers"
-	// ModelProvidersColumn is the table column denoting the model_providers relation/edge.
-	ModelProvidersColumn = "model_provider"
+	ModelProviderInverseTable = "model_providers"
+	// ModelProviderColumn is the table column denoting the model_provider relation/edge.
+	ModelProviderColumn = "model_provider_id"
 	// MessagesTable is the table that holds the messages relation/edge.
 	MessagesTable = "messages"
 	// MessagesInverseTable is the table name for the Message entity.
@@ -65,6 +71,8 @@ const (
 // Columns holds all SQL columns for model fields.
 var Columns = []string{
 	FieldID,
+	FieldCreateTime,
+	FieldUpdateTime,
 	FieldName,
 	FieldContextWindow,
 	FieldCapabilities,
@@ -73,7 +81,7 @@ var Columns = []string{
 	FieldCacheWriteCost,
 	FieldCacheReadCost,
 	FieldEnabled,
-	FieldModelProvider,
+	FieldModelProviderID,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -87,6 +95,12 @@ func ValidColumn(column string) bool {
 }
 
 var (
+	// DefaultCreateTime holds the default value on creation for the "create_time" field.
+	DefaultCreateTime func() time.Time
+	// DefaultUpdateTime holds the default value on creation for the "update_time" field.
+	DefaultUpdateTime func() time.Time
+	// UpdateDefaultUpdateTime holds the default value on update for the "update_time" field.
+	UpdateDefaultUpdateTime func() time.Time
 	// DefaultInputCost holds the default value on creation for the "input_cost" field.
 	DefaultInputCost float64
 	// InputCostValidator is a validator for the "input_cost" field. It is called by the builders before save.
@@ -115,6 +129,16 @@ type OrderOption func(*sql.Selector)
 // ByID orders the results by the id field.
 func ByID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldID, opts...).ToFunc()
+}
+
+// ByCreateTime orders the results by the create_time field.
+func ByCreateTime(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCreateTime, opts...).ToFunc()
+}
+
+// ByUpdateTime orders the results by the update_time field.
+func ByUpdateTime(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldUpdateTime, opts...).ToFunc()
 }
 
 // ByName orders the results by the name field.
@@ -152,9 +176,9 @@ func ByEnabled(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldEnabled, opts...).ToFunc()
 }
 
-// ByModelProvider orders the results by the model_provider field.
-func ByModelProvider(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldModelProvider, opts...).ToFunc()
+// ByModelProviderID orders the results by the model_provider_id field.
+func ByModelProviderID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldModelProviderID, opts...).ToFunc()
 }
 
 // ByAgentsCount orders the results by agents count.
@@ -171,10 +195,10 @@ func ByAgents(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
-// ByModelProvidersField orders the results by model_providers field.
-func ByModelProvidersField(field string, opts ...sql.OrderTermOption) OrderOption {
+// ByModelProviderField orders the results by model_provider field.
+func ByModelProviderField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborTerms(s, newModelProvidersStep(), sql.OrderByField(field, opts...))
+		sqlgraph.OrderByNeighborTerms(s, newModelProviderStep(), sql.OrderByField(field, opts...))
 	}
 }
 
@@ -198,11 +222,11 @@ func newAgentsStep() *sqlgraph.Step {
 		sqlgraph.Edge(sqlgraph.O2M, true, AgentsTable, AgentsColumn),
 	)
 }
-func newModelProvidersStep() *sqlgraph.Step {
+func newModelProviderStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
-		sqlgraph.To(ModelProvidersInverseTable, FieldID),
-		sqlgraph.Edge(sqlgraph.M2O, false, ModelProvidersTable, ModelProvidersColumn),
+		sqlgraph.To(ModelProviderInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, true, ModelProviderTable, ModelProviderColumn),
 	)
 }
 func newMessagesStep() *sqlgraph.Step {

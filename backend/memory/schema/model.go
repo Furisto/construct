@@ -4,6 +4,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
+	"entgo.io/ent/schema/mixin"
 	"github.com/furisto/construct/backend/memory/schema/types"
 	"github.com/google/uuid"
 )
@@ -24,20 +25,24 @@ func (Model) Fields() []ent.Field {
 		field.Float("cache_read_cost").Min(0).Default(0),
 		field.Bool("enabled").Default(true),
 
-		field.UUID("model_provider", uuid.UUID{}),
+		field.UUID("model_provider_id", uuid.UUID{}),
 	}
 }
 
 func (Model) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.From("agents", Agent.Type).Ref("model"),
-		edge.To("model_providers", ModelProvider.Type).Field("model_provider").Unique().Required(),
+		edge.From("model_provider", ModelProvider.Type).
+			Ref("models").
+			Field("model_provider_id").
+			Unique().
+			Required(),
 		edge.From("messages", Message.Type).Ref("model"),
 	}
 }
 
 func (Model) Mixin() []ent.Mixin {
 	return []ent.Mixin{
-		// mixin.Time{},
+		mixin.Time{},
 	}
 }
