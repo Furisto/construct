@@ -11,7 +11,9 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/furisto/construct/backend/memory/agent"
 	"github.com/furisto/construct/backend/memory/message"
+	"github.com/furisto/construct/backend/memory/model"
 	"github.com/furisto/construct/backend/memory/predicate"
 	"github.com/furisto/construct/backend/memory/schema/types"
 	"github.com/furisto/construct/backend/memory/task"
@@ -28,20 +30,6 @@ type MessageUpdate struct {
 // Where appends a list predicates to the MessageUpdate builder.
 func (mu *MessageUpdate) Where(ps ...predicate.Message) *MessageUpdate {
 	mu.mutation.Where(ps...)
-	return mu
-}
-
-// SetAgentID sets the "agent_id" field.
-func (mu *MessageUpdate) SetAgentID(u uuid.UUID) *MessageUpdate {
-	mu.mutation.SetAgentID(u)
-	return mu
-}
-
-// SetNillableAgentID sets the "agent_id" field if the given value is not nil.
-func (mu *MessageUpdate) SetNillableAgentID(u *uuid.UUID) *MessageUpdate {
-	if u != nil {
-		mu.SetAgentID(*u)
-	}
 	return mu
 }
 
@@ -103,23 +91,73 @@ func (mu *MessageUpdate) ClearProcessedTime() *MessageUpdate {
 	return mu
 }
 
-// SetTaskID sets the "task" edge to the Task entity by ID.
-func (mu *MessageUpdate) SetTaskID(id uuid.UUID) *MessageUpdate {
-	mu.mutation.SetTaskID(id)
+// SetTaskID sets the "task_id" field.
+func (mu *MessageUpdate) SetTaskID(u uuid.UUID) *MessageUpdate {
+	mu.mutation.SetTaskID(u)
 	return mu
 }
 
-// SetNillableTaskID sets the "task" edge to the Task entity by ID if the given value is not nil.
-func (mu *MessageUpdate) SetNillableTaskID(id *uuid.UUID) *MessageUpdate {
-	if id != nil {
-		mu = mu.SetTaskID(*id)
+// SetNillableTaskID sets the "task_id" field if the given value is not nil.
+func (mu *MessageUpdate) SetNillableTaskID(u *uuid.UUID) *MessageUpdate {
+	if u != nil {
+		mu.SetTaskID(*u)
 	}
+	return mu
+}
+
+// SetAgentID sets the "agent_id" field.
+func (mu *MessageUpdate) SetAgentID(u uuid.UUID) *MessageUpdate {
+	mu.mutation.SetAgentID(u)
+	return mu
+}
+
+// SetNillableAgentID sets the "agent_id" field if the given value is not nil.
+func (mu *MessageUpdate) SetNillableAgentID(u *uuid.UUID) *MessageUpdate {
+	if u != nil {
+		mu.SetAgentID(*u)
+	}
+	return mu
+}
+
+// ClearAgentID clears the value of the "agent_id" field.
+func (mu *MessageUpdate) ClearAgentID() *MessageUpdate {
+	mu.mutation.ClearAgentID()
+	return mu
+}
+
+// SetModelID sets the "model_id" field.
+func (mu *MessageUpdate) SetModelID(u uuid.UUID) *MessageUpdate {
+	mu.mutation.SetModelID(u)
+	return mu
+}
+
+// SetNillableModelID sets the "model_id" field if the given value is not nil.
+func (mu *MessageUpdate) SetNillableModelID(u *uuid.UUID) *MessageUpdate {
+	if u != nil {
+		mu.SetModelID(*u)
+	}
+	return mu
+}
+
+// ClearModelID clears the value of the "model_id" field.
+func (mu *MessageUpdate) ClearModelID() *MessageUpdate {
+	mu.mutation.ClearModelID()
 	return mu
 }
 
 // SetTask sets the "task" edge to the Task entity.
 func (mu *MessageUpdate) SetTask(t *Task) *MessageUpdate {
 	return mu.SetTaskID(t.ID)
+}
+
+// SetAgent sets the "agent" edge to the Agent entity.
+func (mu *MessageUpdate) SetAgent(a *Agent) *MessageUpdate {
+	return mu.SetAgentID(a.ID)
+}
+
+// SetModel sets the "model" edge to the Model entity.
+func (mu *MessageUpdate) SetModel(m *Model) *MessageUpdate {
+	return mu.SetModelID(m.ID)
 }
 
 // Mutation returns the MessageMutation object of the builder.
@@ -130,6 +168,18 @@ func (mu *MessageUpdate) Mutation() *MessageMutation {
 // ClearTask clears the "task" edge to the Task entity.
 func (mu *MessageUpdate) ClearTask() *MessageUpdate {
 	mu.mutation.ClearTask()
+	return mu
+}
+
+// ClearAgent clears the "agent" edge to the Agent entity.
+func (mu *MessageUpdate) ClearAgent() *MessageUpdate {
+	mu.mutation.ClearAgent()
+	return mu
+}
+
+// ClearModel clears the "model" edge to the Model entity.
+func (mu *MessageUpdate) ClearModel() *MessageUpdate {
+	mu.mutation.ClearModel()
 	return mu
 }
 
@@ -176,6 +226,9 @@ func (mu *MessageUpdate) check() error {
 			return &ValidationError{Name: "role", err: fmt.Errorf(`memory: validator failed for field "Message.role": %w`, err)}
 		}
 	}
+	if mu.mutation.TaskCleared() && len(mu.mutation.TaskIDs()) > 0 {
+		return errors.New(`memory: clearing a required unique edge "Message.task"`)
+	}
 	return nil
 }
 
@@ -190,9 +243,6 @@ func (mu *MessageUpdate) sqlSave(ctx context.Context) (n int, err error) {
 				ps[i](selector)
 			}
 		}
-	}
-	if value, ok := mu.mutation.AgentID(); ok {
-		_spec.SetField(message.FieldAgentID, field.TypeUUID, value)
 	}
 	if value, ok := mu.mutation.UpdateTime(); ok {
 		_spec.SetField(message.FieldUpdateTime, field.TypeTime, value)
@@ -218,7 +268,7 @@ func (mu *MessageUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if mu.mutation.TaskCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
-			Inverse: true,
+			Inverse: false,
 			Table:   message.TaskTable,
 			Columns: []string{message.TaskColumn},
 			Bidi:    false,
@@ -231,12 +281,70 @@ func (mu *MessageUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if nodes := mu.mutation.TaskIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
-			Inverse: true,
+			Inverse: false,
 			Table:   message.TaskTable,
 			Columns: []string{message.TaskColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(task.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if mu.mutation.AgentCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   message.AgentTable,
+			Columns: []string{message.AgentColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := mu.mutation.AgentIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   message.AgentTable,
+			Columns: []string{message.AgentColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if mu.mutation.ModelCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   message.ModelTable,
+			Columns: []string{message.ModelColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(model.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := mu.mutation.ModelIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   message.ModelTable,
+			Columns: []string{message.ModelColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(model.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -262,20 +370,6 @@ type MessageUpdateOne struct {
 	fields   []string
 	hooks    []Hook
 	mutation *MessageMutation
-}
-
-// SetAgentID sets the "agent_id" field.
-func (muo *MessageUpdateOne) SetAgentID(u uuid.UUID) *MessageUpdateOne {
-	muo.mutation.SetAgentID(u)
-	return muo
-}
-
-// SetNillableAgentID sets the "agent_id" field if the given value is not nil.
-func (muo *MessageUpdateOne) SetNillableAgentID(u *uuid.UUID) *MessageUpdateOne {
-	if u != nil {
-		muo.SetAgentID(*u)
-	}
-	return muo
 }
 
 // SetUpdateTime sets the "update_time" field.
@@ -336,23 +430,73 @@ func (muo *MessageUpdateOne) ClearProcessedTime() *MessageUpdateOne {
 	return muo
 }
 
-// SetTaskID sets the "task" edge to the Task entity by ID.
-func (muo *MessageUpdateOne) SetTaskID(id uuid.UUID) *MessageUpdateOne {
-	muo.mutation.SetTaskID(id)
+// SetTaskID sets the "task_id" field.
+func (muo *MessageUpdateOne) SetTaskID(u uuid.UUID) *MessageUpdateOne {
+	muo.mutation.SetTaskID(u)
 	return muo
 }
 
-// SetNillableTaskID sets the "task" edge to the Task entity by ID if the given value is not nil.
-func (muo *MessageUpdateOne) SetNillableTaskID(id *uuid.UUID) *MessageUpdateOne {
-	if id != nil {
-		muo = muo.SetTaskID(*id)
+// SetNillableTaskID sets the "task_id" field if the given value is not nil.
+func (muo *MessageUpdateOne) SetNillableTaskID(u *uuid.UUID) *MessageUpdateOne {
+	if u != nil {
+		muo.SetTaskID(*u)
 	}
+	return muo
+}
+
+// SetAgentID sets the "agent_id" field.
+func (muo *MessageUpdateOne) SetAgentID(u uuid.UUID) *MessageUpdateOne {
+	muo.mutation.SetAgentID(u)
+	return muo
+}
+
+// SetNillableAgentID sets the "agent_id" field if the given value is not nil.
+func (muo *MessageUpdateOne) SetNillableAgentID(u *uuid.UUID) *MessageUpdateOne {
+	if u != nil {
+		muo.SetAgentID(*u)
+	}
+	return muo
+}
+
+// ClearAgentID clears the value of the "agent_id" field.
+func (muo *MessageUpdateOne) ClearAgentID() *MessageUpdateOne {
+	muo.mutation.ClearAgentID()
+	return muo
+}
+
+// SetModelID sets the "model_id" field.
+func (muo *MessageUpdateOne) SetModelID(u uuid.UUID) *MessageUpdateOne {
+	muo.mutation.SetModelID(u)
+	return muo
+}
+
+// SetNillableModelID sets the "model_id" field if the given value is not nil.
+func (muo *MessageUpdateOne) SetNillableModelID(u *uuid.UUID) *MessageUpdateOne {
+	if u != nil {
+		muo.SetModelID(*u)
+	}
+	return muo
+}
+
+// ClearModelID clears the value of the "model_id" field.
+func (muo *MessageUpdateOne) ClearModelID() *MessageUpdateOne {
+	muo.mutation.ClearModelID()
 	return muo
 }
 
 // SetTask sets the "task" edge to the Task entity.
 func (muo *MessageUpdateOne) SetTask(t *Task) *MessageUpdateOne {
 	return muo.SetTaskID(t.ID)
+}
+
+// SetAgent sets the "agent" edge to the Agent entity.
+func (muo *MessageUpdateOne) SetAgent(a *Agent) *MessageUpdateOne {
+	return muo.SetAgentID(a.ID)
+}
+
+// SetModel sets the "model" edge to the Model entity.
+func (muo *MessageUpdateOne) SetModel(m *Model) *MessageUpdateOne {
+	return muo.SetModelID(m.ID)
 }
 
 // Mutation returns the MessageMutation object of the builder.
@@ -363,6 +507,18 @@ func (muo *MessageUpdateOne) Mutation() *MessageMutation {
 // ClearTask clears the "task" edge to the Task entity.
 func (muo *MessageUpdateOne) ClearTask() *MessageUpdateOne {
 	muo.mutation.ClearTask()
+	return muo
+}
+
+// ClearAgent clears the "agent" edge to the Agent entity.
+func (muo *MessageUpdateOne) ClearAgent() *MessageUpdateOne {
+	muo.mutation.ClearAgent()
+	return muo
+}
+
+// ClearModel clears the "model" edge to the Model entity.
+func (muo *MessageUpdateOne) ClearModel() *MessageUpdateOne {
+	muo.mutation.ClearModel()
 	return muo
 }
 
@@ -422,6 +578,9 @@ func (muo *MessageUpdateOne) check() error {
 			return &ValidationError{Name: "role", err: fmt.Errorf(`memory: validator failed for field "Message.role": %w`, err)}
 		}
 	}
+	if muo.mutation.TaskCleared() && len(muo.mutation.TaskIDs()) > 0 {
+		return errors.New(`memory: clearing a required unique edge "Message.task"`)
+	}
 	return nil
 }
 
@@ -454,9 +613,6 @@ func (muo *MessageUpdateOne) sqlSave(ctx context.Context) (_node *Message, err e
 			}
 		}
 	}
-	if value, ok := muo.mutation.AgentID(); ok {
-		_spec.SetField(message.FieldAgentID, field.TypeUUID, value)
-	}
 	if value, ok := muo.mutation.UpdateTime(); ok {
 		_spec.SetField(message.FieldUpdateTime, field.TypeTime, value)
 	}
@@ -481,7 +637,7 @@ func (muo *MessageUpdateOne) sqlSave(ctx context.Context) (_node *Message, err e
 	if muo.mutation.TaskCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
-			Inverse: true,
+			Inverse: false,
 			Table:   message.TaskTable,
 			Columns: []string{message.TaskColumn},
 			Bidi:    false,
@@ -494,12 +650,70 @@ func (muo *MessageUpdateOne) sqlSave(ctx context.Context) (_node *Message, err e
 	if nodes := muo.mutation.TaskIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
-			Inverse: true,
+			Inverse: false,
 			Table:   message.TaskTable,
 			Columns: []string{message.TaskColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(task.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if muo.mutation.AgentCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   message.AgentTable,
+			Columns: []string{message.AgentColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := muo.mutation.AgentIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   message.AgentTable,
+			Columns: []string{message.AgentColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if muo.mutation.ModelCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   message.ModelTable,
+			Columns: []string{message.ModelColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(model.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := muo.mutation.ModelIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   message.ModelTable,
+			Columns: []string{message.ModelColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(model.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

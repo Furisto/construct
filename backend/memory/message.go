@@ -10,7 +10,9 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
+	"github.com/furisto/construct/backend/memory/agent"
 	"github.com/furisto/construct/backend/memory/message"
+	"github.com/furisto/construct/backend/memory/model"
 	"github.com/furisto/construct/backend/memory/schema/types"
 	"github.com/furisto/construct/backend/memory/task"
 	"github.com/google/uuid"
@@ -21,8 +23,6 @@ type Message struct {
 	config `json:"-"`
 	// ID of the ent.
 	ID uuid.UUID `json:"id,omitempty"`
-	// AgentID holds the value of the "agent_id" field.
-	AgentID uuid.UUID `json:"agent_id,omitempty"`
 	// CreateTime holds the value of the "create_time" field.
 	CreateTime time.Time `json:"create_time,omitempty"`
 	// UpdateTime holds the value of the "update_time" field.
@@ -35,20 +35,29 @@ type Message struct {
 	Usage *types.MessageUsage `json:"usage,omitempty"`
 	// ProcessedTime holds the value of the "processed_time" field.
 	ProcessedTime time.Time `json:"processed_time,omitempty"`
+	// TaskID holds the value of the "task_id" field.
+	TaskID uuid.UUID `json:"task_id,omitempty"`
+	// AgentID holds the value of the "agent_id" field.
+	AgentID uuid.UUID `json:"agent_id,omitempty"`
+	// ModelID holds the value of the "model_id" field.
+	ModelID uuid.UUID `json:"model_id,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the MessageQuery when eager-loading is set.
-	Edges         MessageEdges `json:"edges"`
-	task_messages *uuid.UUID
-	selectValues  sql.SelectValues
+	Edges        MessageEdges `json:"edges"`
+	selectValues sql.SelectValues
 }
 
 // MessageEdges holds the relations/edges for other nodes in the graph.
 type MessageEdges struct {
 	// Task holds the value of the task edge.
 	Task *Task `json:"task,omitempty"`
+	// Agent holds the value of the agent edge.
+	Agent *Agent `json:"agent,omitempty"`
+	// Model holds the value of the model edge.
+	Model *Model `json:"model,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [1]bool
+	loadedTypes [3]bool
 }
 
 // TaskOrErr returns the Task value or an error if the edge
@@ -62,6 +71,28 @@ func (e MessageEdges) TaskOrErr() (*Task, error) {
 	return nil, &NotLoadedError{edge: "task"}
 }
 
+// AgentOrErr returns the Agent value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e MessageEdges) AgentOrErr() (*Agent, error) {
+	if e.Agent != nil {
+		return e.Agent, nil
+	} else if e.loadedTypes[1] {
+		return nil, &NotFoundError{label: agent.Label}
+	}
+	return nil, &NotLoadedError{edge: "agent"}
+}
+
+// ModelOrErr returns the Model value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e MessageEdges) ModelOrErr() (*Model, error) {
+	if e.Model != nil {
+		return e.Model, nil
+	} else if e.loadedTypes[2] {
+		return nil, &NotFoundError{label: model.Label}
+	}
+	return nil, &NotLoadedError{edge: "model"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*Message) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
@@ -73,10 +104,8 @@ func (*Message) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullString)
 		case message.FieldCreateTime, message.FieldUpdateTime, message.FieldProcessedTime:
 			values[i] = new(sql.NullTime)
-		case message.FieldID, message.FieldAgentID:
+		case message.FieldID, message.FieldTaskID, message.FieldAgentID, message.FieldModelID:
 			values[i] = new(uuid.UUID)
-		case message.ForeignKeys[0]: // task_messages
-			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		default:
 			values[i] = new(sql.UnknownType)
 		}
@@ -97,12 +126,6 @@ func (m *Message) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field id", values[i])
 			} else if value != nil {
 				m.ID = *value
-			}
-		case message.FieldAgentID:
-			if value, ok := values[i].(*uuid.UUID); !ok {
-				return fmt.Errorf("unexpected type %T for field agent_id", values[i])
-			} else if value != nil {
-				m.AgentID = *value
 			}
 		case message.FieldCreateTime:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -144,12 +167,23 @@ func (m *Message) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				m.ProcessedTime = value.Time
 			}
-		case message.ForeignKeys[0]:
-			if value, ok := values[i].(*sql.NullScanner); !ok {
-				return fmt.Errorf("unexpected type %T for field task_messages", values[i])
-			} else if value.Valid {
-				m.task_messages = new(uuid.UUID)
-				*m.task_messages = *value.S.(*uuid.UUID)
+		case message.FieldTaskID:
+			if value, ok := values[i].(*uuid.UUID); !ok {
+				return fmt.Errorf("unexpected type %T for field task_id", values[i])
+			} else if value != nil {
+				m.TaskID = *value
+			}
+		case message.FieldAgentID:
+			if value, ok := values[i].(*uuid.UUID); !ok {
+				return fmt.Errorf("unexpected type %T for field agent_id", values[i])
+			} else if value != nil {
+				m.AgentID = *value
+			}
+		case message.FieldModelID:
+			if value, ok := values[i].(*uuid.UUID); !ok {
+				return fmt.Errorf("unexpected type %T for field model_id", values[i])
+			} else if value != nil {
+				m.ModelID = *value
 			}
 		default:
 			m.selectValues.Set(columns[i], values[i])
@@ -167,6 +201,16 @@ func (m *Message) Value(name string) (ent.Value, error) {
 // QueryTask queries the "task" edge of the Message entity.
 func (m *Message) QueryTask() *TaskQuery {
 	return NewMessageClient(m.config).QueryTask(m)
+}
+
+// QueryAgent queries the "agent" edge of the Message entity.
+func (m *Message) QueryAgent() *AgentQuery {
+	return NewMessageClient(m.config).QueryAgent(m)
+}
+
+// QueryModel queries the "model" edge of the Message entity.
+func (m *Message) QueryModel() *ModelQuery {
+	return NewMessageClient(m.config).QueryModel(m)
 }
 
 // Update returns a builder for updating this Message.
@@ -192,9 +236,6 @@ func (m *Message) String() string {
 	var builder strings.Builder
 	builder.WriteString("Message(")
 	builder.WriteString(fmt.Sprintf("id=%v, ", m.ID))
-	builder.WriteString("agent_id=")
-	builder.WriteString(fmt.Sprintf("%v", m.AgentID))
-	builder.WriteString(", ")
 	builder.WriteString("create_time=")
 	builder.WriteString(m.CreateTime.Format(time.ANSIC))
 	builder.WriteString(", ")
@@ -212,6 +253,15 @@ func (m *Message) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("processed_time=")
 	builder.WriteString(m.ProcessedTime.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("task_id=")
+	builder.WriteString(fmt.Sprintf("%v", m.TaskID))
+	builder.WriteString(", ")
+	builder.WriteString("agent_id=")
+	builder.WriteString(fmt.Sprintf("%v", m.AgentID))
+	builder.WriteString(", ")
+	builder.WriteString("model_id=")
+	builder.WriteString(fmt.Sprintf("%v", m.ModelID))
 	builder.WriteByte(')')
 	return builder.String()
 }

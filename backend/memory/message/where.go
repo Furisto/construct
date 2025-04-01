@@ -57,11 +57,6 @@ func IDLTE(id uuid.UUID) predicate.Message {
 	return predicate.Message(sql.FieldLTE(FieldID, id))
 }
 
-// AgentID applies equality check predicate on the "agent_id" field. It's identical to AgentIDEQ.
-func AgentID(v uuid.UUID) predicate.Message {
-	return predicate.Message(sql.FieldEQ(FieldAgentID, v))
-}
-
 // CreateTime applies equality check predicate on the "create_time" field. It's identical to CreateTimeEQ.
 func CreateTime(v time.Time) predicate.Message {
 	return predicate.Message(sql.FieldEQ(FieldCreateTime, v))
@@ -77,44 +72,19 @@ func ProcessedTime(v time.Time) predicate.Message {
 	return predicate.Message(sql.FieldEQ(FieldProcessedTime, v))
 }
 
-// AgentIDEQ applies the EQ predicate on the "agent_id" field.
-func AgentIDEQ(v uuid.UUID) predicate.Message {
+// TaskID applies equality check predicate on the "task_id" field. It's identical to TaskIDEQ.
+func TaskID(v uuid.UUID) predicate.Message {
+	return predicate.Message(sql.FieldEQ(FieldTaskID, v))
+}
+
+// AgentID applies equality check predicate on the "agent_id" field. It's identical to AgentIDEQ.
+func AgentID(v uuid.UUID) predicate.Message {
 	return predicate.Message(sql.FieldEQ(FieldAgentID, v))
 }
 
-// AgentIDNEQ applies the NEQ predicate on the "agent_id" field.
-func AgentIDNEQ(v uuid.UUID) predicate.Message {
-	return predicate.Message(sql.FieldNEQ(FieldAgentID, v))
-}
-
-// AgentIDIn applies the In predicate on the "agent_id" field.
-func AgentIDIn(vs ...uuid.UUID) predicate.Message {
-	return predicate.Message(sql.FieldIn(FieldAgentID, vs...))
-}
-
-// AgentIDNotIn applies the NotIn predicate on the "agent_id" field.
-func AgentIDNotIn(vs ...uuid.UUID) predicate.Message {
-	return predicate.Message(sql.FieldNotIn(FieldAgentID, vs...))
-}
-
-// AgentIDGT applies the GT predicate on the "agent_id" field.
-func AgentIDGT(v uuid.UUID) predicate.Message {
-	return predicate.Message(sql.FieldGT(FieldAgentID, v))
-}
-
-// AgentIDGTE applies the GTE predicate on the "agent_id" field.
-func AgentIDGTE(v uuid.UUID) predicate.Message {
-	return predicate.Message(sql.FieldGTE(FieldAgentID, v))
-}
-
-// AgentIDLT applies the LT predicate on the "agent_id" field.
-func AgentIDLT(v uuid.UUID) predicate.Message {
-	return predicate.Message(sql.FieldLT(FieldAgentID, v))
-}
-
-// AgentIDLTE applies the LTE predicate on the "agent_id" field.
-func AgentIDLTE(v uuid.UUID) predicate.Message {
-	return predicate.Message(sql.FieldLTE(FieldAgentID, v))
+// ModelID applies equality check predicate on the "model_id" field. It's identical to ModelIDEQ.
+func ModelID(v uuid.UUID) predicate.Message {
+	return predicate.Message(sql.FieldEQ(FieldModelID, v))
 }
 
 // CreateTimeEQ applies the EQ predicate on the "create_time" field.
@@ -287,12 +257,92 @@ func ProcessedTimeNotNil() predicate.Message {
 	return predicate.Message(sql.FieldNotNull(FieldProcessedTime))
 }
 
+// TaskIDEQ applies the EQ predicate on the "task_id" field.
+func TaskIDEQ(v uuid.UUID) predicate.Message {
+	return predicate.Message(sql.FieldEQ(FieldTaskID, v))
+}
+
+// TaskIDNEQ applies the NEQ predicate on the "task_id" field.
+func TaskIDNEQ(v uuid.UUID) predicate.Message {
+	return predicate.Message(sql.FieldNEQ(FieldTaskID, v))
+}
+
+// TaskIDIn applies the In predicate on the "task_id" field.
+func TaskIDIn(vs ...uuid.UUID) predicate.Message {
+	return predicate.Message(sql.FieldIn(FieldTaskID, vs...))
+}
+
+// TaskIDNotIn applies the NotIn predicate on the "task_id" field.
+func TaskIDNotIn(vs ...uuid.UUID) predicate.Message {
+	return predicate.Message(sql.FieldNotIn(FieldTaskID, vs...))
+}
+
+// AgentIDEQ applies the EQ predicate on the "agent_id" field.
+func AgentIDEQ(v uuid.UUID) predicate.Message {
+	return predicate.Message(sql.FieldEQ(FieldAgentID, v))
+}
+
+// AgentIDNEQ applies the NEQ predicate on the "agent_id" field.
+func AgentIDNEQ(v uuid.UUID) predicate.Message {
+	return predicate.Message(sql.FieldNEQ(FieldAgentID, v))
+}
+
+// AgentIDIn applies the In predicate on the "agent_id" field.
+func AgentIDIn(vs ...uuid.UUID) predicate.Message {
+	return predicate.Message(sql.FieldIn(FieldAgentID, vs...))
+}
+
+// AgentIDNotIn applies the NotIn predicate on the "agent_id" field.
+func AgentIDNotIn(vs ...uuid.UUID) predicate.Message {
+	return predicate.Message(sql.FieldNotIn(FieldAgentID, vs...))
+}
+
+// AgentIDIsNil applies the IsNil predicate on the "agent_id" field.
+func AgentIDIsNil() predicate.Message {
+	return predicate.Message(sql.FieldIsNull(FieldAgentID))
+}
+
+// AgentIDNotNil applies the NotNil predicate on the "agent_id" field.
+func AgentIDNotNil() predicate.Message {
+	return predicate.Message(sql.FieldNotNull(FieldAgentID))
+}
+
+// ModelIDEQ applies the EQ predicate on the "model_id" field.
+func ModelIDEQ(v uuid.UUID) predicate.Message {
+	return predicate.Message(sql.FieldEQ(FieldModelID, v))
+}
+
+// ModelIDNEQ applies the NEQ predicate on the "model_id" field.
+func ModelIDNEQ(v uuid.UUID) predicate.Message {
+	return predicate.Message(sql.FieldNEQ(FieldModelID, v))
+}
+
+// ModelIDIn applies the In predicate on the "model_id" field.
+func ModelIDIn(vs ...uuid.UUID) predicate.Message {
+	return predicate.Message(sql.FieldIn(FieldModelID, vs...))
+}
+
+// ModelIDNotIn applies the NotIn predicate on the "model_id" field.
+func ModelIDNotIn(vs ...uuid.UUID) predicate.Message {
+	return predicate.Message(sql.FieldNotIn(FieldModelID, vs...))
+}
+
+// ModelIDIsNil applies the IsNil predicate on the "model_id" field.
+func ModelIDIsNil() predicate.Message {
+	return predicate.Message(sql.FieldIsNull(FieldModelID))
+}
+
+// ModelIDNotNil applies the NotNil predicate on the "model_id" field.
+func ModelIDNotNil() predicate.Message {
+	return predicate.Message(sql.FieldNotNull(FieldModelID))
+}
+
 // HasTask applies the HasEdge predicate on the "task" edge.
 func HasTask() predicate.Message {
 	return predicate.Message(func(s *sql.Selector) {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, TaskTable, TaskColumn),
+			sqlgraph.Edge(sqlgraph.M2O, false, TaskTable, TaskColumn),
 		)
 		sqlgraph.HasNeighbors(s, step)
 	})
@@ -302,6 +352,52 @@ func HasTask() predicate.Message {
 func HasTaskWith(preds ...predicate.Task) predicate.Message {
 	return predicate.Message(func(s *sql.Selector) {
 		step := newTaskStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasAgent applies the HasEdge predicate on the "agent" edge.
+func HasAgent() predicate.Message {
+	return predicate.Message(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, AgentTable, AgentColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasAgentWith applies the HasEdge predicate on the "agent" edge with a given conditions (other predicates).
+func HasAgentWith(preds ...predicate.Agent) predicate.Message {
+	return predicate.Message(func(s *sql.Selector) {
+		step := newAgentStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasModel applies the HasEdge predicate on the "model" edge.
+func HasModel() predicate.Message {
+	return predicate.Message(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, ModelTable, ModelColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasModelWith applies the HasEdge predicate on the "model" edge with a given conditions (other predicates).
+func HasModelWith(preds ...predicate.Model) predicate.Message {
+	return predicate.Message(func(s *sql.Selector) {
+		step := newModelStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

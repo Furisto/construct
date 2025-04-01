@@ -29,19 +29,10 @@ const (
 	FieldCacheReadTokens = "cache_read_tokens"
 	// FieldCost holds the string denoting the cost field in the database.
 	FieldCost = "cost"
-	// EdgeMessages holds the string denoting the messages edge name in mutations.
-	EdgeMessages = "messages"
 	// EdgeAgent holds the string denoting the agent edge name in mutations.
 	EdgeAgent = "agent"
 	// Table holds the table name of the task in the database.
 	Table = "tasks"
-	// MessagesTable is the table that holds the messages relation/edge.
-	MessagesTable = "messages"
-	// MessagesInverseTable is the table name for the Message entity.
-	// It exists in this package in order to avoid circular dependency with the "message" package.
-	MessagesInverseTable = "messages"
-	// MessagesColumn is the table column denoting the messages relation/edge.
-	MessagesColumn = "task_messages"
 	// AgentTable is the table that holds the agent relation/edge.
 	AgentTable = "tasks"
 	// AgentInverseTable is the table name for the Agent entity.
@@ -138,32 +129,11 @@ func ByCost(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCost, opts...).ToFunc()
 }
 
-// ByMessagesCount orders the results by messages count.
-func ByMessagesCount(opts ...sql.OrderTermOption) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborsCount(s, newMessagesStep(), opts...)
-	}
-}
-
-// ByMessages orders the results by messages terms.
-func ByMessages(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborTerms(s, newMessagesStep(), append([]sql.OrderTerm{term}, terms...)...)
-	}
-}
-
 // ByAgentField orders the results by agent field.
 func ByAgentField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
 		sqlgraph.OrderByNeighborTerms(s, newAgentStep(), sql.OrderByField(field, opts...))
 	}
-}
-func newMessagesStep() *sqlgraph.Step {
-	return sqlgraph.NewStep(
-		sqlgraph.From(Table, FieldID),
-		sqlgraph.To(MessagesInverseTable, FieldID),
-		sqlgraph.Edge(sqlgraph.O2M, false, MessagesTable, MessagesColumn),
-	)
 }
 func newAgentStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(

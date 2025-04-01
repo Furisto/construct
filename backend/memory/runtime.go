@@ -42,16 +42,16 @@ func init() {
 	// agent.DefaultID holds the default value on creation for the id field.
 	agent.DefaultID = agentDescID.Default.(func() uuid.UUID)
 	messageMixin := schema.Message{}.Mixin()
-	messageMixinFields1 := messageMixin[1].Fields()
-	_ = messageMixinFields1
+	messageMixinFields0 := messageMixin[0].Fields()
+	_ = messageMixinFields0
 	messageFields := schema.Message{}.Fields()
 	_ = messageFields
 	// messageDescCreateTime is the schema descriptor for create_time field.
-	messageDescCreateTime := messageMixinFields1[0].Descriptor()
+	messageDescCreateTime := messageMixinFields0[0].Descriptor()
 	// message.DefaultCreateTime holds the default value on creation for the create_time field.
 	message.DefaultCreateTime = messageDescCreateTime.Default.(func() time.Time)
 	// messageDescUpdateTime is the schema descriptor for update_time field.
-	messageDescUpdateTime := messageMixinFields1[1].Descriptor()
+	messageDescUpdateTime := messageMixinFields0[1].Descriptor()
 	// message.DefaultUpdateTime holds the default value on creation for the update_time field.
 	message.DefaultUpdateTime = messageDescUpdateTime.Default.(func() time.Time)
 	// message.UpdateDefaultUpdateTime holds the default value on update for the update_time field.

@@ -10,7 +10,9 @@ import (
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/furisto/construct/backend/memory/agent"
 	"github.com/furisto/construct/backend/memory/message"
+	"github.com/furisto/construct/backend/memory/model"
 	"github.com/furisto/construct/backend/memory/schema/types"
 	"github.com/furisto/construct/backend/memory/task"
 	"github.com/google/uuid"
@@ -21,12 +23,6 @@ type MessageCreate struct {
 	config
 	mutation *MessageMutation
 	hooks    []Hook
-}
-
-// SetAgentID sets the "agent_id" field.
-func (mc *MessageCreate) SetAgentID(u uuid.UUID) *MessageCreate {
-	mc.mutation.SetAgentID(u)
-	return mc
 }
 
 // SetCreateTime sets the "create_time" field.
@@ -89,6 +85,40 @@ func (mc *MessageCreate) SetNillableProcessedTime(t *time.Time) *MessageCreate {
 	return mc
 }
 
+// SetTaskID sets the "task_id" field.
+func (mc *MessageCreate) SetTaskID(u uuid.UUID) *MessageCreate {
+	mc.mutation.SetTaskID(u)
+	return mc
+}
+
+// SetAgentID sets the "agent_id" field.
+func (mc *MessageCreate) SetAgentID(u uuid.UUID) *MessageCreate {
+	mc.mutation.SetAgentID(u)
+	return mc
+}
+
+// SetNillableAgentID sets the "agent_id" field if the given value is not nil.
+func (mc *MessageCreate) SetNillableAgentID(u *uuid.UUID) *MessageCreate {
+	if u != nil {
+		mc.SetAgentID(*u)
+	}
+	return mc
+}
+
+// SetModelID sets the "model_id" field.
+func (mc *MessageCreate) SetModelID(u uuid.UUID) *MessageCreate {
+	mc.mutation.SetModelID(u)
+	return mc
+}
+
+// SetNillableModelID sets the "model_id" field if the given value is not nil.
+func (mc *MessageCreate) SetNillableModelID(u *uuid.UUID) *MessageCreate {
+	if u != nil {
+		mc.SetModelID(*u)
+	}
+	return mc
+}
+
 // SetID sets the "id" field.
 func (mc *MessageCreate) SetID(u uuid.UUID) *MessageCreate {
 	mc.mutation.SetID(u)
@@ -103,23 +133,19 @@ func (mc *MessageCreate) SetNillableID(u *uuid.UUID) *MessageCreate {
 	return mc
 }
 
-// SetTaskID sets the "task" edge to the Task entity by ID.
-func (mc *MessageCreate) SetTaskID(id uuid.UUID) *MessageCreate {
-	mc.mutation.SetTaskID(id)
-	return mc
-}
-
-// SetNillableTaskID sets the "task" edge to the Task entity by ID if the given value is not nil.
-func (mc *MessageCreate) SetNillableTaskID(id *uuid.UUID) *MessageCreate {
-	if id != nil {
-		mc = mc.SetTaskID(*id)
-	}
-	return mc
-}
-
 // SetTask sets the "task" edge to the Task entity.
 func (mc *MessageCreate) SetTask(t *Task) *MessageCreate {
 	return mc.SetTaskID(t.ID)
+}
+
+// SetAgent sets the "agent" edge to the Agent entity.
+func (mc *MessageCreate) SetAgent(a *Agent) *MessageCreate {
+	return mc.SetAgentID(a.ID)
+}
+
+// SetModel sets the "model" edge to the Model entity.
+func (mc *MessageCreate) SetModel(m *Model) *MessageCreate {
+	return mc.SetModelID(m.ID)
 }
 
 // Mutation returns the MessageMutation object of the builder.
@@ -173,9 +199,6 @@ func (mc *MessageCreate) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (mc *MessageCreate) check() error {
-	if _, ok := mc.mutation.AgentID(); !ok {
-		return &ValidationError{Name: "agent_id", err: errors.New(`memory: missing required field "Message.agent_id"`)}
-	}
 	if _, ok := mc.mutation.CreateTime(); !ok {
 		return &ValidationError{Name: "create_time", err: errors.New(`memory: missing required field "Message.create_time"`)}
 	}
@@ -192,6 +215,12 @@ func (mc *MessageCreate) check() error {
 		if err := message.RoleValidator(v); err != nil {
 			return &ValidationError{Name: "role", err: fmt.Errorf(`memory: validator failed for field "Message.role": %w`, err)}
 		}
+	}
+	if _, ok := mc.mutation.TaskID(); !ok {
+		return &ValidationError{Name: "task_id", err: errors.New(`memory: missing required field "Message.task_id"`)}
+	}
+	if len(mc.mutation.TaskIDs()) == 0 {
+		return &ValidationError{Name: "task", err: errors.New(`memory: missing required edge "Message.task"`)}
 	}
 	return nil
 }
@@ -228,10 +257,6 @@ func (mc *MessageCreate) createSpec() (*Message, *sqlgraph.CreateSpec) {
 		_node.ID = id
 		_spec.ID.Value = &id
 	}
-	if value, ok := mc.mutation.AgentID(); ok {
-		_spec.SetField(message.FieldAgentID, field.TypeUUID, value)
-		_node.AgentID = value
-	}
 	if value, ok := mc.mutation.CreateTime(); ok {
 		_spec.SetField(message.FieldCreateTime, field.TypeTime, value)
 		_node.CreateTime = value
@@ -259,7 +284,7 @@ func (mc *MessageCreate) createSpec() (*Message, *sqlgraph.CreateSpec) {
 	if nodes := mc.mutation.TaskIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
-			Inverse: true,
+			Inverse: false,
 			Table:   message.TaskTable,
 			Columns: []string{message.TaskColumn},
 			Bidi:    false,
@@ -270,7 +295,41 @@ func (mc *MessageCreate) createSpec() (*Message, *sqlgraph.CreateSpec) {
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
-		_node.task_messages = &nodes[0]
+		_node.TaskID = nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := mc.mutation.AgentIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   message.AgentTable,
+			Columns: []string{message.AgentColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.AgentID = nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := mc.mutation.ModelIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   message.ModelTable,
+			Columns: []string{message.ModelColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(model.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.ModelID = nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

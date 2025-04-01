@@ -421,29 +421,6 @@ func CostNotNil() predicate.Task {
 	return predicate.Task(sql.FieldNotNull(FieldCost))
 }
 
-// HasMessages applies the HasEdge predicate on the "messages" edge.
-func HasMessages() predicate.Task {
-	return predicate.Task(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, MessagesTable, MessagesColumn),
-		)
-		sqlgraph.HasNeighbors(s, step)
-	})
-}
-
-// HasMessagesWith applies the HasEdge predicate on the "messages" edge with a given conditions (other predicates).
-func HasMessagesWith(preds ...predicate.Message) predicate.Task {
-	return predicate.Task(func(s *sql.Selector) {
-		step := newMessagesStep()
-		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
-			for _, p := range preds {
-				p(s)
-			}
-		})
-	})
-}
-
 // HasAgent applies the HasEdge predicate on the "agent" edge.
 func HasAgent() predicate.Task {
 	return predicate.Task(func(s *sql.Selector) {

@@ -11,7 +11,6 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/furisto/construct/backend/memory/agent"
-	"github.com/furisto/construct/backend/memory/message"
 	"github.com/furisto/construct/backend/memory/task"
 	"github.com/google/uuid"
 )
@@ -133,21 +132,6 @@ func (tc *TaskCreate) SetNillableID(u *uuid.UUID) *TaskCreate {
 		tc.SetID(*u)
 	}
 	return tc
-}
-
-// AddMessageIDs adds the "messages" edge to the Message entity by IDs.
-func (tc *TaskCreate) AddMessageIDs(ids ...uuid.UUID) *TaskCreate {
-	tc.mutation.AddMessageIDs(ids...)
-	return tc
-}
-
-// AddMessages adds the "messages" edges to the Message entity.
-func (tc *TaskCreate) AddMessages(m ...*Message) *TaskCreate {
-	ids := make([]uuid.UUID, len(m))
-	for i := range m {
-		ids[i] = m[i].ID
-	}
-	return tc.AddMessageIDs(ids...)
 }
 
 // SetAgentID sets the "agent" edge to the Agent entity by ID.
@@ -288,22 +272,6 @@ func (tc *TaskCreate) createSpec() (*Task, *sqlgraph.CreateSpec) {
 	if value, ok := tc.mutation.Cost(); ok {
 		_spec.SetField(task.FieldCost, field.TypeFloat64, value)
 		_node.Cost = value
-	}
-	if nodes := tc.mutation.MessagesIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   task.MessagesTable,
-			Columns: []string{task.MessagesColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(message.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := tc.mutation.AgentIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

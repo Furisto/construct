@@ -12,7 +12,6 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/furisto/construct/backend/memory/agent"
-	"github.com/furisto/construct/backend/memory/message"
 	"github.com/furisto/construct/backend/memory/predicate"
 	"github.com/furisto/construct/backend/memory/task"
 	"github.com/google/uuid"
@@ -172,21 +171,6 @@ func (tu *TaskUpdate) ClearCost() *TaskUpdate {
 	return tu
 }
 
-// AddMessageIDs adds the "messages" edge to the Message entity by IDs.
-func (tu *TaskUpdate) AddMessageIDs(ids ...uuid.UUID) *TaskUpdate {
-	tu.mutation.AddMessageIDs(ids...)
-	return tu
-}
-
-// AddMessages adds the "messages" edges to the Message entity.
-func (tu *TaskUpdate) AddMessages(m ...*Message) *TaskUpdate {
-	ids := make([]uuid.UUID, len(m))
-	for i := range m {
-		ids[i] = m[i].ID
-	}
-	return tu.AddMessageIDs(ids...)
-}
-
 // SetAgentID sets the "agent" edge to the Agent entity by ID.
 func (tu *TaskUpdate) SetAgentID(id uuid.UUID) *TaskUpdate {
 	tu.mutation.SetAgentID(id)
@@ -209,27 +193,6 @@ func (tu *TaskUpdate) SetAgent(a *Agent) *TaskUpdate {
 // Mutation returns the TaskMutation object of the builder.
 func (tu *TaskUpdate) Mutation() *TaskMutation {
 	return tu.mutation
-}
-
-// ClearMessages clears all "messages" edges to the Message entity.
-func (tu *TaskUpdate) ClearMessages() *TaskUpdate {
-	tu.mutation.ClearMessages()
-	return tu
-}
-
-// RemoveMessageIDs removes the "messages" edge to Message entities by IDs.
-func (tu *TaskUpdate) RemoveMessageIDs(ids ...uuid.UUID) *TaskUpdate {
-	tu.mutation.RemoveMessageIDs(ids...)
-	return tu
-}
-
-// RemoveMessages removes "messages" edges to Message entities.
-func (tu *TaskUpdate) RemoveMessages(m ...*Message) *TaskUpdate {
-	ids := make([]uuid.UUID, len(m))
-	for i := range m {
-		ids[i] = m[i].ID
-	}
-	return tu.RemoveMessageIDs(ids...)
 }
 
 // ClearAgent clears the "agent" edge to the Agent entity.
@@ -330,51 +293,6 @@ func (tu *TaskUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if tu.mutation.CostCleared() {
 		_spec.ClearField(task.FieldCost, field.TypeFloat64)
-	}
-	if tu.mutation.MessagesCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   task.MessagesTable,
-			Columns: []string{task.MessagesColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(message.FieldID, field.TypeUUID),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := tu.mutation.RemovedMessagesIDs(); len(nodes) > 0 && !tu.mutation.MessagesCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   task.MessagesTable,
-			Columns: []string{task.MessagesColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(message.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := tu.mutation.MessagesIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   task.MessagesTable,
-			Columns: []string{task.MessagesColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(message.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if tu.mutation.AgentCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -566,21 +484,6 @@ func (tuo *TaskUpdateOne) ClearCost() *TaskUpdateOne {
 	return tuo
 }
 
-// AddMessageIDs adds the "messages" edge to the Message entity by IDs.
-func (tuo *TaskUpdateOne) AddMessageIDs(ids ...uuid.UUID) *TaskUpdateOne {
-	tuo.mutation.AddMessageIDs(ids...)
-	return tuo
-}
-
-// AddMessages adds the "messages" edges to the Message entity.
-func (tuo *TaskUpdateOne) AddMessages(m ...*Message) *TaskUpdateOne {
-	ids := make([]uuid.UUID, len(m))
-	for i := range m {
-		ids[i] = m[i].ID
-	}
-	return tuo.AddMessageIDs(ids...)
-}
-
 // SetAgentID sets the "agent" edge to the Agent entity by ID.
 func (tuo *TaskUpdateOne) SetAgentID(id uuid.UUID) *TaskUpdateOne {
 	tuo.mutation.SetAgentID(id)
@@ -603,27 +506,6 @@ func (tuo *TaskUpdateOne) SetAgent(a *Agent) *TaskUpdateOne {
 // Mutation returns the TaskMutation object of the builder.
 func (tuo *TaskUpdateOne) Mutation() *TaskMutation {
 	return tuo.mutation
-}
-
-// ClearMessages clears all "messages" edges to the Message entity.
-func (tuo *TaskUpdateOne) ClearMessages() *TaskUpdateOne {
-	tuo.mutation.ClearMessages()
-	return tuo
-}
-
-// RemoveMessageIDs removes the "messages" edge to Message entities by IDs.
-func (tuo *TaskUpdateOne) RemoveMessageIDs(ids ...uuid.UUID) *TaskUpdateOne {
-	tuo.mutation.RemoveMessageIDs(ids...)
-	return tuo
-}
-
-// RemoveMessages removes "messages" edges to Message entities.
-func (tuo *TaskUpdateOne) RemoveMessages(m ...*Message) *TaskUpdateOne {
-	ids := make([]uuid.UUID, len(m))
-	for i := range m {
-		ids[i] = m[i].ID
-	}
-	return tuo.RemoveMessageIDs(ids...)
 }
 
 // ClearAgent clears the "agent" edge to the Agent entity.
@@ -754,51 +636,6 @@ func (tuo *TaskUpdateOne) sqlSave(ctx context.Context) (_node *Task, err error) 
 	}
 	if tuo.mutation.CostCleared() {
 		_spec.ClearField(task.FieldCost, field.TypeFloat64)
-	}
-	if tuo.mutation.MessagesCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   task.MessagesTable,
-			Columns: []string{task.MessagesColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(message.FieldID, field.TypeUUID),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := tuo.mutation.RemovedMessagesIDs(); len(nodes) > 0 && !tuo.mutation.MessagesCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   task.MessagesTable,
-			Columns: []string{task.MessagesColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(message.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := tuo.mutation.MessagesIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   task.MessagesTable,
-			Columns: []string{task.MessagesColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(message.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if tuo.mutation.AgentCleared() {
 		edge := &sqlgraph.EdgeSpec{

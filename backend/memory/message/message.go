@@ -17,8 +17,6 @@ const (
 	Label = "message"
 	// FieldID holds the string denoting the id field in the database.
 	FieldID = "id"
-	// FieldAgentID holds the string denoting the agent_id field in the database.
-	FieldAgentID = "agent_id"
 	// FieldCreateTime holds the string denoting the create_time field in the database.
 	FieldCreateTime = "create_time"
 	// FieldUpdateTime holds the string denoting the update_time field in the database.
@@ -31,8 +29,18 @@ const (
 	FieldUsage = "usage"
 	// FieldProcessedTime holds the string denoting the processed_time field in the database.
 	FieldProcessedTime = "processed_time"
+	// FieldTaskID holds the string denoting the task_id field in the database.
+	FieldTaskID = "task_id"
+	// FieldAgentID holds the string denoting the agent_id field in the database.
+	FieldAgentID = "agent_id"
+	// FieldModelID holds the string denoting the model_id field in the database.
+	FieldModelID = "model_id"
 	// EdgeTask holds the string denoting the task edge name in mutations.
 	EdgeTask = "task"
+	// EdgeAgent holds the string denoting the agent edge name in mutations.
+	EdgeAgent = "agent"
+	// EdgeModel holds the string denoting the model edge name in mutations.
+	EdgeModel = "model"
 	// Table holds the table name of the message in the database.
 	Table = "messages"
 	// TaskTable is the table that holds the task relation/edge.
@@ -41,36 +49,41 @@ const (
 	// It exists in this package in order to avoid circular dependency with the "task" package.
 	TaskInverseTable = "tasks"
 	// TaskColumn is the table column denoting the task relation/edge.
-	TaskColumn = "task_messages"
+	TaskColumn = "task_id"
+	// AgentTable is the table that holds the agent relation/edge.
+	AgentTable = "messages"
+	// AgentInverseTable is the table name for the Agent entity.
+	// It exists in this package in order to avoid circular dependency with the "agent" package.
+	AgentInverseTable = "agents"
+	// AgentColumn is the table column denoting the agent relation/edge.
+	AgentColumn = "agent_id"
+	// ModelTable is the table that holds the model relation/edge.
+	ModelTable = "messages"
+	// ModelInverseTable is the table name for the Model entity.
+	// It exists in this package in order to avoid circular dependency with the "model" package.
+	ModelInverseTable = "models"
+	// ModelColumn is the table column denoting the model relation/edge.
+	ModelColumn = "model_id"
 )
 
 // Columns holds all SQL columns for message fields.
 var Columns = []string{
 	FieldID,
-	FieldAgentID,
 	FieldCreateTime,
 	FieldUpdateTime,
 	FieldContent,
 	FieldRole,
 	FieldUsage,
 	FieldProcessedTime,
-}
-
-// ForeignKeys holds the SQL foreign-keys that are owned by the "messages"
-// table and are not defined as standalone fields in the schema.
-var ForeignKeys = []string{
-	"task_messages",
+	FieldTaskID,
+	FieldAgentID,
+	FieldModelID,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
 func ValidColumn(column string) bool {
 	for i := range Columns {
 		if column == Columns[i] {
-			return true
-		}
-	}
-	for i := range ForeignKeys {
-		if column == ForeignKeys[i] {
 			return true
 		}
 	}
@@ -106,11 +119,6 @@ func ByID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldID, opts...).ToFunc()
 }
 
-// ByAgentID orders the results by the agent_id field.
-func ByAgentID(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldAgentID, opts...).ToFunc()
-}
-
 // ByCreateTime orders the results by the create_time field.
 func ByCreateTime(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCreateTime, opts...).ToFunc()
@@ -131,16 +139,59 @@ func ByProcessedTime(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldProcessedTime, opts...).ToFunc()
 }
 
+// ByTaskID orders the results by the task_id field.
+func ByTaskID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTaskID, opts...).ToFunc()
+}
+
+// ByAgentID orders the results by the agent_id field.
+func ByAgentID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAgentID, opts...).ToFunc()
+}
+
+// ByModelID orders the results by the model_id field.
+func ByModelID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldModelID, opts...).ToFunc()
+}
+
 // ByTaskField orders the results by task field.
 func ByTaskField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
 		sqlgraph.OrderByNeighborTerms(s, newTaskStep(), sql.OrderByField(field, opts...))
 	}
 }
+
+// ByAgentField orders the results by agent field.
+func ByAgentField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAgentStep(), sql.OrderByField(field, opts...))
+	}
+}
+
+// ByModelField orders the results by model field.
+func ByModelField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newModelStep(), sql.OrderByField(field, opts...))
+	}
+}
 func newTaskStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(TaskInverseTable, FieldID),
-		sqlgraph.Edge(sqlgraph.M2O, true, TaskTable, TaskColumn),
+		sqlgraph.Edge(sqlgraph.M2O, false, TaskTable, TaskColumn),
+	)
+}
+func newAgentStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AgentInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, false, AgentTable, AgentColumn),
+	)
+}
+func newModelStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ModelInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, false, ModelTable, ModelColumn),
 	)
 }

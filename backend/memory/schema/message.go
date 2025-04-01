@@ -20,18 +20,24 @@ func (Message) Fields() []ent.Field {
 		field.Enum("role").GoType(types.MessageRole("")),
 		field.JSON("usage", &types.MessageUsage{}).Optional(),
 		field.Time("processed_time").Optional(),
+
+		field.UUID("task_id", uuid.UUID{}),
+		field.UUID("agent_id", uuid.UUID{}).Optional(),
+		field.UUID("model_id", uuid.UUID{}).Optional(),
 	}
 }
 
 func (Message) Edges() []ent.Edge {
 	return []ent.Edge{
-		edge.From("task", Task.Type).Ref("messages").Unique(),
+		edge.To("task", Task.Type).Field("task_id").Unique().Required(),
+		edge.To("agent", Agent.Type).Field("agent_id").Unique(),
+		edge.To("model", Model.Type).Field("model_id").Unique(),
+		// edge.From("task", Task.Type).Ref("messages").Unique().Field("task_id"),
 	}
 }
 
 func (Message) Mixin() []ent.Mixin {
 	return []ent.Mixin{
-		AgentMixin{},
 		mixin.Time{},
 	}
 }

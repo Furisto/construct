@@ -42,22 +42,11 @@ type Task struct {
 
 // TaskEdges holds the relations/edges for other nodes in the graph.
 type TaskEdges struct {
-	// Messages holds the value of the messages edge.
-	Messages []*Message `json:"messages,omitempty"`
 	// Agent holds the value of the agent edge.
 	Agent *Agent `json:"agent,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [2]bool
-}
-
-// MessagesOrErr returns the Messages value or an error if the edge
-// was not loaded in eager-loading.
-func (e TaskEdges) MessagesOrErr() ([]*Message, error) {
-	if e.loadedTypes[0] {
-		return e.Messages, nil
-	}
-	return nil, &NotLoadedError{edge: "messages"}
+	loadedTypes [1]bool
 }
 
 // AgentOrErr returns the Agent value or an error if the edge
@@ -65,7 +54,7 @@ func (e TaskEdges) MessagesOrErr() ([]*Message, error) {
 func (e TaskEdges) AgentOrErr() (*Agent, error) {
 	if e.Agent != nil {
 		return e.Agent, nil
-	} else if e.loadedTypes[1] {
+	} else if e.loadedTypes[0] {
 		return nil, &NotFoundError{label: agent.Label}
 	}
 	return nil, &NotLoadedError{edge: "agent"}
@@ -167,11 +156,6 @@ func (t *Task) assignValues(columns []string, values []any) error {
 // This includes values selected through modifiers, order, etc.
 func (t *Task) Value(name string) (ent.Value, error) {
 	return t.selectValues.Get(name)
-}
-
-// QueryMessages queries the "messages" edge of the Task entity.
-func (t *Task) QueryMessages() *MessageQuery {
-	return NewTaskClient(t.config).QueryMessages(t)
 }
 
 // QueryAgent queries the "agent" edge of the Task entity.

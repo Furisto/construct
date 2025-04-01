@@ -25,7 +25,7 @@ func (Task) Fields() []ent.Field {
 
 func (Task) Edges() []ent.Edge {
 	return []ent.Edge{
-		edge.To("messages", Message.Type),
+		// edge.To("messages", Message.Type),
 		edge.From("agent", Agent.Type).
 			Ref("tasks").
 			Unique(),

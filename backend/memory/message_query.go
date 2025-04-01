@@ -11,7 +11,9 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/furisto/construct/backend/memory/agent"
 	"github.com/furisto/construct/backend/memory/message"
+	"github.com/furisto/construct/backend/memory/model"
 	"github.com/furisto/construct/backend/memory/predicate"
 	"github.com/furisto/construct/backend/memory/task"
 	"github.com/google/uuid"
@@ -25,7 +27,8 @@ type MessageQuery struct {
 	inters     []Interceptor
 	predicates []predicate.Message
 	withTask   *TaskQuery
-	withFKs    bool
+	withAgent  *AgentQuery
+	withModel  *ModelQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -76,7 +79,51 @@ func (mq *MessageQuery) QueryTask() *TaskQuery {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(message.Table, message.FieldID, selector),
 			sqlgraph.To(task.Table, task.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, message.TaskTable, message.TaskColumn),
+			sqlgraph.Edge(sqlgraph.M2O, false, message.TaskTable, message.TaskColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(mq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryAgent chains the current query on the "agent" edge.
+func (mq *MessageQuery) QueryAgent() *AgentQuery {
+	query := (&AgentClient{config: mq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := mq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := mq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(message.Table, message.FieldID, selector),
+			sqlgraph.To(agent.Table, agent.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, message.AgentTable, message.AgentColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(mq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryModel chains the current query on the "model" edge.
+func (mq *MessageQuery) QueryModel() *ModelQuery {
+	query := (&ModelClient{config: mq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := mq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := mq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(message.Table, message.FieldID, selector),
+			sqlgraph.To(model.Table, model.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, message.ModelTable, message.ModelColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(mq.driver.Dialect(), step)
 		return fromU, nil
@@ -277,6 +324,8 @@ func (mq *MessageQuery) Clone() *MessageQuery {
 		inters:     append([]Interceptor{}, mq.inters...),
 		predicates: append([]predicate.Message{}, mq.predicates...),
 		withTask:   mq.withTask.Clone(),
+		withAgent:  mq.withAgent.Clone(),
+		withModel:  mq.withModel.Clone(),
 		// clone intermediate query.
 		sql:  mq.sql.Clone(),
 		path: mq.path,
@@ -294,18 +343,40 @@ func (mq *MessageQuery) WithTask(opts ...func(*TaskQuery)) *MessageQuery {
 	return mq
 }
 
+// WithAgent tells the query-builder to eager-load the nodes that are connected to
+// the "agent" edge. The optional arguments are used to configure the query builder of the edge.
+func (mq *MessageQuery) WithAgent(opts ...func(*AgentQuery)) *MessageQuery {
+	query := (&AgentClient{config: mq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	mq.withAgent = query
+	return mq
+}
+
+// WithModel tells the query-builder to eager-load the nodes that are connected to
+// the "model" edge. The optional arguments are used to configure the query builder of the edge.
+func (mq *MessageQuery) WithModel(opts ...func(*ModelQuery)) *MessageQuery {
+	query := (&ModelClient{config: mq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	mq.withModel = query
+	return mq
+}
+
 // GroupBy is used to group vertices by one or more fields/columns.
 // It is often used with aggregate functions, like: count, max, mean, min, sum.
 //
 // Example:
 //
 //	var v []struct {
-//		AgentID uuid.UUID `json:"agent_id,omitempty"`
+//		CreateTime time.Time `json:"create_time,omitempty"`
 //		Count int `json:"count,omitempty"`
 //	}
 //
 //	client.Message.Query().
-//		GroupBy(message.FieldAgentID).
+//		GroupBy(message.FieldCreateTime).
 //		Aggregate(memory.Count()).
 //		Scan(ctx, &v)
 func (mq *MessageQuery) GroupBy(field string, fields ...string) *MessageGroupBy {
@@ -323,11 +394,11 @@ func (mq *MessageQuery) GroupBy(field string, fields ...string) *MessageGroupBy 
 // Example:
 //
 //	var v []struct {
-//		AgentID uuid.UUID `json:"agent_id,omitempty"`
+//		CreateTime time.Time `json:"create_time,omitempty"`
 //	}
 //
 //	client.Message.Query().
-//		Select(message.FieldAgentID).
+//		Select(message.FieldCreateTime).
 //		Scan(ctx, &v)
 func (mq *MessageQuery) Select(fields ...string) *MessageSelect {
 	mq.ctx.Fields = append(mq.ctx.Fields, fields...)
@@ -371,18 +442,13 @@ func (mq *MessageQuery) prepareQuery(ctx context.Context) error {
 func (mq *MessageQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Message, error) {
 	var (
 		nodes       = []*Message{}
-		withFKs     = mq.withFKs
 		_spec       = mq.querySpec()
-		loadedTypes = [1]bool{
+		loadedTypes = [3]bool{
 			mq.withTask != nil,
+			mq.withAgent != nil,
+			mq.withModel != nil,
 		}
 	)
-	if mq.withTask != nil {
-		withFKs = true
-	}
-	if withFKs {
-		_spec.Node.Columns = append(_spec.Node.Columns, message.ForeignKeys...)
-	}
 	_spec.ScanValues = func(columns []string) ([]any, error) {
 		return (*Message).scanValues(nil, columns)
 	}
@@ -407,6 +473,18 @@ func (mq *MessageQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Mess
 			return nil, err
 		}
 	}
+	if query := mq.withAgent; query != nil {
+		if err := mq.loadAgent(ctx, query, nodes, nil,
+			func(n *Message, e *Agent) { n.Edges.Agent = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := mq.withModel; query != nil {
+		if err := mq.loadModel(ctx, query, nodes, nil,
+			func(n *Message, e *Model) { n.Edges.Model = e }); err != nil {
+			return nil, err
+		}
+	}
 	return nodes, nil
 }
 
@@ -414,10 +492,7 @@ func (mq *MessageQuery) loadTask(ctx context.Context, query *TaskQuery, nodes []
 	ids := make([]uuid.UUID, 0, len(nodes))
 	nodeids := make(map[uuid.UUID][]*Message)
 	for i := range nodes {
-		if nodes[i].task_messages == nil {
-			continue
-		}
-		fk := *nodes[i].task_messages
+		fk := nodes[i].TaskID
 		if _, ok := nodeids[fk]; !ok {
 			ids = append(ids, fk)
 		}
@@ -434,7 +509,65 @@ func (mq *MessageQuery) loadTask(ctx context.Context, query *TaskQuery, nodes []
 	for _, n := range neighbors {
 		nodes, ok := nodeids[n.ID]
 		if !ok {
-			return fmt.Errorf(`unexpected foreign-key "task_messages" returned %v`, n.ID)
+			return fmt.Errorf(`unexpected foreign-key "task_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
+}
+func (mq *MessageQuery) loadAgent(ctx context.Context, query *AgentQuery, nodes []*Message, init func(*Message), assign func(*Message, *Agent)) error {
+	ids := make([]uuid.UUID, 0, len(nodes))
+	nodeids := make(map[uuid.UUID][]*Message)
+	for i := range nodes {
+		fk := nodes[i].AgentID
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(agent.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "agent_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
+}
+func (mq *MessageQuery) loadModel(ctx context.Context, query *ModelQuery, nodes []*Message, init func(*Message), assign func(*Message, *Model)) error {
+	ids := make([]uuid.UUID, 0, len(nodes))
+	nodeids := make(map[uuid.UUID][]*Message)
+	for i := range nodes {
+		fk := nodes[i].ModelID
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(model.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "model_id" returned %v`, n.ID)
 		}
 		for i := range nodes {
 			assign(nodes[i], n)
@@ -467,6 +600,15 @@ func (mq *MessageQuery) querySpec() *sqlgraph.QuerySpec {
 			if fields[i] != message.FieldID {
 				_spec.Node.Columns = append(_spec.Node.Columns, fields[i])
 			}
+		}
+		if mq.withTask != nil {
+			_spec.Node.AddColumnOnce(message.FieldTaskID)
+		}
+		if mq.withAgent != nil {
+			_spec.Node.AddColumnOnce(message.FieldAgentID)
+		}
+		if mq.withModel != nil {
+			_spec.Node.AddColumnOnce(message.FieldModelID)
 		}
 	}
 	if ps := mq.predicates; len(ps) > 0 {

@@ -35,14 +35,15 @@ var (
 	// MessagesColumns holds the columns for the "messages" table.
 	MessagesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID, Unique: true},
-		{Name: "agent_id", Type: field.TypeUUID},
 		{Name: "create_time", Type: field.TypeTime},
 		{Name: "update_time", Type: field.TypeTime},
 		{Name: "content", Type: field.TypeJSON},
 		{Name: "role", Type: field.TypeEnum, Enums: []string{"user", "assistant"}},
 		{Name: "usage", Type: field.TypeJSON, Nullable: true},
 		{Name: "processed_time", Type: field.TypeTime, Nullable: true},
-		{Name: "task_messages", Type: field.TypeUUID, Nullable: true},
+		{Name: "task_id", Type: field.TypeUUID},
+		{Name: "agent_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "model_id", Type: field.TypeUUID, Nullable: true},
 	}
 	// MessagesTable holds the schema information for the "messages" table.
 	MessagesTable = &schema.Table{
@@ -51,17 +52,22 @@ var (
 		PrimaryKey: []*schema.Column{MessagesColumns[0]},
 		ForeignKeys: []*schema.ForeignKey{
 			{
-				Symbol:     "messages_tasks_messages",
-				Columns:    []*schema.Column{MessagesColumns[8]},
+				Symbol:     "messages_tasks_task",
+				Columns:    []*schema.Column{MessagesColumns[7]},
 				RefColumns: []*schema.Column{TasksColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "messages_agents_agent",
+				Columns:    []*schema.Column{MessagesColumns[8]},
+				RefColumns: []*schema.Column{AgentsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
-		},
-		Indexes: []*schema.Index{
 			{
-				Name:    "message_agent_id",
-				Unique:  false,
-				Columns: []*schema.Column{MessagesColumns[1]},
+				Symbol:     "messages_models_model",
+				Columns:    []*schema.Column{MessagesColumns[9]},
+				RefColumns: []*schema.Column{ModelsColumns[0]},
+				OnDelete:   schema.SetNull,
 			},
 		},
 	}
@@ -176,6 +182,8 @@ var (
 func init() {
 	AgentsTable.ForeignKeys[0].RefTable = ModelsTable
 	MessagesTable.ForeignKeys[0].RefTable = TasksTable
+	MessagesTable.ForeignKeys[1].RefTable = AgentsTable
+	MessagesTable.ForeignKeys[2].RefTable = ModelsTable
 	ModelsTable.ForeignKeys[0].RefTable = ModelProvidersTable
 	TasksTable.ForeignKeys[0].RefTable = AgentsTable
 	AgentDelegatorsTable.ForeignKeys[0].RefTable = AgentsTable

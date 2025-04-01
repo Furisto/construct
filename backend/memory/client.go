@@ -551,7 +551,39 @@ func (c *MessageClient) QueryTask(m *Message) *TaskQuery {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(message.Table, message.FieldID, id),
 			sqlgraph.To(task.Table, task.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, message.TaskTable, message.TaskColumn),
+			sqlgraph.Edge(sqlgraph.M2O, false, message.TaskTable, message.TaskColumn),
+		)
+		fromV = sqlgraph.Neighbors(m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryAgent queries the agent edge of a Message.
+func (c *MessageClient) QueryAgent(m *Message) *AgentQuery {
+	query := (&AgentClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(message.Table, message.FieldID, id),
+			sqlgraph.To(agent.Table, agent.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, message.AgentTable, message.AgentColumn),
+		)
+		fromV = sqlgraph.Neighbors(m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryModel queries the model edge of a Message.
+func (c *MessageClient) QueryModel(m *Message) *ModelQuery {
+	query := (&ModelClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(message.Table, message.FieldID, id),
+			sqlgraph.To(model.Table, model.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, message.ModelTable, message.ModelColumn),
 		)
 		fromV = sqlgraph.Neighbors(m.driver.Dialect(), step)
 		return fromV, nil
@@ -1004,22 +1036,6 @@ func (c *TaskClient) GetX(ctx context.Context, id uuid.UUID) *Task {
 		panic(err)
 	}
 	return obj
-}
-
-// QueryMessages queries the messages edge of a Task.
-func (c *TaskClient) QueryMessages(t *Task) *MessageQuery {
-	query := (&MessageClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := t.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(task.Table, task.FieldID, id),
-			sqlgraph.To(message.Table, message.FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, task.MessagesTable, task.MessagesColumn),
-		)
-		fromV = sqlgraph.Neighbors(t.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
 }
 
 // QueryAgent queries the agent edge of a Task.
