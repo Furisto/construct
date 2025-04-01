@@ -43,6 +43,9 @@ type AgentMutation struct {
 	op              Op
 	typ             string
 	id              *uuid.UUID
+	name            *string
+	description     *string
+	instructions    *string
 	clearedFields   map[string]struct{}
 	model           *uuid.UUID
 	clearedmodel    bool
@@ -159,6 +162,127 @@ func (m *AgentMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
 	default:
 		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
 	}
+}
+
+// SetName sets the "name" field.
+func (m *AgentMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *AgentMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the Agent entity.
+// If the Agent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *AgentMutation) ResetName() {
+	m.name = nil
+}
+
+// SetDescription sets the "description" field.
+func (m *AgentMutation) SetDescription(s string) {
+	m.description = &s
+}
+
+// Description returns the value of the "description" field in the mutation.
+func (m *AgentMutation) Description() (r string, exists bool) {
+	v := m.description
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDescription returns the old "description" field's value of the Agent entity.
+// If the Agent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentMutation) OldDescription(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDescription is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDescription requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDescription: %w", err)
+	}
+	return oldValue.Description, nil
+}
+
+// ClearDescription clears the value of the "description" field.
+func (m *AgentMutation) ClearDescription() {
+	m.description = nil
+	m.clearedFields[agent.FieldDescription] = struct{}{}
+}
+
+// DescriptionCleared returns if the "description" field was cleared in this mutation.
+func (m *AgentMutation) DescriptionCleared() bool {
+	_, ok := m.clearedFields[agent.FieldDescription]
+	return ok
+}
+
+// ResetDescription resets all changes to the "description" field.
+func (m *AgentMutation) ResetDescription() {
+	m.description = nil
+	delete(m.clearedFields, agent.FieldDescription)
+}
+
+// SetInstructions sets the "instructions" field.
+func (m *AgentMutation) SetInstructions(s string) {
+	m.instructions = &s
+}
+
+// Instructions returns the value of the "instructions" field in the mutation.
+func (m *AgentMutation) Instructions() (r string, exists bool) {
+	v := m.instructions
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldInstructions returns the old "instructions" field's value of the Agent entity.
+// If the Agent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentMutation) OldInstructions(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldInstructions is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldInstructions requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldInstructions: %w", err)
+	}
+	return oldValue.Instructions, nil
+}
+
+// ResetInstructions resets all changes to the "instructions" field.
+func (m *AgentMutation) ResetInstructions() {
+	m.instructions = nil
 }
 
 // SetDefaultModel sets the "default_model" field.
@@ -379,7 +503,16 @@ func (m *AgentMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AgentMutation) Fields() []string {
-	fields := make([]string, 0, 1)
+	fields := make([]string, 0, 4)
+	if m.name != nil {
+		fields = append(fields, agent.FieldName)
+	}
+	if m.description != nil {
+		fields = append(fields, agent.FieldDescription)
+	}
+	if m.instructions != nil {
+		fields = append(fields, agent.FieldInstructions)
+	}
 	if m.model != nil {
 		fields = append(fields, agent.FieldDefaultModel)
 	}
@@ -391,6 +524,12 @@ func (m *AgentMutation) Fields() []string {
 // schema.
 func (m *AgentMutation) Field(name string) (ent.Value, bool) {
 	switch name {
+	case agent.FieldName:
+		return m.Name()
+	case agent.FieldDescription:
+		return m.Description()
+	case agent.FieldInstructions:
+		return m.Instructions()
 	case agent.FieldDefaultModel:
 		return m.DefaultModel()
 	}
@@ -402,6 +541,12 @@ func (m *AgentMutation) Field(name string) (ent.Value, bool) {
 // database failed.
 func (m *AgentMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
 	switch name {
+	case agent.FieldName:
+		return m.OldName(ctx)
+	case agent.FieldDescription:
+		return m.OldDescription(ctx)
+	case agent.FieldInstructions:
+		return m.OldInstructions(ctx)
 	case agent.FieldDefaultModel:
 		return m.OldDefaultModel(ctx)
 	}
@@ -413,6 +558,27 @@ func (m *AgentMutation) OldField(ctx context.Context, name string) (ent.Value, e
 // type.
 func (m *AgentMutation) SetField(name string, value ent.Value) error {
 	switch name {
+	case agent.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	case agent.FieldDescription:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDescription(v)
+		return nil
+	case agent.FieldInstructions:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetInstructions(v)
+		return nil
 	case agent.FieldDefaultModel:
 		v, ok := value.(uuid.UUID)
 		if !ok {
@@ -449,7 +615,11 @@ func (m *AgentMutation) AddField(name string, value ent.Value) error {
 // ClearedFields returns all nullable fields that were cleared during this
 // mutation.
 func (m *AgentMutation) ClearedFields() []string {
-	return nil
+	var fields []string
+	if m.FieldCleared(agent.FieldDescription) {
+		fields = append(fields, agent.FieldDescription)
+	}
+	return fields
 }
 
 // FieldCleared returns a boolean indicating if a field with the given name was
@@ -462,6 +632,11 @@ func (m *AgentMutation) FieldCleared(name string) bool {
 // ClearField clears the value of the field with the given name. It returns an
 // error if the field is not defined in the schema.
 func (m *AgentMutation) ClearField(name string) error {
+	switch name {
+	case agent.FieldDescription:
+		m.ClearDescription()
+		return nil
+	}
 	return fmt.Errorf("unknown Agent nullable field %s", name)
 }
 
@@ -469,6 +644,15 @@ func (m *AgentMutation) ClearField(name string) error {
 // It returns an error if the field is not defined in the schema.
 func (m *AgentMutation) ResetField(name string) error {
 	switch name {
+	case agent.FieldName:
+		m.ResetName()
+		return nil
+	case agent.FieldDescription:
+		m.ResetDescription()
+		return nil
+	case agent.FieldInstructions:
+		m.ResetInstructions()
+		return nil
 	case agent.FieldDefaultModel:
 		m.ResetDefaultModel()
 		return nil
@@ -1599,6 +1783,20 @@ type ModelMutation struct {
 	op                     Op
 	typ                    string
 	id                     *uuid.UUID
+	name                   *string
+	context_window         *int64
+	addcontext_window      *int64
+	capabilities           *[]types.ModelCapability
+	appendcapabilities     []types.ModelCapability
+	input_cost             *float64
+	addinput_cost          *float64
+	output_cost            *float64
+	addoutput_cost         *float64
+	cache_write_cost       *float64
+	addcache_write_cost    *float64
+	cache_read_cost        *float64
+	addcache_read_cost     *float64
+	enabled                *bool
 	clearedFields          map[string]struct{}
 	agents                 map[uuid.UUID]struct{}
 	removedagents          map[uuid.UUID]struct{}
@@ -1715,6 +1913,423 @@ func (m *ModelMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
 	default:
 		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
 	}
+}
+
+// SetName sets the "name" field.
+func (m *ModelMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *ModelMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the Model entity.
+// If the Model object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ModelMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *ModelMutation) ResetName() {
+	m.name = nil
+}
+
+// SetContextWindow sets the "context_window" field.
+func (m *ModelMutation) SetContextWindow(i int64) {
+	m.context_window = &i
+	m.addcontext_window = nil
+}
+
+// ContextWindow returns the value of the "context_window" field in the mutation.
+func (m *ModelMutation) ContextWindow() (r int64, exists bool) {
+	v := m.context_window
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldContextWindow returns the old "context_window" field's value of the Model entity.
+// If the Model object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ModelMutation) OldContextWindow(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldContextWindow is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldContextWindow requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldContextWindow: %w", err)
+	}
+	return oldValue.ContextWindow, nil
+}
+
+// AddContextWindow adds i to the "context_window" field.
+func (m *ModelMutation) AddContextWindow(i int64) {
+	if m.addcontext_window != nil {
+		*m.addcontext_window += i
+	} else {
+		m.addcontext_window = &i
+	}
+}
+
+// AddedContextWindow returns the value that was added to the "context_window" field in this mutation.
+func (m *ModelMutation) AddedContextWindow() (r int64, exists bool) {
+	v := m.addcontext_window
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetContextWindow resets all changes to the "context_window" field.
+func (m *ModelMutation) ResetContextWindow() {
+	m.context_window = nil
+	m.addcontext_window = nil
+}
+
+// SetCapabilities sets the "capabilities" field.
+func (m *ModelMutation) SetCapabilities(tc []types.ModelCapability) {
+	m.capabilities = &tc
+	m.appendcapabilities = nil
+}
+
+// Capabilities returns the value of the "capabilities" field in the mutation.
+func (m *ModelMutation) Capabilities() (r []types.ModelCapability, exists bool) {
+	v := m.capabilities
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCapabilities returns the old "capabilities" field's value of the Model entity.
+// If the Model object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ModelMutation) OldCapabilities(ctx context.Context) (v []types.ModelCapability, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCapabilities is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCapabilities requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCapabilities: %w", err)
+	}
+	return oldValue.Capabilities, nil
+}
+
+// AppendCapabilities adds tc to the "capabilities" field.
+func (m *ModelMutation) AppendCapabilities(tc []types.ModelCapability) {
+	m.appendcapabilities = append(m.appendcapabilities, tc...)
+}
+
+// AppendedCapabilities returns the list of values that were appended to the "capabilities" field in this mutation.
+func (m *ModelMutation) AppendedCapabilities() ([]types.ModelCapability, bool) {
+	if len(m.appendcapabilities) == 0 {
+		return nil, false
+	}
+	return m.appendcapabilities, true
+}
+
+// ClearCapabilities clears the value of the "capabilities" field.
+func (m *ModelMutation) ClearCapabilities() {
+	m.capabilities = nil
+	m.appendcapabilities = nil
+	m.clearedFields[model.FieldCapabilities] = struct{}{}
+}
+
+// CapabilitiesCleared returns if the "capabilities" field was cleared in this mutation.
+func (m *ModelMutation) CapabilitiesCleared() bool {
+	_, ok := m.clearedFields[model.FieldCapabilities]
+	return ok
+}
+
+// ResetCapabilities resets all changes to the "capabilities" field.
+func (m *ModelMutation) ResetCapabilities() {
+	m.capabilities = nil
+	m.appendcapabilities = nil
+	delete(m.clearedFields, model.FieldCapabilities)
+}
+
+// SetInputCost sets the "input_cost" field.
+func (m *ModelMutation) SetInputCost(f float64) {
+	m.input_cost = &f
+	m.addinput_cost = nil
+}
+
+// InputCost returns the value of the "input_cost" field in the mutation.
+func (m *ModelMutation) InputCost() (r float64, exists bool) {
+	v := m.input_cost
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldInputCost returns the old "input_cost" field's value of the Model entity.
+// If the Model object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ModelMutation) OldInputCost(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldInputCost is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldInputCost requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldInputCost: %w", err)
+	}
+	return oldValue.InputCost, nil
+}
+
+// AddInputCost adds f to the "input_cost" field.
+func (m *ModelMutation) AddInputCost(f float64) {
+	if m.addinput_cost != nil {
+		*m.addinput_cost += f
+	} else {
+		m.addinput_cost = &f
+	}
+}
+
+// AddedInputCost returns the value that was added to the "input_cost" field in this mutation.
+func (m *ModelMutation) AddedInputCost() (r float64, exists bool) {
+	v := m.addinput_cost
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetInputCost resets all changes to the "input_cost" field.
+func (m *ModelMutation) ResetInputCost() {
+	m.input_cost = nil
+	m.addinput_cost = nil
+}
+
+// SetOutputCost sets the "output_cost" field.
+func (m *ModelMutation) SetOutputCost(f float64) {
+	m.output_cost = &f
+	m.addoutput_cost = nil
+}
+
+// OutputCost returns the value of the "output_cost" field in the mutation.
+func (m *ModelMutation) OutputCost() (r float64, exists bool) {
+	v := m.output_cost
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOutputCost returns the old "output_cost" field's value of the Model entity.
+// If the Model object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ModelMutation) OldOutputCost(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOutputCost is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOutputCost requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOutputCost: %w", err)
+	}
+	return oldValue.OutputCost, nil
+}
+
+// AddOutputCost adds f to the "output_cost" field.
+func (m *ModelMutation) AddOutputCost(f float64) {
+	if m.addoutput_cost != nil {
+		*m.addoutput_cost += f
+	} else {
+		m.addoutput_cost = &f
+	}
+}
+
+// AddedOutputCost returns the value that was added to the "output_cost" field in this mutation.
+func (m *ModelMutation) AddedOutputCost() (r float64, exists bool) {
+	v := m.addoutput_cost
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetOutputCost resets all changes to the "output_cost" field.
+func (m *ModelMutation) ResetOutputCost() {
+	m.output_cost = nil
+	m.addoutput_cost = nil
+}
+
+// SetCacheWriteCost sets the "cache_write_cost" field.
+func (m *ModelMutation) SetCacheWriteCost(f float64) {
+	m.cache_write_cost = &f
+	m.addcache_write_cost = nil
+}
+
+// CacheWriteCost returns the value of the "cache_write_cost" field in the mutation.
+func (m *ModelMutation) CacheWriteCost() (r float64, exists bool) {
+	v := m.cache_write_cost
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCacheWriteCost returns the old "cache_write_cost" field's value of the Model entity.
+// If the Model object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ModelMutation) OldCacheWriteCost(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCacheWriteCost is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCacheWriteCost requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCacheWriteCost: %w", err)
+	}
+	return oldValue.CacheWriteCost, nil
+}
+
+// AddCacheWriteCost adds f to the "cache_write_cost" field.
+func (m *ModelMutation) AddCacheWriteCost(f float64) {
+	if m.addcache_write_cost != nil {
+		*m.addcache_write_cost += f
+	} else {
+		m.addcache_write_cost = &f
+	}
+}
+
+// AddedCacheWriteCost returns the value that was added to the "cache_write_cost" field in this mutation.
+func (m *ModelMutation) AddedCacheWriteCost() (r float64, exists bool) {
+	v := m.addcache_write_cost
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetCacheWriteCost resets all changes to the "cache_write_cost" field.
+func (m *ModelMutation) ResetCacheWriteCost() {
+	m.cache_write_cost = nil
+	m.addcache_write_cost = nil
+}
+
+// SetCacheReadCost sets the "cache_read_cost" field.
+func (m *ModelMutation) SetCacheReadCost(f float64) {
+	m.cache_read_cost = &f
+	m.addcache_read_cost = nil
+}
+
+// CacheReadCost returns the value of the "cache_read_cost" field in the mutation.
+func (m *ModelMutation) CacheReadCost() (r float64, exists bool) {
+	v := m.cache_read_cost
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCacheReadCost returns the old "cache_read_cost" field's value of the Model entity.
+// If the Model object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ModelMutation) OldCacheReadCost(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCacheReadCost is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCacheReadCost requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCacheReadCost: %w", err)
+	}
+	return oldValue.CacheReadCost, nil
+}
+
+// AddCacheReadCost adds f to the "cache_read_cost" field.
+func (m *ModelMutation) AddCacheReadCost(f float64) {
+	if m.addcache_read_cost != nil {
+		*m.addcache_read_cost += f
+	} else {
+		m.addcache_read_cost = &f
+	}
+}
+
+// AddedCacheReadCost returns the value that was added to the "cache_read_cost" field in this mutation.
+func (m *ModelMutation) AddedCacheReadCost() (r float64, exists bool) {
+	v := m.addcache_read_cost
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetCacheReadCost resets all changes to the "cache_read_cost" field.
+func (m *ModelMutation) ResetCacheReadCost() {
+	m.cache_read_cost = nil
+	m.addcache_read_cost = nil
+}
+
+// SetEnabled sets the "enabled" field.
+func (m *ModelMutation) SetEnabled(b bool) {
+	m.enabled = &b
+}
+
+// Enabled returns the value of the "enabled" field in the mutation.
+func (m *ModelMutation) Enabled() (r bool, exists bool) {
+	v := m.enabled
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEnabled returns the old "enabled" field's value of the Model entity.
+// If the Model object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ModelMutation) OldEnabled(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEnabled is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEnabled requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEnabled: %w", err)
+	}
+	return oldValue.Enabled, nil
+}
+
+// ResetEnabled resets all changes to the "enabled" field.
+func (m *ModelMutation) ResetEnabled() {
+	m.enabled = nil
 }
 
 // SetModelProvider sets the "model_provider" field.
@@ -1935,7 +2550,31 @@ func (m *ModelMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ModelMutation) Fields() []string {
-	fields := make([]string, 0, 1)
+	fields := make([]string, 0, 9)
+	if m.name != nil {
+		fields = append(fields, model.FieldName)
+	}
+	if m.context_window != nil {
+		fields = append(fields, model.FieldContextWindow)
+	}
+	if m.capabilities != nil {
+		fields = append(fields, model.FieldCapabilities)
+	}
+	if m.input_cost != nil {
+		fields = append(fields, model.FieldInputCost)
+	}
+	if m.output_cost != nil {
+		fields = append(fields, model.FieldOutputCost)
+	}
+	if m.cache_write_cost != nil {
+		fields = append(fields, model.FieldCacheWriteCost)
+	}
+	if m.cache_read_cost != nil {
+		fields = append(fields, model.FieldCacheReadCost)
+	}
+	if m.enabled != nil {
+		fields = append(fields, model.FieldEnabled)
+	}
 	if m.model_providers != nil {
 		fields = append(fields, model.FieldModelProvider)
 	}
@@ -1947,6 +2586,22 @@ func (m *ModelMutation) Fields() []string {
 // schema.
 func (m *ModelMutation) Field(name string) (ent.Value, bool) {
 	switch name {
+	case model.FieldName:
+		return m.Name()
+	case model.FieldContextWindow:
+		return m.ContextWindow()
+	case model.FieldCapabilities:
+		return m.Capabilities()
+	case model.FieldInputCost:
+		return m.InputCost()
+	case model.FieldOutputCost:
+		return m.OutputCost()
+	case model.FieldCacheWriteCost:
+		return m.CacheWriteCost()
+	case model.FieldCacheReadCost:
+		return m.CacheReadCost()
+	case model.FieldEnabled:
+		return m.Enabled()
 	case model.FieldModelProvider:
 		return m.ModelProvider()
 	}
@@ -1958,6 +2613,22 @@ func (m *ModelMutation) Field(name string) (ent.Value, bool) {
 // database failed.
 func (m *ModelMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
 	switch name {
+	case model.FieldName:
+		return m.OldName(ctx)
+	case model.FieldContextWindow:
+		return m.OldContextWindow(ctx)
+	case model.FieldCapabilities:
+		return m.OldCapabilities(ctx)
+	case model.FieldInputCost:
+		return m.OldInputCost(ctx)
+	case model.FieldOutputCost:
+		return m.OldOutputCost(ctx)
+	case model.FieldCacheWriteCost:
+		return m.OldCacheWriteCost(ctx)
+	case model.FieldCacheReadCost:
+		return m.OldCacheReadCost(ctx)
+	case model.FieldEnabled:
+		return m.OldEnabled(ctx)
 	case model.FieldModelProvider:
 		return m.OldModelProvider(ctx)
 	}
@@ -1969,6 +2640,62 @@ func (m *ModelMutation) OldField(ctx context.Context, name string) (ent.Value, e
 // type.
 func (m *ModelMutation) SetField(name string, value ent.Value) error {
 	switch name {
+	case model.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	case model.FieldContextWindow:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetContextWindow(v)
+		return nil
+	case model.FieldCapabilities:
+		v, ok := value.([]types.ModelCapability)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCapabilities(v)
+		return nil
+	case model.FieldInputCost:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetInputCost(v)
+		return nil
+	case model.FieldOutputCost:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOutputCost(v)
+		return nil
+	case model.FieldCacheWriteCost:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCacheWriteCost(v)
+		return nil
+	case model.FieldCacheReadCost:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCacheReadCost(v)
+		return nil
+	case model.FieldEnabled:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEnabled(v)
+		return nil
 	case model.FieldModelProvider:
 		v, ok := value.(uuid.UUID)
 		if !ok {
@@ -1983,13 +2710,41 @@ func (m *ModelMutation) SetField(name string, value ent.Value) error {
 // AddedFields returns all numeric fields that were incremented/decremented during
 // this mutation.
 func (m *ModelMutation) AddedFields() []string {
-	return nil
+	var fields []string
+	if m.addcontext_window != nil {
+		fields = append(fields, model.FieldContextWindow)
+	}
+	if m.addinput_cost != nil {
+		fields = append(fields, model.FieldInputCost)
+	}
+	if m.addoutput_cost != nil {
+		fields = append(fields, model.FieldOutputCost)
+	}
+	if m.addcache_write_cost != nil {
+		fields = append(fields, model.FieldCacheWriteCost)
+	}
+	if m.addcache_read_cost != nil {
+		fields = append(fields, model.FieldCacheReadCost)
+	}
+	return fields
 }
 
 // AddedField returns the numeric value that was incremented/decremented on a field
 // with the given name. The second boolean return value indicates that this field
 // was not set, or was not defined in the schema.
 func (m *ModelMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case model.FieldContextWindow:
+		return m.AddedContextWindow()
+	case model.FieldInputCost:
+		return m.AddedInputCost()
+	case model.FieldOutputCost:
+		return m.AddedOutputCost()
+	case model.FieldCacheWriteCost:
+		return m.AddedCacheWriteCost()
+	case model.FieldCacheReadCost:
+		return m.AddedCacheReadCost()
+	}
 	return nil, false
 }
 
@@ -1998,6 +2753,41 @@ func (m *ModelMutation) AddedField(name string) (ent.Value, bool) {
 // type.
 func (m *ModelMutation) AddField(name string, value ent.Value) error {
 	switch name {
+	case model.FieldContextWindow:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddContextWindow(v)
+		return nil
+	case model.FieldInputCost:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddInputCost(v)
+		return nil
+	case model.FieldOutputCost:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddOutputCost(v)
+		return nil
+	case model.FieldCacheWriteCost:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddCacheWriteCost(v)
+		return nil
+	case model.FieldCacheReadCost:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddCacheReadCost(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Model numeric field %s", name)
 }
@@ -2005,7 +2795,11 @@ func (m *ModelMutation) AddField(name string, value ent.Value) error {
 // ClearedFields returns all nullable fields that were cleared during this
 // mutation.
 func (m *ModelMutation) ClearedFields() []string {
-	return nil
+	var fields []string
+	if m.FieldCleared(model.FieldCapabilities) {
+		fields = append(fields, model.FieldCapabilities)
+	}
+	return fields
 }
 
 // FieldCleared returns a boolean indicating if a field with the given name was
@@ -2018,6 +2812,11 @@ func (m *ModelMutation) FieldCleared(name string) bool {
 // ClearField clears the value of the field with the given name. It returns an
 // error if the field is not defined in the schema.
 func (m *ModelMutation) ClearField(name string) error {
+	switch name {
+	case model.FieldCapabilities:
+		m.ClearCapabilities()
+		return nil
+	}
 	return fmt.Errorf("unknown Model nullable field %s", name)
 }
 
@@ -2025,6 +2824,30 @@ func (m *ModelMutation) ClearField(name string) error {
 // It returns an error if the field is not defined in the schema.
 func (m *ModelMutation) ResetField(name string) error {
 	switch name {
+	case model.FieldName:
+		m.ResetName()
+		return nil
+	case model.FieldContextWindow:
+		m.ResetContextWindow()
+		return nil
+	case model.FieldCapabilities:
+		m.ResetCapabilities()
+		return nil
+	case model.FieldInputCost:
+		m.ResetInputCost()
+		return nil
+	case model.FieldOutputCost:
+		m.ResetOutputCost()
+		return nil
+	case model.FieldCacheWriteCost:
+		m.ResetCacheWriteCost()
+		return nil
+	case model.FieldCacheReadCost:
+		m.ResetCacheReadCost()
+		return nil
+	case model.FieldEnabled:
+		m.ResetEnabled()
+		return nil
 	case model.FieldModelProvider:
 		m.ResetModelProvider()
 		return nil

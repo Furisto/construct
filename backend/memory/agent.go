@@ -18,6 +18,12 @@ type Agent struct {
 	config `json:"-"`
 	// ID of the ent.
 	ID uuid.UUID `json:"id,omitempty"`
+	// Name holds the value of the "name" field.
+	Name string `json:"name,omitempty"`
+	// Description holds the value of the "description" field.
+	Description string `json:"description,omitempty"`
+	// Instructions holds the value of the "instructions" field.
+	Instructions string `json:"instructions,omitempty"`
 	// DefaultModel holds the value of the "default_model" field.
 	DefaultModel uuid.UUID `json:"default_model,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -73,6 +79,8 @@ func (*Agent) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case agent.FieldName, agent.FieldDescription, agent.FieldInstructions:
+			values[i] = new(sql.NullString)
 		case agent.FieldID, agent.FieldDefaultModel:
 			values[i] = new(uuid.UUID)
 		default:
@@ -95,6 +103,24 @@ func (a *Agent) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field id", values[i])
 			} else if value != nil {
 				a.ID = *value
+			}
+		case agent.FieldName:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field name", values[i])
+			} else if value.Valid {
+				a.Name = value.String
+			}
+		case agent.FieldDescription:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field description", values[i])
+			} else if value.Valid {
+				a.Description = value.String
+			}
+		case agent.FieldInstructions:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field instructions", values[i])
+			} else if value.Valid {
+				a.Instructions = value.String
 			}
 		case agent.FieldDefaultModel:
 			if value, ok := values[i].(*uuid.UUID); !ok {
@@ -153,6 +179,15 @@ func (a *Agent) String() string {
 	var builder strings.Builder
 	builder.WriteString("Agent(")
 	builder.WriteString(fmt.Sprintf("id=%v, ", a.ID))
+	builder.WriteString("name=")
+	builder.WriteString(a.Name)
+	builder.WriteString(", ")
+	builder.WriteString("description=")
+	builder.WriteString(a.Description)
+	builder.WriteString(", ")
+	builder.WriteString("instructions=")
+	builder.WriteString(a.Instructions)
+	builder.WriteString(", ")
 	builder.WriteString("default_model=")
 	builder.WriteString(fmt.Sprintf("%v", a.DefaultModel))
 	builder.WriteByte(')')

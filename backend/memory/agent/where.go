@@ -54,9 +54,229 @@ func IDLTE(id uuid.UUID) predicate.Agent {
 	return predicate.Agent(sql.FieldLTE(FieldID, id))
 }
 
+// Name applies equality check predicate on the "name" field. It's identical to NameEQ.
+func Name(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldEQ(FieldName, v))
+}
+
+// Description applies equality check predicate on the "description" field. It's identical to DescriptionEQ.
+func Description(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldEQ(FieldDescription, v))
+}
+
+// Instructions applies equality check predicate on the "instructions" field. It's identical to InstructionsEQ.
+func Instructions(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldEQ(FieldInstructions, v))
+}
+
 // DefaultModel applies equality check predicate on the "default_model" field. It's identical to DefaultModelEQ.
 func DefaultModel(v uuid.UUID) predicate.Agent {
 	return predicate.Agent(sql.FieldEQ(FieldDefaultModel, v))
+}
+
+// NameEQ applies the EQ predicate on the "name" field.
+func NameEQ(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldEQ(FieldName, v))
+}
+
+// NameNEQ applies the NEQ predicate on the "name" field.
+func NameNEQ(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldNEQ(FieldName, v))
+}
+
+// NameIn applies the In predicate on the "name" field.
+func NameIn(vs ...string) predicate.Agent {
+	return predicate.Agent(sql.FieldIn(FieldName, vs...))
+}
+
+// NameNotIn applies the NotIn predicate on the "name" field.
+func NameNotIn(vs ...string) predicate.Agent {
+	return predicate.Agent(sql.FieldNotIn(FieldName, vs...))
+}
+
+// NameGT applies the GT predicate on the "name" field.
+func NameGT(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldGT(FieldName, v))
+}
+
+// NameGTE applies the GTE predicate on the "name" field.
+func NameGTE(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldGTE(FieldName, v))
+}
+
+// NameLT applies the LT predicate on the "name" field.
+func NameLT(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldLT(FieldName, v))
+}
+
+// NameLTE applies the LTE predicate on the "name" field.
+func NameLTE(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldLTE(FieldName, v))
+}
+
+// NameContains applies the Contains predicate on the "name" field.
+func NameContains(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldContains(FieldName, v))
+}
+
+// NameHasPrefix applies the HasPrefix predicate on the "name" field.
+func NameHasPrefix(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldHasPrefix(FieldName, v))
+}
+
+// NameHasSuffix applies the HasSuffix predicate on the "name" field.
+func NameHasSuffix(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldHasSuffix(FieldName, v))
+}
+
+// NameEqualFold applies the EqualFold predicate on the "name" field.
+func NameEqualFold(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldEqualFold(FieldName, v))
+}
+
+// NameContainsFold applies the ContainsFold predicate on the "name" field.
+func NameContainsFold(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldContainsFold(FieldName, v))
+}
+
+// DescriptionEQ applies the EQ predicate on the "description" field.
+func DescriptionEQ(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldEQ(FieldDescription, v))
+}
+
+// DescriptionNEQ applies the NEQ predicate on the "description" field.
+func DescriptionNEQ(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldNEQ(FieldDescription, v))
+}
+
+// DescriptionIn applies the In predicate on the "description" field.
+func DescriptionIn(vs ...string) predicate.Agent {
+	return predicate.Agent(sql.FieldIn(FieldDescription, vs...))
+}
+
+// DescriptionNotIn applies the NotIn predicate on the "description" field.
+func DescriptionNotIn(vs ...string) predicate.Agent {
+	return predicate.Agent(sql.FieldNotIn(FieldDescription, vs...))
+}
+
+// DescriptionGT applies the GT predicate on the "description" field.
+func DescriptionGT(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldGT(FieldDescription, v))
+}
+
+// DescriptionGTE applies the GTE predicate on the "description" field.
+func DescriptionGTE(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldGTE(FieldDescription, v))
+}
+
+// DescriptionLT applies the LT predicate on the "description" field.
+func DescriptionLT(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldLT(FieldDescription, v))
+}
+
+// DescriptionLTE applies the LTE predicate on the "description" field.
+func DescriptionLTE(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldLTE(FieldDescription, v))
+}
+
+// DescriptionContains applies the Contains predicate on the "description" field.
+func DescriptionContains(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldContains(FieldDescription, v))
+}
+
+// DescriptionHasPrefix applies the HasPrefix predicate on the "description" field.
+func DescriptionHasPrefix(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldHasPrefix(FieldDescription, v))
+}
+
+// DescriptionHasSuffix applies the HasSuffix predicate on the "description" field.
+func DescriptionHasSuffix(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldHasSuffix(FieldDescription, v))
+}
+
+// DescriptionIsNil applies the IsNil predicate on the "description" field.
+func DescriptionIsNil() predicate.Agent {
+	return predicate.Agent(sql.FieldIsNull(FieldDescription))
+}
+
+// DescriptionNotNil applies the NotNil predicate on the "description" field.
+func DescriptionNotNil() predicate.Agent {
+	return predicate.Agent(sql.FieldNotNull(FieldDescription))
+}
+
+// DescriptionEqualFold applies the EqualFold predicate on the "description" field.
+func DescriptionEqualFold(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldEqualFold(FieldDescription, v))
+}
+
+// DescriptionContainsFold applies the ContainsFold predicate on the "description" field.
+func DescriptionContainsFold(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldContainsFold(FieldDescription, v))
+}
+
+// InstructionsEQ applies the EQ predicate on the "instructions" field.
+func InstructionsEQ(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldEQ(FieldInstructions, v))
+}
+
+// InstructionsNEQ applies the NEQ predicate on the "instructions" field.
+func InstructionsNEQ(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldNEQ(FieldInstructions, v))
+}
+
+// InstructionsIn applies the In predicate on the "instructions" field.
+func InstructionsIn(vs ...string) predicate.Agent {
+	return predicate.Agent(sql.FieldIn(FieldInstructions, vs...))
+}
+
+// InstructionsNotIn applies the NotIn predicate on the "instructions" field.
+func InstructionsNotIn(vs ...string) predicate.Agent {
+	return predicate.Agent(sql.FieldNotIn(FieldInstructions, vs...))
+}
+
+// InstructionsGT applies the GT predicate on the "instructions" field.
+func InstructionsGT(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldGT(FieldInstructions, v))
+}
+
+// InstructionsGTE applies the GTE predicate on the "instructions" field.
+func InstructionsGTE(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldGTE(FieldInstructions, v))
+}
+
+// InstructionsLT applies the LT predicate on the "instructions" field.
+func InstructionsLT(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldLT(FieldInstructions, v))
+}
+
+// InstructionsLTE applies the LTE predicate on the "instructions" field.
+func InstructionsLTE(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldLTE(FieldInstructions, v))
+}
+
+// InstructionsContains applies the Contains predicate on the "instructions" field.
+func InstructionsContains(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldContains(FieldInstructions, v))
+}
+
+// InstructionsHasPrefix applies the HasPrefix predicate on the "instructions" field.
+func InstructionsHasPrefix(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldHasPrefix(FieldInstructions, v))
+}
+
+// InstructionsHasSuffix applies the HasSuffix predicate on the "instructions" field.
+func InstructionsHasSuffix(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldHasSuffix(FieldInstructions, v))
+}
+
+// InstructionsEqualFold applies the EqualFold predicate on the "instructions" field.
+func InstructionsEqualFold(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldEqualFold(FieldInstructions, v))
+}
+
+// InstructionsContainsFold applies the ContainsFold predicate on the "instructions" field.
+func InstructionsContainsFold(v string) predicate.Agent {
+	return predicate.Agent(sql.FieldContainsFold(FieldInstructions, v))
 }
 
 // DefaultModelEQ applies the EQ predicate on the "default_model" field.

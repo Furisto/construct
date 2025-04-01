@@ -23,6 +23,32 @@ type AgentCreate struct {
 	hooks    []Hook
 }
 
+// SetName sets the "name" field.
+func (ac *AgentCreate) SetName(s string) *AgentCreate {
+	ac.mutation.SetName(s)
+	return ac
+}
+
+// SetDescription sets the "description" field.
+func (ac *AgentCreate) SetDescription(s string) *AgentCreate {
+	ac.mutation.SetDescription(s)
+	return ac
+}
+
+// SetNillableDescription sets the "description" field if the given value is not nil.
+func (ac *AgentCreate) SetNillableDescription(s *string) *AgentCreate {
+	if s != nil {
+		ac.SetDescription(*s)
+	}
+	return ac
+}
+
+// SetInstructions sets the "instructions" field.
+func (ac *AgentCreate) SetInstructions(s string) *AgentCreate {
+	ac.mutation.SetInstructions(s)
+	return ac
+}
+
 // SetDefaultModel sets the "default_model" field.
 func (ac *AgentCreate) SetDefaultModel(u uuid.UUID) *AgentCreate {
 	ac.mutation.SetDefaultModel(u)
@@ -127,6 +153,17 @@ func (ac *AgentCreate) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (ac *AgentCreate) check() error {
+	if _, ok := ac.mutation.Name(); !ok {
+		return &ValidationError{Name: "name", err: errors.New(`memory: missing required field "Agent.name"`)}
+	}
+	if v, ok := ac.mutation.Name(); ok {
+		if err := agent.NameValidator(v); err != nil {
+			return &ValidationError{Name: "name", err: fmt.Errorf(`memory: validator failed for field "Agent.name": %w`, err)}
+		}
+	}
+	if _, ok := ac.mutation.Instructions(); !ok {
+		return &ValidationError{Name: "instructions", err: errors.New(`memory: missing required field "Agent.instructions"`)}
+	}
 	if _, ok := ac.mutation.DefaultModel(); !ok {
 		return &ValidationError{Name: "default_model", err: errors.New(`memory: missing required field "Agent.default_model"`)}
 	}
@@ -167,6 +204,18 @@ func (ac *AgentCreate) createSpec() (*Agent, *sqlgraph.CreateSpec) {
 	if id, ok := ac.mutation.ID(); ok {
 		_node.ID = id
 		_spec.ID.Value = &id
+	}
+	if value, ok := ac.mutation.Name(); ok {
+		_spec.SetField(agent.FieldName, field.TypeString, value)
+		_node.Name = value
+	}
+	if value, ok := ac.mutation.Description(); ok {
+		_spec.SetField(agent.FieldDescription, field.TypeString, value)
+		_node.Description = value
+	}
+	if value, ok := ac.mutation.Instructions(); ok {
+		_spec.SetField(agent.FieldInstructions, field.TypeString, value)
+		_node.Instructions = value
 	}
 	if nodes := ac.mutation.ModelIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

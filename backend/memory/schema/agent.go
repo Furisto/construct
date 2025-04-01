@@ -14,6 +14,9 @@ type Agent struct {
 func (Agent) Fields() []ent.Field {
 	return []ent.Field{
 		field.UUID("id", uuid.UUID{}).Default(uuid.New).Unique().Immutable(),
+		field.String("name").NotEmpty(),
+		field.String("description").Optional(),
+		field.String("instructions"),
 
 		field.UUID("default_model", uuid.UUID{}),
 	}

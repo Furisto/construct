@@ -54,9 +54,329 @@ func IDLTE(id uuid.UUID) predicate.Model {
 	return predicate.Model(sql.FieldLTE(FieldID, id))
 }
 
+// Name applies equality check predicate on the "name" field. It's identical to NameEQ.
+func Name(v string) predicate.Model {
+	return predicate.Model(sql.FieldEQ(FieldName, v))
+}
+
+// ContextWindow applies equality check predicate on the "context_window" field. It's identical to ContextWindowEQ.
+func ContextWindow(v int64) predicate.Model {
+	return predicate.Model(sql.FieldEQ(FieldContextWindow, v))
+}
+
+// InputCost applies equality check predicate on the "input_cost" field. It's identical to InputCostEQ.
+func InputCost(v float64) predicate.Model {
+	return predicate.Model(sql.FieldEQ(FieldInputCost, v))
+}
+
+// OutputCost applies equality check predicate on the "output_cost" field. It's identical to OutputCostEQ.
+func OutputCost(v float64) predicate.Model {
+	return predicate.Model(sql.FieldEQ(FieldOutputCost, v))
+}
+
+// CacheWriteCost applies equality check predicate on the "cache_write_cost" field. It's identical to CacheWriteCostEQ.
+func CacheWriteCost(v float64) predicate.Model {
+	return predicate.Model(sql.FieldEQ(FieldCacheWriteCost, v))
+}
+
+// CacheReadCost applies equality check predicate on the "cache_read_cost" field. It's identical to CacheReadCostEQ.
+func CacheReadCost(v float64) predicate.Model {
+	return predicate.Model(sql.FieldEQ(FieldCacheReadCost, v))
+}
+
+// Enabled applies equality check predicate on the "enabled" field. It's identical to EnabledEQ.
+func Enabled(v bool) predicate.Model {
+	return predicate.Model(sql.FieldEQ(FieldEnabled, v))
+}
+
 // ModelProvider applies equality check predicate on the "model_provider" field. It's identical to ModelProviderEQ.
 func ModelProvider(v uuid.UUID) predicate.Model {
 	return predicate.Model(sql.FieldEQ(FieldModelProvider, v))
+}
+
+// NameEQ applies the EQ predicate on the "name" field.
+func NameEQ(v string) predicate.Model {
+	return predicate.Model(sql.FieldEQ(FieldName, v))
+}
+
+// NameNEQ applies the NEQ predicate on the "name" field.
+func NameNEQ(v string) predicate.Model {
+	return predicate.Model(sql.FieldNEQ(FieldName, v))
+}
+
+// NameIn applies the In predicate on the "name" field.
+func NameIn(vs ...string) predicate.Model {
+	return predicate.Model(sql.FieldIn(FieldName, vs...))
+}
+
+// NameNotIn applies the NotIn predicate on the "name" field.
+func NameNotIn(vs ...string) predicate.Model {
+	return predicate.Model(sql.FieldNotIn(FieldName, vs...))
+}
+
+// NameGT applies the GT predicate on the "name" field.
+func NameGT(v string) predicate.Model {
+	return predicate.Model(sql.FieldGT(FieldName, v))
+}
+
+// NameGTE applies the GTE predicate on the "name" field.
+func NameGTE(v string) predicate.Model {
+	return predicate.Model(sql.FieldGTE(FieldName, v))
+}
+
+// NameLT applies the LT predicate on the "name" field.
+func NameLT(v string) predicate.Model {
+	return predicate.Model(sql.FieldLT(FieldName, v))
+}
+
+// NameLTE applies the LTE predicate on the "name" field.
+func NameLTE(v string) predicate.Model {
+	return predicate.Model(sql.FieldLTE(FieldName, v))
+}
+
+// NameContains applies the Contains predicate on the "name" field.
+func NameContains(v string) predicate.Model {
+	return predicate.Model(sql.FieldContains(FieldName, v))
+}
+
+// NameHasPrefix applies the HasPrefix predicate on the "name" field.
+func NameHasPrefix(v string) predicate.Model {
+	return predicate.Model(sql.FieldHasPrefix(FieldName, v))
+}
+
+// NameHasSuffix applies the HasSuffix predicate on the "name" field.
+func NameHasSuffix(v string) predicate.Model {
+	return predicate.Model(sql.FieldHasSuffix(FieldName, v))
+}
+
+// NameEqualFold applies the EqualFold predicate on the "name" field.
+func NameEqualFold(v string) predicate.Model {
+	return predicate.Model(sql.FieldEqualFold(FieldName, v))
+}
+
+// NameContainsFold applies the ContainsFold predicate on the "name" field.
+func NameContainsFold(v string) predicate.Model {
+	return predicate.Model(sql.FieldContainsFold(FieldName, v))
+}
+
+// ContextWindowEQ applies the EQ predicate on the "context_window" field.
+func ContextWindowEQ(v int64) predicate.Model {
+	return predicate.Model(sql.FieldEQ(FieldContextWindow, v))
+}
+
+// ContextWindowNEQ applies the NEQ predicate on the "context_window" field.
+func ContextWindowNEQ(v int64) predicate.Model {
+	return predicate.Model(sql.FieldNEQ(FieldContextWindow, v))
+}
+
+// ContextWindowIn applies the In predicate on the "context_window" field.
+func ContextWindowIn(vs ...int64) predicate.Model {
+	return predicate.Model(sql.FieldIn(FieldContextWindow, vs...))
+}
+
+// ContextWindowNotIn applies the NotIn predicate on the "context_window" field.
+func ContextWindowNotIn(vs ...int64) predicate.Model {
+	return predicate.Model(sql.FieldNotIn(FieldContextWindow, vs...))
+}
+
+// ContextWindowGT applies the GT predicate on the "context_window" field.
+func ContextWindowGT(v int64) predicate.Model {
+	return predicate.Model(sql.FieldGT(FieldContextWindow, v))
+}
+
+// ContextWindowGTE applies the GTE predicate on the "context_window" field.
+func ContextWindowGTE(v int64) predicate.Model {
+	return predicate.Model(sql.FieldGTE(FieldContextWindow, v))
+}
+
+// ContextWindowLT applies the LT predicate on the "context_window" field.
+func ContextWindowLT(v int64) predicate.Model {
+	return predicate.Model(sql.FieldLT(FieldContextWindow, v))
+}
+
+// ContextWindowLTE applies the LTE predicate on the "context_window" field.
+func ContextWindowLTE(v int64) predicate.Model {
+	return predicate.Model(sql.FieldLTE(FieldContextWindow, v))
+}
+
+// CapabilitiesIsNil applies the IsNil predicate on the "capabilities" field.
+func CapabilitiesIsNil() predicate.Model {
+	return predicate.Model(sql.FieldIsNull(FieldCapabilities))
+}
+
+// CapabilitiesNotNil applies the NotNil predicate on the "capabilities" field.
+func CapabilitiesNotNil() predicate.Model {
+	return predicate.Model(sql.FieldNotNull(FieldCapabilities))
+}
+
+// InputCostEQ applies the EQ predicate on the "input_cost" field.
+func InputCostEQ(v float64) predicate.Model {
+	return predicate.Model(sql.FieldEQ(FieldInputCost, v))
+}
+
+// InputCostNEQ applies the NEQ predicate on the "input_cost" field.
+func InputCostNEQ(v float64) predicate.Model {
+	return predicate.Model(sql.FieldNEQ(FieldInputCost, v))
+}
+
+// InputCostIn applies the In predicate on the "input_cost" field.
+func InputCostIn(vs ...float64) predicate.Model {
+	return predicate.Model(sql.FieldIn(FieldInputCost, vs...))
+}
+
+// InputCostNotIn applies the NotIn predicate on the "input_cost" field.
+func InputCostNotIn(vs ...float64) predicate.Model {
+	return predicate.Model(sql.FieldNotIn(FieldInputCost, vs...))
+}
+
+// InputCostGT applies the GT predicate on the "input_cost" field.
+func InputCostGT(v float64) predicate.Model {
+	return predicate.Model(sql.FieldGT(FieldInputCost, v))
+}
+
+// InputCostGTE applies the GTE predicate on the "input_cost" field.
+func InputCostGTE(v float64) predicate.Model {
+	return predicate.Model(sql.FieldGTE(FieldInputCost, v))
+}
+
+// InputCostLT applies the LT predicate on the "input_cost" field.
+func InputCostLT(v float64) predicate.Model {
+	return predicate.Model(sql.FieldLT(FieldInputCost, v))
+}
+
+// InputCostLTE applies the LTE predicate on the "input_cost" field.
+func InputCostLTE(v float64) predicate.Model {
+	return predicate.Model(sql.FieldLTE(FieldInputCost, v))
+}
+
+// OutputCostEQ applies the EQ predicate on the "output_cost" field.
+func OutputCostEQ(v float64) predicate.Model {
+	return predicate.Model(sql.FieldEQ(FieldOutputCost, v))
+}
+
+// OutputCostNEQ applies the NEQ predicate on the "output_cost" field.
+func OutputCostNEQ(v float64) predicate.Model {
+	return predicate.Model(sql.FieldNEQ(FieldOutputCost, v))
+}
+
+// OutputCostIn applies the In predicate on the "output_cost" field.
+func OutputCostIn(vs ...float64) predicate.Model {
+	return predicate.Model(sql.FieldIn(FieldOutputCost, vs...))
+}
+
+// OutputCostNotIn applies the NotIn predicate on the "output_cost" field.
+func OutputCostNotIn(vs ...float64) predicate.Model {
+	return predicate.Model(sql.FieldNotIn(FieldOutputCost, vs...))
+}
+
+// OutputCostGT applies the GT predicate on the "output_cost" field.
+func OutputCostGT(v float64) predicate.Model {
+	return predicate.Model(sql.FieldGT(FieldOutputCost, v))
+}
+
+// OutputCostGTE applies the GTE predicate on the "output_cost" field.
+func OutputCostGTE(v float64) predicate.Model {
+	return predicate.Model(sql.FieldGTE(FieldOutputCost, v))
+}
+
+// OutputCostLT applies the LT predicate on the "output_cost" field.
+func OutputCostLT(v float64) predicate.Model {
+	return predicate.Model(sql.FieldLT(FieldOutputCost, v))
+}
+
+// OutputCostLTE applies the LTE predicate on the "output_cost" field.
+func OutputCostLTE(v float64) predicate.Model {
+	return predicate.Model(sql.FieldLTE(FieldOutputCost, v))
+}
+
+// CacheWriteCostEQ applies the EQ predicate on the "cache_write_cost" field.
+func CacheWriteCostEQ(v float64) predicate.Model {
+	return predicate.Model(sql.FieldEQ(FieldCacheWriteCost, v))
+}
+
+// CacheWriteCostNEQ applies the NEQ predicate on the "cache_write_cost" field.
+func CacheWriteCostNEQ(v float64) predicate.Model {
+	return predicate.Model(sql.FieldNEQ(FieldCacheWriteCost, v))
+}
+
+// CacheWriteCostIn applies the In predicate on the "cache_write_cost" field.
+func CacheWriteCostIn(vs ...float64) predicate.Model {
+	return predicate.Model(sql.FieldIn(FieldCacheWriteCost, vs...))
+}
+
+// CacheWriteCostNotIn applies the NotIn predicate on the "cache_write_cost" field.
+func CacheWriteCostNotIn(vs ...float64) predicate.Model {
+	return predicate.Model(sql.FieldNotIn(FieldCacheWriteCost, vs...))
+}
+
+// CacheWriteCostGT applies the GT predicate on the "cache_write_cost" field.
+func CacheWriteCostGT(v float64) predicate.Model {
+	return predicate.Model(sql.FieldGT(FieldCacheWriteCost, v))
+}
+
+// CacheWriteCostGTE applies the GTE predicate on the "cache_write_cost" field.
+func CacheWriteCostGTE(v float64) predicate.Model {
+	return predicate.Model(sql.FieldGTE(FieldCacheWriteCost, v))
+}
+
+// CacheWriteCostLT applies the LT predicate on the "cache_write_cost" field.
+func CacheWriteCostLT(v float64) predicate.Model {
+	return predicate.Model(sql.FieldLT(FieldCacheWriteCost, v))
+}
+
+// CacheWriteCostLTE applies the LTE predicate on the "cache_write_cost" field.
+func CacheWriteCostLTE(v float64) predicate.Model {
+	return predicate.Model(sql.FieldLTE(FieldCacheWriteCost, v))
+}
+
+// CacheReadCostEQ applies the EQ predicate on the "cache_read_cost" field.
+func CacheReadCostEQ(v float64) predicate.Model {
+	return predicate.Model(sql.FieldEQ(FieldCacheReadCost, v))
+}
+
+// CacheReadCostNEQ applies the NEQ predicate on the "cache_read_cost" field.
+func CacheReadCostNEQ(v float64) predicate.Model {
+	return predicate.Model(sql.FieldNEQ(FieldCacheReadCost, v))
+}
+
+// CacheReadCostIn applies the In predicate on the "cache_read_cost" field.
+func CacheReadCostIn(vs ...float64) predicate.Model {
+	return predicate.Model(sql.FieldIn(FieldCacheReadCost, vs...))
+}
+
+// CacheReadCostNotIn applies the NotIn predicate on the "cache_read_cost" field.
+func CacheReadCostNotIn(vs ...float64) predicate.Model {
+	return predicate.Model(sql.FieldNotIn(FieldCacheReadCost, vs...))
+}
+
+// CacheReadCostGT applies the GT predicate on the "cache_read_cost" field.
+func CacheReadCostGT(v float64) predicate.Model {
+	return predicate.Model(sql.FieldGT(FieldCacheReadCost, v))
+}
+
+// CacheReadCostGTE applies the GTE predicate on the "cache_read_cost" field.
+func CacheReadCostGTE(v float64) predicate.Model {
+	return predicate.Model(sql.FieldGTE(FieldCacheReadCost, v))
+}
+
+// CacheReadCostLT applies the LT predicate on the "cache_read_cost" field.
+func CacheReadCostLT(v float64) predicate.Model {
+	return predicate.Model(sql.FieldLT(FieldCacheReadCost, v))
+}
+
+// CacheReadCostLTE applies the LTE predicate on the "cache_read_cost" field.
+func CacheReadCostLTE(v float64) predicate.Model {
+	return predicate.Model(sql.FieldLTE(FieldCacheReadCost, v))
+}
+
+// EnabledEQ applies the EQ predicate on the "enabled" field.
+func EnabledEQ(v bool) predicate.Model {
+	return predicate.Model(sql.FieldEQ(FieldEnabled, v))
+}
+
+// EnabledNEQ applies the NEQ predicate on the "enabled" field.
+func EnabledNEQ(v bool) predicate.Model {
+	return predicate.Model(sql.FieldNEQ(FieldEnabled, v))
 }
 
 // ModelProviderEQ applies the EQ predicate on the "model_provider" field.

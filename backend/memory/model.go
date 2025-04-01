@@ -3,6 +3,7 @@
 package memory
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -10,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"github.com/furisto/construct/backend/memory/model"
 	"github.com/furisto/construct/backend/memory/modelprovider"
+	"github.com/furisto/construct/backend/memory/schema/types"
 	"github.com/google/uuid"
 )
 
@@ -18,6 +20,22 @@ type Model struct {
 	config `json:"-"`
 	// ID of the ent.
 	ID uuid.UUID `json:"id,omitempty"`
+	// Name holds the value of the "name" field.
+	Name string `json:"name,omitempty"`
+	// ContextWindow holds the value of the "context_window" field.
+	ContextWindow int64 `json:"context_window,omitempty"`
+	// Capabilities holds the value of the "capabilities" field.
+	Capabilities []types.ModelCapability `json:"capabilities,omitempty"`
+	// InputCost holds the value of the "input_cost" field.
+	InputCost float64 `json:"input_cost,omitempty"`
+	// OutputCost holds the value of the "output_cost" field.
+	OutputCost float64 `json:"output_cost,omitempty"`
+	// CacheWriteCost holds the value of the "cache_write_cost" field.
+	CacheWriteCost float64 `json:"cache_write_cost,omitempty"`
+	// CacheReadCost holds the value of the "cache_read_cost" field.
+	CacheReadCost float64 `json:"cache_read_cost,omitempty"`
+	// Enabled holds the value of the "enabled" field.
+	Enabled bool `json:"enabled,omitempty"`
 	// ModelProvider holds the value of the "model_provider" field.
 	ModelProvider uuid.UUID `json:"model_provider,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -73,6 +91,16 @@ func (*Model) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case model.FieldCapabilities:
+			values[i] = new([]byte)
+		case model.FieldEnabled:
+			values[i] = new(sql.NullBool)
+		case model.FieldInputCost, model.FieldOutputCost, model.FieldCacheWriteCost, model.FieldCacheReadCost:
+			values[i] = new(sql.NullFloat64)
+		case model.FieldContextWindow:
+			values[i] = new(sql.NullInt64)
+		case model.FieldName:
+			values[i] = new(sql.NullString)
 		case model.FieldID, model.FieldModelProvider:
 			values[i] = new(uuid.UUID)
 		default:
@@ -95,6 +123,56 @@ func (m *Model) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field id", values[i])
 			} else if value != nil {
 				m.ID = *value
+			}
+		case model.FieldName:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field name", values[i])
+			} else if value.Valid {
+				m.Name = value.String
+			}
+		case model.FieldContextWindow:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field context_window", values[i])
+			} else if value.Valid {
+				m.ContextWindow = value.Int64
+			}
+		case model.FieldCapabilities:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field capabilities", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &m.Capabilities); err != nil {
+					return fmt.Errorf("unmarshal field capabilities: %w", err)
+				}
+			}
+		case model.FieldInputCost:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field input_cost", values[i])
+			} else if value.Valid {
+				m.InputCost = value.Float64
+			}
+		case model.FieldOutputCost:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field output_cost", values[i])
+			} else if value.Valid {
+				m.OutputCost = value.Float64
+			}
+		case model.FieldCacheWriteCost:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field cache_write_cost", values[i])
+			} else if value.Valid {
+				m.CacheWriteCost = value.Float64
+			}
+		case model.FieldCacheReadCost:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field cache_read_cost", values[i])
+			} else if value.Valid {
+				m.CacheReadCost = value.Float64
+			}
+		case model.FieldEnabled:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field enabled", values[i])
+			} else if value.Valid {
+				m.Enabled = value.Bool
 			}
 		case model.FieldModelProvider:
 			if value, ok := values[i].(*uuid.UUID); !ok {
@@ -153,6 +231,30 @@ func (m *Model) String() string {
 	var builder strings.Builder
 	builder.WriteString("Model(")
 	builder.WriteString(fmt.Sprintf("id=%v, ", m.ID))
+	builder.WriteString("name=")
+	builder.WriteString(m.Name)
+	builder.WriteString(", ")
+	builder.WriteString("context_window=")
+	builder.WriteString(fmt.Sprintf("%v", m.ContextWindow))
+	builder.WriteString(", ")
+	builder.WriteString("capabilities=")
+	builder.WriteString(fmt.Sprintf("%v", m.Capabilities))
+	builder.WriteString(", ")
+	builder.WriteString("input_cost=")
+	builder.WriteString(fmt.Sprintf("%v", m.InputCost))
+	builder.WriteString(", ")
+	builder.WriteString("output_cost=")
+	builder.WriteString(fmt.Sprintf("%v", m.OutputCost))
+	builder.WriteString(", ")
+	builder.WriteString("cache_write_cost=")
+	builder.WriteString(fmt.Sprintf("%v", m.CacheWriteCost))
+	builder.WriteString(", ")
+	builder.WriteString("cache_read_cost=")
+	builder.WriteString(fmt.Sprintf("%v", m.CacheReadCost))
+	builder.WriteString(", ")
+	builder.WriteString("enabled=")
+	builder.WriteString(fmt.Sprintf("%v", m.Enabled))
+	builder.WriteString(", ")
 	builder.WriteString("model_provider=")
 	builder.WriteString(fmt.Sprintf("%v", m.ModelProvider))
 	builder.WriteByte(')')

@@ -13,6 +13,7 @@ import (
 	"github.com/furisto/construct/backend/memory/message"
 	"github.com/furisto/construct/backend/memory/model"
 	"github.com/furisto/construct/backend/memory/modelprovider"
+	"github.com/furisto/construct/backend/memory/schema/types"
 	"github.com/google/uuid"
 )
 
@@ -21,6 +22,94 @@ type ModelCreate struct {
 	config
 	mutation *ModelMutation
 	hooks    []Hook
+}
+
+// SetName sets the "name" field.
+func (mc *ModelCreate) SetName(s string) *ModelCreate {
+	mc.mutation.SetName(s)
+	return mc
+}
+
+// SetContextWindow sets the "context_window" field.
+func (mc *ModelCreate) SetContextWindow(i int64) *ModelCreate {
+	mc.mutation.SetContextWindow(i)
+	return mc
+}
+
+// SetCapabilities sets the "capabilities" field.
+func (mc *ModelCreate) SetCapabilities(tc []types.ModelCapability) *ModelCreate {
+	mc.mutation.SetCapabilities(tc)
+	return mc
+}
+
+// SetInputCost sets the "input_cost" field.
+func (mc *ModelCreate) SetInputCost(f float64) *ModelCreate {
+	mc.mutation.SetInputCost(f)
+	return mc
+}
+
+// SetNillableInputCost sets the "input_cost" field if the given value is not nil.
+func (mc *ModelCreate) SetNillableInputCost(f *float64) *ModelCreate {
+	if f != nil {
+		mc.SetInputCost(*f)
+	}
+	return mc
+}
+
+// SetOutputCost sets the "output_cost" field.
+func (mc *ModelCreate) SetOutputCost(f float64) *ModelCreate {
+	mc.mutation.SetOutputCost(f)
+	return mc
+}
+
+// SetNillableOutputCost sets the "output_cost" field if the given value is not nil.
+func (mc *ModelCreate) SetNillableOutputCost(f *float64) *ModelCreate {
+	if f != nil {
+		mc.SetOutputCost(*f)
+	}
+	return mc
+}
+
+// SetCacheWriteCost sets the "cache_write_cost" field.
+func (mc *ModelCreate) SetCacheWriteCost(f float64) *ModelCreate {
+	mc.mutation.SetCacheWriteCost(f)
+	return mc
+}
+
+// SetNillableCacheWriteCost sets the "cache_write_cost" field if the given value is not nil.
+func (mc *ModelCreate) SetNillableCacheWriteCost(f *float64) *ModelCreate {
+	if f != nil {
+		mc.SetCacheWriteCost(*f)
+	}
+	return mc
+}
+
+// SetCacheReadCost sets the "cache_read_cost" field.
+func (mc *ModelCreate) SetCacheReadCost(f float64) *ModelCreate {
+	mc.mutation.SetCacheReadCost(f)
+	return mc
+}
+
+// SetNillableCacheReadCost sets the "cache_read_cost" field if the given value is not nil.
+func (mc *ModelCreate) SetNillableCacheReadCost(f *float64) *ModelCreate {
+	if f != nil {
+		mc.SetCacheReadCost(*f)
+	}
+	return mc
+}
+
+// SetEnabled sets the "enabled" field.
+func (mc *ModelCreate) SetEnabled(b bool) *ModelCreate {
+	mc.mutation.SetEnabled(b)
+	return mc
+}
+
+// SetNillableEnabled sets the "enabled" field if the given value is not nil.
+func (mc *ModelCreate) SetNillableEnabled(b *bool) *ModelCreate {
+	if b != nil {
+		mc.SetEnabled(*b)
+	}
+	return mc
 }
 
 // SetModelProvider sets the "model_provider" field.
@@ -119,6 +208,26 @@ func (mc *ModelCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (mc *ModelCreate) defaults() {
+	if _, ok := mc.mutation.InputCost(); !ok {
+		v := model.DefaultInputCost
+		mc.mutation.SetInputCost(v)
+	}
+	if _, ok := mc.mutation.OutputCost(); !ok {
+		v := model.DefaultOutputCost
+		mc.mutation.SetOutputCost(v)
+	}
+	if _, ok := mc.mutation.CacheWriteCost(); !ok {
+		v := model.DefaultCacheWriteCost
+		mc.mutation.SetCacheWriteCost(v)
+	}
+	if _, ok := mc.mutation.CacheReadCost(); !ok {
+		v := model.DefaultCacheReadCost
+		mc.mutation.SetCacheReadCost(v)
+	}
+	if _, ok := mc.mutation.Enabled(); !ok {
+		v := model.DefaultEnabled
+		mc.mutation.SetEnabled(v)
+	}
 	if _, ok := mc.mutation.ID(); !ok {
 		v := model.DefaultID()
 		mc.mutation.SetID(v)
@@ -127,6 +236,47 @@ func (mc *ModelCreate) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (mc *ModelCreate) check() error {
+	if _, ok := mc.mutation.Name(); !ok {
+		return &ValidationError{Name: "name", err: errors.New(`memory: missing required field "Model.name"`)}
+	}
+	if _, ok := mc.mutation.ContextWindow(); !ok {
+		return &ValidationError{Name: "context_window", err: errors.New(`memory: missing required field "Model.context_window"`)}
+	}
+	if _, ok := mc.mutation.InputCost(); !ok {
+		return &ValidationError{Name: "input_cost", err: errors.New(`memory: missing required field "Model.input_cost"`)}
+	}
+	if v, ok := mc.mutation.InputCost(); ok {
+		if err := model.InputCostValidator(v); err != nil {
+			return &ValidationError{Name: "input_cost", err: fmt.Errorf(`memory: validator failed for field "Model.input_cost": %w`, err)}
+		}
+	}
+	if _, ok := mc.mutation.OutputCost(); !ok {
+		return &ValidationError{Name: "output_cost", err: errors.New(`memory: missing required field "Model.output_cost"`)}
+	}
+	if v, ok := mc.mutation.OutputCost(); ok {
+		if err := model.OutputCostValidator(v); err != nil {
+			return &ValidationError{Name: "output_cost", err: fmt.Errorf(`memory: validator failed for field "Model.output_cost": %w`, err)}
+		}
+	}
+	if _, ok := mc.mutation.CacheWriteCost(); !ok {
+		return &ValidationError{Name: "cache_write_cost", err: errors.New(`memory: missing required field "Model.cache_write_cost"`)}
+	}
+	if v, ok := mc.mutation.CacheWriteCost(); ok {
+		if err := model.CacheWriteCostValidator(v); err != nil {
+			return &ValidationError{Name: "cache_write_cost", err: fmt.Errorf(`memory: validator failed for field "Model.cache_write_cost": %w`, err)}
+		}
+	}
+	if _, ok := mc.mutation.CacheReadCost(); !ok {
+		return &ValidationError{Name: "cache_read_cost", err: errors.New(`memory: missing required field "Model.cache_read_cost"`)}
+	}
+	if v, ok := mc.mutation.CacheReadCost(); ok {
+		if err := model.CacheReadCostValidator(v); err != nil {
+			return &ValidationError{Name: "cache_read_cost", err: fmt.Errorf(`memory: validator failed for field "Model.cache_read_cost": %w`, err)}
+		}
+	}
+	if _, ok := mc.mutation.Enabled(); !ok {
+		return &ValidationError{Name: "enabled", err: errors.New(`memory: missing required field "Model.enabled"`)}
+	}
 	if _, ok := mc.mutation.ModelProvider(); !ok {
 		return &ValidationError{Name: "model_provider", err: errors.New(`memory: missing required field "Model.model_provider"`)}
 	}
@@ -167,6 +317,38 @@ func (mc *ModelCreate) createSpec() (*Model, *sqlgraph.CreateSpec) {
 	if id, ok := mc.mutation.ID(); ok {
 		_node.ID = id
 		_spec.ID.Value = &id
+	}
+	if value, ok := mc.mutation.Name(); ok {
+		_spec.SetField(model.FieldName, field.TypeString, value)
+		_node.Name = value
+	}
+	if value, ok := mc.mutation.ContextWindow(); ok {
+		_spec.SetField(model.FieldContextWindow, field.TypeInt64, value)
+		_node.ContextWindow = value
+	}
+	if value, ok := mc.mutation.Capabilities(); ok {
+		_spec.SetField(model.FieldCapabilities, field.TypeJSON, value)
+		_node.Capabilities = value
+	}
+	if value, ok := mc.mutation.InputCost(); ok {
+		_spec.SetField(model.FieldInputCost, field.TypeFloat64, value)
+		_node.InputCost = value
+	}
+	if value, ok := mc.mutation.OutputCost(); ok {
+		_spec.SetField(model.FieldOutputCost, field.TypeFloat64, value)
+		_node.OutputCost = value
+	}
+	if value, ok := mc.mutation.CacheWriteCost(); ok {
+		_spec.SetField(model.FieldCacheWriteCost, field.TypeFloat64, value)
+		_node.CacheWriteCost = value
+	}
+	if value, ok := mc.mutation.CacheReadCost(); ok {
+		_spec.SetField(model.FieldCacheReadCost, field.TypeFloat64, value)
+		_node.CacheReadCost = value
+	}
+	if value, ok := mc.mutation.Enabled(); ok {
+		_spec.SetField(model.FieldEnabled, field.TypeBool, value)
+		_node.Enabled = value
 	}
 	if nodes := mc.mutation.AgentsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

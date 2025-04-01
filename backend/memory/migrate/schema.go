@@ -11,6 +11,9 @@ var (
 	// AgentsColumns holds the columns for the "agents" table.
 	AgentsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID, Unique: true},
+		{Name: "name", Type: field.TypeString},
+		{Name: "description", Type: field.TypeString, Nullable: true},
+		{Name: "instructions", Type: field.TypeString},
 		{Name: "default_model", Type: field.TypeUUID},
 	}
 	// AgentsTable holds the schema information for the "agents" table.
@@ -21,7 +24,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "agents_models_model",
-				Columns:    []*schema.Column{AgentsColumns[1]},
+				Columns:    []*schema.Column{AgentsColumns[4]},
 				RefColumns: []*schema.Column{ModelsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -69,6 +72,14 @@ var (
 	// ModelsColumns holds the columns for the "models" table.
 	ModelsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID, Unique: true},
+		{Name: "name", Type: field.TypeString},
+		{Name: "context_window", Type: field.TypeInt64},
+		{Name: "capabilities", Type: field.TypeJSON, Nullable: true},
+		{Name: "input_cost", Type: field.TypeFloat64, Default: 0},
+		{Name: "output_cost", Type: field.TypeFloat64, Default: 0},
+		{Name: "cache_write_cost", Type: field.TypeFloat64, Default: 0},
+		{Name: "cache_read_cost", Type: field.TypeFloat64, Default: 0},
+		{Name: "enabled", Type: field.TypeBool, Default: true},
 		{Name: "model_provider", Type: field.TypeUUID},
 	}
 	// ModelsTable holds the schema information for the "models" table.
@@ -79,7 +90,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "models_model_providers_model_providers",
-				Columns:    []*schema.Column{ModelsColumns[1]},
+				Columns:    []*schema.Column{ModelsColumns[9]},
 				RefColumns: []*schema.Column{ModelProvidersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},

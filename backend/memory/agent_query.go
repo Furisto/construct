@@ -372,12 +372,12 @@ func (aq *AgentQuery) WithMessages(opts ...func(*MessageQuery)) *AgentQuery {
 // Example:
 //
 //	var v []struct {
-//		DefaultModel uuid.UUID `json:"default_model,omitempty"`
+//		Name string `json:"name,omitempty"`
 //		Count int `json:"count,omitempty"`
 //	}
 //
 //	client.Agent.Query().
-//		GroupBy(agent.FieldDefaultModel).
+//		GroupBy(agent.FieldName).
 //		Aggregate(memory.Count()).
 //		Scan(ctx, &v)
 func (aq *AgentQuery) GroupBy(field string, fields ...string) *AgentGroupBy {
@@ -395,11 +395,11 @@ func (aq *AgentQuery) GroupBy(field string, fields ...string) *AgentGroupBy {
 // Example:
 //
 //	var v []struct {
-//		DefaultModel uuid.UUID `json:"default_model,omitempty"`
+//		Name string `json:"name,omitempty"`
 //	}
 //
 //	client.Agent.Query().
-//		Select(agent.FieldDefaultModel).
+//		Select(agent.FieldName).
 //		Scan(ctx, &v)
 func (aq *AgentQuery) Select(fields ...string) *AgentSelect {
 	aq.ctx.Fields = append(aq.ctx.Fields, fields...)

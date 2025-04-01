@@ -9,12 +9,14 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
 	"github.com/furisto/construct/backend/memory/agent"
 	"github.com/furisto/construct/backend/memory/message"
 	"github.com/furisto/construct/backend/memory/model"
 	"github.com/furisto/construct/backend/memory/modelprovider"
 	"github.com/furisto/construct/backend/memory/predicate"
+	"github.com/furisto/construct/backend/memory/schema/types"
 	"github.com/google/uuid"
 )
 
@@ -28,6 +30,157 @@ type ModelUpdate struct {
 // Where appends a list predicates to the ModelUpdate builder.
 func (mu *ModelUpdate) Where(ps ...predicate.Model) *ModelUpdate {
 	mu.mutation.Where(ps...)
+	return mu
+}
+
+// SetName sets the "name" field.
+func (mu *ModelUpdate) SetName(s string) *ModelUpdate {
+	mu.mutation.SetName(s)
+	return mu
+}
+
+// SetNillableName sets the "name" field if the given value is not nil.
+func (mu *ModelUpdate) SetNillableName(s *string) *ModelUpdate {
+	if s != nil {
+		mu.SetName(*s)
+	}
+	return mu
+}
+
+// SetContextWindow sets the "context_window" field.
+func (mu *ModelUpdate) SetContextWindow(i int64) *ModelUpdate {
+	mu.mutation.ResetContextWindow()
+	mu.mutation.SetContextWindow(i)
+	return mu
+}
+
+// SetNillableContextWindow sets the "context_window" field if the given value is not nil.
+func (mu *ModelUpdate) SetNillableContextWindow(i *int64) *ModelUpdate {
+	if i != nil {
+		mu.SetContextWindow(*i)
+	}
+	return mu
+}
+
+// AddContextWindow adds i to the "context_window" field.
+func (mu *ModelUpdate) AddContextWindow(i int64) *ModelUpdate {
+	mu.mutation.AddContextWindow(i)
+	return mu
+}
+
+// SetCapabilities sets the "capabilities" field.
+func (mu *ModelUpdate) SetCapabilities(tc []types.ModelCapability) *ModelUpdate {
+	mu.mutation.SetCapabilities(tc)
+	return mu
+}
+
+// AppendCapabilities appends tc to the "capabilities" field.
+func (mu *ModelUpdate) AppendCapabilities(tc []types.ModelCapability) *ModelUpdate {
+	mu.mutation.AppendCapabilities(tc)
+	return mu
+}
+
+// ClearCapabilities clears the value of the "capabilities" field.
+func (mu *ModelUpdate) ClearCapabilities() *ModelUpdate {
+	mu.mutation.ClearCapabilities()
+	return mu
+}
+
+// SetInputCost sets the "input_cost" field.
+func (mu *ModelUpdate) SetInputCost(f float64) *ModelUpdate {
+	mu.mutation.ResetInputCost()
+	mu.mutation.SetInputCost(f)
+	return mu
+}
+
+// SetNillableInputCost sets the "input_cost" field if the given value is not nil.
+func (mu *ModelUpdate) SetNillableInputCost(f *float64) *ModelUpdate {
+	if f != nil {
+		mu.SetInputCost(*f)
+	}
+	return mu
+}
+
+// AddInputCost adds f to the "input_cost" field.
+func (mu *ModelUpdate) AddInputCost(f float64) *ModelUpdate {
+	mu.mutation.AddInputCost(f)
+	return mu
+}
+
+// SetOutputCost sets the "output_cost" field.
+func (mu *ModelUpdate) SetOutputCost(f float64) *ModelUpdate {
+	mu.mutation.ResetOutputCost()
+	mu.mutation.SetOutputCost(f)
+	return mu
+}
+
+// SetNillableOutputCost sets the "output_cost" field if the given value is not nil.
+func (mu *ModelUpdate) SetNillableOutputCost(f *float64) *ModelUpdate {
+	if f != nil {
+		mu.SetOutputCost(*f)
+	}
+	return mu
+}
+
+// AddOutputCost adds f to the "output_cost" field.
+func (mu *ModelUpdate) AddOutputCost(f float64) *ModelUpdate {
+	mu.mutation.AddOutputCost(f)
+	return mu
+}
+
+// SetCacheWriteCost sets the "cache_write_cost" field.
+func (mu *ModelUpdate) SetCacheWriteCost(f float64) *ModelUpdate {
+	mu.mutation.ResetCacheWriteCost()
+	mu.mutation.SetCacheWriteCost(f)
+	return mu
+}
+
+// SetNillableCacheWriteCost sets the "cache_write_cost" field if the given value is not nil.
+func (mu *ModelUpdate) SetNillableCacheWriteCost(f *float64) *ModelUpdate {
+	if f != nil {
+		mu.SetCacheWriteCost(*f)
+	}
+	return mu
+}
+
+// AddCacheWriteCost adds f to the "cache_write_cost" field.
+func (mu *ModelUpdate) AddCacheWriteCost(f float64) *ModelUpdate {
+	mu.mutation.AddCacheWriteCost(f)
+	return mu
+}
+
+// SetCacheReadCost sets the "cache_read_cost" field.
+func (mu *ModelUpdate) SetCacheReadCost(f float64) *ModelUpdate {
+	mu.mutation.ResetCacheReadCost()
+	mu.mutation.SetCacheReadCost(f)
+	return mu
+}
+
+// SetNillableCacheReadCost sets the "cache_read_cost" field if the given value is not nil.
+func (mu *ModelUpdate) SetNillableCacheReadCost(f *float64) *ModelUpdate {
+	if f != nil {
+		mu.SetCacheReadCost(*f)
+	}
+	return mu
+}
+
+// AddCacheReadCost adds f to the "cache_read_cost" field.
+func (mu *ModelUpdate) AddCacheReadCost(f float64) *ModelUpdate {
+	mu.mutation.AddCacheReadCost(f)
+	return mu
+}
+
+// SetEnabled sets the "enabled" field.
+func (mu *ModelUpdate) SetEnabled(b bool) *ModelUpdate {
+	mu.mutation.SetEnabled(b)
+	return mu
+}
+
+// SetNillableEnabled sets the "enabled" field if the given value is not nil.
+func (mu *ModelUpdate) SetNillableEnabled(b *bool) *ModelUpdate {
+	if b != nil {
+		mu.SetEnabled(*b)
+	}
 	return mu
 }
 
@@ -168,6 +321,26 @@ func (mu *ModelUpdate) ExecX(ctx context.Context) {
 
 // check runs all checks and user-defined validators on the builder.
 func (mu *ModelUpdate) check() error {
+	if v, ok := mu.mutation.InputCost(); ok {
+		if err := model.InputCostValidator(v); err != nil {
+			return &ValidationError{Name: "input_cost", err: fmt.Errorf(`memory: validator failed for field "Model.input_cost": %w`, err)}
+		}
+	}
+	if v, ok := mu.mutation.OutputCost(); ok {
+		if err := model.OutputCostValidator(v); err != nil {
+			return &ValidationError{Name: "output_cost", err: fmt.Errorf(`memory: validator failed for field "Model.output_cost": %w`, err)}
+		}
+	}
+	if v, ok := mu.mutation.CacheWriteCost(); ok {
+		if err := model.CacheWriteCostValidator(v); err != nil {
+			return &ValidationError{Name: "cache_write_cost", err: fmt.Errorf(`memory: validator failed for field "Model.cache_write_cost": %w`, err)}
+		}
+	}
+	if v, ok := mu.mutation.CacheReadCost(); ok {
+		if err := model.CacheReadCostValidator(v); err != nil {
+			return &ValidationError{Name: "cache_read_cost", err: fmt.Errorf(`memory: validator failed for field "Model.cache_read_cost": %w`, err)}
+		}
+	}
 	if mu.mutation.ModelProvidersCleared() && len(mu.mutation.ModelProvidersIDs()) > 0 {
 		return errors.New(`memory: clearing a required unique edge "Model.model_providers"`)
 	}
@@ -185,6 +358,53 @@ func (mu *ModelUpdate) sqlSave(ctx context.Context) (n int, err error) {
 				ps[i](selector)
 			}
 		}
+	}
+	if value, ok := mu.mutation.Name(); ok {
+		_spec.SetField(model.FieldName, field.TypeString, value)
+	}
+	if value, ok := mu.mutation.ContextWindow(); ok {
+		_spec.SetField(model.FieldContextWindow, field.TypeInt64, value)
+	}
+	if value, ok := mu.mutation.AddedContextWindow(); ok {
+		_spec.AddField(model.FieldContextWindow, field.TypeInt64, value)
+	}
+	if value, ok := mu.mutation.Capabilities(); ok {
+		_spec.SetField(model.FieldCapabilities, field.TypeJSON, value)
+	}
+	if value, ok := mu.mutation.AppendedCapabilities(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, model.FieldCapabilities, value)
+		})
+	}
+	if mu.mutation.CapabilitiesCleared() {
+		_spec.ClearField(model.FieldCapabilities, field.TypeJSON)
+	}
+	if value, ok := mu.mutation.InputCost(); ok {
+		_spec.SetField(model.FieldInputCost, field.TypeFloat64, value)
+	}
+	if value, ok := mu.mutation.AddedInputCost(); ok {
+		_spec.AddField(model.FieldInputCost, field.TypeFloat64, value)
+	}
+	if value, ok := mu.mutation.OutputCost(); ok {
+		_spec.SetField(model.FieldOutputCost, field.TypeFloat64, value)
+	}
+	if value, ok := mu.mutation.AddedOutputCost(); ok {
+		_spec.AddField(model.FieldOutputCost, field.TypeFloat64, value)
+	}
+	if value, ok := mu.mutation.CacheWriteCost(); ok {
+		_spec.SetField(model.FieldCacheWriteCost, field.TypeFloat64, value)
+	}
+	if value, ok := mu.mutation.AddedCacheWriteCost(); ok {
+		_spec.AddField(model.FieldCacheWriteCost, field.TypeFloat64, value)
+	}
+	if value, ok := mu.mutation.CacheReadCost(); ok {
+		_spec.SetField(model.FieldCacheReadCost, field.TypeFloat64, value)
+	}
+	if value, ok := mu.mutation.AddedCacheReadCost(); ok {
+		_spec.AddField(model.FieldCacheReadCost, field.TypeFloat64, value)
+	}
+	if value, ok := mu.mutation.Enabled(); ok {
+		_spec.SetField(model.FieldEnabled, field.TypeBool, value)
 	}
 	if mu.mutation.AgentsCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -323,6 +543,157 @@ type ModelUpdateOne struct {
 	fields   []string
 	hooks    []Hook
 	mutation *ModelMutation
+}
+
+// SetName sets the "name" field.
+func (muo *ModelUpdateOne) SetName(s string) *ModelUpdateOne {
+	muo.mutation.SetName(s)
+	return muo
+}
+
+// SetNillableName sets the "name" field if the given value is not nil.
+func (muo *ModelUpdateOne) SetNillableName(s *string) *ModelUpdateOne {
+	if s != nil {
+		muo.SetName(*s)
+	}
+	return muo
+}
+
+// SetContextWindow sets the "context_window" field.
+func (muo *ModelUpdateOne) SetContextWindow(i int64) *ModelUpdateOne {
+	muo.mutation.ResetContextWindow()
+	muo.mutation.SetContextWindow(i)
+	return muo
+}
+
+// SetNillableContextWindow sets the "context_window" field if the given value is not nil.
+func (muo *ModelUpdateOne) SetNillableContextWindow(i *int64) *ModelUpdateOne {
+	if i != nil {
+		muo.SetContextWindow(*i)
+	}
+	return muo
+}
+
+// AddContextWindow adds i to the "context_window" field.
+func (muo *ModelUpdateOne) AddContextWindow(i int64) *ModelUpdateOne {
+	muo.mutation.AddContextWindow(i)
+	return muo
+}
+
+// SetCapabilities sets the "capabilities" field.
+func (muo *ModelUpdateOne) SetCapabilities(tc []types.ModelCapability) *ModelUpdateOne {
+	muo.mutation.SetCapabilities(tc)
+	return muo
+}
+
+// AppendCapabilities appends tc to the "capabilities" field.
+func (muo *ModelUpdateOne) AppendCapabilities(tc []types.ModelCapability) *ModelUpdateOne {
+	muo.mutation.AppendCapabilities(tc)
+	return muo
+}
+
+// ClearCapabilities clears the value of the "capabilities" field.
+func (muo *ModelUpdateOne) ClearCapabilities() *ModelUpdateOne {
+	muo.mutation.ClearCapabilities()
+	return muo
+}
+
+// SetInputCost sets the "input_cost" field.
+func (muo *ModelUpdateOne) SetInputCost(f float64) *ModelUpdateOne {
+	muo.mutation.ResetInputCost()
+	muo.mutation.SetInputCost(f)
+	return muo
+}
+
+// SetNillableInputCost sets the "input_cost" field if the given value is not nil.
+func (muo *ModelUpdateOne) SetNillableInputCost(f *float64) *ModelUpdateOne {
+	if f != nil {
+		muo.SetInputCost(*f)
+	}
+	return muo
+}
+
+// AddInputCost adds f to the "input_cost" field.
+func (muo *ModelUpdateOne) AddInputCost(f float64) *ModelUpdateOne {
+	muo.mutation.AddInputCost(f)
+	return muo
+}
+
+// SetOutputCost sets the "output_cost" field.
+func (muo *ModelUpdateOne) SetOutputCost(f float64) *ModelUpdateOne {
+	muo.mutation.ResetOutputCost()
+	muo.mutation.SetOutputCost(f)
+	return muo
+}
+
+// SetNillableOutputCost sets the "output_cost" field if the given value is not nil.
+func (muo *ModelUpdateOne) SetNillableOutputCost(f *float64) *ModelUpdateOne {
+	if f != nil {
+		muo.SetOutputCost(*f)
+	}
+	return muo
+}
+
+// AddOutputCost adds f to the "output_cost" field.
+func (muo *ModelUpdateOne) AddOutputCost(f float64) *ModelUpdateOne {
+	muo.mutation.AddOutputCost(f)
+	return muo
+}
+
+// SetCacheWriteCost sets the "cache_write_cost" field.
+func (muo *ModelUpdateOne) SetCacheWriteCost(f float64) *ModelUpdateOne {
+	muo.mutation.ResetCacheWriteCost()
+	muo.mutation.SetCacheWriteCost(f)
+	return muo
+}
+
+// SetNillableCacheWriteCost sets the "cache_write_cost" field if the given value is not nil.
+func (muo *ModelUpdateOne) SetNillableCacheWriteCost(f *float64) *ModelUpdateOne {
+	if f != nil {
+		muo.SetCacheWriteCost(*f)
+	}
+	return muo
+}
+
+// AddCacheWriteCost adds f to the "cache_write_cost" field.
+func (muo *ModelUpdateOne) AddCacheWriteCost(f float64) *ModelUpdateOne {
+	muo.mutation.AddCacheWriteCost(f)
+	return muo
+}
+
+// SetCacheReadCost sets the "cache_read_cost" field.
+func (muo *ModelUpdateOne) SetCacheReadCost(f float64) *ModelUpdateOne {
+	muo.mutation.ResetCacheReadCost()
+	muo.mutation.SetCacheReadCost(f)
+	return muo
+}
+
+// SetNillableCacheReadCost sets the "cache_read_cost" field if the given value is not nil.
+func (muo *ModelUpdateOne) SetNillableCacheReadCost(f *float64) *ModelUpdateOne {
+	if f != nil {
+		muo.SetCacheReadCost(*f)
+	}
+	return muo
+}
+
+// AddCacheReadCost adds f to the "cache_read_cost" field.
+func (muo *ModelUpdateOne) AddCacheReadCost(f float64) *ModelUpdateOne {
+	muo.mutation.AddCacheReadCost(f)
+	return muo
+}
+
+// SetEnabled sets the "enabled" field.
+func (muo *ModelUpdateOne) SetEnabled(b bool) *ModelUpdateOne {
+	muo.mutation.SetEnabled(b)
+	return muo
+}
+
+// SetNillableEnabled sets the "enabled" field if the given value is not nil.
+func (muo *ModelUpdateOne) SetNillableEnabled(b *bool) *ModelUpdateOne {
+	if b != nil {
+		muo.SetEnabled(*b)
+	}
+	return muo
 }
 
 // SetModelProvider sets the "model_provider" field.
@@ -475,6 +846,26 @@ func (muo *ModelUpdateOne) ExecX(ctx context.Context) {
 
 // check runs all checks and user-defined validators on the builder.
 func (muo *ModelUpdateOne) check() error {
+	if v, ok := muo.mutation.InputCost(); ok {
+		if err := model.InputCostValidator(v); err != nil {
+			return &ValidationError{Name: "input_cost", err: fmt.Errorf(`memory: validator failed for field "Model.input_cost": %w`, err)}
+		}
+	}
+	if v, ok := muo.mutation.OutputCost(); ok {
+		if err := model.OutputCostValidator(v); err != nil {
+			return &ValidationError{Name: "output_cost", err: fmt.Errorf(`memory: validator failed for field "Model.output_cost": %w`, err)}
+		}
+	}
+	if v, ok := muo.mutation.CacheWriteCost(); ok {
+		if err := model.CacheWriteCostValidator(v); err != nil {
+			return &ValidationError{Name: "cache_write_cost", err: fmt.Errorf(`memory: validator failed for field "Model.cache_write_cost": %w`, err)}
+		}
+	}
+	if v, ok := muo.mutation.CacheReadCost(); ok {
+		if err := model.CacheReadCostValidator(v); err != nil {
+			return &ValidationError{Name: "cache_read_cost", err: fmt.Errorf(`memory: validator failed for field "Model.cache_read_cost": %w`, err)}
+		}
+	}
 	if muo.mutation.ModelProvidersCleared() && len(muo.mutation.ModelProvidersIDs()) > 0 {
 		return errors.New(`memory: clearing a required unique edge "Model.model_providers"`)
 	}
@@ -509,6 +900,53 @@ func (muo *ModelUpdateOne) sqlSave(ctx context.Context) (_node *Model, err error
 				ps[i](selector)
 			}
 		}
+	}
+	if value, ok := muo.mutation.Name(); ok {
+		_spec.SetField(model.FieldName, field.TypeString, value)
+	}
+	if value, ok := muo.mutation.ContextWindow(); ok {
+		_spec.SetField(model.FieldContextWindow, field.TypeInt64, value)
+	}
+	if value, ok := muo.mutation.AddedContextWindow(); ok {
+		_spec.AddField(model.FieldContextWindow, field.TypeInt64, value)
+	}
+	if value, ok := muo.mutation.Capabilities(); ok {
+		_spec.SetField(model.FieldCapabilities, field.TypeJSON, value)
+	}
+	if value, ok := muo.mutation.AppendedCapabilities(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, model.FieldCapabilities, value)
+		})
+	}
+	if muo.mutation.CapabilitiesCleared() {
+		_spec.ClearField(model.FieldCapabilities, field.TypeJSON)
+	}
+	if value, ok := muo.mutation.InputCost(); ok {
+		_spec.SetField(model.FieldInputCost, field.TypeFloat64, value)
+	}
+	if value, ok := muo.mutation.AddedInputCost(); ok {
+		_spec.AddField(model.FieldInputCost, field.TypeFloat64, value)
+	}
+	if value, ok := muo.mutation.OutputCost(); ok {
+		_spec.SetField(model.FieldOutputCost, field.TypeFloat64, value)
+	}
+	if value, ok := muo.mutation.AddedOutputCost(); ok {
+		_spec.AddField(model.FieldOutputCost, field.TypeFloat64, value)
+	}
+	if value, ok := muo.mutation.CacheWriteCost(); ok {
+		_spec.SetField(model.FieldCacheWriteCost, field.TypeFloat64, value)
+	}
+	if value, ok := muo.mutation.AddedCacheWriteCost(); ok {
+		_spec.AddField(model.FieldCacheWriteCost, field.TypeFloat64, value)
+	}
+	if value, ok := muo.mutation.CacheReadCost(); ok {
+		_spec.SetField(model.FieldCacheReadCost, field.TypeFloat64, value)
+	}
+	if value, ok := muo.mutation.AddedCacheReadCost(); ok {
+		_spec.AddField(model.FieldCacheReadCost, field.TypeFloat64, value)
+	}
+	if value, ok := muo.mutation.Enabled(); ok {
+		_spec.SetField(model.FieldEnabled, field.TypeBool, value)
 	}
 	if muo.mutation.AgentsCleared() {
 		edge := &sqlgraph.EdgeSpec{

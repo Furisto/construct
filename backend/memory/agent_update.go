@@ -31,6 +31,54 @@ func (au *AgentUpdate) Where(ps ...predicate.Agent) *AgentUpdate {
 	return au
 }
 
+// SetName sets the "name" field.
+func (au *AgentUpdate) SetName(s string) *AgentUpdate {
+	au.mutation.SetName(s)
+	return au
+}
+
+// SetNillableName sets the "name" field if the given value is not nil.
+func (au *AgentUpdate) SetNillableName(s *string) *AgentUpdate {
+	if s != nil {
+		au.SetName(*s)
+	}
+	return au
+}
+
+// SetDescription sets the "description" field.
+func (au *AgentUpdate) SetDescription(s string) *AgentUpdate {
+	au.mutation.SetDescription(s)
+	return au
+}
+
+// SetNillableDescription sets the "description" field if the given value is not nil.
+func (au *AgentUpdate) SetNillableDescription(s *string) *AgentUpdate {
+	if s != nil {
+		au.SetDescription(*s)
+	}
+	return au
+}
+
+// ClearDescription clears the value of the "description" field.
+func (au *AgentUpdate) ClearDescription() *AgentUpdate {
+	au.mutation.ClearDescription()
+	return au
+}
+
+// SetInstructions sets the "instructions" field.
+func (au *AgentUpdate) SetInstructions(s string) *AgentUpdate {
+	au.mutation.SetInstructions(s)
+	return au
+}
+
+// SetNillableInstructions sets the "instructions" field if the given value is not nil.
+func (au *AgentUpdate) SetNillableInstructions(s *string) *AgentUpdate {
+	if s != nil {
+		au.SetInstructions(*s)
+	}
+	return au
+}
+
 // SetDefaultModel sets the "default_model" field.
 func (au *AgentUpdate) SetDefaultModel(u uuid.UUID) *AgentUpdate {
 	au.mutation.SetDefaultModel(u)
@@ -168,6 +216,11 @@ func (au *AgentUpdate) ExecX(ctx context.Context) {
 
 // check runs all checks and user-defined validators on the builder.
 func (au *AgentUpdate) check() error {
+	if v, ok := au.mutation.Name(); ok {
+		if err := agent.NameValidator(v); err != nil {
+			return &ValidationError{Name: "name", err: fmt.Errorf(`memory: validator failed for field "Agent.name": %w`, err)}
+		}
+	}
 	if au.mutation.ModelCleared() && len(au.mutation.ModelIDs()) > 0 {
 		return errors.New(`memory: clearing a required unique edge "Agent.model"`)
 	}
@@ -185,6 +238,18 @@ func (au *AgentUpdate) sqlSave(ctx context.Context) (n int, err error) {
 				ps[i](selector)
 			}
 		}
+	}
+	if value, ok := au.mutation.Name(); ok {
+		_spec.SetField(agent.FieldName, field.TypeString, value)
+	}
+	if value, ok := au.mutation.Description(); ok {
+		_spec.SetField(agent.FieldDescription, field.TypeString, value)
+	}
+	if au.mutation.DescriptionCleared() {
+		_spec.ClearField(agent.FieldDescription, field.TypeString)
+	}
+	if value, ok := au.mutation.Instructions(); ok {
+		_spec.SetField(agent.FieldInstructions, field.TypeString, value)
 	}
 	if au.mutation.ModelCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -323,6 +388,54 @@ type AgentUpdateOne struct {
 	fields   []string
 	hooks    []Hook
 	mutation *AgentMutation
+}
+
+// SetName sets the "name" field.
+func (auo *AgentUpdateOne) SetName(s string) *AgentUpdateOne {
+	auo.mutation.SetName(s)
+	return auo
+}
+
+// SetNillableName sets the "name" field if the given value is not nil.
+func (auo *AgentUpdateOne) SetNillableName(s *string) *AgentUpdateOne {
+	if s != nil {
+		auo.SetName(*s)
+	}
+	return auo
+}
+
+// SetDescription sets the "description" field.
+func (auo *AgentUpdateOne) SetDescription(s string) *AgentUpdateOne {
+	auo.mutation.SetDescription(s)
+	return auo
+}
+
+// SetNillableDescription sets the "description" field if the given value is not nil.
+func (auo *AgentUpdateOne) SetNillableDescription(s *string) *AgentUpdateOne {
+	if s != nil {
+		auo.SetDescription(*s)
+	}
+	return auo
+}
+
+// ClearDescription clears the value of the "description" field.
+func (auo *AgentUpdateOne) ClearDescription() *AgentUpdateOne {
+	auo.mutation.ClearDescription()
+	return auo
+}
+
+// SetInstructions sets the "instructions" field.
+func (auo *AgentUpdateOne) SetInstructions(s string) *AgentUpdateOne {
+	auo.mutation.SetInstructions(s)
+	return auo
+}
+
+// SetNillableInstructions sets the "instructions" field if the given value is not nil.
+func (auo *AgentUpdateOne) SetNillableInstructions(s *string) *AgentUpdateOne {
+	if s != nil {
+		auo.SetInstructions(*s)
+	}
+	return auo
 }
 
 // SetDefaultModel sets the "default_model" field.
@@ -475,6 +588,11 @@ func (auo *AgentUpdateOne) ExecX(ctx context.Context) {
 
 // check runs all checks and user-defined validators on the builder.
 func (auo *AgentUpdateOne) check() error {
+	if v, ok := auo.mutation.Name(); ok {
+		if err := agent.NameValidator(v); err != nil {
+			return &ValidationError{Name: "name", err: fmt.Errorf(`memory: validator failed for field "Agent.name": %w`, err)}
+		}
+	}
 	if auo.mutation.ModelCleared() && len(auo.mutation.ModelIDs()) > 0 {
 		return errors.New(`memory: clearing a required unique edge "Agent.model"`)
 	}
@@ -509,6 +627,18 @@ func (auo *AgentUpdateOne) sqlSave(ctx context.Context) (_node *Agent, err error
 				ps[i](selector)
 			}
 		}
+	}
+	if value, ok := auo.mutation.Name(); ok {
+		_spec.SetField(agent.FieldName, field.TypeString, value)
+	}
+	if value, ok := auo.mutation.Description(); ok {
+		_spec.SetField(agent.FieldDescription, field.TypeString, value)
+	}
+	if auo.mutation.DescriptionCleared() {
+		_spec.ClearField(agent.FieldDescription, field.TypeString)
+	}
+	if value, ok := auo.mutation.Instructions(); ok {
+		_spec.SetField(agent.FieldInstructions, field.TypeString, value)
 	}
 	if auo.mutation.ModelCleared() {
 		edge := &sqlgraph.EdgeSpec{

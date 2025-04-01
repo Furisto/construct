@@ -372,12 +372,12 @@ func (mq *ModelQuery) WithMessages(opts ...func(*MessageQuery)) *ModelQuery {
 // Example:
 //
 //	var v []struct {
-//		ModelProvider uuid.UUID `json:"model_provider,omitempty"`
+//		Name string `json:"name,omitempty"`
 //		Count int `json:"count,omitempty"`
 //	}
 //
 //	client.Model.Query().
-//		GroupBy(model.FieldModelProvider).
+//		GroupBy(model.FieldName).
 //		Aggregate(memory.Count()).
 //		Scan(ctx, &v)
 func (mq *ModelQuery) GroupBy(field string, fields ...string) *ModelGroupBy {
@@ -395,11 +395,11 @@ func (mq *ModelQuery) GroupBy(field string, fields ...string) *ModelGroupBy {
 // Example:
 //
 //	var v []struct {
-//		ModelProvider uuid.UUID `json:"model_provider,omitempty"`
+//		Name string `json:"name,omitempty"`
 //	}
 //
 //	client.Model.Query().
-//		Select(model.FieldModelProvider).
+//		Select(model.FieldName).
 //		Scan(ctx, &v)
 func (mq *ModelQuery) Select(fields ...string) *ModelSelect {
 	mq.ctx.Fields = append(mq.ctx.Fields, fields...)

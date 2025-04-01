@@ -13,6 +13,12 @@ const (
 	Label = "agent"
 	// FieldID holds the string denoting the id field in the database.
 	FieldID = "id"
+	// FieldName holds the string denoting the name field in the database.
+	FieldName = "name"
+	// FieldDescription holds the string denoting the description field in the database.
+	FieldDescription = "description"
+	// FieldInstructions holds the string denoting the instructions field in the database.
+	FieldInstructions = "instructions"
 	// FieldDefaultModel holds the string denoting the default_model field in the database.
 	FieldDefaultModel = "default_model"
 	// EdgeModel holds the string denoting the model edge name in mutations.
@@ -49,6 +55,9 @@ const (
 // Columns holds all SQL columns for agent fields.
 var Columns = []string{
 	FieldID,
+	FieldName,
+	FieldDescription,
+	FieldInstructions,
 	FieldDefaultModel,
 }
 
@@ -63,6 +72,8 @@ func ValidColumn(column string) bool {
 }
 
 var (
+	// NameValidator is a validator for the "name" field. It is called by the builders before save.
+	NameValidator func(string) error
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() uuid.UUID
 )
@@ -73,6 +84,21 @@ type OrderOption func(*sql.Selector)
 // ByID orders the results by the id field.
 func ByID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldID, opts...).ToFunc()
+}
+
+// ByName orders the results by the name field.
+func ByName(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldName, opts...).ToFunc()
+}
+
+// ByDescription orders the results by the description field.
+func ByDescription(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDescription, opts...).ToFunc()
+}
+
+// ByInstructions orders the results by the instructions field.
+func ByInstructions(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldInstructions, opts...).ToFunc()
 }
 
 // ByDefaultModel orders the results by the default_model field.
