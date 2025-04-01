@@ -42,8 +42,8 @@ message MessageMetadata {
   google.protobuf.Timestamp created_at = 6 [(buf.validate.field).required = true];
   google.protobuf.Timestamp updated_at = 7 [(buf.validate.field).required = true];
   string task_id = 2 [(buf.validate.field).string.uuid = true];
-  string agent_id = 3 [(buf.validate.field).string.uuid = true];
-  string model_id = 4 [(buf.validate.field).string.uuid = true];
+  optional string agent_id = 3 [(buf.validate.field).string.uuid = true];
+  optional string model_id = 4 [(buf.validate.field).string.uuid = true];
   MessageRole role = 1;
   MessageUsage usage = 5;
 }
