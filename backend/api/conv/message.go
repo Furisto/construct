@@ -14,47 +14,59 @@ func ConvertMessageToProto(m *memory.Message) (*v1.Message, error) {
 		return nil, fmt.Errorf("message is nil")
 	}
 
-	var role v1.MessageRole
-	switch m.Role {
-	case types.MessageRoleUser:
-		role = v1.MessageRole_MESSAGE_ROLE_USER
-	case types.MessageRoleAssistant:
-		role = v1.MessageRole_MESSAGE_ROLE_ASSISTANT
-	default:
-		role = v1.MessageRole_MESSAGE_ROLE_UNSPECIFIED
-	}
-
-	var usage *v1.MessageUsage
-	if m.Usage != nil {
-		usage = &v1.MessageUsage{
-			InputTokens:      m.Usage.InputTokens,
-			OutputTokens:     m.Usage.OutputTokens,
-			CacheWriteTokens: m.Usage.CacheWriteTokens,
-			CacheReadTokens:  m.Usage.CacheReadTokens,
-			Cost:             m.Usage.Cost,
-		}
-	}
-
-	var content string
-	if m.Content != nil && len(m.Content.Blocks) > 0 {
-		for _, block := range m.Content.Blocks {
-			if block.Type == types.MessageContentBlockTypeText {
-				content = block.Text
-				break
-			}
-		}
-	}
-
 	return &v1.Message{
 		Id: m.ID.String(),
 		Metadata: &v1.MessageMetadata{
 			CreatedAt: timestamppb.New(m.CreateTime),
 			UpdatedAt: timestamppb.New(m.UpdateTime),
 			TaskId:    m.TaskID.String(),
-			AgentId:   m.AgentID.String(),
-			Role:      role,
-			Usage:     usage,
+			AgentId:   ConvertUUIDPtrToStringPtr(m.AgentID),
+			ModelId:   ConvertUUIDPtrToStringPtr(m.ModelID),
+			Role:      convertRole(m.Role),
+			Usage:     convertUsage(m.Usage),
 		},
-		Content: content,
+		Content: &v1.MessageContent{
+			Content: &v1.MessageContent_Text{
+				Text: convertContent(m.Content),
+			},
+		},
 	}, nil
+}
+
+func convertRole(role types.MessageRole) v1.MessageRole {
+	switch role {
+	case types.MessageRoleUser:
+		return v1.MessageRole_MESSAGE_ROLE_USER
+	case types.MessageRoleAssistant:
+		return v1.MessageRole_MESSAGE_ROLE_ASSISTANT
+	default:
+		return v1.MessageRole_MESSAGE_ROLE_UNSPECIFIED
+	}
+}
+
+func convertUsage(usage *types.MessageUsage) *v1.MessageUsage {
+	if usage == nil {
+		return nil
+	}
+
+	return &v1.MessageUsage{
+		InputTokens:      usage.InputTokens,
+		OutputTokens:     usage.OutputTokens,
+		CacheWriteTokens: usage.CacheWriteTokens,
+		CacheReadTokens:  usage.CacheReadTokens,
+		Cost:             usage.Cost,
+	}
+}
+
+func convertContent(content *types.MessageContent) string {
+	if content == nil || len(content.Blocks) == 0 {
+		return ""
+	}
+
+	for _, block := range content.Blocks {
+		if block.Type == types.MessageContentBlockTypeText {
+			return block.Text
+		}
+	}
+	return ""
 }

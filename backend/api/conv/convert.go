@@ -17,7 +17,17 @@ func (e *MissingRelatedEntityError) Error() string {
 }
 
 func ConvertUUIDToString(id uuid.UUID) string {
+	if id == uuid.Nil {
+		return ""
+	}
 	return id.String()
+}
+
+func ConvertUUIDPtrToStringPtr(id uuid.UUID) *string {
+	if id == uuid.Nil {
+		return nil
+	}
+	return strPtr(id.String())
 }
 
 func ConvertUUIDPtrToString(id *uuid.UUID) string {
