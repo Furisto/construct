@@ -11,6 +11,7 @@ type Client struct {
 	modelProvider v1connect.ModelProviderServiceClient
 	agent         v1connect.AgentServiceClient
 	task          v1connect.TaskServiceClient
+	message       v1connect.MessageServiceClient
 }
 
 func NewClient(ctx context.Context, url string) (*Client, error) {
@@ -18,6 +19,7 @@ func NewClient(ctx context.Context, url string) (*Client, error) {
 		modelProvider: v1connect.NewModelProviderServiceClient(http.DefaultClient, url),
 		agent:         v1connect.NewAgentServiceClient(http.DefaultClient, url),
 		task:          v1connect.NewTaskServiceClient(http.DefaultClient, url),
+		message:       v1connect.NewMessageServiceClient(http.DefaultClient, url),
 	}, nil
 }
 
@@ -31,4 +33,8 @@ func (c *Client) Agent() v1connect.AgentServiceClient {
 
 func (c *Client) Task() v1connect.TaskServiceClient {
 	return c.task
+}
+
+func (c *Client) Message() v1connect.MessageServiceClient {
+	return c.message
 }
