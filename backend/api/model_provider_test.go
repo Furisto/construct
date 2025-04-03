@@ -9,6 +9,7 @@ import (
 	v1 "github.com/furisto/construct/api/go/v1"
 	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/memory/schema/types"
+	"github.com/furisto/construct/backend/memory/test"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/google/uuid"
@@ -96,15 +97,13 @@ func TestGetModelProvider(t *testing.T) {
 		},
 		{
 			Name: "success",
-			SeedDatabase: func(ctx context.Context, db *memory.Client) error {
-				_, err := db.ModelProvider.Create().
-					SetID(testProviderID).
-					SetName("anthropic").
-					SetProviderType(types.ModelProviderTypeAnthropic).
-					SetSecret([]byte("encrypted-secret")).
-					SetEnabled(true).
-					Save(ctx)
-				return err
+			SeedDatabase: func(ctx context.Context, db *memory.Client) {
+				test.NewModelProviderBuilder(t, db).
+					WithID(testProviderID).
+					WithName("anthropic").
+					WithProviderType(types.ModelProviderTypeAnthropic).
+					WithEnabled(true).
+					Build(ctx)
 			},
 			Request: &v1.GetModelProviderRequest{
 				Id: testProviderID.String(),
@@ -150,28 +149,22 @@ func TestListModelProviders(t *testing.T) {
 		},
 		{
 			Name: "filter by enabled",
-			SeedDatabase: func(ctx context.Context, db *memory.Client) error {
+			SeedDatabase: func(ctx context.Context, db *memory.Client) {
 				// Create enabled provider
-				_, err := db.ModelProvider.Create().
-					SetID(anthropicID).
-					SetName("anthropic").
-					SetProviderType(types.ModelProviderTypeAnthropic).
-					SetSecret([]byte("encrypted-secret")).
-					SetEnabled(true).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
+				test.NewModelProviderBuilder(t, db).
+					WithID(anthropicID).
+					WithName("anthropic").
+					WithProviderType(types.ModelProviderTypeAnthropic).
+					WithEnabled(true).
+					Build(ctx)
 
 				// Create disabled provider
-				_, err = db.ModelProvider.Create().
-					SetID(openaiID).
-					SetName("openai").
-					SetProviderType(types.ModelProviderTypeOpenAI).
-					SetSecret([]byte("encrypted-secret")).
-					SetEnabled(false).
-					Save(ctx)
-				return err
+				test.NewModelProviderBuilder(t, db).
+					WithID(openaiID).
+					WithName("openai").
+					WithProviderType(types.ModelProviderTypeOpenAI).
+					WithEnabled(false).
+					Build(ctx)
 			},
 			Request: &v1.ListModelProvidersRequest{
 				Filter: &v1.ListModelProvidersRequest_Filter{
@@ -193,28 +186,22 @@ func TestListModelProviders(t *testing.T) {
 		},
 		{
 			Name: "filter by provider type",
-			SeedDatabase: func(ctx context.Context, db *memory.Client) error {
+			SeedDatabase: func(ctx context.Context, db *memory.Client) {
 				// Create Anthropic provider
-				_, err := db.ModelProvider.Create().
-					SetID(anthropicID).
-					SetName("anthropic").
-					SetProviderType(types.ModelProviderTypeAnthropic).
-					SetSecret([]byte("encrypted-secret")).
-					SetEnabled(true).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
+				test.NewModelProviderBuilder(t, db).
+					WithID(anthropicID).
+					WithName("anthropic").
+					WithProviderType(types.ModelProviderTypeAnthropic).
+					WithEnabled(true).
+					Build(ctx)
 
 				// Create OpenAI provider
-				_, err = db.ModelProvider.Create().
-					SetID(openaiID).
-					SetName("openai").
-					SetProviderType(types.ModelProviderTypeOpenAI).
-					SetSecret([]byte("encrypted-secret")).
-					SetEnabled(true).
-					Save(ctx)
-				return err
+				test.NewModelProviderBuilder(t, db).
+					WithID(openaiID).
+					WithName("openai").
+					WithProviderType(types.ModelProviderTypeOpenAI).
+					WithEnabled(true).
+					Build(ctx)
 			},
 			Request: &v1.ListModelProvidersRequest{
 				Filter: &v1.ListModelProvidersRequest_Filter{
@@ -236,28 +223,22 @@ func TestListModelProviders(t *testing.T) {
 		},
 		{
 			Name: "multiple providers",
-			SeedDatabase: func(ctx context.Context, db *memory.Client) error {
+			SeedDatabase: func(ctx context.Context, db *memory.Client) {
 				// Create Anthropic provider
-				_, err := db.ModelProvider.Create().
-					SetID(anthropicID).
-					SetName("anthropic").
-					SetProviderType(types.ModelProviderTypeAnthropic).
-					SetSecret([]byte("encrypted-secret")).
-					SetEnabled(true).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
+				test.NewModelProviderBuilder(t, db).
+					WithID(anthropicID).
+					WithName("anthropic").
+					WithProviderType(types.ModelProviderTypeAnthropic).
+					WithEnabled(true).
+					Build(ctx)
 
 				// Create OpenAI provider
-				_, err = db.ModelProvider.Create().
-					SetID(openaiID).
-					SetName("openai").
-					SetProviderType(types.ModelProviderTypeOpenAI).
-					SetSecret([]byte("encrypted-secret")).
-					SetEnabled(true).
-					Save(ctx)
-				return err
+				test.NewModelProviderBuilder(t, db).
+					WithID(openaiID).
+					WithName("openai").
+					WithProviderType(types.ModelProviderTypeOpenAI).
+					WithEnabled(true).
+					Build(ctx)
 			},
 			Request: &v1.ListModelProvidersRequest{},
 			Expected: ServiceTestExpectation[v1.ListModelProvidersResponse]{
@@ -316,15 +297,13 @@ func TestDeleteModelProvider(t *testing.T) {
 		},
 		{
 			Name: "success",
-			SeedDatabase: func(ctx context.Context, db *memory.Client) error {
-				_, err := db.ModelProvider.Create().
-					SetID(testProviderID).
-					SetName("anthropic").
-					SetProviderType(types.ModelProviderTypeAnthropic).
-					SetSecret([]byte("encrypted-secret")).
-					SetEnabled(true).
-					Save(ctx)
-				return err
+			SeedDatabase: func(ctx context.Context, db *memory.Client) {
+				test.NewModelProviderBuilder(t, db).
+					WithID(testProviderID).
+					WithName("anthropic").
+					WithProviderType(types.ModelProviderTypeAnthropic).
+					WithEnabled(true).
+					Build(ctx)
 			},
 			Request: &v1.DeleteModelProviderRequest{
 				Id: testProviderID.String(),

@@ -8,6 +8,7 @@ import (
 	"github.com/furisto/construct/api/go/client"
 	v1 "github.com/furisto/construct/api/go/v1"
 	"github.com/furisto/construct/backend/memory"
+	"github.com/furisto/construct/backend/memory/test"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/google/uuid"
@@ -82,33 +83,22 @@ func TestGetTask(t *testing.T) {
 		},
 		{
 			Name: "success",
-			SeedDatabase: func(ctx context.Context, db *memory.Client) error {
-				model, err := db.Model.Create().
-					SetID(modelID).
-					SetName("test-model").
-					SetContextWindow(16000).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				agent, err := db.Agent.Create().
-					SetID(agentID).
-					SetName("test-agent").
-					SetDescription("Test agent description").
-					SetInstructions("Test agent instructions").
-					SetModel(model).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				_, err = db.Task.Create().
-					SetID(taskID).
-					SetAgent(agent).
-					Save(ctx)
-
-				return err
+			SeedDatabase: func(ctx context.Context, db *memory.Client) {
+				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
+				model := test.NewModelBuilder(t, db, modelProvider).
+					WithID(modelID).
+					Build(ctx)
+				
+				agent := test.NewAgentBuilder(t, db, model).
+					WithID(agentID).
+					WithName("test-agent").
+					WithDescription("Test agent description").
+					WithInstructions("Test agent instructions").
+					Build(ctx)
+				
+				test.NewTaskBuilder(t, db, agent).
+					WithID(taskID).
+					Build(ctx)
 			},
 			Request: &v1.GetTaskRequest{
 				Id: taskID.String(),
@@ -160,51 +150,33 @@ func TestListTasks(t *testing.T) {
 		},
 		{
 			Name: "filter by agent ID",
-			SeedDatabase: func(ctx context.Context, db *memory.Client) error {
-				model, err := db.Model.Create().
-					SetID(modelID).
-					SetName("test-model").
-					SetContextWindow(16000).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				agent1, err := db.Agent.Create().
-					SetID(agent1ID).
-					SetName("test-agent-1").
-					SetDescription("Test agent 1 description").
-					SetInstructions("Test agent 1 instructions").
-					SetModel(model).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				agent2, err := db.Agent.Create().
-					SetID(uuid.New()).
-					SetName("test-agent-1").
-					SetDescription("Test agent 1 description").
-					SetInstructions("Test agent 1 instructions").
-					SetModel(model).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				_, err = db.Task.Create().
-					SetID(task1ID).
-					SetAgent(agent1).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				_, err = db.Task.Create().
-					SetID(task2ID).
-					SetAgent(agent2).
-					Save(ctx)
-				return err
+			SeedDatabase: func(ctx context.Context, db *memory.Client) {
+				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
+				model := test.NewModelBuilder(t, db, modelProvider).
+					WithID(modelID).
+					Build(ctx)
+				
+				agent1 := test.NewAgentBuilder(t, db, model).
+					WithID(agent1ID).
+					WithName("test-agent-1").
+					WithDescription("Test agent 1 description").
+					WithInstructions("Test agent 1 instructions").
+					Build(ctx)
+				
+				agent2 := test.NewAgentBuilder(t, db, model).
+					WithID(uuid.New()).
+					WithName("test-agent-2").
+					WithDescription("Test agent 2 description").
+					WithInstructions("Test agent 2 instructions").
+					Build(ctx)
+				
+				test.NewTaskBuilder(t, db, agent1).
+					WithID(task1ID).
+					Build(ctx)
+				
+				test.NewTaskBuilder(t, db, agent2).
+					WithID(task2ID).
+					Build(ctx)
 			},
 			Request: &v1.ListTasksRequest{
 				Filter: &v1.ListTasksRequest_Filter{
@@ -241,40 +213,26 @@ func TestListTasks(t *testing.T) {
 		},
 		{
 			Name: "multiple tasks",
-			SeedDatabase: func(ctx context.Context, db *memory.Client) error {
-				model, err := db.Model.Create().
-					SetID(modelID).
-					SetName("test-model").
-					SetContextWindow(16000).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				agent1, err := db.Agent.Create().
-					SetID(agent1ID).
-					SetName("test-agent-1").
-					SetDescription("Test agent 1 description").
-					SetInstructions("Test agent 1 instructions").
-					SetModel(model).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				_, err = db.Task.Create().
-					SetID(task1ID).
-					SetAgent(agent1).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				_, err = db.Task.Create().
-					SetID(task2ID).
-					SetAgent(agent1).
-					Save(ctx)
-				return err
+			SeedDatabase: func(ctx context.Context, db *memory.Client) {
+				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
+				model := test.NewModelBuilder(t, db, modelProvider).
+					WithID(modelID).
+					Build(ctx)
+				
+				agent1 := test.NewAgentBuilder(t, db, model).
+					WithID(agent1ID).
+					WithName("test-agent-1").
+					WithDescription("Test agent 1 description").
+					WithInstructions("Test agent 1 instructions").
+					Build(ctx)
+				
+				test.NewTaskBuilder(t, db, agent1).
+					WithID(task1ID).
+					Build(ctx)
+				
+				test.NewTaskBuilder(t, db, agent1).
+					WithID(task2ID).
+					Build(ctx)
 			},
 			Request: &v1.ListTasksRequest{},
 			Expected: ServiceTestExpectation[v1.ListTasksResponse]{
@@ -346,33 +304,22 @@ func TestUpdateTask(t *testing.T) {
 		},
 		{
 			Name: "invalid agent ID format",
-			SeedDatabase: func(ctx context.Context, db *memory.Client) error {
-				model, err := db.Model.Create().
-					SetID(modelID).
-					SetName("test-model").
-					SetContextWindow(16000).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				agent, err := db.Agent.Create().
-					SetID(agentID).
-					SetName("test-agent").
-					SetDescription("Test agent description").
-					SetInstructions("Test agent instructions").
-					SetModel(model).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				_, err = db.Task.Create().
-					SetID(taskID).
-					SetAgent(agent).
-					Save(ctx)
-
-				return err
+			SeedDatabase: func(ctx context.Context, db *memory.Client) {
+				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
+				model := test.NewModelBuilder(t, db, modelProvider).
+					WithID(modelID).
+					Build(ctx)
+				
+				agent := test.NewAgentBuilder(t, db, model).
+					WithID(agentID).
+					WithName("test-agent").
+					WithDescription("Test agent description").
+					WithInstructions("Test agent instructions").
+					Build(ctx)
+				
+				test.NewTaskBuilder(t, db, agent).
+					WithID(taskID).
+					Build(ctx)
 			},
 			Request: &v1.UpdateTaskRequest{
 				Id:      taskID.String(),
@@ -384,33 +331,22 @@ func TestUpdateTask(t *testing.T) {
 		},
 		{
 			Name: "agent not found",
-			SeedDatabase: func(ctx context.Context, db *memory.Client) error {
-				model, err := db.Model.Create().
-					SetID(modelID).
-					SetName("test-model").
-					SetContextWindow(16000).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				agent, err := db.Agent.Create().
-					SetID(agentID).
-					SetName("test-agent").
-					SetDescription("Test agent description").
-					SetInstructions("Test agent instructions").
-					SetModel(model).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				_, err = db.Task.Create().
-					SetID(taskID).
-					SetAgent(agent).
-					Save(ctx)
-
-				return err
+			SeedDatabase: func(ctx context.Context, db *memory.Client) {
+				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
+				model := test.NewModelBuilder(t, db, modelProvider).
+					WithID(modelID).
+					Build(ctx)
+				
+				agent := test.NewAgentBuilder(t, db, model).
+					WithID(agentID).
+					WithName("test-agent").
+					WithDescription("Test agent description").
+					WithInstructions("Test agent instructions").
+					Build(ctx)
+				
+				test.NewTaskBuilder(t, db, agent).
+					WithID(taskID).
+					Build(ctx)
 			},
 			Request: &v1.UpdateTaskRequest{
 				Id:      taskID.String(),
@@ -422,44 +358,29 @@ func TestUpdateTask(t *testing.T) {
 		},
 		{
 			Name: "success - update agent",
-			SeedDatabase: func(ctx context.Context, db *memory.Client) error {
-				model, err := db.Model.Create().
-					SetID(modelID).
-					SetName("test-model").
-					SetContextWindow(16000).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				agent1, err := db.Agent.Create().
-					SetID(agentID).
-					SetName("test-agent").
-					SetDescription("Test agent description").
-					SetInstructions("Test agent instructions").
-					SetModel(model).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				_, err = db.Agent.Create().
-					SetID(newAgentID).
-					SetName("new-agent").
-					SetDescription("New agent description").
-					SetInstructions("New agent instructions").
-					SetModel(model).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				_, err = db.Task.Create().
-					SetID(taskID).
-					SetAgent(agent1).
-					Save(ctx)
-
-				return err
+			SeedDatabase: func(ctx context.Context, db *memory.Client) {
+				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
+				model := test.NewModelBuilder(t, db, modelProvider).
+					WithID(modelID).
+					Build(ctx)
+				
+				agent1 := test.NewAgentBuilder(t, db, model).
+					WithID(agentID).
+					WithName("test-agent").
+					WithDescription("Test agent description").
+					WithInstructions("Test agent instructions").
+					Build(ctx)
+				
+				test.NewAgentBuilder(t, db, model).
+					WithID(newAgentID).
+					WithName("new-agent").
+					WithDescription("New agent description").
+					WithInstructions("New agent instructions").
+					Build(ctx)
+				
+				test.NewTaskBuilder(t, db, agent1).
+					WithID(taskID).
+					Build(ctx)
 			},
 			Request: &v1.UpdateTaskRequest{
 				Id:      taskID.String(),
@@ -519,33 +440,22 @@ func TestDeleteTask(t *testing.T) {
 		},
 		{
 			Name: "success",
-			SeedDatabase: func(ctx context.Context, db *memory.Client) error {
-				model, err := db.Model.Create().
-					SetID(modelID).
-					SetName("test-model").
-					SetContextWindow(16000).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				agent, err := db.Agent.Create().
-					SetID(agentID).
-					SetName("test-agent").
-					SetDescription("Test agent description").
-					SetInstructions("Test agent instructions").
-					SetModel(model).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				_, err = db.Task.Create().
-					SetID(taskID).
-					SetAgent(agent).
-					Save(ctx)
-
-				return err
+			SeedDatabase: func(ctx context.Context, db *memory.Client) {
+				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
+				model := test.NewModelBuilder(t, db, modelProvider).
+					WithID(modelID).
+					Build(ctx)
+				
+				agent := test.NewAgentBuilder(t, db, model).
+					WithID(agentID).
+					WithName("test-agent").
+					WithDescription("Test agent description").
+					WithInstructions("Test agent instructions").
+					Build(ctx)
+				
+				test.NewTaskBuilder(t, db, agent).
+					WithID(taskID).
+					Build(ctx)
 			},
 			Request: &v1.DeleteTaskRequest{
 				Id: taskID.String(),

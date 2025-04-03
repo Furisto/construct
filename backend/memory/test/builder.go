@@ -58,6 +58,26 @@ func NewModelProviderBuilder(t *testing.T, db *memory.Client) *ModelProviderBuil
 	}
 }
 
+func (b *ModelProviderBuilder) WithID(id uuid.UUID) *ModelProviderBuilder {
+	b.modelProviderID = id
+	return b
+}
+
+func (b *ModelProviderBuilder) WithName(name string) *ModelProviderBuilder {
+	b.name = name
+	return b
+}
+
+func (b *ModelProviderBuilder) WithProviderType(providerType types.ModelProviderType) *ModelProviderBuilder {
+	b.providerType = providerType
+	return b
+}
+
+func (b *ModelProviderBuilder) WithEnabled(enabled bool) *ModelProviderBuilder {
+	b.enabled = enabled
+	return b
+}
+
 func (b *ModelProviderBuilder) Build(ctx context.Context) *memory.ModelProvider {
 	modelProvider, err := b.db.ModelProvider.Create().
 		SetID(b.modelProviderID).
