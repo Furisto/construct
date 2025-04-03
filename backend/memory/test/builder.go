@@ -10,12 +10,47 @@ import (
 )
 
 var (
-	ModelProviderID = uuid.MustParse("0195fc02-59ef-7194-93d5-387400b068cb")
-	ModelID         = uuid.MustParse("0195fbbe-adda-76cf-be67-9f1b64b50a4a")
-	AgentID         = uuid.MustParse("0195fbbe-42e1-75fe-8e08-28758035ff95")
-	TaskID          = uuid.MustParse("0195fbbe-0be8-74b1-af7a-6e76e80e2462")
-	MessageID       = uuid.MustParse("0195fbbd-757d-7db6-83c2-f556128b4586")
+	modelProviderID = uuid.MustParse("0195fc02-59ef-7194-93d5-387400b068cb")
+	modelID         = uuid.MustParse("0195fbbe-adda-76cf-be67-9f1b64b50a4a")
+	agentID         = uuid.MustParse("0195fbbe-42e1-75fe-8e08-28758035ff95")
+	agentID2        = uuid.MustParse("0195fd1c-04c3-7576-aae7-2409b325b350")
+	taskID          = uuid.MustParse("0195fbbe-0be8-74b1-af7a-6e76e80e2462")
+	taskID2         = uuid.MustParse("0195fd1c-2b8d-75c7-b30d-858e67825ac3")
+	messageID       = uuid.MustParse("0195fbbd-757d-7db6-83c2-f556128b4586")
+	messageID2      = uuid.MustParse("0195fd1c-58fc-7960-85ef-e05cf64db136")
 )
+
+func ModelProviderID() uuid.UUID {
+	return modelProviderID
+}
+
+func ModelID() uuid.UUID {
+	return modelID
+}
+
+func AgentID() uuid.UUID {
+	return agentID
+}
+
+func AgentID2() uuid.UUID {
+	return agentID2
+}
+
+func TaskID() uuid.UUID {
+	return taskID
+}
+
+func TaskID2() uuid.UUID {
+	return taskID2
+}
+
+func MessageID() uuid.UUID {
+	return messageID
+}
+
+func MessageID2() uuid.UUID {
+	return messageID2
+}
 
 type entityBuilder struct {
 	db *memory.Client
@@ -50,7 +85,7 @@ type ModelProviderBuilder struct {
 func NewModelProviderBuilder(t *testing.T, db *memory.Client) *ModelProviderBuilder {
 	return &ModelProviderBuilder{
 		entityBuilder:   newEntityBuilder(t, db),
-		modelProviderID: ModelProviderID,
+		modelProviderID: ModelProviderID(),
 		providerType:    types.ModelProviderTypeAnthropic,
 		name:            "anthropic",
 		secret:          []byte("mock-secret"),
@@ -117,7 +152,7 @@ func NewModelBuilder(t *testing.T, db *memory.Client, modelProvider *memory.Mode
 	return &ModelBuilder{
 		entityBuilder:   newEntityBuilder(t, db),
 		modelProviderID: modelProvider.ID,
-		modelID:         ModelID,
+		modelID:         ModelID(),
 		name:            "claude-3-7-sonnet-20250219",
 		contextWindow:   200_000,
 		inputCost:       3,
@@ -175,11 +210,11 @@ func NewAgentBuilder(t *testing.T, db *memory.Client, defaultModel *memory.Model
 
 	return &AgentBuilder{
 		entityBuilder: newEntityBuilder(t, db),
-		agentID:       AgentID,
+		agentID:       AgentID(),
 		name:          "coder",
 		description:   "Writes code",
 		defaultModel:  defaultModel.ID,
-		instructions:  "Implement the plan exactly as described",
+		instructions:  "Implement the plan",
 	}
 }
 
@@ -229,7 +264,7 @@ type TaskBuilder struct {
 func NewTaskBuilder(t *testing.T, db *memory.Client, agent *memory.Agent) *TaskBuilder {
 	return &TaskBuilder{
 		entityBuilder: newEntityBuilder(t, db),
-		taskID:        TaskID,
+		taskID:        TaskID(),
 		agentID:       agent.ID,
 	}
 }
@@ -271,7 +306,7 @@ func NewMessageBuilder(t *testing.T, db *memory.Client, task *memory.Task) *Mess
 
 	return &MessageBuilder{
 		entityBuilder: newEntityBuilder(t, db),
-		messageID:     MessageID,
+		messageID:     MessageID(),
 		taskID:        task.ID,
 		role:          types.MessageRoleUser,
 		content: &types.MessageContent{Blocks: []types.MessageContentBlock{
@@ -301,14 +336,21 @@ func (b *MessageBuilder) WithID(id uuid.UUID) *MessageBuilder {
 }
 
 func (b *MessageBuilder) Build(ctx context.Context) *memory.Message {
-	message, err := b.db.Message.Create().
+	create := b.db.Message.Create().
 		SetID(b.messageID).
 		SetTaskID(b.taskID).
-		SetAgentID(b.agentID).
-		SetModelID(b.modelID).
 		SetContent(b.content).
-		SetRole(b.role).
-		Save(ctx)
+		SetRole(b.role)
+
+	if b.agentID != uuid.Nil {
+		create.SetAgentID(b.agentID)
+	}
+
+	if b.modelID != uuid.Nil {
+		create.SetModelID(b.modelID)
+	}
+
+	message, err := create.Save(ctx)
 
 	if err != nil {
 		b.t.Fatalf("failed to create message: %v", err)
