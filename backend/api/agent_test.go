@@ -8,6 +8,7 @@ import (
 	"github.com/furisto/construct/api/go/client"
 	v1 "github.com/furisto/construct/api/go/v1"
 	"github.com/furisto/construct/backend/memory"
+	"github.com/furisto/construct/backend/memory/test"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/google/uuid"
@@ -57,14 +58,12 @@ func TestCreateAgent(t *testing.T) {
 		},
 		{
 			Name: "model is disabled",
-			SeedDatabase: func(ctx context.Context, db *memory.Client) error {
-				_, err := db.Model.Create().
-					SetID(modelID).
-					SetName("test-model").
-					SetContextWindow(16000).
-					SetEnabled(false).
-					Save(ctx)
-				return err
+			SeedDatabase: func(ctx context.Context, db *memory.Client) {
+				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
+				test.NewModelBuilder(t, db, modelProvider).
+					WithID(modelID).
+					WithEnabled(false).
+					Build(ctx)
 			},
 			Request: &v1.CreateAgentRequest{
 				Name:         "architect-agent",
@@ -78,13 +77,11 @@ func TestCreateAgent(t *testing.T) {
 		},
 		{
 			Name: "success",
-			SeedDatabase: func(ctx context.Context, db *memory.Client) error {
-				_, err := db.Model.Create().
-					SetID(modelID).
-					SetName("test-model").
-					SetContextWindow(16000).
-					Save(ctx)
-				return err
+			SeedDatabase: func(ctx context.Context, db *memory.Client) {
+				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
+				test.NewModelBuilder(t, db, modelProvider).
+					WithID(modelID).
+					Build(ctx)
 			},
 			Request: &v1.CreateAgentRequest{
 				Name:         "architect-agent",
@@ -147,24 +144,18 @@ func TestGetAgent(t *testing.T) {
 		},
 		{
 			Name: "success",
-			SeedDatabase: func(ctx context.Context, db *memory.Client) error {
-				model, err := db.Model.Create().
-					SetID(modelID).
-					SetName("test-model").
-					SetContextWindow(16000).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				_, err = db.Agent.Create().
-					SetID(agentID).
-					SetName("architect-agent").
-					SetDescription("Architect agent description").
-					SetInstructions("Architect agent instructions").
-					SetModel(model).
-					Save(ctx)
-				return err
+			SeedDatabase: func(ctx context.Context, db *memory.Client) {
+				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
+				model := test.NewModelBuilder(t, db, modelProvider).
+					WithID(modelID).
+					Build(ctx)
+				
+				test.NewAgentBuilder(t, db, model).
+					WithID(agentID).
+					WithName("architect-agent").
+					WithDescription("Architect agent description").
+					WithInstructions("Architect agent instructions").
+					Build(ctx)
 			},
 			Request: &v1.GetAgentRequest{
 				Id: agentID.String(),
@@ -218,44 +209,30 @@ func TestListAgents(t *testing.T) {
 		},
 		{
 			Name: "filter by model ID",
-			SeedDatabase: func(ctx context.Context, db *memory.Client) error {
-				model1, err := db.Model.Create().
-					SetID(model1ID).
-					SetName("model-1").
-					SetContextWindow(16000).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				model2, err := db.Model.Create().
-					SetID(model2ID).
-					SetName("model-2").
-					SetContextWindow(16000).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				_, err = db.Agent.Create().
-					SetID(agent1ID).
-					SetName("architect-agent-1").
-					SetDescription("Architect agent 1 description").
-					SetInstructions("Architect agent 1 instructions").
-					SetModel(model1).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				_, err = db.Agent.Create().
-					SetID(agent2ID).
-					SetName("architect-agent-2").
-					SetDescription("Architect agent 2 description").
-					SetInstructions("Architect agent 2 instructions").
-					SetModel(model2).
-					Save(ctx)
-				return err
+			SeedDatabase: func(ctx context.Context, db *memory.Client) {
+				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
+				
+				model1 := test.NewModelBuilder(t, db, modelProvider).
+					WithID(model1ID).
+					Build(ctx)
+				
+				model2 := test.NewModelBuilder(t, db, modelProvider).
+					WithID(model2ID).
+					Build(ctx)
+				
+				test.NewAgentBuilder(t, db, model1).
+					WithID(agent1ID).
+					WithName("architect-agent-1").
+					WithDescription("Architect agent 1 description").
+					WithInstructions("Architect agent 1 instructions").
+					Build(ctx)
+				
+				test.NewAgentBuilder(t, db, model2).
+					WithID(agent2ID).
+					WithName("architect-agent-2").
+					WithDescription("Architect agent 2 description").
+					WithInstructions("Architect agent 2 instructions").
+					Build(ctx)
 			},
 			Request: &v1.ListAgentsRequest{
 				Filter: &v1.ListAgentsRequest_Filter{
@@ -283,35 +260,26 @@ func TestListAgents(t *testing.T) {
 		},
 		{
 			Name: "multiple agents",
-			SeedDatabase: func(ctx context.Context, db *memory.Client) error {
-				model1, err := db.Model.Create().
-					SetID(model1ID).
-					SetName("model-1").
-					SetContextWindow(16000).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				_, err = db.Agent.Create().
-					SetID(agent1ID).
-					SetName("architect-agent-1").
-					SetDescription("Architect agent 1 description").
-					SetInstructions("Architect agent 1 instructions").
-					SetModel(model1).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				_, err = db.Agent.Create().
-					SetID(agent2ID).
-					SetName("architect-agent-2").
-					SetDescription("Architect agent 2 description").
-					SetInstructions("Architect agent 2 instructions").
-					SetModel(model1).
-					Save(ctx)
-				return err
+			SeedDatabase: func(ctx context.Context, db *memory.Client) {
+				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
+				
+				model1 := test.NewModelBuilder(t, db, modelProvider).
+					WithID(model1ID).
+					Build(ctx)
+				
+				test.NewAgentBuilder(t, db, model1).
+					WithID(agent1ID).
+					WithName("architect-agent-1").
+					WithDescription("Architect agent 1 description").
+					WithInstructions("Architect agent 1 instructions").
+					Build(ctx)
+				
+				test.NewAgentBuilder(t, db, model1).
+					WithID(agent2ID).
+					WithName("architect-agent-2").
+					WithDescription("Architect agent 2 description").
+					WithInstructions("Architect agent 2 instructions").
+					Build(ctx)
 			},
 			Request: &v1.ListAgentsRequest{},
 			Expected: ServiceTestExpectation[v1.ListAgentsResponse]{
@@ -387,24 +355,18 @@ func TestUpdateAgent(t *testing.T) {
 		},
 		{
 			Name: "invalid model ID",
-			SeedDatabase: func(ctx context.Context, db *memory.Client) error {
-				model, err := db.Model.Create().
-					SetID(modelID).
-					SetName("test-model").
-					SetContextWindow(16000).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				_, err = db.Agent.Create().
-					SetID(agentID).
-					SetName("architect-agent").
-					SetDescription("Architect agent description").
-					SetInstructions("Architect agent instructions").
-					SetModel(model).
-					Save(ctx)
-				return err
+			SeedDatabase: func(ctx context.Context, db *memory.Client) {
+				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
+				model := test.NewModelBuilder(t, db, modelProvider).
+					WithID(modelID).
+					Build(ctx)
+				
+				test.NewAgentBuilder(t, db, model).
+					WithID(agentID).
+					WithName("architect-agent").
+					WithDescription("Architect agent description").
+					WithInstructions("Architect agent instructions").
+					Build(ctx)
 			},
 			Request: &v1.UpdateAgentRequest{
 				Id:      agentID.String(),
@@ -416,24 +378,18 @@ func TestUpdateAgent(t *testing.T) {
 		},
 		{
 			Name: "model not found",
-			SeedDatabase: func(ctx context.Context, db *memory.Client) error {
-				model, err := db.Model.Create().
-					SetID(modelID).
-					SetName("test-model").
-					SetContextWindow(16000).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				_, err = db.Agent.Create().
-					SetID(agentID).
-					SetName("architect-agent").
-					SetDescription("Architect agent description").
-					SetInstructions("Architect agent instructions").
-					SetModel(model).
-					Save(ctx)
-				return err
+			SeedDatabase: func(ctx context.Context, db *memory.Client) {
+				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
+				model := test.NewModelBuilder(t, db, modelProvider).
+					WithID(modelID).
+					Build(ctx)
+				
+				test.NewAgentBuilder(t, db, model).
+					WithID(agentID).
+					WithName("architect-agent").
+					WithDescription("Architect agent description").
+					WithInstructions("Architect agent instructions").
+					Build(ctx)
 			},
 			Request: &v1.UpdateAgentRequest{
 				Id:      agentID.String(),
@@ -445,24 +401,18 @@ func TestUpdateAgent(t *testing.T) {
 		},
 		{
 			Name: "success - update fields",
-			SeedDatabase: func(ctx context.Context, db *memory.Client) error {
-				model, err := db.Model.Create().
-					SetID(modelID).
-					SetName("test-model").
-					SetContextWindow(16000).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				_, err = db.Agent.Create().
-					SetID(agentID).
-					SetName("architect-agent").
-					SetDescription("Architect agent description").
-					SetInstructions("Architect agent instructions").
-					SetModel(model).
-					Save(ctx)
-				return err
+			SeedDatabase: func(ctx context.Context, db *memory.Client) {
+				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
+				model := test.NewModelBuilder(t, db, modelProvider).
+					WithID(modelID).
+					Build(ctx)
+				
+				test.NewAgentBuilder(t, db, model).
+					WithID(agentID).
+					WithName("architect-agent").
+					WithDescription("Architect agent description").
+					WithInstructions("Architect agent instructions").
+					Build(ctx)
 			},
 			Request: &v1.UpdateAgentRequest{
 				Id:           agentID.String(),
@@ -489,33 +439,24 @@ func TestUpdateAgent(t *testing.T) {
 		},
 		{
 			Name: "success - update model",
-			SeedDatabase: func(ctx context.Context, db *memory.Client) error {
-				model, err := db.Model.Create().
-					SetID(modelID).
-					SetName("test-model").
-					SetContextWindow(16000).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				_, err = db.Model.Create().
-					SetID(newModelID).
-					SetName("new-model").
-					SetContextWindow(32000).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				_, err = db.Agent.Create().
-					SetID(agentID).
-					SetName("architect-agent").
-					SetDescription("Architect agent description").
-					SetInstructions("Architect agent instructions").
-					SetModel(model).
-					Save(ctx)
-				return err
+			SeedDatabase: func(ctx context.Context, db *memory.Client) {
+				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
+				
+				model1 := test.NewModelBuilder(t, db, modelProvider).
+					WithID(modelID).
+					Build(ctx)
+				
+				// Create the new model that will be used in the update
+				test.NewModelBuilder(t, db, modelProvider).
+					WithID(newModelID).
+					Build(ctx)
+				
+				test.NewAgentBuilder(t, db, model1).
+					WithID(agentID).
+					WithName("architect-agent").
+					WithDescription("Architect agent description").
+					WithInstructions("Architect agent instructions").
+					Build(ctx)
 			},
 			Request: &v1.UpdateAgentRequest{
 				Id:      agentID.String(),
@@ -576,24 +517,18 @@ func TestDeleteAgent(t *testing.T) {
 		},
 		{
 			Name: "success",
-			SeedDatabase: func(ctx context.Context, db *memory.Client) error {
-				model, err := db.Model.Create().
-					SetID(modelID).
-					SetName("test-model").
-					SetContextWindow(16000).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				_, err = db.Agent.Create().
-					SetID(agentID).
-					SetName("architect-agent").
-					SetDescription("Architect agent description").
-					SetInstructions("Architect agent instructions").
-					SetModel(model).
-					Save(ctx)
-				return err
+			SeedDatabase: func(ctx context.Context, db *memory.Client) {
+				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
+				model := test.NewModelBuilder(t, db, modelProvider).
+					WithID(modelID).
+					Build(ctx)
+				
+				test.NewAgentBuilder(t, db, model).
+					WithID(agentID).
+					WithName("architect-agent").
+					WithDescription("Architect agent description").
+					WithInstructions("Architect agent instructions").
+					Build(ctx)
 			},
 			Request: &v1.DeleteAgentRequest{
 				Id: agentID.String(),
@@ -604,4 +539,3 @@ func TestDeleteAgent(t *testing.T) {
 		},
 	})
 }
-

@@ -34,7 +34,7 @@ type ServiceTestExpectation[Response any] struct {
 
 type ServiceTestScenario[Request any, Response any] struct {
 	Name         string
-	SeedDatabase func(ctx context.Context, db *memory.Client) error
+	SeedDatabase func(ctx context.Context, db *memory.Client)
 	Request      *Request
 	Expected     ServiceTestExpectation[Response]
 }
@@ -72,9 +72,7 @@ func (s *ServiceTestSetup[Request, Response]) RunServiceTests(t *testing.T, scen
 			}
 
 			if scenario.SeedDatabase != nil {
-				if err := scenario.SeedDatabase(ctx, server.Options.DB); err != nil {
-					t.Fatalf("failed to seed database: %v", sanitizeError(err))
-				}
+				scenario.SeedDatabase(ctx, server.Options.DB)
 			}
 
 			actual := ServiceTestExpectation[Response]{}
