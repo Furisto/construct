@@ -37,75 +37,34 @@ func newEntityBuilder(t *testing.T, db *memory.Client) *entityBuilder {
 	}
 }
 
-
-// type Builder struct {
-// 	db *memory.Client
-// 	t  *testing.T
-// }
-
-// func NewBuilder(t *testing.T, db *memory.Client) *Builder {
-// 	return &Builder{t: t, db: db}
-// }
-
-// type BuilderOptions struct {
-// 	ModelProviderID uuid.UUID
-// 	ModelID         uuid.UUID
-// 	AgentID         uuid.UUID
-// 	TaskID          uuid.UUID
-// 	MessageID       uuid.UUID
-// }
-
-// type BuilderOption func(*BuilderOptions)
-
-// func DefaultBuilderOptions() *BuilderOptions {
-// 	return &BuilderOptions{
-// 		ModelProviderID: ModelProviderID,
-// 		ModelID:         ModelID,
-// 		AgentID:         AgentID,
-// 		TaskID:          TaskID,
-// 		MessageID:       MessageID,
-// 	}
-// }
-
-// func WithModelProviderID(id uuid.UUID) BuilderOption {
-// 	return func(b *BuilderOptions) {
-// 		b.ModelProviderID = id
-// 	}
-// }
-
-// func WithModelID(id uuid.UUID) BuilderOption {
-// 	return func(b *BuilderOptions) {
-// 		b.ModelID = id
-// 	}
-// }
-
-// func WithAgentID(id uuid.UUID) BuilderOption {
-// 	return func(b *BuilderOptions) {
-// 		b.AgentID = id
-// 	}
-// }
-
-// func WithTaskID(id uuid.UUID) BuilderOption {
-// 	return func(b *BuilderOptions) {
-// 		b.TaskID = id
-// 	}
-// }
-
-// func WithMessageID(id uuid.UUID) BuilderOption {
-// 	return func(b *BuilderOptions) {
-// 		b.MessageID = id
-// 	}
-// }
-
 type ModelProviderBuilder struct {
 	*entityBuilder
+	modelProviderID uuid.UUID
+
+	providerType types.ModelProviderType
+	name         string
+	secret       []byte
+	enabled      bool
+}
+
+func NewModelProviderBuilder(t *testing.T, db *memory.Client) *ModelProviderBuilder {
+	return &ModelProviderBuilder{
+		entityBuilder:   newEntityBuilder(t, db),
+		modelProviderID: ModelProviderID,
+		providerType:    types.ModelProviderTypeAnthropic,
+		name:            "test",
+		secret:          []byte("test"),
+		enabled:         true,
+	}
 }
 
 func (b *ModelProviderBuilder) Build(ctx context.Context) *memory.ModelProvider {
-
 	modelProvider, err := b.db.ModelProvider.Create().
-		SetID(options.ModelProviderID).
-		SetName("test").
+		SetID(b.modelProviderID).
+		SetName(b.name).
+		SetProviderType(b.providerType).
+		SetSecret(b.secret).
+		SetEnabled(b.enabled).
 		Save(ctx)
 
 	if err != nil {
@@ -153,16 +112,25 @@ func (b *Builder) Agent(ctx context.Context, model *memory.Model, opts ...Builde
 	return agent
 }
 
-func (b *Builder) Task(ctx context.Context, opts ...BuilderOption) *memory.Task {
-	options := DefaultBuilderOptions()
-	for _, opt := range opts {
-		opt(options)
-	}
+type TaskBuilder struct {
+	*entityBuilder
+	taskID uuid.UUID
 
+	agentID uuid.UUID
+}
+
+func NewTaskBuilder(t *testing.T, db *memory.Client, agent *memory.Agent) *TaskBuilder {
+	return &TaskBuilder{
+		entityBuilder: newEntityBuilder(t, db),
+		taskID:        TaskID,
+		agentID:       agent.ID,
+	}
+}
+
+func (b *TaskBuilder) Build(ctx context.Context) *memory.Task {
 	task, err := b.db.Task.Create().
-		SetID(options.TaskID).
-		SetName("test").
-		SetModelID(options.ModelID).
+		SetID(b.taskID).
+		SetAgentID(b.agentID).
 		Save(ctx)
 
 	if err != nil {
