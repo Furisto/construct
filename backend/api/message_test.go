@@ -234,6 +234,8 @@ func TestGetMessage(t *testing.T) {
 }
 
 func TestListMessages(t *testing.T) {
+	t.Parallel()
+
 	setup := ServiceTestSetup[v1.ListMessagesRequest, v1.ListMessagesResponse]{
 		Call: func(ctx context.Context, client *client.Client, req *connect.Request[v1.ListMessagesRequest]) (*connect.Response[v1.ListMessagesResponse], error) {
 			return client.Message().ListMessages(ctx, req)
@@ -245,13 +247,13 @@ func TestListMessages(t *testing.T) {
 		},
 	}
 
-	message1ID := uuid.MustParse("01234567-89ab-cdef-0123-456789abcdef")
-	message2ID := uuid.MustParse("fedcba98-7654-3210-fedc-ba9876543210")
-	task1ID := uuid.MustParse("98765432-10fe-dcba-9876-543210fedcba")
-	task2ID := uuid.MustParse("abcdef01-2345-6789-abcd-ef0123456789")
-	agent1ID := uuid.MustParse("11111111-2222-3333-4444-555555555555")
-	agent2ID := uuid.MustParse("66666666-7777-8888-9999-000000000000")
-	modelID := uuid.MustParse("12345678-90ab-cdef-0123-456789abcdef")
+	message1ID := uuid.MustParse("0195fbbd-757d-7db6-83c2-f556128b4586")
+	message2ID := uuid.MustParse("0195fbbd-d9ad-7ed1-9c05-171114d5a559")
+	task1ID := uuid.MustParse("0195fbbe-0be8-74b1-af7a-6e76e80e2462")
+	task2ID := uuid.MustParse("0195fbbe-42e1-75fe-8e08-28758035ff95")
+	agent1ID := uuid.MustParse("0195fbbe-42e1-75fe-8e08-28758035ff95")
+	agent2ID := uuid.MustParse("0195fbbe-8321-7800-b5cb-8012f8c36734")
+	modelID := uuid.MustParse("0195fbbe-adda-76cf-be67-9f1b64b50a4a")
 
 	setup.RunServiceTests(t, []ServiceTestScenario[v1.ListMessagesRequest, v1.ListMessagesResponse]{
 		{
@@ -320,6 +322,35 @@ func TestListMessages(t *testing.T) {
 					},
 				}
 
+				modelProvider, err := db.ModelProvider.Create().
+					SetName("test-model-provider").
+					SetProviderType(types.ModelProviderTypeOpenAI).
+					SetSecret([]byte("test-secret")).
+					Save(ctx)
+				if err != nil {
+					return err
+				}
+
+				model, err := db.Model.Create().
+					SetID(modelID).
+					SetName("test-model").
+					SetContextWindow(16000).
+					SetModelProvider(modelProvider).
+					Save(ctx)
+				if err != nil {
+					return err
+				}
+
+				agent, err := db.Agent.Create().
+					SetID(agent1ID).
+					SetName("test-agent").
+					SetInstructions("Test instructions").
+					SetModel(model).
+					Save(ctx)
+				if err != nil {
+					return err
+				}
+
 				_, err = db.Message.Create().
 					SetID(message1ID).
 					SetTask(task1).
@@ -333,7 +364,8 @@ func TestListMessages(t *testing.T) {
 				_, err = db.Message.Create().
 					SetID(message2ID).
 					SetTask(task2).
-					SetAgentID(agent2ID).
+					SetAgent(agent).
+					SetModel(model).
 					SetContent(content2).
 					SetRole(types.MessageRoleAssistant).
 					Save(ctx)
@@ -341,22 +373,23 @@ func TestListMessages(t *testing.T) {
 			},
 			Request: &v1.ListMessagesRequest{
 				Filter: &v1.ListMessagesRequest_Filter{
-					TaskId: strPtr(task1ID.String()),
+					TaskId: strPtr(task2ID.String()),
 				},
 			},
 			Expected: ServiceTestExpectation[v1.ListMessagesResponse]{
 				Response: v1.ListMessagesResponse{
 					Messages: []*v1.Message{
 						{
-							Id: message1ID.String(),
+							Id: message2ID.String(),
 							Metadata: &v1.MessageMetadata{
-								TaskId:  task1ID.String(),
+								TaskId:  task2ID.String(),
 								AgentId: strPtr(agent1ID.String()),
-								Role:    v1.MessageRole_MESSAGE_ROLE_USER,
+								ModelId: strPtr(modelID.String()),
+								Role:    v1.MessageRole_MESSAGE_ROLE_ASSISTANT,
 							},
 							Content: &v1.MessageContent{
 								Content: &v1.MessageContent_Text{
-									Text: "Message 1 content",
+									Text: "Message 2 content",
 								},
 							},
 						},
@@ -392,12 +425,52 @@ func TestListMessages(t *testing.T) {
 					},
 				}
 
+				modelProvider, err := db.ModelProvider.Create().
+					SetName("test-model-provider").
+					SetProviderType(types.ModelProviderTypeOpenAI).
+					SetSecret([]byte("test-secret")).
+					Save(ctx)
+				if err != nil {
+					return err
+				}
+
+				model, err := db.Model.Create().
+					SetID(modelID).
+					SetName("test-model").
+					SetContextWindow(16000).
+					SetModelProvider(modelProvider).
+					Save(ctx)
+				if err != nil {
+					return err
+				}
+
+				agent1, err := db.Agent.Create().
+					SetID(agent1ID).
+					SetName("test-agent").
+					SetInstructions("Test instructions").
+					SetModel(model).
+					Save(ctx)
+				if err != nil {
+					return err
+				}
+
+				agent2, err := db.Agent.Create().
+					SetID(agent2ID).
+					SetName("test-agent").
+					SetInstructions("Test instructions").
+					SetModel(model).
+					Save(ctx)
+				if err != nil {
+					return err
+				}
+
 				_, err = db.Message.Create().
 					SetID(message1ID).
 					SetTask(task1).
-					SetAgentID(agent1ID).
+					SetAgent(agent1).
+					SetModel(model).
 					SetContent(content1).
-					SetRole(types.MessageRoleUser).
+					SetRole(types.MessageRoleAssistant).
 					Save(ctx)
 				if err != nil {
 					return err
@@ -406,7 +479,8 @@ func TestListMessages(t *testing.T) {
 				_, err = db.Message.Create().
 					SetID(message2ID).
 					SetTask(task1).
-					SetAgentID(agent2ID).
+					SetAgent(agent2).
+					SetModel(model).
 					SetContent(content2).
 					SetRole(types.MessageRoleAssistant).
 					Save(ctx)
@@ -423,8 +497,9 @@ func TestListMessages(t *testing.T) {
 						{
 							Id: message2ID.String(),
 							Metadata: &v1.MessageMetadata{
-								TaskId:  task2ID.String(),
+								TaskId:  task1ID.String(),
 								AgentId: strPtr(agent2ID.String()),
+								ModelId: strPtr(modelID.String()),
 								Role:    v1.MessageRole_MESSAGE_ROLE_ASSISTANT,
 							},
 							Content: &v1.MessageContent{
@@ -447,10 +522,20 @@ func TestListMessages(t *testing.T) {
 					return err
 				}
 
+				modelProvider, err := db.ModelProvider.Create().
+					SetName("test-model-provider").
+					SetProviderType(types.ModelProviderTypeOpenAI).
+					SetSecret([]byte("test-secret")).
+					Save(ctx)
+				if err != nil {
+					return err
+				}
+
 				model, err := db.Model.Create().
 					SetID(modelID).
 					SetName("test-model").
 					SetContextWindow(16000).
+					SetModelProvider(modelProvider).
 					Save(ctx)
 				if err != nil {
 					return err
@@ -515,8 +600,9 @@ func TestListMessages(t *testing.T) {
 						{
 							Id: message2ID.String(),
 							Metadata: &v1.MessageMetadata{
-								TaskId:  task2ID.String(),
-								AgentId: strPtr(agent2ID.String()),
+								TaskId:  task1ID.String(),
+								AgentId: strPtr(agent1ID.String()),
+								ModelId: strPtr(modelID.String()),
 								Role:    v1.MessageRole_MESSAGE_ROLE_ASSISTANT,
 							},
 							Content: &v1.MessageContent{
@@ -574,10 +660,20 @@ func TestListMessages(t *testing.T) {
 					return err
 				}
 
+				modelProvider, err := db.ModelProvider.Create().
+					SetName("test-model-provider").
+					SetProviderType(types.ModelProviderTypeOpenAI).
+					SetSecret([]byte("test-secret")).
+					Save(ctx)
+				if err != nil {
+					return err
+				}
+
 				model, err := db.Model.Create().
 					SetID(modelID).
 					SetName("test-model").
 					SetContextWindow(16000).
+					SetModelProvider(modelProvider).
 					Save(ctx)
 				if err != nil {
 					return err
@@ -610,9 +706,8 @@ func TestListMessages(t *testing.T) {
 						{
 							Id: message1ID.String(),
 							Metadata: &v1.MessageMetadata{
-								TaskId:  task1ID.String(),
-								AgentId: strPtr(agent1ID.String()),
-								Role:    v1.MessageRole_MESSAGE_ROLE_USER,
+								TaskId: task1ID.String(),
+								Role:   v1.MessageRole_MESSAGE_ROLE_USER,
 							},
 							Content: &v1.MessageContent{
 								Content: &v1.MessageContent_Text{
@@ -624,7 +719,8 @@ func TestListMessages(t *testing.T) {
 							Id: message2ID.String(),
 							Metadata: &v1.MessageMetadata{
 								TaskId:  task2ID.String(),
-								AgentId: strPtr(agent2ID.String()),
+								AgentId: strPtr(agent1ID.String()),
+								ModelId: strPtr(modelID.String()),
 								Role:    v1.MessageRole_MESSAGE_ROLE_ASSISTANT,
 							},
 							Content: &v1.MessageContent{

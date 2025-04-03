@@ -3,6 +3,7 @@ package schema
 import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/entsql"
+	"entgo.io/ent/schema"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/mixin"
@@ -43,5 +44,15 @@ func (Message) Edges() []ent.Edge {
 func (Message) Mixin() []ent.Mixin {
 	return []ent.Mixin{
 		mixin.Time{},
+	}
+}
+
+func (Message) Annotations() []schema.Annotation {
+	return []schema.Annotation{
+		entsql.Annotation{
+			Checks: map[string]string{
+				"agent_model": "(agent_id IS NULL OR agent_id IS NOT NULL AND model_id IS NOT NULL)",
+			},
+		},
 	}
 }

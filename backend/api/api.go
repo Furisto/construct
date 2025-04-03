@@ -54,9 +54,12 @@ func apiError(err error) error {
 	}
 
 	if memory.IsNotFound(err) {
-		err = errors.New(strings.TrimPrefix(err.Error(), "memory: "))
-		return connect.NewError(connect.CodeNotFound, err)
+		return connect.NewError(connect.CodeNotFound, sanitizeError(err))
 	}
 
-	return connect.NewError(connect.CodeInternal, err)
+	return connect.NewError(connect.CodeInternal, sanitizeError(err))
+}
+
+func sanitizeError(err error) error {
+	return errors.New(strings.ReplaceAll(err.Error(), "memory: ", ""))
 }

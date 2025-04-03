@@ -3,6 +3,7 @@
 package migrate
 
 import (
+	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/dialect/sql/schema"
 	"entgo.io/ent/schema/field"
 )
@@ -184,6 +185,10 @@ func init() {
 	MessagesTable.ForeignKeys[0].RefTable = TasksTable
 	MessagesTable.ForeignKeys[1].RefTable = AgentsTable
 	MessagesTable.ForeignKeys[2].RefTable = ModelsTable
+	MessagesTable.Annotation = &entsql.Annotation{}
+	MessagesTable.Annotation.Checks = map[string]string{
+		"agent_model": "(agent_id IS NULL OR agent_id IS NOT NULL AND model_id IS NOT NULL)",
+	}
 	ModelsTable.ForeignKeys[0].RefTable = ModelProvidersTable
 	TasksTable.ForeignKeys[0].RefTable = AgentsTable
 	AgentDelegatorsTable.ForeignKeys[0].RefTable = AgentsTable

@@ -2,12 +2,16 @@ package api
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"os"
 	"testing"
 
 	"net/http/httptest"
 
 	"connectrpc.com/connect"
 	"entgo.io/ent/dialect"
+	"entgo.io/ent/dialect/sql/schema"
 	api_client "github.com/furisto/construct/api/go/client"
 	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/secret"
@@ -19,6 +23,7 @@ type ClientServiceCall[Request any, Response any] func(ctx context.Context, clie
 type ServiceTestSetup[Request any, Response any] struct {
 	Call       ClientServiceCall[Request, Response]
 	CmpOptions []cmp.Option
+	Debug      bool
 }
 
 type ServiceTestExpectation[Response any] struct {
@@ -55,12 +60,20 @@ func (s *ServiceTestSetup[Request, Response]) RunServiceTests(t *testing.T, scen
 		t.Fatalf("failed to create client: %v", err)
 	}
 
+	if s.Debug {
+		server.DebugSchema(ctx, t)
+	}
+
 	for _, scenario := range scenarios {
 		t.Run(scenario.Name, func(t *testing.T) {
-			server.ClearDatabase(ctx)
+			err := server.ClearDatabase(ctx, t)
+			if err != nil {
+				t.Fatalf("failed to clear database: %v", sanitizeError(err))
+			}
+
 			if scenario.SeedDatabase != nil {
 				if err := scenario.SeedDatabase(ctx, server.Options.DB); err != nil {
-					t.Fatalf("failed to seed database: %v", err)
+					t.Fatalf("failed to seed database: %v", sanitizeError(err))
 				}
 			}
 
@@ -76,6 +89,7 @@ func (s *ServiceTestSetup[Request, Response]) RunServiceTests(t *testing.T, scen
 			}
 
 			if diff := cmp.Diff(scenario.Expected, actual, s.CmpOptions...); diff != "" {
+				server.DebugDatabase(ctx, t)
 				t.Errorf("%s() mismatch (-want +got):\n%s", scenario.Name, diff)
 			}
 		})
@@ -83,7 +97,7 @@ func (s *ServiceTestSetup[Request, Response]) RunServiceTests(t *testing.T, scen
 }
 
 func DefaultTestHandlerOptions(t *testing.T) HandlerOptions {
-	db, err := memory.Open(dialect.SQLite, "file:ent?mode=memory&cache=shared&_fk=1")
+	db, err := memory.Open(dialect.SQLite, "file:construct_test?mode=memory&cache=private&_fk=1")
 	if err != nil {
 		t.Fatalf("failed opening connection to sqlite: %v", err)
 	}
@@ -130,11 +144,102 @@ func (s *TestServer) Close() {
 	s.API.Close()
 }
 
-func (s *TestServer) ClearDatabase(ctx context.Context) {
-	s.Options.DB.ModelProvider.Delete().Exec(ctx)
-	s.Options.DB.Model.Delete().Exec(ctx)
-	s.Options.DB.Agent.Delete().Exec(ctx)
-	s.Options.DB.Task.Delete().Exec(ctx)
+func (s *TestServer) ClearDatabase(ctx context.Context, t *testing.T) error {
+	t.Helper()
+
+	_, err := memory.Transaction(ctx, s.Options.DB, func(tx *memory.Client) (*any, error) {
+		_, err := tx.Message.Delete().Exec(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to delete messages: %w", err)
+		}
+
+		_, err = tx.Task.Delete().Exec(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to delete tasks: %w", err)
+		}
+
+		_, err = tx.Agent.Delete().Exec(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to delete agents: %w", err)
+		}
+
+		_, err = tx.Model.Delete().Exec(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to delete models: %w", err)
+		}
+
+		_, err = tx.ModelProvider.Delete().Exec(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to delete model providers: %w", err)
+		}
+
+		return nil, nil
+	})
+
+	return err
+}
+
+func (s *TestServer) DebugSchema(ctx context.Context, t *testing.T) {
+	t.Helper()
+
+	tempFile, err := os.CreateTemp("", "schema.sql")
+	if err != nil {
+		t.Fatalf("failed creating schema file: %v", err)
+	}
+
+	err = s.Options.DB.Schema.WriteTo(ctx, tempFile, schema.WithIndent(" "))
+	if err != nil {
+		t.Fatalf("failed writing schema to file: %v", err)
+	}
+
+	t.Logf("schema: %v", tempFile.Name())
+}
+
+func (s *TestServer) DebugDatabase(ctx context.Context, t *testing.T) {
+	t.Helper()
+
+	modelProviders, err := s.Options.DB.ModelProvider.Query().All(ctx)
+	if err != nil {
+		t.Fatalf("failed querying model providers: %v", err)
+	}
+
+	models, err := s.Options.DB.Model.Query().All(ctx)
+	if err != nil {
+		t.Fatalf("failed querying models: %v", err)
+	}
+
+	agents, err := s.Options.DB.Agent.Query().All(ctx)
+	if err != nil {
+		t.Fatalf("failed querying agents: %v", err)
+	}
+
+	tasks, err := s.Options.DB.Task.Query().All(ctx)
+	if err != nil {
+		t.Fatalf("failed querying tasks: %v", err)
+	}
+
+	messages, err := s.Options.DB.Message.Query().All(ctx)
+	if err != nil {
+		t.Fatalf("failed querying messages: %v", err)
+	}
+
+	tempFile, err := os.CreateTemp("", "database.json")
+	if err != nil {
+		t.Fatalf("failed creating temp file: %v", err)
+	}
+
+	err = json.NewEncoder(tempFile).Encode(map[string]any{
+		"modelProviders": modelProviders,
+		"models":         models,
+		"agents":         agents,
+		"tasks":          tasks,
+		"messages":       messages,
+	})
+	if err != nil {
+		t.Fatalf("failed encoding database: %v", err)
+	}
+
+	t.Logf("database: %v", tempFile.Name())
 }
 
 func strPtr(s string) *string {
