@@ -52,8 +52,8 @@ func NewModelProviderBuilder(t *testing.T, db *memory.Client) *ModelProviderBuil
 		entityBuilder:   newEntityBuilder(t, db),
 		modelProviderID: ModelProviderID,
 		providerType:    types.ModelProviderTypeAnthropic,
-		name:            "test",
-		secret:          []byte("test"),
+		name:            "anthropic",
+		secret:          []byte("mock-secret"),
 		enabled:         true,
 	}
 }
@@ -98,12 +98,12 @@ func NewModelBuilder(t *testing.T, db *memory.Client, modelProvider *memory.Mode
 		entityBuilder:   newEntityBuilder(t, db),
 		modelProviderID: modelProvider.ID,
 		modelID:         ModelID,
-		name:            "sonnet",
+		name:            "claude-3-7-sonnet-20250219",
 		contextWindow:   200_000,
 		inputCost:       3,
 		outputCost:      15,
-		cacheReadCost:   0.5,
-		cacheWriteCost:  5,
+		cacheWriteCost:  3.75,
+		cacheReadCost:   0.3,
 		enabled:         true,
 	}
 }
@@ -182,6 +182,11 @@ func NewTaskBuilder(t *testing.T, db *memory.Client, agent *memory.Agent) *TaskB
 		taskID:        TaskID,
 		agentID:       agent.ID,
 	}
+}
+
+func (b *TaskBuilder) WithID(id uuid.UUID) *TaskBuilder {
+	b.taskID = id
+	return b
 }
 
 func (b *TaskBuilder) Build(ctx context.Context) *memory.Task {

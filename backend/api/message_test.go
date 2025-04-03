@@ -9,6 +9,7 @@ import (
 	v1 "github.com/furisto/construct/api/go/v1"
 	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/memory/schema/types"
+	"github.com/furisto/construct/backend/memory/test"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/google/uuid"
@@ -56,7 +57,7 @@ func TestCreateMessage(t *testing.T) {
 		},
 		{
 			Name: "success",
-			SeedDatabase: func(ctx context.Context, db *memory.Client) error {
+			SeedDatabase: func(ctx context.Context, db *memory.Client)  {
 				modelProvider, err := db.ModelProvider.Create().
 					SetName("test-model-provider").
 					SetProviderType(types.ModelProviderTypeOpenAI).
@@ -152,7 +153,7 @@ func TestGetMessage(t *testing.T) {
 		},
 		{
 			Name: "success",
-			SeedDatabase: func(ctx context.Context, db *memory.Client) error {
+			SeedDatabase: func(ctx context.Context, db *memory.Client)  {
 				task, err := db.Task.Create().
 					SetID(taskID).
 					Save(ctx)
@@ -247,7 +248,6 @@ func TestListMessages(t *testing.T) {
 		},
 	}
 
-	message1ID := uuid.MustParse("0195fbbd-757d-7db6-83c2-f556128b4586")
 	message2ID := uuid.MustParse("0195fbbd-d9ad-7ed1-9c05-171114d5a559")
 	task1ID := uuid.MustParse("0195fbbe-0be8-74b1-af7a-6e76e80e2462")
 	task2ID := uuid.MustParse("0195fbbe-42e1-75fe-8e08-28758035ff95")
@@ -289,87 +289,28 @@ func TestListMessages(t *testing.T) {
 		},
 		{
 			Name: "filter by task ID",
-			SeedDatabase: func(ctx context.Context, db *memory.Client) error {
-				task1, err := db.Task.Create().
-					SetID(task1ID).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
+			SeedDatabase: func(ctx context.Context, db *memory.Client)  {
+				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
+				model := test.NewModelBuilder(t, db, modelProvider).Build(ctx)
+				agent := test.NewAgentBuilder(t, db, model).Build(ctx)
 
-				task2, err := db.Task.Create().
-					SetID(task2ID).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
+				task1 := test.NewTaskBuilder(t, db, agent).Build(ctx)
+				task2 := test.NewTaskBuilder(t, db, agent).
+					WithID(task2ID).
+					Build(ctx)
 
-				content1 := &types.MessageContent{
-					Blocks: []types.MessageContentBlock{
-						{
-							Type: types.MessageContentBlockTypeText,
-							Text: "Message 1 content",
+				test.NewMessageBuilder(t, db, task1).Build(ctx)
+				test.NewMessageBuilder(t, db, task2).
+					WithAgent(agent).
+					WithContent(&types.MessageContent{
+						Blocks: []types.MessageContentBlock{
+							{
+								Type: types.MessageContentBlockTypeText,
+								Text: "Message 2 content",
+							},
 						},
-					},
-				}
-
-				content2 := &types.MessageContent{
-					Blocks: []types.MessageContentBlock{
-						{
-							Type: types.MessageContentBlockTypeText,
-							Text: "Message 2 content",
-						},
-					},
-				}
-
-				modelProvider, err := db.ModelProvider.Create().
-					SetName("test-model-provider").
-					SetProviderType(types.ModelProviderTypeOpenAI).
-					SetSecret([]byte("test-secret")).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				model, err := db.Model.Create().
-					SetID(modelID).
-					SetName("test-model").
-					SetContextWindow(16000).
-					SetModelProvider(modelProvider).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				agent, err := db.Agent.Create().
-					SetID(agent1ID).
-					SetName("test-agent").
-					SetInstructions("Test instructions").
-					SetModel(model).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				_, err = db.Message.Create().
-					SetID(message1ID).
-					SetTask(task1).
-					SetContent(content1).
-					SetRole(types.MessageRoleUser).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				_, err = db.Message.Create().
-					SetID(message2ID).
-					SetTask(task2).
-					SetAgent(agent).
-					SetModel(model).
-					SetContent(content2).
-					SetRole(types.MessageRoleAssistant).
-					Save(ctx)
-				return err
+					}).
+					Build(ctx)
 			},
 			Request: &v1.ListMessagesRequest{
 				Filter: &v1.ListMessagesRequest_Filter{
@@ -399,7 +340,7 @@ func TestListMessages(t *testing.T) {
 		},
 		{
 			Name: "filter by agent ID",
-			SeedDatabase: func(ctx context.Context, db *memory.Client) error {
+			SeedDatabase: func(ctx context.Context, db *memory.Client)  {
 				task1, err := db.Task.Create().
 					SetID(task1ID).
 					Save(ctx)
@@ -514,7 +455,7 @@ func TestListMessages(t *testing.T) {
 		},
 		{
 			Name: "filter by role",
-			SeedDatabase: func(ctx context.Context, db *memory.Client) error {
+			SeedDatabase: func(ctx context.Context, db *memory.Client)  {
 				task, err := db.Task.Create().
 					SetID(task1ID).
 					Save(ctx)
@@ -617,7 +558,7 @@ func TestListMessages(t *testing.T) {
 		},
 		{
 			Name: "all messages",
-			SeedDatabase: func(ctx context.Context, db *memory.Client) error {
+			SeedDatabase: func(ctx context.Context, db *memory.Client)  {
 				task1, err := db.Task.Create().
 					SetID(task1ID).
 					Save(ctx)
@@ -774,7 +715,7 @@ func TestUpdateMessage(t *testing.T) {
 		},
 		{
 			Name: "success",
-			SeedDatabase: func(ctx context.Context, db *memory.Client) error {
+			SeedDatabase: func(ctx context.Context, db *memory.Client)  {
 				task, err := db.Task.Create().
 					SetID(taskID).
 					Save(ctx)
@@ -858,7 +799,7 @@ func TestDeleteMessage(t *testing.T) {
 		},
 		{
 			Name: "success",
-			SeedDatabase: func(ctx context.Context, db *memory.Client) error {
+			SeedDatabase: func(ctx context.Context, db *memory.Client)  {
 				task, err := db.Task.Create().
 					SetID(taskID).
 					Save(ctx)
