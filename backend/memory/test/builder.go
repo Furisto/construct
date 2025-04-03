@@ -108,6 +108,16 @@ func NewModelBuilder(t *testing.T, db *memory.Client, modelProvider *memory.Mode
 	}
 }
 
+func (b *ModelBuilder) WithEnabled(enabled bool) *ModelBuilder {
+	b.enabled = enabled
+	return b
+}
+
+func (b *ModelBuilder) WithID(id uuid.UUID) *ModelBuilder {
+	b.modelID = id
+	return b
+}
+
 func (b *ModelBuilder) Build(ctx context.Context) *memory.Model {
 	model, err := b.db.Model.Create().
 		SetID(b.modelID).
@@ -151,6 +161,26 @@ func NewAgentBuilder(t *testing.T, db *memory.Client, defaultModel *memory.Model
 		defaultModel:  defaultModel.ID,
 		instructions:  "Implement the plan exactly as described",
 	}
+}
+
+func (b *AgentBuilder) WithID(id uuid.UUID) *AgentBuilder {
+	b.agentID = id
+	return b
+}
+
+func (b *AgentBuilder) WithName(name string) *AgentBuilder {
+	b.name = name
+	return b
+}
+
+func (b *AgentBuilder) WithDescription(description string) *AgentBuilder {
+	b.description = description
+	return b
+}
+
+func (b *AgentBuilder) WithInstructions(instructions string) *AgentBuilder {
+	b.instructions = instructions
+	return b
 }
 
 func (b *AgentBuilder) Build(ctx context.Context) *memory.Agent {
