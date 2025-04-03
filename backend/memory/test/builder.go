@@ -74,16 +74,51 @@ func (b *ModelProviderBuilder) Build(ctx context.Context) *memory.ModelProvider 
 	return modelProvider
 }
 
-func (b *Builder) Model(ctx context.Context, modelProvider *memory.ModelProvider, opts ...BuilderOption) *memory.Model {
-	options := DefaultBuilderOptions()
-	for _, opt := range opts {
-		opt(options)
+type ModelBuilder struct {
+	*entityBuilder
+	modelID uuid.UUID
+
+	modelProviderID uuid.UUID
+	name            string
+
+	contextWindow  int64
+	inputCost      float64
+	outputCost     float64
+	cacheReadCost  float64
+	cacheWriteCost float64
+	enabled        bool
+}
+
+func NewModelBuilder(t *testing.T, db *memory.Client, modelProvider *memory.ModelProvider) *ModelBuilder {
+	if modelProvider == nil {
+		t.Fatal("model provider is required")
 	}
 
+	return &ModelBuilder{
+		entityBuilder:   newEntityBuilder(t, db),
+		modelProviderID: modelProvider.ID,
+		modelID:         ModelID,
+		name:            "sonnet",
+		contextWindow:   200_000,
+		inputCost:       3,
+		outputCost:      15,
+		cacheReadCost:   0.5,
+		cacheWriteCost:  5,
+		enabled:         true,
+	}
+}
+
+func (b *ModelBuilder) Build(ctx context.Context) *memory.Model {
 	model, err := b.db.Model.Create().
-		SetID(options.ModelID).
-		SetName("test").
-		SetModelProviderID(modelProvider.ID).
+		SetID(b.modelID).
+		SetModelProviderID(b.modelProviderID).
+		SetName(b.name).
+		SetContextWindow(b.contextWindow).
+		SetInputCost(b.inputCost).
+		SetOutputCost(b.outputCost).
+		SetCacheReadCost(b.cacheReadCost).
+		SetCacheWriteCost(b.cacheWriteCost).
+		SetEnabled(b.enabled).
 		Save(ctx)
 
 	if err != nil {
@@ -93,16 +128,38 @@ func (b *Builder) Model(ctx context.Context, modelProvider *memory.ModelProvider
 	return model
 }
 
-func (b *Builder) Agent(ctx context.Context, model *memory.Model, opts ...BuilderOption) *memory.Agent {
-	options := DefaultBuilderOptions()
-	for _, opt := range opts {
-		opt(options)
+type AgentBuilder struct {
+	*entityBuilder
+	agentID uuid.UUID
+
+	name         string
+	description  string
+	defaultModel uuid.UUID
+	instructions string
+}
+
+func NewAgentBuilder(t *testing.T, db *memory.Client, defaultModel *memory.Model) *AgentBuilder {
+	if defaultModel == nil {
+		t.Fatal("model is required")
 	}
 
+	return &AgentBuilder{
+		entityBuilder: newEntityBuilder(t, db),
+		agentID:       AgentID,
+		name:          "coder",
+		description:   "Writes code",
+		defaultModel:  defaultModel.ID,
+		instructions:  "Implement the plan exactly as described",
+	}
+}
+
+func (b *AgentBuilder) Build(ctx context.Context) *memory.Agent {
 	agent, err := b.db.Agent.Create().
-		SetID(options.AgentID).
-		SetName("test").
-		SetModelID(model.ID).
+		SetID(b.agentID).
+		SetName(b.name).
+		SetDescription(b.description).
+		SetDefaultModel(b.defaultModel).
+		SetInstructions(b.instructions).
 		Save(ctx)
 
 	if err != nil {
