@@ -245,6 +245,11 @@ func (b *MessageBuilder) WithContent(content *types.MessageContent) *MessageBuil
 	return b
 }
 
+func (b *MessageBuilder) WithID(id uuid.UUID) *MessageBuilder {
+	b.messageID = id
+	return b
+}
+
 func (b *MessageBuilder) Build(ctx context.Context) *memory.Message {
 	message, err := b.db.Message.Create().
 		SetID(b.messageID).

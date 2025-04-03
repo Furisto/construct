@@ -31,8 +31,6 @@ func TestCreateMessage(t *testing.T) {
 	}
 
 	taskID := uuid.MustParse("01234567-89ab-cdef-0123-456789abcdef")
-	agentID := uuid.MustParse("98765432-10fe-dcba-9876-543210fedcba")
-	modelID := uuid.MustParse("abcdef01-2345-6789-abcd-ef0123456789")
 
 	setup.RunServiceTests(t, []ServiceTestScenario[v1.CreateMessageRequest, v1.CreateMessageResponse]{
 		{
@@ -57,41 +55,15 @@ func TestCreateMessage(t *testing.T) {
 		},
 		{
 			Name: "success",
-			SeedDatabase: func(ctx context.Context, db *memory.Client)  {
-				modelProvider, err := db.ModelProvider.Create().
-					SetName("test-model-provider").
-					SetProviderType(types.ModelProviderTypeOpenAI).
-					SetSecret([]byte("test-secret")).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				model, err := db.Model.Create().
-					SetID(modelID).
-					SetName("test-model").
-					SetContextWindow(16000).
-					SetModelProvider(modelProvider).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				agent, err := db.Agent.Create().
-					SetID(agentID).
-					SetName("test-agent").
-					SetInstructions("Test instructions").
-					SetModel(model).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				_, err = db.Task.Create().
-					SetID(taskID).
-					SetAgent(agent).
-					Save(ctx)
-				return err
+			SeedDatabase: func(ctx context.Context, db *memory.Client) {
+				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
+				model := test.NewModelBuilder(t, db, modelProvider).Build(ctx)
+				
+				agent := test.NewAgentBuilder(t, db, model).Build(ctx)
+				
+				test.NewTaskBuilder(t, db, agent).
+					WithID(taskID).
+					Build(ctx)
 			},
 			Request: &v1.CreateMessageRequest{
 				TaskId:  taskID.String(),
@@ -153,61 +125,27 @@ func TestGetMessage(t *testing.T) {
 		},
 		{
 			Name: "success",
-			SeedDatabase: func(ctx context.Context, db *memory.Client)  {
-				task, err := db.Task.Create().
-					SetID(taskID).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				modelProvider, err := db.ModelProvider.Create().
-					SetName("test-model-provider").
-					SetProviderType(types.ModelProviderTypeOpenAI).
-					SetSecret([]byte("test-secret")).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				model, err := db.Model.Create().
-					SetID(modelID).
-					SetName("test-model").
-					SetContextWindow(16000).
-					SetModelProvider(modelProvider).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				agent, err := db.Agent.Create().
-					SetID(agentID).
-					SetName("test-agent").
-					SetInstructions("Test instructions").
-					SetModel(model).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				content := &types.MessageContent{
-					Blocks: []types.MessageContentBlock{
-						{
-							Type: types.MessageContentBlockTypeText,
-							Text: "Test message content",
+			SeedDatabase: func(ctx context.Context, db *memory.Client) {
+				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
+				model := test.NewModelBuilder(t, db, modelProvider).Build(ctx)
+				
+				agent := test.NewAgentBuilder(t, db, model).Build(ctx)
+				
+				task := test.NewTaskBuilder(t, db, agent).
+					WithID(taskID).
+					Build(ctx)
+				
+				test.NewMessageBuilder(t, db, task).
+					WithID(messageID).
+					WithContent(&types.MessageContent{
+						Blocks: []types.MessageContentBlock{
+							{
+								Type: types.MessageContentBlockTypeText,
+								Text: "Test message content",
+							},
 						},
-					},
-				}
-
-				_, err = db.Message.Create().
-					SetID(messageID).
-					SetTask(task).
-					SetAgent(agent).
-					SetModel(model).
-					SetContent(content).
-					SetRole(types.MessageRoleUser).
-					Save(ctx)
-				return err
+					}).
+					Build(ctx)
 			},
 			Request: &v1.GetMessageRequest{
 				Id: messageID.String(),
@@ -248,6 +186,7 @@ func TestListMessages(t *testing.T) {
 		},
 	}
 
+	message1ID := uuid.MustParse("0195fbbd-757d-7db6-83c2-f556128b4586") // Using the constant from builder.go
 	message2ID := uuid.MustParse("0195fbbd-d9ad-7ed1-9c05-171114d5a559")
 	task1ID := uuid.MustParse("0195fbbe-0be8-74b1-af7a-6e76e80e2462")
 	task2ID := uuid.MustParse("0195fbbe-42e1-75fe-8e08-28758035ff95")
@@ -289,7 +228,7 @@ func TestListMessages(t *testing.T) {
 		},
 		{
 			Name: "filter by task ID",
-			SeedDatabase: func(ctx context.Context, db *memory.Client)  {
+			SeedDatabase: func(ctx context.Context, db *memory.Client) {
 				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
 				model := test.NewModelBuilder(t, db, modelProvider).Build(ctx)
 				agent := test.NewAgentBuilder(t, db, model).Build(ctx)
@@ -340,92 +279,46 @@ func TestListMessages(t *testing.T) {
 		},
 		{
 			Name: "filter by agent ID",
-			SeedDatabase: func(ctx context.Context, db *memory.Client)  {
-				task1, err := db.Task.Create().
-					SetID(task1ID).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				content1 := &types.MessageContent{
-					Blocks: []types.MessageContentBlock{
-						{
-							Type: types.MessageContentBlockTypeText,
-							Text: "Message 1 content",
+			SeedDatabase: func(ctx context.Context, db *memory.Client) {
+				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
+				model := test.NewModelBuilder(t, db, modelProvider).Build(ctx)
+				
+				agent1 := test.NewAgentBuilder(t, db, model).Build(ctx)
+				
+				// Create a second agent with a custom ID
+				agent2 := test.NewAgentBuilder(t, db, model).Build(ctx)
+				// Update the agent ID to match the expected ID in the test
+				agent2.ID = agent2ID
+				
+				task1 := test.NewTaskBuilder(t, db, agent1).
+					WithID(task1ID).
+					Build(ctx)
+				
+				test.NewMessageBuilder(t, db, task1).
+					WithID(message1ID).
+					WithAgent(agent1).
+					WithContent(&types.MessageContent{
+						Blocks: []types.MessageContentBlock{
+							{
+								Type: types.MessageContentBlockTypeText,
+								Text: "Message 1 content",
+							},
 						},
-					},
-				}
-
-				content2 := &types.MessageContent{
-					Blocks: []types.MessageContentBlock{
-						{
-							Type: types.MessageContentBlockTypeText,
-							Text: "Message 2 content",
+					}).
+					Build(ctx)
+				
+				test.NewMessageBuilder(t, db, task1).
+					WithID(message2ID).
+					WithAgent(agent2).
+					WithContent(&types.MessageContent{
+						Blocks: []types.MessageContentBlock{
+							{
+								Type: types.MessageContentBlockTypeText,
+								Text: "Message 2 content",
+							},
 						},
-					},
-				}
-
-				modelProvider, err := db.ModelProvider.Create().
-					SetName("test-model-provider").
-					SetProviderType(types.ModelProviderTypeOpenAI).
-					SetSecret([]byte("test-secret")).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				model, err := db.Model.Create().
-					SetID(modelID).
-					SetName("test-model").
-					SetContextWindow(16000).
-					SetModelProvider(modelProvider).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				agent1, err := db.Agent.Create().
-					SetID(agent1ID).
-					SetName("test-agent").
-					SetInstructions("Test instructions").
-					SetModel(model).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				agent2, err := db.Agent.Create().
-					SetID(agent2ID).
-					SetName("test-agent").
-					SetInstructions("Test instructions").
-					SetModel(model).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				_, err = db.Message.Create().
-					SetID(message1ID).
-					SetTask(task1).
-					SetAgent(agent1).
-					SetModel(model).
-					SetContent(content1).
-					SetRole(types.MessageRoleAssistant).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				_, err = db.Message.Create().
-					SetID(message2ID).
-					SetTask(task1).
-					SetAgent(agent2).
-					SetModel(model).
-					SetContent(content2).
-					SetRole(types.MessageRoleAssistant).
-					Save(ctx)
-				return err
+					}).
+					Build(ctx)
 			},
 			Request: &v1.ListMessagesRequest{
 				Filter: &v1.ListMessagesRequest_Filter{
@@ -455,80 +348,40 @@ func TestListMessages(t *testing.T) {
 		},
 		{
 			Name: "filter by role",
-			SeedDatabase: func(ctx context.Context, db *memory.Client)  {
-				task, err := db.Task.Create().
-					SetID(task1ID).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				modelProvider, err := db.ModelProvider.Create().
-					SetName("test-model-provider").
-					SetProviderType(types.ModelProviderTypeOpenAI).
-					SetSecret([]byte("test-secret")).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				model, err := db.Model.Create().
-					SetID(modelID).
-					SetName("test-model").
-					SetContextWindow(16000).
-					SetModelProvider(modelProvider).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				agent, err := db.Agent.Create().
-					SetID(agent1ID).
-					SetName("test-agent").
-					SetInstructions("Test instructions").
-					SetModel(model).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				content1 := &types.MessageContent{
-					Blocks: []types.MessageContentBlock{
-						{
-							Type: types.MessageContentBlockTypeText,
-							Text: "Message 1 content",
+			SeedDatabase: func(ctx context.Context, db *memory.Client) {
+				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
+				model := test.NewModelBuilder(t, db, modelProvider).Build(ctx)
+				
+				agent := test.NewAgentBuilder(t, db, model).Build(ctx)
+				
+				task := test.NewTaskBuilder(t, db, agent).
+					WithID(task1ID).
+					Build(ctx)
+				
+				test.NewMessageBuilder(t, db, task).
+					WithID(message1ID).
+					WithContent(&types.MessageContent{
+						Blocks: []types.MessageContentBlock{
+							{
+								Type: types.MessageContentBlockTypeText,
+								Text: "Message 1 content",
+							},
 						},
-					},
-				}
-
-				content2 := &types.MessageContent{
-					Blocks: []types.MessageContentBlock{
-						{
-							Type: types.MessageContentBlockTypeText,
-							Text: "Message 2 content",
+					}).
+					Build(ctx)
+				
+				test.NewMessageBuilder(t, db, task).
+					WithID(message2ID).
+					WithAgent(agent).
+					WithContent(&types.MessageContent{
+						Blocks: []types.MessageContentBlock{
+							{
+								Type: types.MessageContentBlockTypeText,
+								Text: "Message 2 content",
+							},
 						},
-					},
-				}
-
-				_, err = db.Message.Create().
-					SetID(message1ID).
-					SetTask(task).
-					SetContent(content1).
-					SetRole(types.MessageRoleUser).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				_, err = db.Message.Create().
-					SetID(message2ID).
-					SetTask(task).
-					SetAgent(agent).
-					SetModel(model).
-					SetContent(content2).
-					SetRole(types.MessageRoleAssistant).
-					Save(ctx)
-				return err
+					}).
+					Build(ctx)
 			},
 			Request: &v1.ListMessagesRequest{
 				Filter: &v1.ListMessagesRequest_Filter{
@@ -558,87 +411,44 @@ func TestListMessages(t *testing.T) {
 		},
 		{
 			Name: "all messages",
-			SeedDatabase: func(ctx context.Context, db *memory.Client)  {
-				task1, err := db.Task.Create().
-					SetID(task1ID).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				task2, err := db.Task.Create().
-					SetID(task2ID).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				content1 := &types.MessageContent{
-					Blocks: []types.MessageContentBlock{
-						{
-							Type: types.MessageContentBlockTypeText,
-							Text: "Message 1 content",
+			SeedDatabase: func(ctx context.Context, db *memory.Client) {
+				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
+				model := test.NewModelBuilder(t, db, modelProvider).Build(ctx)
+				
+				agent := test.NewAgentBuilder(t, db, model).Build(ctx)
+				
+				task1 := test.NewTaskBuilder(t, db, agent).
+					WithID(task1ID).
+					Build(ctx)
+				
+				task2 := test.NewTaskBuilder(t, db, agent).
+					WithID(task2ID).
+					Build(ctx)
+				
+				test.NewMessageBuilder(t, db, task1).
+					WithID(message1ID).
+					WithContent(&types.MessageContent{
+						Blocks: []types.MessageContentBlock{
+							{
+								Type: types.MessageContentBlockTypeText,
+								Text: "Message 1 content",
+							},
 						},
-					},
-				}
-
-				content2 := &types.MessageContent{
-					Blocks: []types.MessageContentBlock{
-						{
-							Type: types.MessageContentBlockTypeText,
-							Text: "Message 2 content",
+					}).
+					Build(ctx)
+				
+				test.NewMessageBuilder(t, db, task2).
+					WithID(message2ID).
+					WithAgent(agent).
+					WithContent(&types.MessageContent{
+						Blocks: []types.MessageContentBlock{
+							{
+								Type: types.MessageContentBlockTypeText,
+								Text: "Message 2 content",
+							},
 						},
-					},
-				}
-
-				_, err = db.Message.Create().
-					SetID(message1ID).
-					SetTask(task1).
-					SetContent(content1).
-					SetRole(types.MessageRoleUser).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				modelProvider, err := db.ModelProvider.Create().
-					SetName("test-model-provider").
-					SetProviderType(types.ModelProviderTypeOpenAI).
-					SetSecret([]byte("test-secret")).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				model, err := db.Model.Create().
-					SetID(modelID).
-					SetName("test-model").
-					SetContextWindow(16000).
-					SetModelProvider(modelProvider).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				agent, err := db.Agent.Create().
-					SetID(agent1ID).
-					SetName("test-agent").
-					SetInstructions("Test instructions").
-					SetModel(model).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				_, err = db.Message.Create().
-					SetID(message2ID).
-					SetTask(task2).
-					SetAgent(agent).
-					SetModel(model).
-					SetContent(content2).
-					SetRole(types.MessageRoleAssistant).
-					Save(ctx)
-				return err
+					}).
+					Build(ctx)
 			},
 			Request: &v1.ListMessagesRequest{},
 			Expected: ServiceTestExpectation[v1.ListMessagesResponse]{
@@ -715,30 +525,27 @@ func TestUpdateMessage(t *testing.T) {
 		},
 		{
 			Name: "success",
-			SeedDatabase: func(ctx context.Context, db *memory.Client)  {
-				task, err := db.Task.Create().
-					SetID(taskID).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				content := &types.MessageContent{
-					Blocks: []types.MessageContentBlock{
-						{
-							Type: types.MessageContentBlockTypeText,
-							Text: "Original content",
+			SeedDatabase: func(ctx context.Context, db *memory.Client) {
+				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
+				model := test.NewModelBuilder(t, db, modelProvider).Build(ctx)
+				
+				agent := test.NewAgentBuilder(t, db, model).Build(ctx)
+				
+				task := test.NewTaskBuilder(t, db, agent).
+					WithID(taskID).
+					Build(ctx)
+				
+				test.NewMessageBuilder(t, db, task).
+					WithID(messageID).
+					WithContent(&types.MessageContent{
+						Blocks: []types.MessageContentBlock{
+							{
+								Type: types.MessageContentBlockTypeText,
+								Text: "Original content",
+							},
 						},
-					},
-				}
-
-				_, err = db.Message.Create().
-					SetID(messageID).
-					SetTask(task).
-					SetContent(content).
-					SetRole(types.MessageRoleUser).
-					Save(ctx)
-				return err
+					}).
+					Build(ctx)
 			},
 			Request: &v1.UpdateMessageRequest{
 				Id:      messageID.String(),
@@ -799,30 +606,27 @@ func TestDeleteMessage(t *testing.T) {
 		},
 		{
 			Name: "success",
-			SeedDatabase: func(ctx context.Context, db *memory.Client)  {
-				task, err := db.Task.Create().
-					SetID(taskID).
-					Save(ctx)
-				if err != nil {
-					return err
-				}
-
-				content := &types.MessageContent{
-					Blocks: []types.MessageContentBlock{
-						{
-							Type: types.MessageContentBlockTypeText,
-							Text: "Message content",
+			SeedDatabase: func(ctx context.Context, db *memory.Client) {
+				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
+				model := test.NewModelBuilder(t, db, modelProvider).Build(ctx)
+				
+				agent := test.NewAgentBuilder(t, db, model).Build(ctx)
+				
+				task := test.NewTaskBuilder(t, db, agent).
+					WithID(taskID).
+					Build(ctx)
+				
+				test.NewMessageBuilder(t, db, task).
+					WithID(messageID).
+					WithContent(&types.MessageContent{
+						Blocks: []types.MessageContentBlock{
+							{
+								Type: types.MessageContentBlockTypeText,
+								Text: "Message content",
+							},
 						},
-					},
-				}
-
-				_, err = db.Message.Create().
-					SetID(messageID).
-					SetTask(task).
-					SetContent(content).
-					SetRole(types.MessageRoleUser).
-					Save(ctx)
-				return err
+					}).
+					Build(ctx)
 			},
 			Request: &v1.DeleteMessageRequest{
 				Id: messageID.String(),
