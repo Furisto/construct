@@ -50,7 +50,7 @@ func (h *ModelProviderHandler) CreateModelProvider(ctx context.Context, req *con
 	}
 
 	modelProvider, err := memory.Transaction(ctx, h.db, func(tx *memory.Client) (*memory.ModelProvider, error) {
-		modelProvider, err := h.db.ModelProvider.Create().
+		modelProvider, err := tx.ModelProvider.Create().
 			SetID(modelProviderID).
 			SetName(req.Msg.Name).
 			SetProviderType(providerType).
@@ -70,6 +70,7 @@ func (h *ModelProviderHandler) CreateModelProvider(ctx context.Context, req *con
 				return nil, err
 			}
 			models = append(models, h.db.Model.Create().
+				SetModelProvider(modelProvider).
 				SetName(m.Name).
 				SetContextWindow(m.ContextWindow).
 				SetCapabilities(capabilities).
@@ -80,7 +81,7 @@ func (h *ModelProviderHandler) CreateModelProvider(ctx context.Context, req *con
 				SetEnabled(true))
 		}
 
-		_, err = h.db.Model.CreateBulk(models...).Save(ctx)
+		_, err = tx.Model.CreateBulk(models...).Save(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to insert models: %w", err)
 		}
