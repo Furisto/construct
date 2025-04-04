@@ -74,8 +74,6 @@ func TestGetModelProvider(t *testing.T) {
 		},
 	}
 
-	testProviderID := uuid.MustParse("01234567-89ab-cdef-0123-456789abcdef")
-
 	setup.RunServiceTests(t, []ServiceTestScenario[v1.GetModelProviderRequest, v1.GetModelProviderResponse]{
 		{
 			Name: "invalid id format",
@@ -99,19 +97,15 @@ func TestGetModelProvider(t *testing.T) {
 			Name: "success",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
 				test.NewModelProviderBuilder(t, db).
-					WithID(testProviderID).
-					WithName("anthropic").
-					WithProviderType(types.ModelProviderTypeAnthropic).
-					WithEnabled(true).
 					Build(ctx)
 			},
 			Request: &v1.GetModelProviderRequest{
-				Id: testProviderID.String(),
+				Id: test.ModelProviderID().String(),
 			},
 			Expected: ServiceTestExpectation[v1.GetModelProviderResponse]{
 				Response: v1.GetModelProviderResponse{
 					ModelProvider: &v1.ModelProvider{
-						Id:           testProviderID.String(),
+						Id:           test.ModelProviderID().String(),
 						Name:         "anthropic",
 						ProviderType: v1.ModelProviderType_MODEL_PROVIDER_TYPE_ANTHROPIC,
 						Enabled:      true,
