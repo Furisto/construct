@@ -17,6 +17,15 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}",
+        },
+        {
+            "name": "Debug Construct CLI",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/frontend/cli",
+            "args": ["new"],
+            "cwd": "${workspaceFolder}"
         }
     ]
 }

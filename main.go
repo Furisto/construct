@@ -34,13 +34,9 @@ func main() {
 	}
 
 	stopCh := make(chan struct{})
-	agent := agent.NewAgent(
-		agent.WithAgentID(uuid.MustParse(ConstructAgentID)),
+	agent := agent.NewRuntime(
 		agent.WithModelProviders(provider),
-		agent.WithSystemPrompt(agent.ConstructSystemPrompt),
 		agent.WithMemory(client),
-		// agent.WithSystemMemory(agent.NewEphemeralMemory()),
-		// agent.WithUserMemory(agent.NewEphemeralMemory()),
 		agent.WithTools(
 			tool.FilesystemTools()...,
 		),

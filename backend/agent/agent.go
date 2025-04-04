@@ -3,12 +3,16 @@ package agent
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 	"sync/atomic"
 
+	"github.com/furisto/construct/backend/api"
 	"github.com/furisto/construct/backend/memory"
+	"github.com/furisto/construct/backend/memory/agent"
 	memory_model "github.com/furisto/construct/backend/memory/model"
 	"github.com/furisto/construct/backend/memory/schema/types"
+	"github.com/furisto/construct/backend/memory/task"
 	"github.com/furisto/construct/backend/model"
 	"github.com/furisto/construct/backend/secret"
 	"github.com/furisto/construct/backend/tool"
@@ -16,85 +20,53 @@ import (
 	"k8s.io/client-go/util/workqueue"
 )
 
-type AgentOptions struct {
-	AgentID        uuid.UUID
-	SystemPrompt   string
-	ModelProviders []model.ModelProvider
-	Tools          []tool.Tool
-	Mailbox        Memory
-	Concurrency    int
-	Memory         *memory.Client
+type RuntimeOptions struct {
+	Tools       []tool.Tool
+	Concurrency int
+	ServerPort  int
 }
 
-func DefaultAgentOptions() *AgentOptions {
-	return &AgentOptions{
-		AgentID:        uuid.New(),
-		ModelProviders: []model.ModelProvider{},
-		SystemPrompt:   "You are a helpful assistant that can help with tasks and answer questions.",
-		Tools:          []tool.Tool{},
-		Mailbox:        NewEphemeralMemory(),
-		Concurrency:    5,
+func DefaultRuntimeOptions() *RuntimeOptions {
+	return &RuntimeOptions{
+		Tools:       []tool.Tool{},
+		Concurrency: 5,
+		ServerPort:  29333,
 	}
 }
 
-type AgentOption func(*AgentOptions)
+type RuntimeOption func(*RuntimeOptions)
 
-func WithSystemPrompt(systemPrompt string) AgentOption {
-	return func(o *AgentOptions) {
-		o.SystemPrompt = systemPrompt
-	}
-}
-
-func WithModelProviders(modelProviders ...model.ModelProvider) AgentOption {
-	return func(o *AgentOptions) {
-		o.ModelProviders = modelProviders
-	}
-}
-
-func WithTools(tools ...tool.Tool) AgentOption {
-	return func(o *AgentOptions) {
+func WithTools(tools ...tool.Tool) RuntimeOption {
+	return func(o *RuntimeOptions) {
 		o.Tools = tools
 	}
 }
 
-func WithMailbox(mailbox Memory) AgentOption {
-	return func(o *AgentOptions) {
-		o.Mailbox = mailbox
-	}
-}
-
-func WithMemory(memory *memory.Client) AgentOption {
-	return func(o *AgentOptions) {
-		o.Memory = memory
-	}
-}
-
-func WithConcurrency(concurrency int) AgentOption {
-	return func(o *AgentOptions) {
+func WithConcurrency(concurrency int) RuntimeOption {
+	return func(o *RuntimeOptions) {
 		o.Concurrency = concurrency
 	}
 }
 
-func WithAgentID(agentID uuid.UUID) AgentOption {
-	return func(o *AgentOptions) {
-		o.AgentID = agentID
+func WithServerPort(port int) RuntimeOption {
+	return func(o *RuntimeOptions) {
+		o.ServerPort = port
 	}
 }
 
-type Agent struct {
-	AgentID        uuid.UUID
-	ModelProviders []model.ModelProvider
-	SystemPrompt   string
-	Toolbox        *tool.Toolbox
-	Mailbox        *Mailbox
-	Memory         *memory.Client
-	Concurrency    int
-	Queue          workqueue.TypedDelayingInterface[uuid.UUID]
-	running        atomic.Bool
+type Runtime struct {
+	api        *api.Server
+	memory     *memory.Client
+	encryption *secret.Client
+	toolbox    *tool.Toolbox
+
+	concurrency int
+	queue       workqueue.TypedDelayingInterface[uuid.UUID]
+	running     atomic.Bool
 }
 
-func NewAgent(opts ...AgentOption) *Agent {
-	options := DefaultAgentOptions()
+func NewRuntime(memory *memory.Client, encryption *secret.Client, opts ...RuntimeOption) *Runtime {
+	options := DefaultRuntimeOptions()
 	for _, opt := range opts {
 		opt(options)
 	}
@@ -107,34 +79,47 @@ func NewAgent(opts ...AgentOption) *Agent {
 		Name: "construct",
 	})
 
-	return &Agent{
-		AgentID:        options.AgentID,
-		ModelProviders: options.ModelProviders,
-		SystemPrompt:   options.SystemPrompt,
-		Toolbox:        toolbox,
-		Mailbox:        NewMailbox(),
-		Memory:         options.Memory,
-		Concurrency:    options.Concurrency,
-		Queue:          queue,
+	runtime := &Runtime{
+		memory:     memory,
+		encryption: encryption,
+		toolbox:    toolbox,
+
+		concurrency: options.Concurrency,
+		queue:       queue,
 	}
+
+	api := api.NewServer(runtime, options.ServerPort)
+	runtime.api = api
+
+	return runtime
 }
 
-func (a *Agent) Run(ctx context.Context) error {
+func (a *Runtime) Run(ctx context.Context) error {
 	if !a.running.CompareAndSwap(false, true) {
 		return nil
 	}
 
+	go func() {
+		err := a.api.ListenAndServe()
+		if err != nil {
+			slog.Error("failed to start api", "error", err)
+		}
+	}()
+
 	var wg sync.WaitGroup
-	for range a.Concurrency {
+	for range a.concurrency {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for {
-				taskID, shutdown := a.Queue.Get()
+				taskID, shutdown := a.queue.Get()
 				if shutdown {
 					return
 				}
-				a.processTask(ctx, taskID)
+				err := a.processTask(ctx, taskID)
+				if err != nil {
+					slog.Error("failed to process task", "error", err)
+				}
 			}
 		}()
 	}
@@ -142,23 +127,20 @@ func (a *Agent) Run(ctx context.Context) error {
 	return nil
 }
 
-func (a *Agent) processTask(ctx context.Context, taskID uuid.UUID) error {
-	defer a.Queue.Done(taskID)
+func (a *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
+	defer a.queue.Done(taskID)
 
-	task, err := a.Memory.Task.Get(ctx, taskID)
+	task, err := a.memory.Task.Query().Where(task.IDEQ(taskID)).WithAgent().Only(ctx)
 	if err != nil {
 		return err
 	}
 
-	// userMessages := a.Mailbox.Dequeue(taskID)
-	// for _, message := range userMessages {
-	// 	a.Memory.Message.Create().
-	// 		SetRole(types.MessageRoleUser).
-	// 		// SetContent(message).
-	// 		Save(ctx)
-	// }
+	agent, err := a.memory.Agent.Query().Where(agent.IDEQ(task.AgentID)).Only(ctx)
+	if err != nil {
+		return err
+	}
 
-	m, err := a.Memory.Model.Query().Where(memory_model.ID(task.Spec.ModelID)).WithModelProvider().Only(ctx)
+	m, err := a.memory.Model.Query().Where(memory_model.IDEQ(agent.DefaultModel)).WithModelProvider().Only(ctx)
 	if err != nil {
 		return err
 	}
@@ -167,11 +149,6 @@ func (a *Agent) processTask(ctx context.Context, taskID uuid.UUID) error {
 	if err != nil {
 		return err
 	}
-
-	// messages, err := a.Memory.Message.Query().Where(memory_message.TaskID(taskID)).All(ctx)
-	// if err != nil {
-	// 	return err
-	// }
 
 	resp, err := providerAPI.InvokeModel(ctx, m.Name, ConstructSystemPrompt, []model.Message{
 		{
@@ -189,7 +166,7 @@ func (a *Agent) processTask(ctx context.Context, taskID uuid.UUID) error {
 				fmt.Print(block.Text)
 			}
 		}
-	}), model.WithTools(a.Toolbox.ListTools()...))
+	}), model.WithTools(a.toolbox.ListTools()...))
 
 	if err != nil {
 		return err
@@ -205,7 +182,7 @@ func (a *Agent) processTask(ctx context.Context, taskID uuid.UUID) error {
 		}
 	}
 
-	a.Memory.Message.Create().
+	a.memory.Message.Create().
 		SetRole(types.MessageRoleAssistant).
 		SetUsage(&types.MessageUsage{
 			InputTokens:      resp.Usage.InputTokens,
@@ -218,7 +195,7 @@ func (a *Agent) processTask(ctx context.Context, taskID uuid.UUID) error {
 	return nil
 }
 
-func (a *Agent) modelProviderAPI(m *memory.Model) (model.ModelProvider, error) {
+func (a *Runtime) modelProviderAPI(m *memory.Model) (model.ModelProvider, error) {
 	if m.Edges.ModelProvider == nil {
 		return nil, fmt.Errorf("model provider not found")
 	}
@@ -241,23 +218,14 @@ func (a *Agent) modelProviderAPI(m *memory.Model) (model.ModelProvider, error) {
 	}
 }
 
-func (a *Agent) SendMessage(taskID uuid.UUID, message string) {
-	a.Mailbox.Enqueue(taskID, message)
-	a.Queue.Add(taskID)
+func (a *Runtime) GetEncryption() *secret.Client {
+	return a.encryption
 }
 
-func (a *Agent) CreateTask(ctx context.Context) (uuid.UUID, error) {
-	task, err := a.Memory.Task.Create().
-		SetAgentID(a.AgentID).
-		SetInputTokens(0).
-		SetOutputTokens(0).
-		SetCacheWriteTokens(0).
-		SetCacheReadTokens(0).
-		Save(ctx)
+func (a *Runtime) GetMemory() *memory.Client {
+	return a.memory
+}
 
-	if err != nil {
-		return uuid.Nil, err
-	}
-
-	return task.ID, nil
+func (a *Runtime) TriggerReconciliation(taskID uuid.UUID) {
+	a.queue.Add(taskID)
 }
