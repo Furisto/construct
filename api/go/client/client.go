@@ -1,7 +1,6 @@
 package client
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/furisto/construct/api/go/v1/v1connect"
@@ -14,13 +13,13 @@ type Client struct {
 	message       v1connect.MessageServiceClient
 }
 
-func NewClient(ctx context.Context, url string) (*Client, error) {
+func NewClient(url string) *Client {
 	return &Client{
 		modelProvider: v1connect.NewModelProviderServiceClient(http.DefaultClient, url),
 		agent:         v1connect.NewAgentServiceClient(http.DefaultClient, url),
 		task:          v1connect.NewTaskServiceClient(http.DefaultClient, url),
 		message:       v1connect.NewMessageServiceClient(http.DefaultClient, url),
-	}, nil
+	}
 }
 
 func (c *Client) ModelProvider() v1connect.ModelProviderServiceClient {
