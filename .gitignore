@@ -28,7 +28,13 @@ build/
 tmp/
 out/
 /construct
+/frontend/cli/construct
 
 # Go debug files
 debug
 __debug_bin
+
+# Runtime files
+construct.db
+construct.db-shm
+construct.db-wal
