@@ -60,14 +60,14 @@ func WithServerPort(port int) RuntimeOption {
 }
 
 type Runtime struct {
-	api           *api.Server
-	memory        *memory.Client
-	encryption    *secret.Client
-	toolbox       *tool.Toolbox
-	messageBuffer *MessageStream
-	concurrency   int
-	queue         workqueue.TypedDelayingInterface[uuid.UUID]
-	running       atomic.Bool
+	api         *api.Server
+	memory      *memory.Client
+	encryption  *secret.Client
+	toolbox     *tool.Toolbox
+	messageHub  *MessageHub
+	concurrency int
+	queue       workqueue.TypedDelayingInterface[uuid.UUID]
+	running     atomic.Bool
 }
 
 func NewRuntime(memory *memory.Client, encryption *secret.Client, opts ...RuntimeOption) *Runtime {
@@ -211,8 +211,6 @@ func (a *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 		return err
 	}
 
-	messageConverter := conv.NewMessageConverter()
-
 	var messageToProcess *memory.Message
 	if len(unprocessedAssistantMessages) > 0 {
 		messageToProcess = unprocessedAssistantMessages[0]
@@ -222,14 +220,14 @@ func (a *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 
 	modelMessages := make([]model.Message, 0, len(processedMessages))
 	for _, msg := range processedMessages {
-		modelMsg, err := messageConverter.ConvertMemoryMessageToModel(msg)
+		modelMsg, err := conv.ConvertMemoryMessageToModel(msg)
 		if err != nil {
 			return err
 		}
 		modelMessages = append(modelMessages, modelMsg)
 	}
 
-	modelMsg, err := messageConverter.ConvertMemoryMessageToModel(messageToProcess)
+	modelMsg, err := conv.ConvertMemoryMessageToModel(messageToProcess)
 	if err != nil {
 		return err
 	}
@@ -264,11 +262,18 @@ func (a *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 		float64(resp.Usage.CacheWriteTokens)*m.CacheWriteCost +
 		float64(resp.Usage.CacheReadTokens)*m.CacheReadCost
 
+
+	fmt.Printf("%+v\n", resp.Message.Content)
+
+	messageContent, err := conv.ConvertModelMessageToMemory(resp.Message)
+	if err != nil {
+		return err
+	}
 	t := time.Now()
 	a.memory.Message.Create().
 		SetTaskID(taskID).
 		SetRole(types.MessageRoleAssistant).
-		SetContent(resp.Message.Content).
+		SetContent(messageContent).
 		SetCreateTime(t).
 		SetProcessedTime(t).
 		SetUsage(&types.MessageUsage{
