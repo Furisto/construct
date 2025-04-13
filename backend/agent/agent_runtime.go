@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/furisto/construct/backend/agent/conv"
 	"github.com/furisto/construct/backend/api"
 	"github.com/furisto/construct/backend/memory"
 	memory_message "github.com/furisto/construct/backend/memory/message"
@@ -22,6 +23,8 @@ import (
 	"k8s.io/client-go/util/workqueue"
 )
 
+const DefaultServerPort = 29333
+
 type RuntimeOptions struct {
 	Tools       []tool.Tool
 	Concurrency int
@@ -32,7 +35,7 @@ func DefaultRuntimeOptions() *RuntimeOptions {
 	return &RuntimeOptions{
 		Tools:       []tool.Tool{},
 		Concurrency: 5,
-		ServerPort:  29333,
+		ServerPort:  DefaultServerPort,
 	}
 }
 
@@ -57,14 +60,14 @@ func WithServerPort(port int) RuntimeOption {
 }
 
 type Runtime struct {
-	api        *api.Server
-	memory     *memory.Client
-	encryption *secret.Client
-	toolbox    *tool.Toolbox
-
-	concurrency int
-	queue       workqueue.TypedDelayingInterface[uuid.UUID]
-	running     atomic.Bool
+	api           *api.Server
+	memory        *memory.Client
+	encryption    *secret.Client
+	toolbox       *tool.Toolbox
+	messageBuffer *MessageStream
+	concurrency   int
+	queue         workqueue.TypedDelayingInterface[uuid.UUID]
+	running       atomic.Bool
 }
 
 func NewRuntime(memory *memory.Client, encryption *secret.Client, opts ...RuntimeOption) *Runtime {
@@ -158,7 +161,6 @@ func (a *Runtime) Run(ctx context.Context) error {
 func (a *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 	defer a.queue.Done(taskID)
 
-	// check if agent is assigned to task
 	task, err := a.memory.Task.Query().Where(memory_task.IDEQ(taskID)).WithAgent().Only(ctx)
 	if err != nil {
 		return err
@@ -169,25 +171,35 @@ func (a *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 		return nil
 	}
 
-	// check if there are unprocessed messages
-	messages, err := a.memory.Message.Query().Where(memory_message.TaskIDEQ(taskID)).All(ctx)
+	messages, err := a.memory.Message.Query().
+		Where(memory_message.TaskIDEQ(taskID)).
+		Order(memory_message.ByCreateTime()).
+		All(ctx)
 	if err != nil {
 		return err
 	}
 
-	unprocessedMessages := make([]*memory.Message, 0)
+	processedMessages := make([]*memory.Message, 0)
+	unprocessedUserMessages := make([]*memory.Message, 0)
+	unprocessedAssistantMessages := make([]*memory.Message, 0)
+
 	for _, message := range messages {
 		if message.ProcessedTime.IsZero() {
-			unprocessedMessages = append(unprocessedMessages, message)
+			if message.Role == types.MessageRoleUser {
+				unprocessedUserMessages = append(unprocessedUserMessages, message)
+			} else if message.Role == types.MessageRoleAssistant {
+				unprocessedAssistantMessages = append(unprocessedAssistantMessages, message)
+			}
+		} else {
+			processedMessages = append(processedMessages, message)
 		}
 	}
 
-	if len(unprocessedMessages) == 0 {
+	if len(unprocessedUserMessages) == 0 && len(unprocessedAssistantMessages) == 0 {
 		slog.Info("no unprocessed messages, skipping", "task_id", taskID)
 		return nil
 	}
 
-	// figure out which model to use
 	agent := task.Edges.Agent
 	m, err := a.memory.Model.Query().Where(memory_model.IDEQ(agent.DefaultModel)).WithModelProvider().Only(ctx)
 	if err != nil {
@@ -199,47 +211,81 @@ func (a *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 		return err
 	}
 
-	// invoke model
-	resp, err := providerAPI.InvokeModel(ctx, m.Name, agent.Instructions, []model.Message{
-		{
-			Source: model.MessageSourceUser,
-			Content: []model.ContentBlock{
-				&model.TextContentBlock{
-					Text: "Hello, how are you? Please write at least 200 words and then read the file /etc/passwd",
-				},
-			},
-		},
-	}, model.WithStreamHandler(func(ctx context.Context, message *model.Message) {
-		for _, block := range message.Content {
-			switch block := block.(type) {
-			case *model.TextContentBlock:
-				fmt.Print(block.Text)
-			}
-		}
-	}), model.WithTools(a.toolbox.ListTools()...))
+	messageConverter := conv.NewMessageConverter()
 
+	var messageToProcess *memory.Message
+	if len(unprocessedAssistantMessages) > 0 {
+		messageToProcess = unprocessedAssistantMessages[0]
+	} else if len(unprocessedUserMessages) > 0 {
+		messageToProcess = unprocessedUserMessages[0]
+	}
+
+	modelMessages := make([]model.Message, 0, len(processedMessages))
+	for _, msg := range processedMessages {
+		modelMsg, err := messageConverter.ConvertMemoryMessageToModel(msg)
+		if err != nil {
+			return err
+		}
+		modelMessages = append(modelMessages, modelMsg)
+	}
+
+	modelMsg, err := messageConverter.ConvertMemoryMessageToModel(messageToProcess)
+	if err != nil {
+		return err
+	}
+	modelMessages = append(modelMessages, modelMsg)
+
+	resp, err := providerAPI.InvokeModel(
+		ctx,
+		m.Name,
+		agent.Instructions,
+		modelMessages,
+		model.WithStreamHandler(func(ctx context.Context, message *model.Message) {
+			for _, block := range message.Content {
+				switch block := block.(type) {
+				case *model.TextContentBlock:
+					fmt.Print(block.Text)
+				}
+			}
+		}),
+		model.WithTools(a.toolbox.ListTools()...),
+	)
 	if err != nil {
 		return err
 	}
 
-	for _, block := range resp.Message.Content {
-		switch block := block.(type) {
-		case *model.TextContentBlock:
-			fmt.Print(block.Text)
-		case *model.ToolCallContentBlock:
-			fmt.Println(block.Name)
-			fmt.Println(string(block.Input))
-		}
+	_, err = messageToProcess.Update().SetProcessedTime(time.Now()).Save(ctx)
+	if err != nil {
+		return err
 	}
 
+	cost := float64(resp.Usage.InputTokens)*m.InputCost +
+		float64(resp.Usage.OutputTokens)*m.OutputCost +
+		float64(resp.Usage.CacheWriteTokens)*m.CacheWriteCost +
+		float64(resp.Usage.CacheReadTokens)*m.CacheReadCost
+
+	t := time.Now()
 	a.memory.Message.Create().
+		SetTaskID(taskID).
 		SetRole(types.MessageRoleAssistant).
+		SetContent(resp.Message.Content).
+		SetCreateTime(t).
+		SetProcessedTime(t).
 		SetUsage(&types.MessageUsage{
 			InputTokens:      resp.Usage.InputTokens,
 			OutputTokens:     resp.Usage.OutputTokens,
 			CacheWriteTokens: resp.Usage.CacheWriteTokens,
 			CacheReadTokens:  resp.Usage.CacheReadTokens,
+			Cost:             cost,
 		}).
+		Save(ctx)
+
+	task.Update().
+		AddInputTokens(resp.Usage.InputTokens).
+		AddOutputTokens(resp.Usage.OutputTokens).
+		AddCacheWriteTokens(resp.Usage.CacheWriteTokens).
+		AddCacheReadTokens(resp.Usage.CacheReadTokens).
+		AddCost(cost).
 		Save(ctx)
 
 	return nil
