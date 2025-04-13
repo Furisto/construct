@@ -65,19 +65,15 @@ type HandlerOptions struct {
 }
 
 type Handler struct {
-	db         *memory.Client
-	encryption *secret.Client
 	mux        *http.ServeMux
 }
 
 func NewHandler(opts HandlerOptions) *Handler {
 	handler := &Handler{
-		db:         opts.DB,
-		encryption: opts.Encryption,
 		mux:        http.NewServeMux(),
 	}
 
-	modelProviderHandler := NewModelProviderHandler(handler.db, handler.encryption)
+	modelProviderHandler := NewModelProviderHandler(opts.DB, opts.Encryption)
 	handler.mux.Handle(v1connect.NewModelProviderServiceHandler(modelProviderHandler, opts.RequestOptions...))
 
 	modelHandler := NewModelHandler(opts.DB)
@@ -86,10 +82,10 @@ func NewHandler(opts HandlerOptions) *Handler {
 	agentHandler := NewAgentHandler(opts.DB)
 	handler.mux.Handle(v1connect.NewAgentServiceHandler(agentHandler, opts.RequestOptions...))
 
-	taskHandler := NewTaskHandler(handler.db)
+	taskHandler := NewTaskHandler(opts.DB)
 	handler.mux.Handle(v1connect.NewTaskServiceHandler(taskHandler, opts.RequestOptions...))
 
-	messageHandler := NewMessageHandler(handler.db)
+	messageHandler := NewMessageHandler(opts.DB, opts.AgentRuntime)
 	handler.mux.Handle(v1connect.NewMessageServiceHandler(messageHandler, opts.RequestOptions...))
 
 	return handler

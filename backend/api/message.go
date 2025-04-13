@@ -17,14 +17,16 @@ import (
 
 var _ v1connect.MessageServiceHandler = (*MessageHandler)(nil)
 
-func NewMessageHandler(db *memory.Client) *MessageHandler {
+func NewMessageHandler(db *memory.Client, runtime AgentRuntime) *MessageHandler {
 	return &MessageHandler{
-		db: db,
+		db:      db,
+		runtime: runtime,
 	}
 }
 
 type MessageHandler struct {
-	db *memory.Client
+	db      *memory.Client
+	runtime AgentRuntime
 	v1connect.UnimplementedMessageServiceHandler
 }
 
@@ -61,6 +63,8 @@ func (h *MessageHandler) CreateMessage(ctx context.Context, req *connect.Request
 	if err != nil {
 		return nil, apiError(err)
 	}
+
+	h.runtime.TriggerReconciliation(taskID)
 
 	return connect.NewResponse(&v1.CreateMessageResponse{
 		Message: protoMsg,
@@ -189,6 +193,30 @@ func (h *MessageHandler) DeleteMessage(ctx context.Context, req *connect.Request
 }
 
 func (h *MessageHandler) Subscribe(ctx context.Context, req *connect.Request[v1.SubscribeRequest], stream *connect.ServerStream[v1.SubscribeResponse]) error {
+	taskID, err := uuid.Parse(req.Msg.TaskId)
+	if err != nil {
+		return apiError(connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid task ID format: %w", err)))
+	}
+
+	task, err := h.db.Task.Query().Where(task.IDEQ(taskID)).WithMessages(func(mq *memory.MessageQuery) {
+		mq.Where(message.ProcessedTimeNotNil())
+	}).Only(ctx)
+	if err != nil {
+		return apiError(err)
+	}
+
+	for _, m := range task.Edges.Messages {
+		protoMsg, err := conv.ConvertMessageToProto(m)
+		if err != nil {
+			return apiError(err)
+		}
+		stream.Send(&v1.SubscribeResponse{
+			Event: &v1.SubscribeResponse_MessageEvent{
+				MessageEvent: protoMsg,
+			},
+		})
+	}
+
 	return nil
 
 }
