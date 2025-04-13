@@ -4,15 +4,17 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/furisto/construct/backend/api"
 	"github.com/furisto/construct/backend/memory"
-	"github.com/furisto/construct/backend/memory/agent"
+	memory_message "github.com/furisto/construct/backend/memory/message"
 	memory_model "github.com/furisto/construct/backend/memory/model"
 	"github.com/furisto/construct/backend/memory/schema/types"
-	"github.com/furisto/construct/backend/memory/task"
+	memory_task "github.com/furisto/construct/backend/memory/task"
 	"github.com/furisto/construct/backend/model"
 	"github.com/furisto/construct/backend/secret"
 	"github.com/furisto/construct/backend/tool"
@@ -99,14 +101,17 @@ func (a *Runtime) Run(ctx context.Context) error {
 		return nil
 	}
 
+	var wg sync.WaitGroup
+
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		err := a.api.ListenAndServe()
-		if err != nil {
-			slog.Error("failed to start api", "error", err)
+		if err != nil && err != http.ErrServerClosed {
+			slog.Error("API server failed", "error", err)
 		}
 	}()
 
-	var wg sync.WaitGroup
 	for range a.concurrency {
 		wg.Add(1)
 		go func() {
@@ -123,23 +128,67 @@ func (a *Runtime) Run(ctx context.Context) error {
 			}
 		}()
 	}
-	wg.Wait()
-	return nil
+
+	<-ctx.Done()
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+
+	err := a.api.Shutdown(shutdownCtx)
+	if err != nil {
+		slog.Error("failed to shutdown API server", "error", err)
+	}
+
+	a.queue.ShutDownWithDrain()
+
+	stop := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(stop)
+	}()
+
+	select {
+	case <-stop:
+		return nil
+	case <-shutdownCtx.Done():
+		return shutdownCtx.Err()
+	}
 }
 
 func (a *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 	defer a.queue.Done(taskID)
 
-	task, err := a.memory.Task.Query().Where(task.IDEQ(taskID)).WithAgent().Only(ctx)
+	// check if agent is assigned to task
+	task, err := a.memory.Task.Query().Where(memory_task.IDEQ(taskID)).WithAgent().Only(ctx)
 	if err != nil {
 		return err
 	}
 
-	agent, err := a.memory.Agent.Query().Where(agent.IDEQ(task.AgentID)).Only(ctx)
+	if task.Edges.Agent == nil {
+		slog.Info("task has no agent, skipping", "task_id", taskID)
+		return nil
+	}
+
+	// check if there are unprocessed messages
+	messages, err := a.memory.Message.Query().Where(memory_message.TaskIDEQ(taskID)).All(ctx)
 	if err != nil {
 		return err
 	}
 
+	unprocessedMessages := make([]*memory.Message, 0)
+	for _, message := range messages {
+		if message.ProcessedTime.IsZero() {
+			unprocessedMessages = append(unprocessedMessages, message)
+		}
+	}
+
+	if len(unprocessedMessages) == 0 {
+		slog.Info("no unprocessed messages, skipping", "task_id", taskID)
+		return nil
+	}
+
+	// figure out which model to use
+	agent := task.Edges.Agent
 	m, err := a.memory.Model.Query().Where(memory_model.IDEQ(agent.DefaultModel)).WithModelProvider().Only(ctx)
 	if err != nil {
 		return err
@@ -150,7 +199,8 @@ func (a *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 		return err
 	}
 
-	resp, err := providerAPI.InvokeModel(ctx, m.Name, ConstructSystemPrompt, []model.Message{
+	// invoke model
+	resp, err := providerAPI.InvokeModel(ctx, m.Name, agent.Instructions, []model.Message{
 		{
 			Source: model.MessageSourceUser,
 			Content: []model.ContentBlock{
