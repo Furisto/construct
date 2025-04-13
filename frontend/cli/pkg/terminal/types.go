@@ -1,6 +1,8 @@
 package terminal
 
 import (
+	"context"
+
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	api_client "github.com/furisto/construct/api/go/client"
@@ -25,9 +27,10 @@ type model struct {
 	agents      []string
 
 	eventChannel chan *v1.SubscribeResponse
+	ctx          context.Context
 }
 
-func NewModel(apiClient *api_client.Client, task *v1.Task) model {
+func NewModel(ctx context.Context, apiClient *api_client.Client, task *v1.Task) model {
 	ti := textinput.New()
 	ti.Placeholder = "What do you want to build?"
 	ti.Focus()
@@ -45,6 +48,8 @@ func NewModel(apiClient *api_client.Client, task *v1.Task) model {
 		// waiting:       false,
 		activeAgent: *task.Spec.AgentId,
 		task:        task,
+		eventChannel: make(chan *v1.SubscribeResponse, 100),
+		ctx:          ctx,
 		// typingMessage: nil,
 	}
 }
@@ -77,5 +82,3 @@ type assistantTextMessage struct {
 func (m *assistantTextMessage) Type() messageType {
 	return MessageTypeAssistantText
 }
-
-

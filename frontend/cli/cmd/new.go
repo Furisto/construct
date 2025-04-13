@@ -8,7 +8,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 
-	api_client "github.com/furisto/construct/api/go/client"
 	v1 "github.com/furisto/construct/api/go/v1"
 	"github.com/furisto/construct/frontend/cli/pkg/terminal"
 )
@@ -28,22 +27,17 @@ var newCmd = &cobra.Command{
 			}
 		}()
 
-		apiClient, err := api_client.NewClient(cmd.Context(), ":29333")
-		if err != nil {
-			return
-		}
+		apiClient := getClient()
 
 		resp, err := apiClient.Task().CreateTask(cmd.Context(), &connect.Request[v1.CreateTaskRequest]{
-			Msg: &v1.CreateTaskRequest{
-				// Agent: "construct",
-			},
+			Msg: &v1.CreateTaskRequest{},
 		})
 		if err != nil {
 			slog.Error("failed to create task", "error", err)
 			return
 		}
-		
-		p := tea.NewProgram(terminal.NewModel(apiClient, resp.Msg.Task), tea.WithAltScreen())
+
+		p := tea.NewProgram(terminal.NewModel(cmd.Context(), apiClient, resp.Msg.Task), tea.WithAltScreen())
 
 		if _, err := p.Run(); err != nil {
 			fmt.Printf("Error running program: %v\n", err)

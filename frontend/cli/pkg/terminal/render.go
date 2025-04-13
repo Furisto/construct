@@ -23,13 +23,14 @@ func (m model) Init() tea.Cmd {
 				Height: 24,
 			}
 		},
-		eventSubscriber(m.apiClient, m.eventChannel),
+		eventSubscriber(m.ctx, m.apiClient, m.eventChannel),
+		eventBridge(m.eventChannel),
 	)
 }
 
-func eventSubscriber(client *api_client.Client, eventChannel chan<- *v1.SubscribeResponse) tea.Cmd {
+func eventSubscriber(ctx context.Context, client *api_client.Client, eventChannel chan<- *v1.SubscribeResponse) tea.Cmd {
 	return func() tea.Msg {
-		sub, err := client.Message().Subscribe(context.Background(), &connect.Request[v1.SubscribeRequest]{})
+		sub, err := client.Message().Subscribe(ctx, &connect.Request[v1.SubscribeRequest]{})
 		if err != nil {
 			slog.Error("failed to subscribe to messages", "error", err)
 			return nil
@@ -66,16 +67,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyCtrlC | tea.KeyEsc:
 			return m, tea.Quit
 		default:
-			cmd = m.handleKeyEvents(msg)
+			cmds = append(cmds, m.handleKeyEvents(msg))
 		}
 	case tea.WindowSizeMsg:
-		cmd = m.handleWindowResizeEvent(msg)
+		cmds = append(cmds, m.handleWindowResizeEvent(msg))
 
 	case *v1.Message:
-		var typingCmds []tea.Cmd
-		// tea.Batch(newTypingMessage(msg))
-
-		return m, tea.Batch(typingCmds...)
+		m.messages = append(m.messages, &userMessage{content: msg.Content.GetText()})
 	}
 
 	m.textInput, cmd = m.textInput.Update(msg)
@@ -90,7 +88,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) handleKeyEvents(msg tea.KeyMsg) tea.Cmd {
 	switch msg.Type {
 	case tea.KeyTab:
-		return m.handleToggleAgentsEvent(msg)
+		return m.handleToggleAgentsEvent()
 	case tea.KeyEnter:
 		return m.handleInputEvents(msg)
 	}
@@ -128,7 +126,7 @@ func (m model) handleInputEvents(msg tea.KeyMsg) tea.Cmd {
 	return nil
 }
 
-func (m model) handleToggleAgentsEvent(msg tea.KeyMsg) tea.Cmd {
+func (m model) handleToggleAgentsEvent() tea.Cmd {
 	idx := slices.Index(m.agents, m.activeAgent)
 	if idx == -1 {
 		idx = 0
