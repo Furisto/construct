@@ -36,10 +36,10 @@ func NewServer(runtime AgentRuntime, port int) *Server {
 	)
 
 	mux := http.NewServeMux()
-	mux.Handle("/api/", apiHandler)
+	mux.Handle("/api/", http.StripPrefix("/api", apiHandler))
 
 	return &Server{
-		mux:  http.NewServeMux(),
+		mux:  mux,
 		port: port,
 	}
 }
