@@ -4,6 +4,7 @@ package construct.v1;
 
 import "buf/validate/validate.proto";
 import "google/protobuf/timestamp.proto";
+import "google/type/decimal.proto";
 
 option go_package = "github.com/furisto/construct/api/go/v1";
 
@@ -33,10 +34,10 @@ enum ModelCapability {
 }
 
 message ModelPricing {
-  float input_cost = 1;
-  float output_cost = 2;
-  float cache_write_cost = 3;
-  float cache_read_cost = 4;
+  google.type.Decimal input_cost = 1;
+  google.type.Decimal output_cost = 2;
+  google.type.Decimal cache_write_cost = 3;
+  google.type.Decimal cache_read_cost = 4;
 }
 
 message Model {

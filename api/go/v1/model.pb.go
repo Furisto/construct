@@ -8,6 +8,7 @@ package v1
 
 import (
 	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
+	decimal "google.golang.org/genproto/googleapis/type/decimal"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
@@ -132,10 +133,10 @@ func (x *ModelMetadata) GetUpdatedAt() *timestamppb.Timestamp {
 
 type ModelPricing struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
-	InputCost      float32                `protobuf:"fixed32,1,opt,name=input_cost,json=inputCost,proto3" json:"input_cost,omitempty"`
-	OutputCost     float32                `protobuf:"fixed32,2,opt,name=output_cost,json=outputCost,proto3" json:"output_cost,omitempty"`
-	CacheWriteCost float32                `protobuf:"fixed32,3,opt,name=cache_write_cost,json=cacheWriteCost,proto3" json:"cache_write_cost,omitempty"`
-	CacheReadCost  float32                `protobuf:"fixed32,4,opt,name=cache_read_cost,json=cacheReadCost,proto3" json:"cache_read_cost,omitempty"`
+	InputCost      *decimal.Decimal       `protobuf:"bytes,1,opt,name=input_cost,json=inputCost,proto3" json:"input_cost,omitempty"`
+	OutputCost     *decimal.Decimal       `protobuf:"bytes,2,opt,name=output_cost,json=outputCost,proto3" json:"output_cost,omitempty"`
+	CacheWriteCost *decimal.Decimal       `protobuf:"bytes,3,opt,name=cache_write_cost,json=cacheWriteCost,proto3" json:"cache_write_cost,omitempty"`
+	CacheReadCost  *decimal.Decimal       `protobuf:"bytes,4,opt,name=cache_read_cost,json=cacheReadCost,proto3" json:"cache_read_cost,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -170,32 +171,32 @@ func (*ModelPricing) Descriptor() ([]byte, []int) {
 	return file_construct_v1_model_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *ModelPricing) GetInputCost() float32 {
+func (x *ModelPricing) GetInputCost() *decimal.Decimal {
 	if x != nil {
 		return x.InputCost
 	}
-	return 0
+	return nil
 }
 
-func (x *ModelPricing) GetOutputCost() float32 {
+func (x *ModelPricing) GetOutputCost() *decimal.Decimal {
 	if x != nil {
 		return x.OutputCost
 	}
-	return 0
+	return nil
 }
 
-func (x *ModelPricing) GetCacheWriteCost() float32 {
+func (x *ModelPricing) GetCacheWriteCost() *decimal.Decimal {
 	if x != nil {
 		return x.CacheWriteCost
 	}
-	return 0
+	return nil
 }
 
-func (x *ModelPricing) GetCacheReadCost() float32 {
+func (x *ModelPricing) GetCacheReadCost() *decimal.Decimal {
 	if x != nil {
 		return x.CacheReadCost
 	}
-	return 0
+	return nil
 }
 
 type Model struct {
@@ -906,19 +907,19 @@ var File_construct_v1_model_proto protoreflect.FileDescriptor
 
 const file_construct_v1_model_proto_rawDesc = "" +
 	"\n" +
-	"\x18construct/v1/model.proto\x12\fconstruct.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x95\x01\n" +
+	"\x18construct/v1/model.proto\x12\fconstruct.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x19google/type/decimal.proto\"\x95\x01\n" +
 	"\rModelMetadata\x12A\n" +
 	"\n" +
 	"created_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\tcreatedAt\x12A\n" +
 	"\n" +
-	"updated_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\tupdatedAt\"\xa0\x01\n" +
-	"\fModelPricing\x12\x1d\n" +
+	"updated_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\tupdatedAt\"\xf8\x01\n" +
+	"\fModelPricing\x123\n" +
 	"\n" +
-	"input_cost\x18\x01 \x01(\x02R\tinputCost\x12\x1f\n" +
-	"\voutput_cost\x18\x02 \x01(\x02R\n" +
-	"outputCost\x12(\n" +
-	"\x10cache_write_cost\x18\x03 \x01(\x02R\x0ecacheWriteCost\x12&\n" +
-	"\x0fcache_read_cost\x18\x04 \x01(\x02R\rcacheReadCost\"\x8c\x03\n" +
+	"input_cost\x18\x01 \x01(\v2\x14.google.type.DecimalR\tinputCost\x125\n" +
+	"\voutput_cost\x18\x02 \x01(\v2\x14.google.type.DecimalR\n" +
+	"outputCost\x12>\n" +
+	"\x10cache_write_cost\x18\x03 \x01(\v2\x14.google.type.DecimalR\x0ecacheWriteCost\x12<\n" +
+	"\x0fcache_read_cost\x18\x04 \x01(\v2\x14.google.type.DecimalR\rcacheReadCost\"\x8c\x03\n" +
 	"\x05Model\x12\x18\n" +
 	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\x127\n" +
 	"\bmetadata\x18\x02 \x01(\v2\x1b.construct.v1.ModelMetadataR\bmetadata\x12\x1b\n" +
@@ -1024,37 +1025,42 @@ var file_construct_v1_model_proto_goTypes = []any{
 	(*DeleteModelResponse)(nil),      // 13: construct.v1.DeleteModelResponse
 	(*ListModelsRequest_Filter)(nil), // 14: construct.v1.ListModelsRequest.Filter
 	(*timestamppb.Timestamp)(nil),    // 15: google.protobuf.Timestamp
+	(*decimal.Decimal)(nil),          // 16: google.type.Decimal
 }
 var file_construct_v1_model_proto_depIdxs = []int32{
 	15, // 0: construct.v1.ModelMetadata.created_at:type_name -> google.protobuf.Timestamp
 	15, // 1: construct.v1.ModelMetadata.updated_at:type_name -> google.protobuf.Timestamp
-	1,  // 2: construct.v1.Model.metadata:type_name -> construct.v1.ModelMetadata
-	0,  // 3: construct.v1.Model.capabilities:type_name -> construct.v1.ModelCapability
-	2,  // 4: construct.v1.Model.pricing:type_name -> construct.v1.ModelPricing
-	0,  // 5: construct.v1.CreateModelRequest.capabilities:type_name -> construct.v1.ModelCapability
-	2,  // 6: construct.v1.CreateModelRequest.pricing:type_name -> construct.v1.ModelPricing
-	3,  // 7: construct.v1.CreateModelResponse.model:type_name -> construct.v1.Model
-	3,  // 8: construct.v1.GetModelResponse.model:type_name -> construct.v1.Model
-	14, // 9: construct.v1.ListModelsRequest.filter:type_name -> construct.v1.ListModelsRequest.Filter
-	3,  // 10: construct.v1.ListModelsResponse.models:type_name -> construct.v1.Model
-	0,  // 11: construct.v1.UpdateModelRequest.capabilities:type_name -> construct.v1.ModelCapability
-	2,  // 12: construct.v1.UpdateModelRequest.pricing:type_name -> construct.v1.ModelPricing
-	3,  // 13: construct.v1.UpdateModelResponse.model:type_name -> construct.v1.Model
-	4,  // 14: construct.v1.ModelService.CreateModel:input_type -> construct.v1.CreateModelRequest
-	6,  // 15: construct.v1.ModelService.GetModel:input_type -> construct.v1.GetModelRequest
-	8,  // 16: construct.v1.ModelService.ListModels:input_type -> construct.v1.ListModelsRequest
-	10, // 17: construct.v1.ModelService.UpdateModel:input_type -> construct.v1.UpdateModelRequest
-	12, // 18: construct.v1.ModelService.DeleteModel:input_type -> construct.v1.DeleteModelRequest
-	5,  // 19: construct.v1.ModelService.CreateModel:output_type -> construct.v1.CreateModelResponse
-	7,  // 20: construct.v1.ModelService.GetModel:output_type -> construct.v1.GetModelResponse
-	9,  // 21: construct.v1.ModelService.ListModels:output_type -> construct.v1.ListModelsResponse
-	11, // 22: construct.v1.ModelService.UpdateModel:output_type -> construct.v1.UpdateModelResponse
-	13, // 23: construct.v1.ModelService.DeleteModel:output_type -> construct.v1.DeleteModelResponse
-	19, // [19:24] is the sub-list for method output_type
-	14, // [14:19] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	16, // 2: construct.v1.ModelPricing.input_cost:type_name -> google.type.Decimal
+	16, // 3: construct.v1.ModelPricing.output_cost:type_name -> google.type.Decimal
+	16, // 4: construct.v1.ModelPricing.cache_write_cost:type_name -> google.type.Decimal
+	16, // 5: construct.v1.ModelPricing.cache_read_cost:type_name -> google.type.Decimal
+	1,  // 6: construct.v1.Model.metadata:type_name -> construct.v1.ModelMetadata
+	0,  // 7: construct.v1.Model.capabilities:type_name -> construct.v1.ModelCapability
+	2,  // 8: construct.v1.Model.pricing:type_name -> construct.v1.ModelPricing
+	0,  // 9: construct.v1.CreateModelRequest.capabilities:type_name -> construct.v1.ModelCapability
+	2,  // 10: construct.v1.CreateModelRequest.pricing:type_name -> construct.v1.ModelPricing
+	3,  // 11: construct.v1.CreateModelResponse.model:type_name -> construct.v1.Model
+	3,  // 12: construct.v1.GetModelResponse.model:type_name -> construct.v1.Model
+	14, // 13: construct.v1.ListModelsRequest.filter:type_name -> construct.v1.ListModelsRequest.Filter
+	3,  // 14: construct.v1.ListModelsResponse.models:type_name -> construct.v1.Model
+	0,  // 15: construct.v1.UpdateModelRequest.capabilities:type_name -> construct.v1.ModelCapability
+	2,  // 16: construct.v1.UpdateModelRequest.pricing:type_name -> construct.v1.ModelPricing
+	3,  // 17: construct.v1.UpdateModelResponse.model:type_name -> construct.v1.Model
+	4,  // 18: construct.v1.ModelService.CreateModel:input_type -> construct.v1.CreateModelRequest
+	6,  // 19: construct.v1.ModelService.GetModel:input_type -> construct.v1.GetModelRequest
+	8,  // 20: construct.v1.ModelService.ListModels:input_type -> construct.v1.ListModelsRequest
+	10, // 21: construct.v1.ModelService.UpdateModel:input_type -> construct.v1.UpdateModelRequest
+	12, // 22: construct.v1.ModelService.DeleteModel:input_type -> construct.v1.DeleteModelRequest
+	5,  // 23: construct.v1.ModelService.CreateModel:output_type -> construct.v1.CreateModelResponse
+	7,  // 24: construct.v1.ModelService.GetModel:output_type -> construct.v1.GetModelResponse
+	9,  // 25: construct.v1.ModelService.ListModels:output_type -> construct.v1.ListModelsResponse
+	11, // 26: construct.v1.ModelService.UpdateModel:output_type -> construct.v1.UpdateModelResponse
+	13, // 27: construct.v1.ModelService.DeleteModel:output_type -> construct.v1.DeleteModelResponse
+	23, // [23:28] is the sub-list for method output_type
+	18, // [18:23] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_construct_v1_model_proto_init() }
