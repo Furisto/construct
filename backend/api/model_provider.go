@@ -33,7 +33,7 @@ type ModelProviderHandler struct {
 }
 
 func (h *ModelProviderHandler) CreateModelProvider(ctx context.Context, req *connect.Request[v1.CreateModelProviderRequest]) (*connect.Response[v1.CreateModelProviderResponse], error) {
-	providerType, err := conv.ConvertProviderTypeFromProto(req.Msg.ProviderType)
+	providerType, err := conv.ConvertModelProviderTypeToMemory(req.Msg.ProviderType)
 	if err != nil {
 		return nil, apiError(connect.NewError(connect.CodeInvalidArgument, err))
 	}
@@ -61,11 +61,10 @@ func (h *ModelProviderHandler) CreateModelProvider(ctx context.Context, req *con
 			return nil, fmt.Errorf("failed to insert model provider: %w", err)
 		}
 
-		converter := conv.NewModelConverter()
 		supportedModels := model.SupportedModels(model.Provider(providerType))
 		models := make([]*memory.ModelCreate, 0, len(supportedModels))
 		for _, m := range supportedModels {
-			capabilities, err := converter.ConvertModelCapabilitiesToMemory(m.Capabilities)
+			capabilities, err := conv.LLMModelCapabilitiesToMemory(m.Capabilities)
 			if err != nil {
 				return nil, err
 			}
@@ -93,8 +92,7 @@ func (h *ModelProviderHandler) CreateModelProvider(ctx context.Context, req *con
 		return nil, apiError(err)
 	}
 
-	converter := conv.NewModelProviderConverter()
-	apiModelProvider, err := converter.ConvertIntoProto(modelProvider)
+	apiModelProvider, err := conv.ConvertModelProviderIntoProto(modelProvider)
 	if err != nil {
 		return nil, apiError(err)
 	}
@@ -115,8 +113,7 @@ func (h *ModelProviderHandler) GetModelProvider(ctx context.Context, req *connec
 		return nil, apiError(err)
 	}
 
-	converter := conv.NewModelProviderConverter()
-	apiModelProvider, err := converter.ConvertIntoProto(modelProvider)
+	apiModelProvider, err := conv.ConvertModelProviderIntoProto(modelProvider)
 	if err != nil {
 		return nil, apiError(err)
 	}
@@ -137,7 +134,7 @@ func (h *ModelProviderHandler) ListModelProviders(ctx context.Context, req *conn
 		if len(req.Msg.Filter.ProviderTypes) > 0 {
 			providerTypes := make([]types.ModelProviderType, 0, len(req.Msg.Filter.ProviderTypes))
 			for _, providerType := range req.Msg.Filter.ProviderTypes {
-				providerType, err := conv.ConvertProviderTypeFromProto(providerType)
+				providerType, err := conv.ConvertModelProviderTypeToMemory(providerType)
 				if err != nil {
 					return nil, apiError(err)
 				}
@@ -152,10 +149,9 @@ func (h *ModelProviderHandler) ListModelProviders(ctx context.Context, req *conn
 		return nil, apiError(err)
 	}
 
-	converter := conv.NewModelProviderConverter()
 	protoModelProviders := make([]*v1.ModelProvider, 0, len(modelProviders))
 	for _, mp := range modelProviders {
-		protoModelProvider, err := converter.ConvertIntoProto(mp)
+		protoModelProvider, err := conv.ConvertModelProviderIntoProto(mp)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -207,8 +203,7 @@ func (h *ModelProviderHandler) UpdateModelProvider(ctx context.Context, req *con
 		return nil, apiError(err)
 	}
 
-	converter := conv.NewModelProviderConverter()
-	protoModelProvider, err := converter.ConvertIntoProto(modelProvider)
+	protoModelProvider, err := conv.ConvertModelProviderIntoProto(modelProvider)
 	if err != nil {
 		return nil, apiError(err)
 	}

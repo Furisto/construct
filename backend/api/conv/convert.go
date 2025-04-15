@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	dpb "google.golang.org/genproto/googleapis/type/decimal"
 )
 
 type MissingRelatedEntityError struct {
@@ -51,4 +52,10 @@ func ConvertTimestampToTime(t *timestamppb.Timestamp) time.Time {
 
 func strPtr(s string) *string {
 	return &s
+}
+
+func Float64ToProtoDecimal(f float64) *dpb.Decimal {
+	return &dpb.Decimal{
+		Value: fmt.Sprintf("%f", f),
+	}
 }

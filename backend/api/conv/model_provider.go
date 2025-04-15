@@ -9,22 +9,12 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-type ModelProviderConverter interface {
-	ConvertIntoProto(modelProvider *memory.ModelProvider) (*v1.ModelProvider, error)
-}
-
-func NewModelProviderConverter() ModelProviderConverter {
-	return &modelProviderConverter{}
-}
-
-type modelProviderConverter struct{}
-
-func (c *modelProviderConverter) ConvertIntoProto(mp *memory.ModelProvider) (*v1.ModelProvider, error) {
+func ConvertModelProviderIntoProto(mp *memory.ModelProvider) (*v1.ModelProvider, error) {
 	if mp == nil {
 		return nil, nil
 	}
 
-	protoType, err := ConvertProviderTypeToProto(mp.ProviderType)
+	protoType, err := ConvertModelProviderTypeToProto(mp.ProviderType)
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +29,7 @@ func (c *modelProviderConverter) ConvertIntoProto(mp *memory.ModelProvider) (*v1
 	}, nil
 }
 
-func ConvertProviderTypeToProto(dbType types.ModelProviderType) (v1.ModelProviderType, error) {
+func ConvertModelProviderTypeToProto(dbType types.ModelProviderType) (v1.ModelProviderType, error) {
 	switch dbType {
 	case types.ModelProviderTypeAnthropic:
 		return v1.ModelProviderType_MODEL_PROVIDER_TYPE_ANTHROPIC, nil
@@ -50,7 +40,7 @@ func ConvertProviderTypeToProto(dbType types.ModelProviderType) (v1.ModelProvide
 	}
 }
 
-func ConvertProviderTypeFromProto(protoType v1.ModelProviderType) (types.ModelProviderType, error) {
+func ConvertModelProviderTypeToMemory(protoType v1.ModelProviderType) (types.ModelProviderType, error) {
 	switch protoType {
 	case v1.ModelProviderType_MODEL_PROVIDER_TYPE_ANTHROPIC:
 		return types.ModelProviderTypeAnthropic, nil
