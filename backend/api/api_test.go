@@ -237,6 +237,15 @@ func (s *TestServer) DebugDatabase(ctx context.Context, t *testing.T) {
 	t.Logf("database: %v", tempFile.Name())
 }
 
+func ptr[T any](v T) *T {
+	return &v
+}
+
 func strPtr(s string) *string {
 	return &s
 }
+
+func boolPtr(b bool) *bool {
+	return &b
+}
+

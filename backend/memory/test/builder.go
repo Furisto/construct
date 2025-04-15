@@ -10,22 +10,32 @@ import (
 )
 
 var (
-	modelProviderID = uuid.MustParse("0195fc02-59ef-7194-93d5-387400b068cb")
-	modelID         = uuid.MustParse("0195fbbe-adda-76cf-be67-9f1b64b50a4a")
-	agentID         = uuid.MustParse("0195fbbe-42e1-75fe-8e08-28758035ff95")
-	agentID2        = uuid.MustParse("0195fd1c-04c3-7576-aae7-2409b325b350")
-	taskID          = uuid.MustParse("0195fbbe-0be8-74b1-af7a-6e76e80e2462")
-	taskID2         = uuid.MustParse("0195fd1c-2b8d-75c7-b30d-858e67825ac3")
-	messageID       = uuid.MustParse("0195fbbd-757d-7db6-83c2-f556128b4586")
-	messageID2      = uuid.MustParse("0195fd1c-58fc-7960-85ef-e05cf64db136")
+	modelProviderID  = uuid.MustParse("0195fc02-59ef-7194-93d5-387400b068cb")
+	modelProviderID2 = uuid.MustParse("01963a4e-62c7-7de8-8e7d-95a68b287927")
+	modelID          = uuid.MustParse("0195fbbe-adda-76cf-be67-9f1b64b50a4a")
+	modelID2         = uuid.MustParse("01963a4f-efe4-713e-915a-da933983c193")
+	agentID          = uuid.MustParse("0195fbbe-42e1-75fe-8e08-28758035ff95")
+	agentID2         = uuid.MustParse("0195fd1c-04c3-7576-aae7-2409b325b350")
+	taskID           = uuid.MustParse("0195fbbe-0be8-74b1-af7a-6e76e80e2462")
+	taskID2          = uuid.MustParse("0195fd1c-2b8d-75c7-b30d-858e67825ac3")
+	messageID        = uuid.MustParse("0195fbbd-757d-7db6-83c2-f556128b4586")
+	messageID2       = uuid.MustParse("0195fd1c-58fc-7960-85ef-e05cf64db136")
 )
 
 func ModelProviderID() uuid.UUID {
 	return modelProviderID
 }
 
+func ModelProviderID2() uuid.UUID {
+	return modelProviderID2
+}
+
 func ModelID() uuid.UUID {
 	return modelID
+}
+
+func ModelID2() uuid.UUID {
+	return modelID2
 }
 
 func AgentID() uuid.UUID {
@@ -135,8 +145,10 @@ type ModelBuilder struct {
 
 	modelProviderID uuid.UUID
 	name            string
+	alias           string
 
 	contextWindow  int64
+	capabilities   []types.ModelCapability
 	inputCost      float64
 	outputCost     float64
 	cacheReadCost  float64
@@ -154,7 +166,9 @@ func NewModelBuilder(t *testing.T, db *memory.Client, modelProvider *memory.Mode
 		modelProviderID: modelProvider.ID,
 		modelID:         ModelID(),
 		name:            "claude-3-7-sonnet-20250219",
+		alias:           "claude-3-7-sonnet",
 		contextWindow:   200_000,
+		capabilities:    []types.ModelCapability{types.ModelCapabilityPromptCache},
 		inputCost:       3,
 		outputCost:      15,
 		cacheWriteCost:  3.75,
@@ -173,12 +187,18 @@ func (b *ModelBuilder) WithID(id uuid.UUID) *ModelBuilder {
 	return b
 }
 
+func (b *ModelBuilder) WithName(name string) *ModelBuilder {
+	b.name = name
+	return b
+}
+
 func (b *ModelBuilder) Build(ctx context.Context) *memory.Model {
 	model, err := b.db.Model.Create().
 		SetID(b.modelID).
 		SetModelProviderID(b.modelProviderID).
 		SetName(b.name).
 		SetContextWindow(b.contextWindow).
+		SetCapabilities(b.capabilities).
 		SetInputCost(b.inputCost).
 		SetOutputCost(b.outputCost).
 		SetCacheReadCost(b.cacheReadCost).

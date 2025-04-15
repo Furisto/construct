@@ -32,7 +32,10 @@ func NewHandler(opts HandlerOptions) *Handler {
 	modelProviderHandler := NewModelProviderHandler(handler.db, handler.encryption)
 	handler.mux.Handle(v1connect.NewModelProviderServiceHandler(modelProviderHandler))
 
-	agentHandler := NewAgentHandler(handler.db)
+	modelHandler := NewModelHandler(opts.DB)
+	handler.mux.Handle(v1connect.NewModelServiceHandler(modelHandler))
+
+	agentHandler := NewAgentHandler(opts.DB)
 	handler.mux.Handle(v1connect.NewAgentServiceHandler(agentHandler))
 
 	taskHandler := NewTaskHandler(handler.db)
@@ -43,6 +46,7 @@ func NewHandler(opts HandlerOptions) *Handler {
 
 	return handler
 }
+
 
 func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.mux.ServeHTTP(w, r)
@@ -63,3 +67,5 @@ func apiError(err error) error {
 func sanitizeError(err error) error {
 	return errors.New(strings.ReplaceAll(err.Error(), "memory: ", ""))
 }
+
+
