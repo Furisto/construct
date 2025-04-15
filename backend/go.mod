@@ -3,13 +3,22 @@ module github.com/furisto/construct/backend
 go 1.24.1
 
 require (
+	connectrpc.com/connect v1.18.1
 	entgo.io/ent v0.14.4
 	github.com/anthropics/anthropic-sdk-go v0.2.0-alpha.13
 	github.com/cohesion-org/deepseek-go v1.2.7
+	github.com/google/go-cmp v0.6.0
 	github.com/google/uuid v1.6.0
+	github.com/googleapis/go-type-adapters v1.0.1
 	github.com/invopop/jsonschema v0.13.0
+	github.com/mattn/go-sqlite3 v1.14.27
+	github.com/maypok86/otter v1.2.4
 	github.com/openai/openai-go v0.1.0-beta.2
+	github.com/shopspring/decimal v1.4.0
+	github.com/tink-crypto/tink-go v0.0.0-20230613075026-d6de17e3f164
 	github.com/zalando/go-keyring v0.2.6
+	google.golang.org/genproto v0.0.0-20240311173647-c811ad7063a7
+	google.golang.org/protobuf v1.36.6
 	k8s.io/client-go v0.32.3
 )
 
@@ -19,49 +28,32 @@ require (
 	github.com/agext/levenshtein v1.2.1 // indirect
 	github.com/apparentlymart/go-textseg/v13 v13.0.0 // indirect
 	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect
-	github.com/atotto/clipboard v0.1.4 // indirect
-	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/bmatcuk/doublestar v1.3.4 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
-	github.com/charmbracelet/bubbletea v1.1.0 // indirect
-	github.com/charmbracelet/colorprofile v0.2.3-0.20250311203215-f60798e515dc // indirect
-	github.com/charmbracelet/x/ansi v0.8.0 // indirect
-	github.com/charmbracelet/x/cellbuf v0.0.13-0.20250311204145-2c3ea96c31dd // indirect
-	github.com/charmbracelet/x/term v0.2.1 // indirect
 	github.com/danieljoos/wincred v1.2.2 // indirect
-	github.com/dave/jennifer v1.6.0 // indirect
 	github.com/dolthub/maphash v0.1.0 // indirect
 	github.com/gammazero/deque v1.0.0 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-openapi/inflect v0.19.0 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
-	github.com/google/go-cmp v0.6.0 // indirect
-	github.com/googleapis/go-type-adapters v1.0.1 // indirect
 	github.com/hashicorp/hcl/v2 v2.13.0 // indirect
-	github.com/hedwigz/entviz v0.0.0-20221011080911-9d47f6f1d818 // indirect
-	github.com/jmattheis/goverter v1.8.0 // indirect
 	github.com/joho/godotenv v1.5.1 // indirect
-	github.com/kr/pretty v0.2.1 // indirect
-	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
-	github.com/maypok86/otter v1.2.4 // indirect
 	github.com/mitchellh/go-wordwrap v0.0.0-20150314170334-ad45545899c7 // indirect
-	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/tidwall/gjson v1.14.4 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
-	github.com/tink-crypto/tink-go v0.0.0-20230613075026-d6de17e3f164 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	github.com/zclconf/go-cty v1.14.4 // indirect
 	github.com/zclconf/go-cty-yaml v1.1.0 // indirect
+	golang.org/x/crypto v0.33.0 // indirect
 	golang.org/x/mod v0.23.0 // indirect
-	golang.org/x/sync v0.11.0 // indirect
+	golang.org/x/net v0.35.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
-	golang.org/x/text v0.21.0 // indirect
+	golang.org/x/text v0.22.0 // indirect
 	golang.org/x/time v0.7.0 // indirect
-	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apimachinery v0.32.3 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
