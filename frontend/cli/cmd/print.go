@@ -14,8 +14,11 @@ var formatOptions struct {
 }
 
 func DisplayResources[T any](resources []T, outputFormat OutputFormat) (err error) {
-	var output []byte
+	if len(resources) == 0 {
+		return nil
+	}
 
+	var output []byte
 	switch outputFormat {
 	case OutputFormatJSON:
 		output, err = json.MarshalIndent(resources, "", "  ")
@@ -24,6 +27,11 @@ func DisplayResources[T any](resources []T, outputFormat OutputFormat) (err erro
 		}
 	case OutputFormatYAML:
 		output, err = yaml.Marshal(resources)
+		if err != nil {
+			return err
+		}
+	default:
+		output, err = json.MarshalIndent(resources, "", "  ")
 		if err != nil {
 			return err
 		}
