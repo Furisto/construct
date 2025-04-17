@@ -3,7 +3,8 @@ package types
 type MessageContentBlockType string
 
 const (
-	MessageContentBlockTypeText MessageContentBlockType = "text"
+	MessageContentBlockTypeText      MessageContentBlockType = "text"
+	MessageContentBlockTypeToolUsage MessageContentBlockType = "tool_use"
 )
 
 type MessageContent struct {

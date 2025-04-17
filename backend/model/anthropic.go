@@ -367,37 +367,14 @@ func (p *AnthropicProvider) InvokeModel(ctx context.Context, model, systemPrompt
 	}, nil
 }
 
-// func (p *AnthropicProvider) ListModels(ctx context.Context) ([]Model, error) {
-// 	resp, err := p.client.Models.List(ctx, anthropic.ModelListParams{})
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to list anthropic models: %w", err)
-// 	}
-
-// 	var models []Model
-// 	for _, model := range resp.Data {
-// 		models = append(models, Model{
-// 			Name:     model.ID,
-// 			Provider: "anthropic",
-// 		})
-// 	}
-
-// 	return models, nil
-// }
-
-func (p *AnthropicProvider) ListModels(ctx context.Context) ([]Model, error) {
-	models := make([]Model, 0, len(p.models))
-	for _, model := range p.models {
-		models = append(models, model)
-	}
-	return models, nil
-}
-
 func (p *AnthropicProvider) GetModel(ctx context.Context, modelID uuid.UUID) (Model, error) {
-	model, ok := p.models[modelID]
-	if !ok {
-		return Model{}, fmt.Errorf("model not supported")
+	for _, model := range SupportedAnthropicModels() {
+		if model.ID == modelID {
+			return model, nil
+		}
 	}
-	return model, nil
+
+	return Model{}, fmt.Errorf("model not supported")
 }
 
 type AnthropicSecret struct {

@@ -28,8 +28,14 @@ type TaskHandler struct {
 }
 
 func (h *TaskHandler) CreateTask(ctx context.Context, req *connect.Request[v1.CreateTaskRequest]) (*connect.Response[v1.CreateTaskResponse], error) {
+	agentID, err := uuid.Parse(req.Msg.AgentId)
+	if err != nil {
+		return nil, apiError(connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid agent ID format: %w", err)))
+	}
+	
 	createdTask, err := memory.Transaction(ctx, h.db, func(tx *memory.Client) (*memory.Task, error) {
 		return tx.Task.Create().
+			SetAgentID(agentID).
 			Save(ctx)
 	})
 

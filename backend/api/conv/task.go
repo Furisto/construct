@@ -29,11 +29,7 @@ func ConvertTaskMetadataToProto(t *memory.Task) *v1.TaskMetadata {
 func ConvertTaskSpecToProto(t *memory.Task) (*v1.TaskSpec, error) {
 	task := &v1.TaskSpec{}
 
-	if t.Edges.Agent == nil {
-		return task, nil
-	}
-
-	task.AgentId = strPtr(ConvertUUIDToString(t.Edges.Agent.ID))
+	task.AgentId = strPtr(t.AgentID.String())
 	return task, nil
 }
 
