@@ -47,7 +47,9 @@ message TaskUsage {
   double cost = 5;
 }
 
-message CreateTaskRequest {}
+message CreateTaskRequest {
+  string agent_id = 1 [(buf.validate.field).string.uuid = true];
+}
 
 message CreateTaskResponse {
   Task task = 1 [(buf.validate.field).required = true];

@@ -309,6 +309,7 @@ func (x *TaskUsage) GetCost() float64 {
 
 type CreateTaskRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	AgentId       string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -341,6 +342,13 @@ func (x *CreateTaskRequest) ProtoReflect() protoreflect.Message {
 // Deprecated: Use CreateTaskRequest.ProtoReflect.Descriptor instead.
 func (*CreateTaskRequest) Descriptor() ([]byte, []int) {
 	return file_construct_v1_task_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *CreateTaskRequest) GetAgentId() string {
+	if x != nil {
+		return x.AgentId
+	}
+	return ""
 }
 
 type CreateTaskResponse struct {
@@ -825,8 +833,9 @@ const file_construct_v1_task_proto_rawDesc = "" +
 	"\routput_tokens\x18\x02 \x01(\x03R\foutputTokens\x12,\n" +
 	"\x12cache_write_tokens\x18\x03 \x01(\x03R\x10cacheWriteTokens\x12*\n" +
 	"\x11cache_read_tokens\x18\x04 \x01(\x03R\x0fcacheReadTokens\x12\x12\n" +
-	"\x04cost\x18\x05 \x01(\x01R\x04cost\"\x13\n" +
-	"\x11CreateTaskRequest\"D\n" +
+	"\x04cost\x18\x05 \x01(\x01R\x04cost\"8\n" +
+	"\x11CreateTaskRequest\x12#\n" +
+	"\bagent_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\aagentId\"D\n" +
 	"\x12CreateTaskResponse\x12.\n" +
 	"\x04task\x18\x01 \x01(\v2\x12.construct.v1.TaskB\x06\xbaH\x03\xc8\x01\x01R\x04task\"*\n" +
 	"\x0eGetTaskRequest\x12\x18\n" +
