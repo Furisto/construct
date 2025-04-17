@@ -28,3 +28,15 @@ type assistantTextMessage struct {
 func (m *assistantTextMessage) Type() messageType {
 	return MessageTypeAssistantText
 }
+
+type assistantToolMessage struct {
+	callID  string
+	name    string
+	input   string
+	output  string // Can store result or error
+	isError bool   // Flag to indicate if output is an error
+}
+
+func (m *assistantToolMessage) Type() messageType {
+	return MessageTypeAssistantTool
+}

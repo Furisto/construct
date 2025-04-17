@@ -51,6 +51,10 @@ func ConvertMessageToDisplay(message *v1.Message) *DisplayMessage {
 }
 
 func ConvertMessageUsageToDisplay(usage *v1.MessageUsage) DisplayMessageUsage {
+	if usage == nil {
+		return DisplayMessageUsage{}
+	}
+
 	return DisplayMessageUsage{
 		InputTokens:      usage.InputTokens,
 		OutputTokens:     usage.OutputTokens,

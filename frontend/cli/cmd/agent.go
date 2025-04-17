@@ -11,6 +11,10 @@ var agentCmd = &cobra.Command{
 	Long:  `Manage agents, including creation, deletion, retrieval, and listing.`,
 }
 
+func init() {
+	rootCmd.AddCommand(agentCmd)
+}
+
 type AgentDisplay struct {
 	ID           string   `json:"id" yaml:"id"`
 	Name         string   `json:"name" yaml:"name"`

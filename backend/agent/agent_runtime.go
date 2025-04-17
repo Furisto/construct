@@ -166,7 +166,7 @@ func (a *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 		return err
 	}
 
-	if task.Edges.Agent == nil {
+	if task.AgentID == uuid.Nil {
 		slog.Info("task has no agent, skipping", "task_id", taskID)
 		return nil
 	}

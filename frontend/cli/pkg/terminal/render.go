@@ -48,16 +48,14 @@ func NewModel(ctx context.Context, apiClient *api_client.Client, task *v1.Task) 
 	vp.SetContent("")
 
 	return model{
-		apiClient: apiClient,
-		textInput: ti,
-		viewport:  vp,
-		messages:  []message{},
-		// waiting:       false,
-		activeAgent: *task.Spec.AgentId,
-		task:        task,
+		apiClient:    apiClient,
+		textInput:    ti,
+		viewport:     vp,
+		messages:     []message{},
+		activeAgent:  *task.Spec.AgentId,
+		task:         task,
 		eventChannel: make(chan *v1.SubscribeResponse, 100),
 		ctx:          ctx,
-		// typingMessage: nil,
 	}
 }
 
@@ -209,9 +207,6 @@ func (m model) handleWindowResizeEvent(msg tea.WindowSizeMsg) tea.Cmd {
 func (m model) View() string {
 	var sb strings.Builder
 
-	if m.height == 0 {
-		return "Loading..."
-	}
 	viewportHeight := m.height - 6
 
 	if m.viewport.Height != viewportHeight {
@@ -227,11 +222,6 @@ func (m model) View() string {
 
 	sb.WriteString(m.viewport.View())
 	sb.WriteString("\n")
-
-	// if m.waiting {
-	// 	sb.WriteString(waitingStyle.Render("Construct is thinking..."))
-	// 	sb.WriteString("\n")
-	// }
 
 	separator := separatorStyle.Width(m.width - 4).String()
 	sb.WriteString(separator)
