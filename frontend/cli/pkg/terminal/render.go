@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
-	"strings"
 
 	"connectrpc.com/connect"
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -19,13 +19,10 @@ import (
 type model struct {
 	viewport  viewport.Model
 	textInput textinput.Model
+	spinner   spinner.Model
 
 	width  int
 	height int
-
-	// waiting             bool
-	// typingMessage       *message
-	// typingAnimationDone bool
 
 	apiClient   *api_client.Client
 	messages    []message
@@ -37,22 +34,29 @@ type model struct {
 	ctx          context.Context
 }
 
-func NewModel(ctx context.Context, apiClient *api_client.Client, task *v1.Task) model {
+func NewModel(ctx context.Context, apiClient *api_client.Client, task *v1.Task, agent *v1.Agent) *model {
 	ti := textinput.New()
-	ti.Placeholder = "What do you want to build?"
+	ti.Placeholder = ""
 	ti.Focus()
-	ti.CharLimit = 512
-	ti.Width = 80
+	ti.CharLimit = 32768
+	ti.Width = 10
+	ti.Prompt = fmt.Sprintf("[%s] > ", agent.Metadata.Name)
+	ti.PromptStyle = footerStyle
+	ti.ShowSuggestions = true
 
 	vp := viewport.New(80, 20)
 	vp.SetContent("")
 
-	return model{
-		apiClient:    apiClient,
+	sp := spinner.New()
+	sp.Spinner = spinner.Dot
+
+	return &model{
 		textInput:    ti,
 		viewport:     vp,
+		spinner:      sp,
+		apiClient:    apiClient,
 		messages:     []message{},
-		activeAgent:  *task.Spec.AgentId,
+		activeAgent:  agent.Metadata.Name,
 		task:         task,
 		eventChannel: make(chan *v1.SubscribeResponse, 100),
 		ctx:          ctx,
@@ -68,21 +72,32 @@ func (m model) Init() tea.Cmd {
 				Height: 24,
 			}
 		},
-		eventSubscriber(m.ctx, m.apiClient, m.eventChannel),
+		eventSubscriber(m.ctx, m.apiClient, m.eventChannel, m.task.Id),
 		eventBridge(m.eventChannel),
 	)
 }
 
-func eventSubscriber(ctx context.Context, client *api_client.Client, eventChannel chan<- *v1.SubscribeResponse) tea.Cmd {
+func eventSubscriber(ctx context.Context, client *api_client.Client, eventChannel chan<- *v1.SubscribeResponse, taskId string) tea.Cmd {
 	return func() tea.Msg {
-		sub, err := client.Message().Subscribe(ctx, &connect.Request[v1.SubscribeRequest]{})
+		sub, err := client.Message().Subscribe(ctx, &connect.Request[v1.SubscribeRequest]{
+			Msg: &v1.SubscribeRequest{
+				TaskId: taskId,
+			},
+		})
 		if err != nil {
-			slog.Error("failed to subscribe to messages", "error", err)
+			slog.Error("[WIP] failed to subscribe to messages", "error", err)
 			return nil
 		}
+		slog.Debug("[WIP] Subscribed to message events")
 		for sub.Receive() {
+			slog.Debug("[WIP] Received message event from stream", "event", sub.Msg())
 			eventChannel <- sub.Msg()
 		}
+
+		if err := sub.Err(); err != nil {
+			slog.Error("[WIP] Message subscription error", "error", err)
+		}
+		slog.Debug("[WIP] Message subscription closed")
 
 		return nil
 	}
@@ -91,34 +106,45 @@ func eventSubscriber(ctx context.Context, client *api_client.Client, eventChanne
 func eventBridge(eventChannel <-chan *v1.SubscribeResponse) tea.Cmd {
 	return func() tea.Msg {
 		msg := <-eventChannel
+		slog.Debug("[WIP] Bridging event from channel", "event", msg)
 		switch msg.GetEvent().(type) {
 		case *v1.SubscribeResponse_MessageEvent:
+			slog.Debug("[WIP] Forwarding MessageEvent")
 			return msg.GetMessageEvent()
 		}
-
+		slog.Warn("[WIP] Unhandled event type in bridge", "event_type", fmt.Sprintf("%T", msg.GetEvent()))
 		return nil
 	}
 }
 
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var (
 		cmd  tea.Cmd
 		cmds []tea.Cmd
 	)
 
+	slog.Debug("[WIP] Update called", "msg_type", fmt.Sprintf("%T", msg), "msg", msg)
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		slog.Debug("[WIP] Switch Handling key event", "key", msg.String(), "type", int(msg.Type))
 		switch msg.Type {
-		case tea.KeyCtrlC | tea.KeyEsc:
+		case tea.KeyCtrlC:
+			fallthrough
+		case tea.KeyEsc:
+			slog.Info("[WIP] Quitting")
 			return m, tea.Quit
 		default:
-			cmds = append(cmds, m.handleKeyEvents(msg))
+			slog.Debug("[WIP] Handling key event", "key", msg.String(), "type", int(msg.Type))
+			cmds = append(cmds, m.onKeyPressed(msg))
 		}
 	case tea.WindowSizeMsg:
-		cmds = append(cmds, m.handleWindowResizeEvent(msg))
+		m.onWindowResize(msg)
 
 	case *v1.Message:
+		slog.Info("[WIP] Received new message", "content", msg.Content.GetText())
 		m.messages = append(m.messages, &userMessage{content: msg.Content.GetText()})
+		m.updateViewportContent()
 	}
 
 	m.textInput, cmd = m.textInput.Update(msg)
@@ -130,12 +156,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func (m model) handleKeyEvents(msg tea.KeyMsg) tea.Cmd {
+func (m *model) onKeyPressed(msg tea.KeyMsg) tea.Cmd {
+	slog.Debug("[WIP] Handling key event", "key", msg.String(), "type", msg.Type)
 	switch msg.Type {
 	case tea.KeyTab:
-		return m.handleToggleAgentsEvent()
+		return m.onToogleAgent()
 	case tea.KeyEnter:
-		return m.handleInputEvents(msg)
+		return m.onTextInput(msg)
 	}
 
 	switch msg.String() {
@@ -156,90 +183,71 @@ func (m model) handleKeyEvents(msg tea.KeyMsg) tea.Cmd {
 	return nil
 }
 
-func (m model) handleInputEvents(msg tea.KeyMsg) tea.Cmd {
+func (m *model) onTextInput(msg tea.KeyMsg) tea.Cmd {
 	if m.textInput.Value() != "" {
 		userInput := m.textInput.Value()
 		m.textInput.Reset()
 
-		m.apiClient.Message().CreateMessage(context.Background(), &connect.Request[v1.CreateMessageRequest]{
+		slog.Info("[WIP] Sending user input", "input", userInput)
+		_, err := m.apiClient.Message().CreateMessage(context.Background(), &connect.Request[v1.CreateMessageRequest]{
 			Msg: &v1.CreateMessageRequest{
+				TaskId:  m.task.Id,
 				Content: userInput,
 			},
 		})
+		if err != nil {
+			slog.Error("[WIP] Failed to create message", "error", err)
+		}
 	}
 
 	return nil
 }
 
-func (m model) handleToggleAgentsEvent() tea.Cmd {
+func (m *model) onToogleAgent() tea.Cmd {
+	slog.Debug("[WIP] Handling toggle agents event", "current_agent", m.activeAgent, "available_agents", m.agents)
+	if len(m.agents) == 0 {
+		slog.Warn("[WIP] No agents available to toggle")
+		return nil
+	}
 	idx := slices.Index(m.agents, m.activeAgent)
 	if idx == -1 {
 		idx = 0
-	}
-
-	if idx == len(m.agents)-1 {
-		idx = 0
 	} else {
-		idx++
+		idx = (idx + 1) % len(m.agents)
 	}
 
 	m.activeAgent = m.agents[idx]
+	m.textInput.Prompt = fmt.Sprintf("[%s] > ", m.activeAgent)
+	slog.Debug("[WIP] Switched active agent", "new_agent", m.activeAgent)
 	return nil
 }
 
-func (m model) handleWindowResizeEvent(msg tea.WindowSizeMsg) tea.Cmd {
+func (m *model) onWindowResize(msg tea.WindowSizeMsg) {
+	slog.Debug("[WIP] Handling window resize event", "width", msg.Width, "height", msg.Height)
 	m.width = msg.Width
 	m.height = msg.Height
 
-	// Adjust viewport and input field sizes
-	m.viewport.Width = msg.Width - 4   // Account for padding
-	m.viewport.Height = msg.Height - 6 // Leave room for input
-	m.textInput.Width = msg.Width - 4
+	m.viewport.Width = Max(5, msg.Width-4)
+	m.viewport.Height = Max(5, msg.Height-4)
+	m.textInput.Width = Max(5, msg.Width-4)
 
-	// Update the separator width
-	separatorStyle = separatorStyle.Width(msg.Width - 4)
-
-	// Reformat content for new dimensions
 	m.updateViewportContent()
-	return nil
 }
 
 func (m model) View() string {
-	var sb strings.Builder
+	viewport := m.viewport.View()
+	textInput := inputStyle.Render(m.textInput.View())
+	footer := footerStyle.Render("\nTab: switch agent| PgUp/PgDown: scroll | Ctrl+C: quit")
 
-	viewportHeight := m.height - 6
-
-	if m.viewport.Height != viewportHeight {
-		m.viewport.Height = viewportHeight
-	}
-
-	title := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("205")).
-		Render("Construct")
-	sb.WriteString(title)
-	sb.WriteString("\n\n")
-
-	sb.WriteString(m.viewport.View())
-	sb.WriteString("\n")
-
-	separator := separatorStyle.Width(m.width - 4).String()
-	sb.WriteString(separator)
-	sb.WriteString("\n")
-
-	inputLabel := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241")).
-		Render(fmt.Sprintf("[%s] ", m.activeAgent))
-	sb.WriteString(inputLabel)
-	sb.WriteString(inputStyle.Render(m.textInput.View()))
-
-	footer := "\nTab: enter plan mode | PgUp/PgDown: scroll | Ctrl+C: quit"
-	sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render(footer))
-
-	return appStyle.Render(sb.String())
+	return appStyle.Render(lipgloss.JoinVertical(lipgloss.Center,
+		viewport,
+		textInput),
+		footer,
+	)
 }
 
 func (m *model) updateViewportContent() {
+	slog.Debug("[WIP] Updating viewport content")
 	m.viewport.SetContent(m.formatMessages())
 	m.viewport.GotoBottom()
 }

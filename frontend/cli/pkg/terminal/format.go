@@ -21,7 +21,7 @@ func (m model) formatMessages() string {
 			formatted.WriteString(userPromptStyle.String() + msg.content + "\n\n")
 		case *assistantTextMessage:
 			formatted.WriteString(whiteBullet.String() +
-				formatMessageContent(msg.content, m.width-6, false) + "\n\n")
+				formatMessageContent(msg.content, m.width-6) + "\n\n")
 			// case assistantToolMessage:
 			// 	formatted.WriteString(blueBullet.String() +
 			// 		formatMessageContent(msg.content, m.width-6, true) + "\n\n")
@@ -42,7 +42,7 @@ func (m model) formatMessages() string {
 }
 
 // formatMessageContent formats the content of a message
-func formatMessageContent(content string, maxWidth int, isCode bool) string {
+func formatMessageContent(content string, maxWidth int) string {
 	// If it's a code block, format it differently
 	if containsCodeBlock(content) {
 		return formatCodeBlocks(content, maxWidth)
@@ -52,14 +52,11 @@ func formatMessageContent(content string, maxWidth int, isCode bool) string {
 	return assistantTextStyle.Render(content)
 }
 
-// containsCodeBlock checks if the content contains a code block
 func containsCodeBlock(content string) bool {
 	return strings.Contains(content, "```")
 }
 
-// formatCodeBlocks formats code blocks in a message
 func formatCodeBlocks(content string, maxWidth int) string {
-	// If not a code block, return as is
 	if !containsCodeBlock(content) {
 		return assistantTextStyle.Render(content)
 	}
@@ -106,4 +103,11 @@ func formatCodeBlocks(content string, maxWidth int) string {
 	}
 
 	return formatted.String()
+}
+
+func Max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
