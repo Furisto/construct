@@ -9,13 +9,15 @@ import (
 // UI styles
 var (
 	// Base styles
-	appStyle = lipgloss.NewStyle().Padding(1, 2)
+	appStyle = lipgloss.NewStyle().Margin(1,2)
 
 	// Input field styles
 	inputStyle = lipgloss.NewStyle().
 			BorderStyle(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("240")).
-			Padding(0, 1, 0, 1)
+			Background(lipgloss.NoColor{}).
+			MaxWidth(120).
+			Padding(0, 1)
 
 	footerStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
 
