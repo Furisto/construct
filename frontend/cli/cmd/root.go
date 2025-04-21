@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 
 	"log/slog"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"github.com/furisto/construct/backend/secret"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/spf13/cobra"
+	"github.com/tink-crypto/tink-go/keyset"
 
 	api "github.com/furisto/construct/api/go/client"
 )
@@ -24,8 +26,10 @@ var globalOptions struct {
 
 var rootCmd = &cobra.Command{
 	Use: "construct",
-	PreRun: func(cmd *cobra.Command, args []string) {
-		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, nil)))
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+			Level: slog.LevelDebug,
+		})))
 	},
 }
 
@@ -40,7 +44,12 @@ func Execute() {
 }
 
 func RunAgent(ctx context.Context) error {
-	client, err := memory.Open(dialect.SQLite, "file:./construct.db?_fk=1&_journal=WAL&_busy_timeout=5000")
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+
+	client, err := memory.Open(dialect.SQLite, "file:"+homeDir+"/.construct/construct.db?_fk=1&_journal=WAL&_busy_timeout=5000")
 	if err != nil {
 		return err
 	}
@@ -50,12 +59,7 @@ func RunAgent(ctx context.Context) error {
 		return err
 	}
 
-	handle, err := secret.GenerateKeyset()
-	if err != nil {
-		return err
-	}
-
-	encryption, err := secret.NewClient(handle)
+	encryption, err := getEncryptionClient()
 	if err != nil {
 		return err
 	}
@@ -69,8 +73,41 @@ func RunAgent(ctx context.Context) error {
 	return runtime.Run(ctx)
 }
 
-func getClient() *api.Client {
+func getAPIClient() *api.Client {
 	return api.NewClient("http://localhost:29333/api")
+}
+
+func getEncryptionClient() (*secret.Client, error) {
+	var keyHandle *keyset.Handle
+	keyHandleJson, err := secret.GetSecret[string](secret.ModelProviderEncryptionKey())
+	if err != nil {
+		if !errors.Is(err, &secret.ErrSecretNotFound{}) {
+			return nil, err
+		}
+
+		slog.Debug("generating new encryption key")
+		keyHandle, err = secret.GenerateKeyset()
+		if err != nil {
+			return nil, err
+		}
+		keysetJson, err := secret.KeysetToJSON(keyHandle)
+		if err != nil {
+			return nil, err
+		}
+
+		err = secret.SetSecret(secret.ModelProviderEncryptionKey(), &keysetJson)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		slog.Debug("loading encryption key")
+		keyHandle, err = secret.KeysetFromJSON(*keyHandleJson)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return secret.NewClient(keyHandle)
 }
 
 func init() {
