@@ -7,6 +7,7 @@ import (
 	"github.com/tink-crypto/tink-go/aead"
 	"github.com/tink-crypto/tink-go/keyset"
 	"github.com/tink-crypto/tink-go/tink"
+	"github.com/tink-crypto/tink-go/insecurecleartextkeyset"
 )
 
 func GenerateKeyset() (*keyset.Handle, error) {
@@ -56,21 +57,21 @@ func (c *Client) Decrypt(ciphertext []byte, associatedData []byte) ([]byte, erro
 	return plaintext, nil
 }
 
-func (c *Client) KeysetToJSON() (string, error) {
+func KeysetToJSON(keysetHandle *keyset.Handle) (string, error) {
 	buf := new(bytes.Buffer)
 	writer := keyset.NewJSONWriter(buf)
 
-	if err := c.keyset.Write(writer, c.aead); err != nil {
+	if err := insecurecleartextkeyset.Write(keysetHandle, writer); err != nil {
 		return "", fmt.Errorf("failed to write keyset to JSON: %v", err)
 	}
 
 	return buf.String(), nil
 }
 
-func (c *Client) KeysetFromJSON(jsonKeyset string) (*keyset.Handle, error) {
+func KeysetFromJSON(jsonKeyset string) (*keyset.Handle, error) {
 	reader := keyset.NewJSONReader(bytes.NewBufferString(jsonKeyset))
 
-	keysetHandle, err := keyset.Read(reader, c.aead)
+	keysetHandle, err := insecurecleartextkeyset.Read(reader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read keyset from JSON: %v", err)
 	}

@@ -54,12 +54,12 @@ func TestKeysetSerialization(t *testing.T) {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 
-	jsonStr, err := client.KeysetToJSON()
+	jsonStr, err := KeysetToJSON(keysetHandle)
 	if err != nil {
 		t.Fatalf("Failed to serialize keyset: %v", err)
 	}
 
-	deserializedKeyset, err := client.KeysetFromJSON(jsonStr)
+	deserializedKeyset, err := KeysetFromJSON(jsonStr)
 	if err != nil {
 		t.Fatalf("Failed to deserialize keyset: %v", err)
 	}
