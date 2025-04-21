@@ -6,23 +6,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var modelDeleteOptions struct {
-	Id string
-}
-
 var modelDeleteCmd = &cobra.Command{
 	Use:   "delete",
 	Short: "Delete a model by ID",
+	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		client := getClient()
+		client := getAPIClient()
 
-		req := &connect.Request[v1.DeleteModelRequest]{
-			Msg: &v1.DeleteModelRequest{Id: modelDeleteOptions.Id},
-		}
-
-		_, err := client.Model().DeleteModel(cmd.Context(), req)
-		if err != nil {
-			return err
+		for _, id := range args {
+			_, err := client.Model().DeleteModel(cmd.Context(), &connect.Request[v1.DeleteModelRequest]{
+				Msg: &v1.DeleteModelRequest{Id: id},
+			})
+			if err != nil {
+				return err
+			}
 		}
 
 		return nil
@@ -30,7 +27,5 @@ var modelDeleteCmd = &cobra.Command{
 }
 
 func init() {
-	modelDeleteCmd.Flags().StringVarP(&modelDeleteOptions.Id, "id", "i", "", "The ID of the model to delete")
-	modelDeleteCmd.MarkFlagRequired("id")
 	modelCmd.AddCommand(modelDeleteCmd)
 }

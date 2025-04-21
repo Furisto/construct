@@ -10,7 +10,7 @@ var modelProviderListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List model providers",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		client := getClient()
+		client := getAPIClient()
 
 		resp, err := client.ModelProvider().ListModelProviders(cmd.Context(), &connect.Request[v1.ListModelProvidersRequest]{})
 		if err != nil {

@@ -14,7 +14,7 @@ var modelGetCmd = &cobra.Command{
 	Use:   "get",
 	Short: "Get a model by ID",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		client := getClient()
+		client := getAPIClient()
 
 		req := &connect.Request[v1.GetModelRequest]{
 			Msg: &v1.GetModelRequest{Id: modelGetOptions.Id},

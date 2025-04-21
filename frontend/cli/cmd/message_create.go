@@ -15,7 +15,7 @@ var messageCreateCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a new message",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		client := getClient()
+		client := getAPIClient()
 
 		resp, err := client.Message().CreateMessage(cmd.Context(), &connect.Request[v1.CreateMessageRequest]{
 			Msg: &v1.CreateMessageRequest{

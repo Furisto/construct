@@ -19,7 +19,7 @@ var agentCreateCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a new agent",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		client := getClient()
+		client := getAPIClient()
 
 		_, err := client.Agent().CreateAgent(cmd.Context(), &connect.Request[v1.CreateAgentRequest]{
 			Msg: &v1.CreateAgentRequest{

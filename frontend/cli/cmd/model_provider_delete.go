@@ -11,7 +11,7 @@ var modelProviderDeleteCmd = &cobra.Command{
 	Short: "Delete a model provider",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		client := getClient()
+		client := getAPIClient()
 
 		for _, id := range args {
 			resp, err := client.ModelProvider().GetModelProvider(cmd.Context(), &connect.Request[v1.GetModelProviderRequest]{
@@ -43,7 +43,7 @@ var modelProviderDeleteCmd = &cobra.Command{
 					return err
 				}
 			}
-			
+
 			_, err = client.ModelProvider().DeleteModelProvider(cmd.Context(), &connect.Request[v1.DeleteModelProviderRequest]{
 				Msg: &v1.DeleteModelProviderRequest{Id: id},
 			})

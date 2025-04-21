@@ -17,7 +17,7 @@ var modelProviderCreateCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a new model provider",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		client := getClient()
+		client := getAPIClient()
 
 		providerType, err := modelProviderCreateOptions.Type.ToAPI()
 		if err != nil {

@@ -14,7 +14,7 @@ var modelProviderGetCmd = &cobra.Command{
 	Use:   "get",
 	Short: "Get a model provider",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		client := getClient()
+		client := getAPIClient()
 
 		resp, err := client.ModelProvider().GetModelProvider(cmd.Context(), &connect.Request[v1.GetModelProviderRequest]{
 			Msg: &v1.GetModelProviderRequest{Id: modelProviderGetOptions.Id},

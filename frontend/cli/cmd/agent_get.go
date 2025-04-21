@@ -14,7 +14,7 @@ var agentGetCmd = &cobra.Command{
 	Use:   "get",
 	Short: "Get an agent by ID",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		client := getClient()
+		client := getAPIClient()
 
 		req := &connect.Request[v1.GetAgentRequest]{
 			Msg: &v1.GetAgentRequest{Id: agentGetOptions.Id},
@@ -32,9 +32,9 @@ var agentGetCmd = &cobra.Command{
 }
 
 func init() {
-	addFormatOptions(agentGetCmd) 
+	addFormatOptions(agentGetCmd)
 	agentGetCmd.Flags().StringVarP(&agentGetOptions.Id, "id", "i", "", "The ID of the agent to get")
 	agentGetCmd.MarkFlagRequired("id")
 
-	agentCmd.AddCommand(agentGetCmd) 
+	agentCmd.AddCommand(agentGetCmd)
 }

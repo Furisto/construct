@@ -13,7 +13,7 @@ var taskCreateOptions struct {
 var taskCreateCmd = &cobra.Command{
 	Use: "create",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		client := getClient()
+		client := getAPIClient()
 
 		_, err := client.Task().CreateTask(cmd.Context(), &connect.Request[v1.CreateTaskRequest]{
 			Msg: &v1.CreateTaskRequest{},

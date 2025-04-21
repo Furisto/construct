@@ -13,7 +13,7 @@ var taskDeleteOptions struct {
 var taskDeleteCmd = &cobra.Command{
 	Use: "delete",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		client := getClient()
+		client := getAPIClient()
 
 		_, err := client.Task().DeleteTask(cmd.Context(), &connect.Request[v1.DeleteTaskRequest]{
 			Msg: &v1.DeleteTaskRequest{Id: args[0]},

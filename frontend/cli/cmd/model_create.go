@@ -17,7 +17,7 @@ var modelCreateCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a new model",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		client := getClient()
+		client := getAPIClient()
 
 		_, err := client.Model().CreateModel(cmd.Context(), &connect.Request[v1.CreateModelRequest]{
 			Msg: &v1.CreateModelRequest{

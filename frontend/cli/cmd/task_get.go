@@ -14,7 +14,7 @@ var taskGetCmd = &cobra.Command{
 	Use:  "get",
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		client := getClient()
+		client := getAPIClient()
 
 		resp, err := client.Task().GetTask(cmd.Context(), &connect.Request[v1.GetTaskRequest]{
 			Msg: &v1.GetTaskRequest{Id: args[0]},

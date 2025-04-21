@@ -6,11 +6,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-
 var taskListCmd = &cobra.Command{
 	Use: "list",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		client := getClient()
+		client := getAPIClient()
 
 		resp, err := client.Task().ListTasks(cmd.Context(), &connect.Request[v1.ListTasksRequest]{})
 		if err != nil {

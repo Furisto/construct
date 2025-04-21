@@ -16,7 +16,7 @@ var messageListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List messages",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		client := getClient()
+		client := getAPIClient()
 
 		filter := &v1.ListMessagesRequest_Filter{}
 		if messageListOptions.TaskId != "" {
