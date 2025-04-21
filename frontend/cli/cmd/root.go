@@ -64,11 +64,15 @@ func RunAgent(ctx context.Context) error {
 		return err
 	}
 
-	runtime := agent.NewRuntime(
+	runtime, err := agent.NewRuntime(
 		client,
 		encryption,
 		agent.WithServerPort(29333),
 	)
+
+	if err != nil {
+		return err
+	}
 
 	return runtime.Run(ctx)
 }

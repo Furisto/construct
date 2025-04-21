@@ -12,21 +12,24 @@ import (
 	"github.com/furisto/construct/backend/memory/message"
 	"github.com/furisto/construct/backend/memory/schema/types"
 	"github.com/furisto/construct/backend/memory/task"
+	"github.com/furisto/construct/backend/stream"
 	"github.com/google/uuid"
 )
 
 var _ v1connect.MessageServiceHandler = (*MessageHandler)(nil)
 
-func NewMessageHandler(db *memory.Client, runtime AgentRuntime) *MessageHandler {
+func NewMessageHandler(db *memory.Client, runtime AgentRuntime, messageHub *stream.MessageHub) *MessageHandler {
 	return &MessageHandler{
-		db:      db,
-		runtime: runtime,
+		db:         db,
+		runtime:    runtime,
+		messageHub: messageHub,
 	}
 }
 
 type MessageHandler struct {
-	db      *memory.Client
-	runtime AgentRuntime
+	db         *memory.Client
+	runtime    AgentRuntime
+	messageHub *stream.MessageHub
 	v1connect.UnimplementedMessageServiceHandler
 }
 
@@ -59,7 +62,7 @@ func (h *MessageHandler) CreateMessage(ctx context.Context, req *connect.Request
 		return nil, apiError(err)
 	}
 
-	protoMsg, err := conv.ConvertMessageToProto(msg)
+	protoMsg, err := conv.ConvertMemoryMessageToProto(msg)
 	if err != nil {
 		return nil, apiError(err)
 	}
@@ -85,7 +88,7 @@ func (h *MessageHandler) GetMessage(ctx context.Context, req *connect.Request[v1
 		return nil, apiError(err)
 	}
 
-	protoMsg, err := conv.ConvertMessageToProto(msg)
+	protoMsg, err := conv.ConvertMemoryMessageToProto(msg)
 	if err != nil {
 		return nil, apiError(err)
 	}
@@ -134,7 +137,7 @@ func (h *MessageHandler) ListMessages(ctx context.Context, req *connect.Request[
 
 	protoMessages := make([]*v1.Message, 0, len(messages))
 	for _, m := range messages {
-		protoMsg, err := conv.ConvertMessageToProto(m)
+		protoMsg, err := conv.ConvertMemoryMessageToProto(m)
 		if err != nil {
 			return nil, apiError(err)
 		}
@@ -168,7 +171,7 @@ func (h *MessageHandler) UpdateMessage(ctx context.Context, req *connect.Request
 		return nil, apiError(err)
 	}
 
-	protoMsg, err := conv.ConvertMessageToProto(msg)
+	protoMsg, err := conv.ConvertMemoryMessageToProto(msg)
 	if err != nil {
 		return nil, apiError(err)
 	}
@@ -198,15 +201,12 @@ func (h *MessageHandler) Subscribe(ctx context.Context, req *connect.Request[v1.
 		return apiError(connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid task ID format: %w", err)))
 	}
 
-	task, err := h.db.Task.Query().Where(task.IDEQ(taskID)).WithMessages(func(mq *memory.MessageQuery) {
-		mq.Where(message.ProcessedTimeNotNil())
-	}).Only(ctx)
-	if err != nil {
-		return apiError(err)
-	}
+	for m, err := range h.messageHub.Subscribe(ctx, taskID) {
+		if err != nil {
+			return apiError(err)
+		}
 
-	for _, m := range task.Edges.Messages {
-		protoMsg, err := conv.ConvertMessageToProto(m)
+		protoMsg, err := conv.ConvertMemoryMessageToProto(m)
 		if err != nil {
 			return apiError(err)
 		}

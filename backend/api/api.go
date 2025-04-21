@@ -11,6 +11,7 @@ import (
 	"github.com/furisto/construct/api/go/v1/v1connect"
 	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/secret"
+	"github.com/furisto/construct/backend/stream"
 	"github.com/google/uuid"
 )
 
@@ -18,6 +19,7 @@ type AgentRuntime interface {
 	GetMemory() *memory.Client
 	GetEncryption() *secret.Client
 	TriggerReconciliation(id uuid.UUID)
+	GetMessageHub() *stream.MessageHub
 }
 
 type Server struct {
@@ -32,6 +34,7 @@ func NewServer(runtime AgentRuntime, port int) *Server {
 			DB:           runtime.GetMemory(),
 			Encryption:   runtime.GetEncryption(),
 			AgentRuntime: runtime,
+			MessageHub:   runtime.GetMessageHub(),
 		},
 	)
 
@@ -62,6 +65,7 @@ type HandlerOptions struct {
 	Encryption     *secret.Client
 	RequestOptions []connect.HandlerOption
 	AgentRuntime   AgentRuntime
+	MessageHub     *stream.MessageHub
 }
 
 type Handler struct {
@@ -85,7 +89,7 @@ func NewHandler(opts HandlerOptions) *Handler {
 	taskHandler := NewTaskHandler(opts.DB)
 	handler.mux.Handle(v1connect.NewTaskServiceHandler(taskHandler, opts.RequestOptions...))
 
-	messageHandler := NewMessageHandler(opts.DB, opts.AgentRuntime)
+	messageHandler := NewMessageHandler(opts.DB, opts.AgentRuntime, opts.MessageHub)
 	handler.mux.Handle(v1connect.NewMessageServiceHandler(messageHandler, opts.RequestOptions...))
 
 	return handler

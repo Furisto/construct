@@ -9,7 +9,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func ConvertMessageToProto(m *memory.Message) (*v1.Message, error) {
+func ConvertMemoryMessageToProto(m *memory.Message) (*v1.Message, error) {
 	if m == nil {
 		return nil, fmt.Errorf("message is nil")
 	}
@@ -70,3 +70,4 @@ func convertContent(content *types.MessageContent) string {
 	}
 	return ""
 }
+

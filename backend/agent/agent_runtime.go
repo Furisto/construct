@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -18,6 +19,7 @@ import (
 	memory_task "github.com/furisto/construct/backend/memory/task"
 	"github.com/furisto/construct/backend/model"
 	"github.com/furisto/construct/backend/secret"
+	"github.com/furisto/construct/backend/stream"
 	"github.com/furisto/construct/backend/tool"
 	"github.com/google/uuid"
 	"k8s.io/client-go/util/workqueue"
@@ -64,13 +66,13 @@ type Runtime struct {
 	memory      *memory.Client
 	encryption  *secret.Client
 	toolbox     *tool.Toolbox
-	messageHub  *MessageHub
+	messageHub  *stream.MessageHub
 	concurrency int
 	queue       workqueue.TypedDelayingInterface[uuid.UUID]
 	running     atomic.Bool
 }
 
-func NewRuntime(memory *memory.Client, encryption *secret.Client, opts ...RuntimeOption) *Runtime {
+func NewRuntime(memory *memory.Client, encryption *secret.Client, opts ...RuntimeOption) (*Runtime, error) {
 	options := DefaultRuntimeOptions()
 	for _, opt := range opts {
 		opt(options)
@@ -84,11 +86,16 @@ func NewRuntime(memory *memory.Client, encryption *secret.Client, opts ...Runtim
 		Name: "construct",
 	})
 
-	runtime := &Runtime{
-		memory:     memory,
-		encryption: encryption,
-		toolbox:    toolbox,
+	messageHub, err := stream.NewMessageHub(memory)
+	if err != nil {
+		return nil, err
+	}
 
+	runtime := &Runtime{
+		memory:      memory,
+		encryption:  encryption,
+		toolbox:     toolbox,
+		messageHub:  messageHub,
 		concurrency: options.Concurrency,
 		queue:       queue,
 	}
@@ -96,7 +103,7 @@ func NewRuntime(memory *memory.Client, encryption *secret.Client, opts ...Runtim
 	api := api.NewServer(runtime, options.ServerPort)
 	runtime.api = api
 
-	return runtime
+	return runtime, nil
 }
 
 func (a *Runtime) Run(ctx context.Context) error {
@@ -262,7 +269,6 @@ func (a *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 		float64(resp.Usage.CacheWriteTokens)*m.CacheWriteCost +
 		float64(resp.Usage.CacheReadTokens)*m.CacheReadCost
 
-
 	fmt.Printf("%+v\n", resp.Message.Content)
 
 	messageContent, err := conv.ConvertModelMessageToMemory(resp.Message)
@@ -270,7 +276,7 @@ func (a *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 		return err
 	}
 	t := time.Now()
-	a.memory.Message.Create().
+	newMessage, err := a.memory.Message.Create().
 		SetTaskID(taskID).
 		SetRole(types.MessageRoleAssistant).
 		SetContent(messageContent).
@@ -285,13 +291,23 @@ func (a *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 		}).
 		Save(ctx)
 
-	task.Update().
+	if err != nil {
+		return err
+	}
+
+	_, err = task.Update().
 		AddInputTokens(resp.Usage.InputTokens).
 		AddOutputTokens(resp.Usage.OutputTokens).
 		AddCacheWriteTokens(resp.Usage.CacheWriteTokens).
 		AddCacheReadTokens(resp.Usage.CacheReadTokens).
 		AddCost(cost).
 		Save(ctx)
+
+	if err != nil {
+		return err
+	}
+
+	a.messageHub.Publish(taskID, newMessage)
 
 	return nil
 }
@@ -304,12 +320,22 @@ func (a *Runtime) modelProviderAPI(m *memory.Model) (model.ModelProvider, error)
 
 	switch provider.ProviderType {
 	case types.ModelProviderTypeAnthropic:
-		secret, err := secret.GetSecret[model.AnthropicSecret](secret.ModelProviderSecret(provider.ID))
+		providerAuth, err := a.encryption.Decrypt(provider.Secret, []byte(secret.ModelProviderSecret(provider.ID)))
 		if err != nil {
 			return nil, err
 		}
 
-		provider, err := model.NewAnthropicProvider(secret.APIKey)
+		slog.Info("provider auth", "auth", string(providerAuth))
+
+		var auth struct {
+			APIKey string `json:"apiKey"`
+		}
+		err = json.Unmarshal(providerAuth, &auth)
+		if err != nil {
+			return nil, err
+		}
+
+		provider, err := model.NewAnthropicProvider(auth.APIKey)
 		if err != nil {
 			return nil, err
 		}
@@ -329,4 +355,8 @@ func (a *Runtime) GetMemory() *memory.Client {
 
 func (a *Runtime) TriggerReconciliation(taskID uuid.UUID) {
 	a.queue.Add(taskID)
+}
+
+func (a *Runtime) GetMessageHub() *stream.MessageHub {
+	return a.messageHub
 }
