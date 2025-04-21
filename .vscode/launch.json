@@ -28,6 +28,15 @@
             "cwd": "${workspaceFolder}"
         },
         {
+            "name": "Debug Construct Daemon",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/frontend/cli",
+            "args": ["daemon"],
+            "cwd": "${workspaceFolder}"
+        },
+        {
             "name": "Attach to Process",
             "type": "go",
             "request": "attach",
