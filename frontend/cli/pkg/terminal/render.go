@@ -2,6 +2,7 @@ package terminal
 
 import (
 	"context"
+	"log/slog"
 	"slices"
 
 	"connectrpc.com/connect"
@@ -79,14 +80,19 @@ func eventSubscriber(ctx context.Context, client *api_client.Client, eventChanne
 				TaskId: taskId,
 			},
 		})
+		slog.Info("subscribed to task", "task_id", taskId)
 		if err != nil {
+			slog.Error("failed to subscribe to task", "error", err)
 			return nil
 		}
+		slog.Info("receiving messages", "task_id", taskId)
 		for sub.Receive() {
+			slog.Info("received message", "message", sub.Msg())
 			eventChannel <- sub.Msg()
 		}
 
 		if err := sub.Err(); err != nil {
+			slog.Error("failed to receive messages", "error", err)
 		}
 
 		return nil
@@ -98,8 +104,12 @@ func eventBridge(eventChannel <-chan *v1.SubscribeResponse) tea.Cmd {
 		msg := <-eventChannel
 		switch msg.GetEvent().(type) {
 		case *v1.SubscribeResponse_MessageEvent:
+			slog.Info("received message event", "message", msg.GetMessageEvent())
 			return msg.GetMessageEvent()
+		default:
+			slog.Error("unknown event", "event", msg.GetEvent())
 		}
+
 		return nil
 	}
 }
@@ -124,8 +134,10 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.onWindowResize(msg)
 
 	case *v1.Message:
+		slog.Info("processing message", "message", msg)
 		m.messages = append(m.messages, &userMessage{content: msg.Content.GetText()})
 		m.updateViewportContent()
+		slog.Info("updated viewport content")
 	}
 
 	m.input, cmd = m.input.Update(msg)
@@ -199,22 +211,22 @@ func (m *model) onToogleAgent() tea.Cmd {
 func (m *model) onWindowResize(msg tea.WindowSizeMsg) {
 	m.width = msg.Width
 	m.height = msg.Height
-
-	m.updateViewportContent()
 }
 
 func (m *model) View() string {
-	m.viewport.Width = Max(5, m.width-8)
-	m.viewport.Height = Max(5, m.height-4)
-
+	m.input.SetWidth(m.width - 6)
 	if len(m.input.Value()) > m.width-6 {
 		m.input.SetHeight(2)
 	}
-
-	viewport := m.viewport.View()
 	textInput := inputStyle.Render(m.input.View())
+
 	footer := footerStyle.Render("\nTab: switch agent| PgUp/PgDown: scroll | Ctrl+C: quit")
 
+	m.viewport.Width = Max(5, m.width-6)
+	m.viewport.Height = Max(5, m.height-4-lipgloss.Height(m.input.View()) - lipgloss.Height(footer))
+	viewport := viewportStyle.Render(m.viewport.View())
+	slog.Info("viewport", "viewport", viewport)
+	
 	return appStyle.Render(lipgloss.JoinVertical(lipgloss.Center,
 		viewport,
 		textInput),

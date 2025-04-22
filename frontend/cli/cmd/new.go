@@ -31,11 +31,25 @@ var newCmd = &cobra.Command{
 		slog.SetDefault(slog.New(slog.NewTextHandler(tempFile, &slog.HandlerOptions{
 			Level: slog.LevelDebug,
 		})))
-		apiClient := getClient()
+		apiClient := getAPIClient()
+
+		agentResp, err := apiClient.Agent().ListAgents(cmd.Context(), &connect.Request[v1.ListAgentsRequest]{
+			Msg: &v1.ListAgentsRequest{
+				Filter: &v1.ListAgentsRequest_Filter{
+					ModelId: toPtr("d3feed80-bb09-41b1-8cc7-b39022941565"),
+				},
+			},
+		})
+		if err != nil {
+			slog.Error("failed to list agents", "error", err)
+			return
+		}
+
+		agent := agentResp.Msg.Agents[0]
 
 		resp, err := apiClient.Task().CreateTask(cmd.Context(), &connect.Request[v1.CreateTaskRequest]{
 			Msg: &v1.CreateTaskRequest{
-				AgentId: "2c341901-58bd-4ece-8967-1d28d6341c5d",
+				AgentId: agent.Id,
 			},
 		})
 
@@ -44,17 +58,7 @@ var newCmd = &cobra.Command{
 			return
 		}
 
-		agentResp, err := apiClient.Agent().GetAgent(cmd.Context(), &connect.Request[v1.GetAgentRequest]{
-			Msg: &v1.GetAgentRequest{
-				Id: "2c341901-58bd-4ece-8967-1d28d6341c5d",
-			},
-		})
-		if err != nil {
-			slog.Error("failed to get agent", "error", err)
-			return
-		}
-
-		p := tea.NewProgram(terminal.NewModel(cmd.Context(), apiClient, resp.Msg.Task, agentResp.Msg.Agent), tea.WithAltScreen())
+		p := tea.NewProgram(terminal.NewModel(cmd.Context(), apiClient, resp.Msg.Task, agent), tea.WithAltScreen())
 
 		if _, err := p.Run(); err != nil {
 			fmt.Printf("Error running program: %v\n", err)

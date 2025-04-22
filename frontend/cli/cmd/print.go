@@ -76,3 +76,7 @@ func PtrToString(v *string) string {
 	}
 	return *v
 }
+
+func toPtr[T any](v T) *T {
+	return &v
+}

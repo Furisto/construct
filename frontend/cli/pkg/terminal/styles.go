@@ -6,18 +6,22 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// UI styles
+
 var (
-	// Base styles
+
 	appStyle = lipgloss.NewStyle().Margin(1,2)
 
-	// Input field styles
 	inputStyle = lipgloss.NewStyle().
 			BorderStyle(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("240")).
 			Background(lipgloss.NoColor{}).
 			MaxWidth(120).
 			Padding(0, 1)
+
+	viewportStyle = lipgloss.NewStyle().
+			Padding(1).
+			MarginTop(1).
+			MarginBottom(1)
 
 	footerStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
 
