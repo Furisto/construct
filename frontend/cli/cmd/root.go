@@ -13,6 +13,7 @@ import (
 	"github.com/furisto/construct/backend/agent"
 	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/secret"
+	"github.com/furisto/construct/backend/tool"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/spf13/cobra"
 	"github.com/tink-crypto/tink-go/keyset"
@@ -68,6 +69,15 @@ func RunAgent(ctx context.Context) error {
 		client,
 		encryption,
 		agent.WithServerPort(29333),
+		agent.WithCodeActTools(
+			tool.NewCreateFileTool(),
+			tool.NewReadFileTool(),
+			tool.NewEditFileTool(),
+			tool.NewListFilesTool(),
+			tool.NewGrepTool(),
+			tool.NewExecuteCommandTool(),
+			tool.NewPrintTool(),
+		),
 	)
 
 	if err != nil {

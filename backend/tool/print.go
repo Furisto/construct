@@ -6,14 +6,7 @@ import (
 	"github.com/grafana/sobek"
 )
 
-type CodeActPrint func(session CodeActSession) func(call sobek.FunctionCall) sobek.Value
-
-func (f CodeActPrint) Name() string {
-	return "print"
-}
-
-func (f CodeActPrint) Description() string {
-	return fmt.Sprintf(`
+const printDescription = `
 # Description
 The print function outputs values from your CodeAct JavaScript program back to you. It serves as a communication channel to display information during code execution, helping with debugging, monitoring program state, and returning computation results.
 Unlike console.log() which writes to the standard output stream, print specifically communicates back to the agent, ensuring the output is visible in the conversation. ALWAYS use print instead of console.log().
@@ -86,10 +79,18 @@ print("Sum of array: ${numbers.reduce((a, b) => a + b, 0)}");
 // File operations
 const content = read_file("/path/to/file.txt");
 print("File content:", content);
-%[1]s`, "```")
+%[1]s
+`
+
+func NewPrintTool() CodeActTool {
+	return NewOnDemandTool(
+		"print",                              
+		fmt.Sprintf(printDescription, "```"), 
+		printCallback,                        
+	)
 }
 
-func (f CodeActPrint) ToolCallback(session CodeActSession) func(call sobek.FunctionCall) sobek.Value {
+func printCallback(session CodeActSession) func(call sobek.FunctionCall) sobek.Value {
 	return func(call sobek.FunctionCall) sobek.Value {
 		args := make([]interface{}, len(call.Arguments))
 		for i, arg := range call.Arguments {
@@ -100,4 +101,3 @@ func (f CodeActPrint) ToolCallback(session CodeActSession) func(call sobek.Funct
 	}
 }
 
-var _ CodeActTool = CodeActPrint(nil)

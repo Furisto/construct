@@ -6,14 +6,7 @@ import (
 	"github.com/grafana/sobek"
 )
 
-type CodeActEditFile func(session CodeActSession) func(call sobek.FunctionCall) sobek.Value
-
-func (f CodeActEditFile) Name() string {
-	return "edit_file"
-}
-
-func (f CodeActEditFile) Description() string {
-	return fmt.Sprintf(`
+const editFileDescription = `
 # Description
 Performs targeted modifications to existing files by replacing specific text sections with new content. This tool enables precise code changes without affecting surrounding content.
 
@@ -57,12 +50,22 @@ Returns an object indicating success and details about changes made:
 - **"Multiple matches found"**: Add more context lines for unique matching
 - **"Unexpected replacements"**: Make "old" patterns more specific
 - **"File not found"**: Verify file path before modifying
-`, "```")
+`
+
+func NewEditFileTool() CodeActTool {
+	return NewOnDemandTool(
+		"edit_file",                             
+		fmt.Sprintf(editFileDescription, "```"), 
+		editFileCallback,                        
+	)
 }
 
-func (f CodeActEditFile) ToolCallback(session CodeActSession) func(call sobek.FunctionCall) sobek.Value {
+func editFileCallback(session CodeActSession) func(call sobek.FunctionCall) sobek.Value {
 	return func(call sobek.FunctionCall) sobek.Value {
-		return sobek.Undefined()
+		if len(call.Arguments) != 2 {
+			panic("edit_file requires exactly 2 arguments: path and diffs array")
+		}
+		return sobek.Undefined() 
 	}
 }
 

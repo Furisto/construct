@@ -7,14 +7,7 @@ import (
 	"github.com/grafana/sobek"
 )
 
-type CodeActReadFile func(session CodeActSession) func(call sobek.FunctionCall) sobek.Value
-
-func (f CodeActReadFile) Name() string {
-	return "read_file"
-}
-
-func (f CodeActReadFile) Description() string {
-	return fmt.Sprintf(`
+const readFileDescription = `
 # Description
 Reads and returns the complete contents of a file at the specified path. This tool is essential for examining existing files when you need to understand, analyze, or extract information from them. The file content is returned as a string, making it suitable for text files such as code, configuration files, documentation, and structured data.
 
@@ -77,15 +70,22 @@ if (!csvData.error) {
   print("Found ${rows.length} user records with fields: ${headers.join(', ')}");
 }
 %[1]s
-`, "```")
-}
+`
 
 type ReadFileResult struct {
 	Path    string `json:"path"`
 	Content string `json:"content"`
 }
 
-func (f CodeActReadFile) ToolCallback(session CodeActSession) func(call sobek.FunctionCall) sobek.Value {
+func NewReadFileTool() CodeActTool {
+	return NewOnDemandTool(
+		"read_file",                             
+		fmt.Sprintf(readFileDescription, "```"), 
+		readFileCallback,                        
+	)
+}
+
+func readFileCallback(session CodeActSession) func(call sobek.FunctionCall) sobek.Value {
 	return func(call sobek.FunctionCall) sobek.Value {
 		path := call.Argument(0).String()
 
@@ -110,6 +110,4 @@ func (f CodeActReadFile) ToolCallback(session CodeActSession) func(call sobek.Fu
 		})
 	}
 }
-
-var _ CodeActTool = CodeActReadFile(nil)
 

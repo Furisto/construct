@@ -9,14 +9,8 @@ import (
 	"github.com/grafana/sobek"
 )
 
-type CodeActListFiles func(session CodeActSession) func(call sobek.FunctionCall) sobek.Value
-
-func (f CodeActListFiles) Name() string {
-	return "list_files"
-}
-
-func (f CodeActListFiles) Description() string {
-	return fmt.Sprintf(`
+// Original Description logic
+const listFilesDescription = `
 # Description
 Lists the contents of a directory, showing files and subdirectories. This tool provides a quick way to explore the file structure of your project and navigate through directories. It's optimized for performance and provides a clear, structured view of directory contents.
 
@@ -29,7 +23,7 @@ Returns an object containing an array of directory entries. A file is identified
 %[1]s
 {
   "path": "/absolute/path/to/listed/directory",
-  "entries": [                
+  "entries": [
     ["file.js", "f", 1024],  // [name, type code, size in kilobytes]
     ["images", "d"]          // directories don't need size
   ]
@@ -61,7 +55,7 @@ If the directory doesn't exist or cannot be accessed, this tool will throw an ex
     print("Top-level directories:", topLevelContents.entries
       .filter(entry => entry.type === "directory")
       .map(dir => dir.name));
-      
+
     // Then list specific subdirectories recursively if needed
     const componentsContents = list_dir("/workspace/project/src/components", true);
   } catch (error) {
@@ -93,12 +87,12 @@ try {
   print("Top-level JS files:", srcFiles.entries
     .filter(e => e.type === "file" && e.name.endsWith(".js"))
     .map(f => f.name));
-  
+
   // Find subdirectories and explore one recursively
   const components = srcFiles.entries.find(e => e.type === "directory" && e.name === "components");
   if (components) {
     const allComponents = list_dir("/workspace/project/src/components", true);
-    
+
     // Group files by extension
     const byExt = allComponents.entries
       .filter(e => e.type === "file")
@@ -112,7 +106,15 @@ try {
 } catch (error) {
   print("Error listing directory:", error.message);
 }
-%[1]s`, "```")
+%[1]s
+`
+
+func NewListFilesTool() CodeActTool {
+	return NewOnDemandTool(
+		"list_files",
+		fmt.Sprintf(listFilesDescription, "```"),
+		listFilesCallback,
+	)
 }
 
 type DirectoryEntry struct {
@@ -121,7 +123,7 @@ type DirectoryEntry struct {
 	Size int64  `json:"size"`
 }
 
-func (f CodeActListFiles) ToolCallback(session CodeActSession) func(call sobek.FunctionCall) sobek.Value {
+func listFilesCallback(session CodeActSession) func(call sobek.FunctionCall) sobek.Value {
 	return func(call sobek.FunctionCall) sobek.Value {
 		path := call.Argument(0).String()
 
@@ -201,10 +203,8 @@ func toDirectoryEntry(entry fs.DirEntry) DirectoryEntry {
 		return DirectoryEntry{
 			Name: entry.Name(),
 			Type: "f",
-			Size: (info.Size() + 1023) / 1024,
+			Size: (info.Size() + 1023) / 1024, // Size in KB
 		}
 	}
 }
 
-// Ensure CodeActListFiles implements CodeActTool
-var _ CodeActTool = CodeActListFiles(nil)

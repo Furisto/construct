@@ -9,6 +9,8 @@ import (
 	"github.com/invopop/jsonschema"
 )
 
+type CodeActToolCallback func(session CodeActSession) func(call sobek.FunctionCall) sobek.Value
+
 type CodeActSession interface {
 	VM() *sobek.Runtime
 	Stdout() io.Writer
@@ -20,10 +22,30 @@ type CodeActTool interface {
 	ToolCallback(session CodeActSession) func(call sobek.FunctionCall) sobek.Value
 }
 
-type GenericTool struct {
-	Name        string
-	Description string
-	Handler     any
+type onDemandTool struct {
+	name        string
+	description string
+	handler     CodeActToolCallback
+}
+
+func (t *onDemandTool) Name() string {
+	return t.name
+}
+
+func (t *onDemandTool) Description() string {
+	return t.description
+}
+
+func (t *onDemandTool) ToolCallback(session CodeActSession) func(call sobek.FunctionCall) sobek.Value {
+	return t.handler(session)
+}
+
+func NewOnDemandTool(name, description string, handler CodeActToolCallback) CodeActTool {
+	return &onDemandTool{
+		name:        name,
+		description: description,
+		handler:     handler,
+	}
 }
 
 type ToolHandler[T any] func(ctx context.Context, input T) (string, error)

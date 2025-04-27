@@ -8,14 +8,7 @@ import (
 	"github.com/grafana/sobek"
 )
 
-type CodeActWriteFile func(session CodeActSession) func(call sobek.FunctionCall) sobek.Value
-
-func (f CodeActWriteFile) Name() string {
-	return "create_file"
-}
-
-func (f CodeActWriteFile) Description() string {
-	return fmt.Sprintf(`
+const writeFileDescription = `
 # Description
 Creates a new file or replaces an existing file with your specified content. This tool writes the complete file in a single operation.
 
@@ -90,10 +83,17 @@ function Button({ text, onClick }) {\n\
 \n\
 export default Button;")
 %[1]s
-*/`, "```", "`")
+`
+
+func NewCreateFileTool() CodeActTool {
+	return NewOnDemandTool(
+		"create_file",
+		fmt.Sprintf(writeFileDescription, "```", "`"),
+		createFileCallback,
+	)
 }
 
-func (f CodeActWriteFile) ToolCallback(session CodeActSession) func(call sobek.FunctionCall) sobek.Value {
+func createFileCallback(session CodeActSession) func(call sobek.FunctionCall) sobek.Value {
 	return func(call sobek.FunctionCall) sobek.Value {
 		if len(call.Arguments) != 2 {
 			panic("invalid arguments")
@@ -136,5 +136,3 @@ func createFile(path string, content string) CreateFileResult {
 type CreateFileResult struct {
 	Existed bool `json:"existed"`
 }
-
-var _ CodeActTool = CodeActWriteFile(nil)
