@@ -3,9 +3,28 @@ package tool
 import (
 	"context"
 	"encoding/json"
+	"io"
 
+	"github.com/grafana/sobek"
 	"github.com/invopop/jsonschema"
 )
+
+type CodeActSession interface {
+	VM() *sobek.Runtime
+	Stdout() io.Writer
+}
+
+type CodeActTool interface {
+	Name() string
+	Description() string
+	ToolCallback(session CodeActSession) func(call sobek.FunctionCall) sobek.Value
+}
+
+type GenericTool struct {
+	Name        string
+	Description string
+	Handler     any
+}
 
 type ToolHandler[T any] func(ctx context.Context, input T) (string, error)
 
@@ -41,7 +60,7 @@ type Tool struct {
 	Categories  []string
 	Schema      any
 	Readonly    bool
-	Handler     func(ctx context.Context, input json.RawMessage) (string, error)
+	Handler     any
 }
 
 func NewTool[T any](name, description, category string, handler ToolHandler[T], opts ...ToolOption) Tool {
