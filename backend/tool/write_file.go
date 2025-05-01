@@ -2,10 +2,10 @@ package tool
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/grafana/sobek"
+	"github.com/spf13/afero"
 )
 
 const writeFileDescription = `
@@ -96,41 +96,46 @@ func NewCreateFileTool() CodeActTool {
 func createFileCallback(session CodeActSession) func(call sobek.FunctionCall) sobek.Value {
 	return func(call sobek.FunctionCall) sobek.Value {
 		if len(call.Arguments) != 2 {
-			panic("invalid arguments")
+			session.Throw("invalid arguments")
 		}
 
 		path := call.Arguments[0].String()
 		content := call.Arguments[1].String()
 
-		return session.VM().ToValue(createFile(path, content))
+		result, err := createFile(session.FS, path, content)
+		if err != nil {
+			session.Throw("error creating file %s: %w", path, err)
+		}
+
+		return session.VM.ToValue(result)
 	}
 }
 
-func createFile(path string, content string) CreateFileResult {
+func createFile(fs afero.Fs, path string, content string) (*CreateFileResult, error) {
 	if !filepath.IsAbs(path) {
-		panic(fmt.Sprintf("path must be absolute: %s", path))
+		return nil, fmt.Errorf("path must be absolute: %s", path)
 	}
 
 	var existed bool
-	if stat, err := os.Stat(path); err == nil {
+	if stat, err := fs.Stat(path); err == nil {
 		if stat.IsDir() {
-			panic(fmt.Sprintf("path is a directory: %s", path))
+			return nil, fmt.Errorf("path is a directory: %s", path)
 		}
 
 		existed = true
 	}
 
-	err := os.MkdirAll(filepath.Dir(path), 0755)
+	err := fs.MkdirAll(filepath.Dir(path), 0755)
 	if err != nil {
-		panic(fmt.Errorf("error creating parent directories for %s: %w", path, err))
+		return nil, fmt.Errorf("error creating parent directories for %s: %w", path, err)
 	}
 
-	err = os.WriteFile(path, []byte(content), 0644)
+	err = afero.WriteFile(fs, path, []byte(content), 0644)
 	if err != nil {
-		panic(fmt.Errorf("error writing file %s: %w", path, err))
+		return nil, fmt.Errorf("error writing file %s: %w", path, err)
 	}
 
-	return CreateFileResult{Existed: existed}
+	return &CreateFileResult{Existed: existed}, nil
 }
 
 type CreateFileResult struct {

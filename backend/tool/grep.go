@@ -138,16 +138,16 @@ func grepCallback(session CodeActSession) func(call sobek.FunctionCall) sobek.Va
 
 		_, err := exec.LookPath("grep")
 		if err != nil {
-			panic(fmt.Errorf("grep not found: %w", err))
+			session.Throw("grep not found: %w", err)
 		}
 
 		command := fmt.Sprintf("grep -E %s %s %s %s %v %d", query, path, includePattern, excludePattern, caseSensitive, maxResults)
 		output, err := exec.Command(command).Output()
 		if err != nil {
-			panic(fmt.Errorf("error executing command: %w", err))
+			session.Throw("error executing command: %w", err)
 		}
 
-		return session.VM().ToValue(GrepResult{
+		return session.VM.ToValue(GrepResult{
 			Output: string(output),
 		})
 	}

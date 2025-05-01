@@ -3,17 +3,50 @@ package tool
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 
 	"github.com/grafana/sobek"
 	"github.com/invopop/jsonschema"
+	"github.com/spf13/afero"
 )
 
 type CodeActToolCallback func(session CodeActSession) func(call sobek.FunctionCall) sobek.Value
 
-type CodeActSession interface {
-	VM() *sobek.Runtime
-	Stdout() io.Writer
+type CodeActSession struct {
+	VM     *sobek.Runtime
+	System io.Writer
+	User   io.Writer
+	FS     afero.Fs
+}
+
+func (s *CodeActSession) Throw(format string, args ...any) {
+	err := s.VM.NewGoError(fmt.Errorf(format, args...))
+	panic(err)
+}
+
+type ErrorCode int
+
+const (
+	Internal ErrorCode = iota + 1
+	PathIsNotAbsolute
+	FileNotFound
+)
+
+type ToolError struct {
+	Message    string
+	Suggestion string
+}
+
+func NewToolError(message, suggestion string) *ToolError {
+	return &ToolError{
+		Message:    message,
+		Suggestion: suggestion,
+	}
+}
+
+func (e *ToolError) Error() string {
+	return e.Message
 }
 
 type CodeActTool interface {
@@ -76,16 +109,19 @@ func WithAdditionalCategory(category string) ToolOption {
 	}
 }
 
-type Tool struct {
-	Name        string
-	Description string
-	Categories  []string
-	Schema      any
-	Readonly    bool
-	Handler     any
+type Result struct {
+	User   []string
+	System []string
 }
 
-func NewTool[T any](name, description, category string, handler ToolHandler[T], opts ...ToolOption) Tool {
+type NativeTool interface {
+	Name() string
+	Description() string
+	Schema() any
+	Run(ctx context.Context, fs afero.Fs, input json.RawMessage) (string, error)
+}
+
+func NewTool[T any](name, description, category string, handler ToolHandler[T], opts ...ToolOption) NativeTool {
 	reflector := jsonschema.Reflector{
 		AllowAdditionalProperties: false,
 		DoNotReference:            true,
@@ -107,21 +143,14 @@ func NewTool[T any](name, description, category string, handler ToolHandler[T], 
 		paramSchema["required"] = inputSchema.Required
 	}
 
-	genericToolHandler := func(ctx context.Context, input json.RawMessage) (string, error) {
-		var toolInput T
-		err := json.Unmarshal(input, &toolInput)
-		if err != nil {
-			return "", err
-		}
-		return handler(ctx, toolInput)
-	}
+	// genericToolHandler := func(ctx context.Context, input json.RawMessage) (string, error) {
+	// 	var toolInput T
+	// 	err := json.Unmarshal(input, &toolInput)
+	// 	if err != nil {
+	// 		return "", err
+	// 	}
+	// 	return handler(ctx, toolInput)
+	// }
 
-	return Tool{
-		Name:        name,
-		Description: description,
-		Categories:  options.Categories,
-		Schema:      paramSchema,
-		Readonly:    options.Readonly,
-		Handler:     genericToolHandler,
-	}
+	return nil
 }

@@ -84,9 +84,9 @@ print("File content:", content);
 
 func NewPrintTool() CodeActTool {
 	return NewOnDemandTool(
-		"print",                              
-		fmt.Sprintf(printDescription, "```"), 
-		printCallback,                        
+		"print",
+		fmt.Sprintf(printDescription, "```"),
+		printCallback,
 	)
 }
 
@@ -96,8 +96,8 @@ func printCallback(session CodeActSession) func(call sobek.FunctionCall) sobek.V
 		for i, arg := range call.Arguments {
 			args[i] = arg.Export()
 		}
-		fmt.Println(args...)
+
+		fmt.Fprintln(session.System, args...)
 		return sobek.Undefined()
 	}
 }
-

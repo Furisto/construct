@@ -63,7 +63,7 @@ func NewEditFileTool() CodeActTool {
 func editFileCallback(session CodeActSession) func(call sobek.FunctionCall) sobek.Value {
 	return func(call sobek.FunctionCall) sobek.Value {
 		if len(call.Arguments) != 2 {
-			panic("edit_file requires exactly 2 arguments: path and diffs array")
+			session.Throw("edit_file requires exactly 2 arguments: path and diffs array")
 		}
 		return sobek.Undefined() 
 	}

@@ -128,7 +128,7 @@ func listFilesCallback(session CodeActSession) func(call sobek.FunctionCall) sob
 		path := call.Argument(0).String()
 
 		if !filepath.IsAbs(path) {
-			panic(fmt.Sprintf("path is not absolute: %s", path))
+			session.Throw("path is not absolute: %s", path)
 		}
 
 		recursive := call.Argument(1).ToBoolean()
@@ -136,16 +136,16 @@ func listFilesCallback(session CodeActSession) func(call sobek.FunctionCall) sob
 		fileInfo, err := os.Stat(path)
 		if err != nil {
 			if os.IsNotExist(err) {
-				panic(fmt.Sprintf("directory not found: %s", path))
+				session.Throw("directory not found: %s", path)
 			}
 			if os.IsPermission(err) {
-				panic(fmt.Sprintf("permission denied: %s", path))
+				session.Throw("permission denied: %s", path)
 			}
-			panic(fmt.Sprintf("error accessing directory: %v", err))
+			session.Throw("error accessing directory: %v", err)
 		}
 
 		if !fileInfo.IsDir() {
-			panic(fmt.Sprintf("path is not a directory: %s", path))
+			session.Throw("path is not a directory: %s", path)
 		}
 
 		var entries []DirectoryEntry
@@ -159,38 +159,38 @@ func listFilesCallback(session CodeActSession) func(call sobek.FunctionCall) sob
 					return nil
 				}
 
-				entries = append(entries, toDirectoryEntry(entry))
+				entries = append(entries, toDirectoryEntry(session, entry))
 				return nil
 			})
 
 			if err != nil {
 				if os.IsPermission(err) {
-					panic(fmt.Sprintf("permission denied: %s", path))
+					session.Throw("permission denied: %s", path)
 				}
-				panic(fmt.Errorf("error listing directory: %w", err))
+				session.Throw("error listing directory: %w", err)
 			}
 		} else {
 			dirEntries, err := os.ReadDir(path)
 			if err != nil {
 				if os.IsPermission(err) {
-					panic(fmt.Errorf("permission denied: %s", path))
+					session.Throw("permission denied: %s", path)
 				}
-				panic(fmt.Errorf("error listing directory: %w", err))
+				session.Throw("error listing directory: %w", err)
 			}
 
 			for _, entry := range dirEntries {
-				entries = append(entries, toDirectoryEntry(entry))
+				entries = append(entries, toDirectoryEntry(session, entry))
 			}
 		}
 
-		return session.VM().ToValue(entries)
+		return session.VM.ToValue(entries)
 	}
 }
 
-func toDirectoryEntry(entry fs.DirEntry) DirectoryEntry {
+func toDirectoryEntry(session CodeActSession, entry fs.DirEntry) DirectoryEntry {
 	info, err := entry.Info()
 	if err != nil {
-		panic(fmt.Errorf("error getting info for entry: %w", err))
+		session.Throw("error getting info for entry: %w", err)
 	}
 
 	if entry.IsDir() {

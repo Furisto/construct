@@ -37,8 +37,8 @@ type ListFilesInput struct {
 	Directory string `json:"directory"`
 }
 
-func FilesystemTools() []Tool {
-	return []Tool{
+func FilesystemTools() []NativeTool {
+	return []NativeTool{
 		NewTool("read_file", "Read a file", FilesystemToolCategory, func(ctx context.Context, input ReadFileInput) (string, error) {
 			if input.FilePath == "" {
 				return "", fmt.Errorf("file path is required")

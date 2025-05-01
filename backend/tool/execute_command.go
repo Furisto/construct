@@ -113,10 +113,10 @@ func executeCommandCallback(session CodeActSession) func(call sobek.FunctionCall
 
 		output, err := exec.Command(command).Output()
 		if err != nil {
-			panic(fmt.Errorf("error executing command: %w", err))
+			session.Throw("error executing command: %w", err)
 		}
 
-		return session.VM().ToValue(ExecuteCommandResult{
+		return session.VM.ToValue(ExecuteCommandResult{
 			Stdout:   string(output),
 			Stderr:   "",
 			ExitCode: 0,
