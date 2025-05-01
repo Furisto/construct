@@ -1,0 +1,52 @@
+package agent
+
+import (
+	"context"
+	"encoding/json"
+	"testing"
+
+	"github.com/furisto/construct/backend/tool"
+	"github.com/spf13/afero"
+)
+
+func TestInterpreter(t *testing.T) {
+	tests := []struct {
+		Name   string
+		Script string
+		Tools  []tool.CodeActTool
+		FS     afero.Fs
+	}{
+		{
+			Name: "read_file",
+			Script: `try {
+				read_file("test.txt");
+			} catch (err) {
+				print(err);
+			}`,
+			Tools: []tool.CodeActTool{tool.NewReadFileTool(), tool.NewPrintTool()},
+			FS:    afero.NewMemMapFs(),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.Name, func(t *testing.T) {
+			interpreter := NewCodeInterpreter(test.Tools)
+			args := CodeInterpreterArgs{
+				Script: test.Script,
+			}
+
+			jsonArgs, err := json.Marshal(args)
+			if err != nil {
+				t.Fatalf("error marshalling args: %v", err)
+			}
+
+			result, err := interpreter.Run(context.Background(), test.FS, jsonArgs)
+			if err != nil {
+				t.Fatalf("error running interpreter: %v", err)
+			}
+			if result != "test" {
+				t.Fatalf("expected result to be 'test', got '%s'", result)
+			}
+		})
+	}
+}
