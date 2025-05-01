@@ -236,7 +236,7 @@ func NewAnthropicProvider(apiKey string) (*AnthropicProvider, error) {
 	return provider, nil
 }
 
-func (p *AnthropicProvider) InvokeModel(ctx context.Context, model, systemPrompt string, messages []Message, opts ...InvokeModelOption) (*ModelResponse, error) {
+func (p *AnthropicProvider) InvokeModel(ctx context.Context, model, systemPrompt string, messages []*Message, opts ...InvokeModelOption) (*ModelResponse, error) {
 	if model == "" {
 		return nil, fmt.Errorf("model is required")
 	}

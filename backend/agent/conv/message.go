@@ -71,16 +71,14 @@ func ConvertMemoryMessageBlocksToModel(blocks []types.MessageBlock) ([]model.Con
 
 func ConvertModelMessageToMemory(m *model.Message) (*memory.Message, error) {
 	source := ConvertModelMessageSourceToMemory(m.Source)
-	blocks, err := ConvertModelContentBlocksToMemory(m.Content)
+	content, err := ConvertModelContentBlocksToMemory(m.Content)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert model content blocks to memory: %w", err)
 	}
 
 	return &memory.Message{
 		Source:  source,
-		Content: &types.MessageContent{
-			Blocks: blocks,
-		},
+		Content: content,
 	}, nil
 }
 
@@ -95,7 +93,7 @@ func ConvertModelMessageSourceToMemory(source model.MessageSource) types.Message
 	}
 }
 
-func ConvertModelContentBlocksToMemory(blocks []model.ContentBlock) ([]types.MessageBlock, error) {
+func ConvertModelContentBlocksToMemory(blocks []model.ContentBlock) (*types.MessageContent, error) {
 	var messageBlocks []types.MessageBlock
 
 	for _, block := range blocks {
@@ -128,5 +126,15 @@ func ConvertModelContentBlocksToMemory(blocks []model.ContentBlock) ([]types.Mes
 		}
 	}
 
-	return messageBlocks, nil
+	return &types.MessageContent{
+		Blocks: messageBlocks,
+	}, nil
+}
+
+func ConvertModelUsageToMemory(usage *model.Usage) *types.MessageUsage {
+	return &types.MessageUsage{
+		InputTokens:      usage.InputTokens,
+		OutputTokens:     usage.OutputTokens,
+		CacheWriteTokens: usage.CacheWriteTokens,
+	}
 }

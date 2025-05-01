@@ -50,7 +50,7 @@ func WithStreamHandler(handler func(ctx context.Context, message *Message)) Invo
 }
 
 type ModelProvider interface {
-	InvokeModel(ctx context.Context, model, prompt string, messages []Message, opts ...InvokeModelOption) (*ModelResponse, error)
+	InvokeModel(ctx context.Context, model, prompt string, messages []*Message, opts ...InvokeModelOption) (*ModelResponse, error)
 }
 
 type MessageSource string

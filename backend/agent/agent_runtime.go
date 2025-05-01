@@ -227,7 +227,7 @@ func (a *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 		messageToProcess = unprocessedUserMessages[0]
 	}
 
-	modelMessages := make([]model.Message, 0, len(processedMessages))
+	modelMessages := make([]*model.Message, 0, len(processedMessages))
 	for _, msg := range processedMessages {
 		modelMsg, err := conv.ConvertMemoryMessageToModel(msg)
 		if err != nil {
@@ -281,23 +281,19 @@ func (a *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 		return err
 	}
 
-	cost := float64(resp.Usage.InputTokens)*m.InputCost +
-		float64(resp.Usage.OutputTokens)*m.OutputCost +
-		float64(resp.Usage.CacheWriteTokens)*m.CacheWriteCost +
-		float64(resp.Usage.CacheReadTokens)*m.CacheReadCost
-
 	fmt.Printf("%+v\n", resp.Message.Content)
 
-	messageContent, err := conv.ConvertModelMessageToMemory(resp.Message)
+	memoryContent, err := conv.ConvertModelContentBlocksToMemory(resp.Message.Content)
 	if err != nil {
 		return err
 	}
+	cost := calculateCost(resp.Usage, m)
+
 	t := time.Now()
 	newMessage, err := a.memory.Message.Create().
 		SetTaskID(taskID).
 		SetSource(types.MessageSourceAssistant).
-		SetContent(messageContent).
-		SetCreateTime(t).
+		SetContent(memoryContent).
 		SetProcessedTime(t).
 		SetUsage(&types.MessageUsage{
 			InputTokens:      resp.Usage.InputTokens,
@@ -360,8 +356,6 @@ func (a *Runtime) modelProviderAPI(m *memory.Model) (model.ModelProvider, error)
 			return nil, err
 		}
 
-		slog.Info("provider auth", "auth", string(providerAuth))
-
 		var auth struct {
 			APIKey string `json:"apiKey"`
 		}
@@ -378,6 +372,13 @@ func (a *Runtime) modelProviderAPI(m *memory.Model) (model.ModelProvider, error)
 	default:
 		return nil, fmt.Errorf("unknown model provider type: %s", provider.ProviderType)
 	}
+}
+
+func calculateCost(usage model.Usage, model *memory.Model) float64 {
+	return float64(usage.InputTokens)*model.InputCost +
+		float64(usage.OutputTokens)*model.OutputCost +
+		float64(usage.CacheWriteTokens)*model.CacheWriteCost +
+		float64(usage.CacheReadTokens)*model.CacheReadCost
 }
 
 func (a *Runtime) GetEncryption() *secret.Client {
