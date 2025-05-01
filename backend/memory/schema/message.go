@@ -18,8 +18,8 @@ type Message struct {
 func (Message) Fields() []ent.Field {
 	return []ent.Field{
 		field.UUID("id", uuid.UUID{}).Default(uuid.New).Unique().Immutable(),
+		field.Enum("source").GoType(types.MessageSource("")),
 		field.JSON("content", &types.MessageContent{}),
-		field.Enum("role").GoType(types.MessageRole("")),
 		field.JSON("usage", &types.MessageUsage{}).Optional(),
 		field.Time("processed_time").Optional(),
 

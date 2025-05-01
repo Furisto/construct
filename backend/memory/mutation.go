@@ -1070,8 +1070,8 @@ type MessageMutation struct {
 	id             *uuid.UUID
 	create_time    *time.Time
 	update_time    *time.Time
+	source         *types.MessageSource
 	content        **types.MessageContent
-	role           *types.MessageRole
 	usage          **types.MessageUsage
 	processed_time *time.Time
 	clearedFields  map[string]struct{}
@@ -1262,6 +1262,42 @@ func (m *MessageMutation) ResetUpdateTime() {
 	m.update_time = nil
 }
 
+// SetSource sets the "source" field.
+func (m *MessageMutation) SetSource(ts types.MessageSource) {
+	m.source = &ts
+}
+
+// Source returns the value of the "source" field in the mutation.
+func (m *MessageMutation) Source() (r types.MessageSource, exists bool) {
+	v := m.source
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSource returns the old "source" field's value of the Message entity.
+// If the Message object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MessageMutation) OldSource(ctx context.Context) (v types.MessageSource, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSource is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSource requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSource: %w", err)
+	}
+	return oldValue.Source, nil
+}
+
+// ResetSource resets all changes to the "source" field.
+func (m *MessageMutation) ResetSource() {
+	m.source = nil
+}
+
 // SetContent sets the "content" field.
 func (m *MessageMutation) SetContent(tc *types.MessageContent) {
 	m.content = &tc
@@ -1296,42 +1332,6 @@ func (m *MessageMutation) OldContent(ctx context.Context) (v *types.MessageConte
 // ResetContent resets all changes to the "content" field.
 func (m *MessageMutation) ResetContent() {
 	m.content = nil
-}
-
-// SetRole sets the "role" field.
-func (m *MessageMutation) SetRole(tr types.MessageRole) {
-	m.role = &tr
-}
-
-// Role returns the value of the "role" field in the mutation.
-func (m *MessageMutation) Role() (r types.MessageRole, exists bool) {
-	v := m.role
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldRole returns the old "role" field's value of the Message entity.
-// If the Message object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *MessageMutation) OldRole(ctx context.Context) (v types.MessageRole, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldRole is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldRole requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldRole: %w", err)
-	}
-	return oldValue.Role, nil
-}
-
-// ResetRole resets all changes to the "role" field.
-func (m *MessageMutation) ResetRole() {
-	m.role = nil
 }
 
 // SetUsage sets the "usage" field.
@@ -1688,11 +1688,11 @@ func (m *MessageMutation) Fields() []string {
 	if m.update_time != nil {
 		fields = append(fields, message.FieldUpdateTime)
 	}
+	if m.source != nil {
+		fields = append(fields, message.FieldSource)
+	}
 	if m.content != nil {
 		fields = append(fields, message.FieldContent)
-	}
-	if m.role != nil {
-		fields = append(fields, message.FieldRole)
 	}
 	if m.usage != nil {
 		fields = append(fields, message.FieldUsage)
@@ -1721,10 +1721,10 @@ func (m *MessageMutation) Field(name string) (ent.Value, bool) {
 		return m.CreateTime()
 	case message.FieldUpdateTime:
 		return m.UpdateTime()
+	case message.FieldSource:
+		return m.Source()
 	case message.FieldContent:
 		return m.Content()
-	case message.FieldRole:
-		return m.Role()
 	case message.FieldUsage:
 		return m.Usage()
 	case message.FieldProcessedTime:
@@ -1748,10 +1748,10 @@ func (m *MessageMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldCreateTime(ctx)
 	case message.FieldUpdateTime:
 		return m.OldUpdateTime(ctx)
+	case message.FieldSource:
+		return m.OldSource(ctx)
 	case message.FieldContent:
 		return m.OldContent(ctx)
-	case message.FieldRole:
-		return m.OldRole(ctx)
 	case message.FieldUsage:
 		return m.OldUsage(ctx)
 	case message.FieldProcessedTime:
@@ -1785,19 +1785,19 @@ func (m *MessageMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetUpdateTime(v)
 		return nil
+	case message.FieldSource:
+		v, ok := value.(types.MessageSource)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSource(v)
+		return nil
 	case message.FieldContent:
 		v, ok := value.(*types.MessageContent)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetContent(v)
-		return nil
-	case message.FieldRole:
-		v, ok := value.(types.MessageRole)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetRole(v)
 		return nil
 	case message.FieldUsage:
 		v, ok := value.(*types.MessageUsage)
@@ -1916,11 +1916,11 @@ func (m *MessageMutation) ResetField(name string) error {
 	case message.FieldUpdateTime:
 		m.ResetUpdateTime()
 		return nil
+	case message.FieldSource:
+		m.ResetSource()
+		return nil
 	case message.FieldContent:
 		m.ResetContent()
-		return nil
-	case message.FieldRole:
-		m.ResetRole()
 		return nil
 	case message.FieldUsage:
 		m.ResetUsage()

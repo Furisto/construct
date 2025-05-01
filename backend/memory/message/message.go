@@ -21,10 +21,10 @@ const (
 	FieldCreateTime = "create_time"
 	// FieldUpdateTime holds the string denoting the update_time field in the database.
 	FieldUpdateTime = "update_time"
+	// FieldSource holds the string denoting the source field in the database.
+	FieldSource = "source"
 	// FieldContent holds the string denoting the content field in the database.
 	FieldContent = "content"
-	// FieldRole holds the string denoting the role field in the database.
-	FieldRole = "role"
 	// FieldUsage holds the string denoting the usage field in the database.
 	FieldUsage = "usage"
 	// FieldProcessedTime holds the string denoting the processed_time field in the database.
@@ -71,8 +71,8 @@ var Columns = []string{
 	FieldID,
 	FieldCreateTime,
 	FieldUpdateTime,
+	FieldSource,
 	FieldContent,
-	FieldRole,
 	FieldUsage,
 	FieldProcessedTime,
 	FieldTaskID,
@@ -101,13 +101,13 @@ var (
 	DefaultID func() uuid.UUID
 )
 
-// RoleValidator is a validator for the "role" field enum values. It is called by the builders before save.
-func RoleValidator(r types.MessageRole) error {
-	switch r {
-	case "user", "assistant":
+// SourceValidator is a validator for the "source" field enum values. It is called by the builders before save.
+func SourceValidator(s types.MessageSource) error {
+	switch s {
+	case "user", "assistant", "system":
 		return nil
 	default:
-		return fmt.Errorf("message: invalid enum value for role field: %q", r)
+		return fmt.Errorf("message: invalid enum value for source field: %q", s)
 	}
 }
 
@@ -129,9 +129,9 @@ func ByUpdateTime(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldUpdateTime, opts...).ToFunc()
 }
 
-// ByRole orders the results by the role field.
-func ByRole(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldRole, opts...).ToFunc()
+// BySource orders the results by the source field.
+func BySource(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSource, opts...).ToFunc()
 }
 
 // ByProcessedTime orders the results by the processed_time field.

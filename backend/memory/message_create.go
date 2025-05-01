@@ -53,15 +53,15 @@ func (mc *MessageCreate) SetNillableUpdateTime(t *time.Time) *MessageCreate {
 	return mc
 }
 
-// SetContent sets the "content" field.
-func (mc *MessageCreate) SetContent(tc *types.MessageContent) *MessageCreate {
-	mc.mutation.SetContent(tc)
+// SetSource sets the "source" field.
+func (mc *MessageCreate) SetSource(ts types.MessageSource) *MessageCreate {
+	mc.mutation.SetSource(ts)
 	return mc
 }
 
-// SetRole sets the "role" field.
-func (mc *MessageCreate) SetRole(tr types.MessageRole) *MessageCreate {
-	mc.mutation.SetRole(tr)
+// SetContent sets the "content" field.
+func (mc *MessageCreate) SetContent(tc *types.MessageContent) *MessageCreate {
+	mc.mutation.SetContent(tc)
 	return mc
 }
 
@@ -205,16 +205,16 @@ func (mc *MessageCreate) check() error {
 	if _, ok := mc.mutation.UpdateTime(); !ok {
 		return &ValidationError{Name: "update_time", err: errors.New(`memory: missing required field "Message.update_time"`)}
 	}
+	if _, ok := mc.mutation.Source(); !ok {
+		return &ValidationError{Name: "source", err: errors.New(`memory: missing required field "Message.source"`)}
+	}
+	if v, ok := mc.mutation.Source(); ok {
+		if err := message.SourceValidator(v); err != nil {
+			return &ValidationError{Name: "source", err: fmt.Errorf(`memory: validator failed for field "Message.source": %w`, err)}
+		}
+	}
 	if _, ok := mc.mutation.Content(); !ok {
 		return &ValidationError{Name: "content", err: errors.New(`memory: missing required field "Message.content"`)}
-	}
-	if _, ok := mc.mutation.Role(); !ok {
-		return &ValidationError{Name: "role", err: errors.New(`memory: missing required field "Message.role"`)}
-	}
-	if v, ok := mc.mutation.Role(); ok {
-		if err := message.RoleValidator(v); err != nil {
-			return &ValidationError{Name: "role", err: fmt.Errorf(`memory: validator failed for field "Message.role": %w`, err)}
-		}
 	}
 	if _, ok := mc.mutation.TaskID(); !ok {
 		return &ValidationError{Name: "task_id", err: errors.New(`memory: missing required field "Message.task_id"`)}
@@ -265,13 +265,13 @@ func (mc *MessageCreate) createSpec() (*Message, *sqlgraph.CreateSpec) {
 		_spec.SetField(message.FieldUpdateTime, field.TypeTime, value)
 		_node.UpdateTime = value
 	}
+	if value, ok := mc.mutation.Source(); ok {
+		_spec.SetField(message.FieldSource, field.TypeEnum, value)
+		_node.Source = value
+	}
 	if value, ok := mc.mutation.Content(); ok {
 		_spec.SetField(message.FieldContent, field.TypeJSON, value)
 		_node.Content = value
-	}
-	if value, ok := mc.mutation.Role(); ok {
-		_spec.SetField(message.FieldRole, field.TypeEnum, value)
-		_node.Role = value
 	}
 	if value, ok := mc.mutation.Usage(); ok {
 		_spec.SetField(message.FieldUsage, field.TypeJSON, value)

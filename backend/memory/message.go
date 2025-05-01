@@ -27,10 +27,10 @@ type Message struct {
 	CreateTime time.Time `json:"create_time,omitempty"`
 	// UpdateTime holds the value of the "update_time" field.
 	UpdateTime time.Time `json:"update_time,omitempty"`
+	// Source holds the value of the "source" field.
+	Source types.MessageSource `json:"source,omitempty"`
 	// Content holds the value of the "content" field.
 	Content *types.MessageContent `json:"content,omitempty"`
-	// Role holds the value of the "role" field.
-	Role types.MessageRole `json:"role,omitempty"`
 	// Usage holds the value of the "usage" field.
 	Usage *types.MessageUsage `json:"usage,omitempty"`
 	// ProcessedTime holds the value of the "processed_time" field.
@@ -100,7 +100,7 @@ func (*Message) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case message.FieldContent, message.FieldUsage:
 			values[i] = new([]byte)
-		case message.FieldRole:
+		case message.FieldSource:
 			values[i] = new(sql.NullString)
 		case message.FieldCreateTime, message.FieldUpdateTime, message.FieldProcessedTime:
 			values[i] = new(sql.NullTime)
@@ -139,6 +139,12 @@ func (m *Message) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				m.UpdateTime = value.Time
 			}
+		case message.FieldSource:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field source", values[i])
+			} else if value.Valid {
+				m.Source = types.MessageSource(value.String)
+			}
 		case message.FieldContent:
 			if value, ok := values[i].(*[]byte); !ok {
 				return fmt.Errorf("unexpected type %T for field content", values[i])
@@ -146,12 +152,6 @@ func (m *Message) assignValues(columns []string, values []any) error {
 				if err := json.Unmarshal(*value, &m.Content); err != nil {
 					return fmt.Errorf("unmarshal field content: %w", err)
 				}
-			}
-		case message.FieldRole:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field role", values[i])
-			} else if value.Valid {
-				m.Role = types.MessageRole(value.String)
 			}
 		case message.FieldUsage:
 			if value, ok := values[i].(*[]byte); !ok {
@@ -242,11 +242,11 @@ func (m *Message) String() string {
 	builder.WriteString("update_time=")
 	builder.WriteString(m.UpdateTime.Format(time.ANSIC))
 	builder.WriteString(", ")
+	builder.WriteString("source=")
+	builder.WriteString(fmt.Sprintf("%v", m.Source))
+	builder.WriteString(", ")
 	builder.WriteString("content=")
 	builder.WriteString(fmt.Sprintf("%v", m.Content))
-	builder.WriteString(", ")
-	builder.WriteString("role=")
-	builder.WriteString(fmt.Sprintf("%v", m.Role))
 	builder.WriteString(", ")
 	builder.WriteString("usage=")
 	builder.WriteString(fmt.Sprintf("%v", m.Usage))

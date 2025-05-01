@@ -39,23 +39,23 @@ func (mu *MessageUpdate) SetUpdateTime(t time.Time) *MessageUpdate {
 	return mu
 }
 
+// SetSource sets the "source" field.
+func (mu *MessageUpdate) SetSource(ts types.MessageSource) *MessageUpdate {
+	mu.mutation.SetSource(ts)
+	return mu
+}
+
+// SetNillableSource sets the "source" field if the given value is not nil.
+func (mu *MessageUpdate) SetNillableSource(ts *types.MessageSource) *MessageUpdate {
+	if ts != nil {
+		mu.SetSource(*ts)
+	}
+	return mu
+}
+
 // SetContent sets the "content" field.
 func (mu *MessageUpdate) SetContent(tc *types.MessageContent) *MessageUpdate {
 	mu.mutation.SetContent(tc)
-	return mu
-}
-
-// SetRole sets the "role" field.
-func (mu *MessageUpdate) SetRole(tr types.MessageRole) *MessageUpdate {
-	mu.mutation.SetRole(tr)
-	return mu
-}
-
-// SetNillableRole sets the "role" field if the given value is not nil.
-func (mu *MessageUpdate) SetNillableRole(tr *types.MessageRole) *MessageUpdate {
-	if tr != nil {
-		mu.SetRole(*tr)
-	}
 	return mu
 }
 
@@ -221,9 +221,9 @@ func (mu *MessageUpdate) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (mu *MessageUpdate) check() error {
-	if v, ok := mu.mutation.Role(); ok {
-		if err := message.RoleValidator(v); err != nil {
-			return &ValidationError{Name: "role", err: fmt.Errorf(`memory: validator failed for field "Message.role": %w`, err)}
+	if v, ok := mu.mutation.Source(); ok {
+		if err := message.SourceValidator(v); err != nil {
+			return &ValidationError{Name: "source", err: fmt.Errorf(`memory: validator failed for field "Message.source": %w`, err)}
 		}
 	}
 	if mu.mutation.TaskCleared() && len(mu.mutation.TaskIDs()) > 0 {
@@ -247,11 +247,11 @@ func (mu *MessageUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if value, ok := mu.mutation.UpdateTime(); ok {
 		_spec.SetField(message.FieldUpdateTime, field.TypeTime, value)
 	}
+	if value, ok := mu.mutation.Source(); ok {
+		_spec.SetField(message.FieldSource, field.TypeEnum, value)
+	}
 	if value, ok := mu.mutation.Content(); ok {
 		_spec.SetField(message.FieldContent, field.TypeJSON, value)
-	}
-	if value, ok := mu.mutation.Role(); ok {
-		_spec.SetField(message.FieldRole, field.TypeEnum, value)
 	}
 	if value, ok := mu.mutation.Usage(); ok {
 		_spec.SetField(message.FieldUsage, field.TypeJSON, value)
@@ -378,23 +378,23 @@ func (muo *MessageUpdateOne) SetUpdateTime(t time.Time) *MessageUpdateOne {
 	return muo
 }
 
+// SetSource sets the "source" field.
+func (muo *MessageUpdateOne) SetSource(ts types.MessageSource) *MessageUpdateOne {
+	muo.mutation.SetSource(ts)
+	return muo
+}
+
+// SetNillableSource sets the "source" field if the given value is not nil.
+func (muo *MessageUpdateOne) SetNillableSource(ts *types.MessageSource) *MessageUpdateOne {
+	if ts != nil {
+		muo.SetSource(*ts)
+	}
+	return muo
+}
+
 // SetContent sets the "content" field.
 func (muo *MessageUpdateOne) SetContent(tc *types.MessageContent) *MessageUpdateOne {
 	muo.mutation.SetContent(tc)
-	return muo
-}
-
-// SetRole sets the "role" field.
-func (muo *MessageUpdateOne) SetRole(tr types.MessageRole) *MessageUpdateOne {
-	muo.mutation.SetRole(tr)
-	return muo
-}
-
-// SetNillableRole sets the "role" field if the given value is not nil.
-func (muo *MessageUpdateOne) SetNillableRole(tr *types.MessageRole) *MessageUpdateOne {
-	if tr != nil {
-		muo.SetRole(*tr)
-	}
 	return muo
 }
 
@@ -573,9 +573,9 @@ func (muo *MessageUpdateOne) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (muo *MessageUpdateOne) check() error {
-	if v, ok := muo.mutation.Role(); ok {
-		if err := message.RoleValidator(v); err != nil {
-			return &ValidationError{Name: "role", err: fmt.Errorf(`memory: validator failed for field "Message.role": %w`, err)}
+	if v, ok := muo.mutation.Source(); ok {
+		if err := message.SourceValidator(v); err != nil {
+			return &ValidationError{Name: "source", err: fmt.Errorf(`memory: validator failed for field "Message.source": %w`, err)}
 		}
 	}
 	if muo.mutation.TaskCleared() && len(muo.mutation.TaskIDs()) > 0 {
@@ -616,11 +616,11 @@ func (muo *MessageUpdateOne) sqlSave(ctx context.Context) (_node *Message, err e
 	if value, ok := muo.mutation.UpdateTime(); ok {
 		_spec.SetField(message.FieldUpdateTime, field.TypeTime, value)
 	}
+	if value, ok := muo.mutation.Source(); ok {
+		_spec.SetField(message.FieldSource, field.TypeEnum, value)
+	}
 	if value, ok := muo.mutation.Content(); ok {
 		_spec.SetField(message.FieldContent, field.TypeJSON, value)
-	}
-	if value, ok := muo.mutation.Role(); ok {
-		_spec.SetField(message.FieldRole, field.TypeEnum, value)
 	}
 	if value, ok := muo.mutation.Usage(); ok {
 		_spec.SetField(message.FieldUsage, field.TypeJSON, value)

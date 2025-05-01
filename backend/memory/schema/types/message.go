@@ -1,32 +1,39 @@
 package types
 
-type MessageContentBlockType string
+type MessageBlockKind string
 
 const (
-	MessageContentBlockTypeText      MessageContentBlockType = "text"
-	MessageContentBlockTypeToolUsage MessageContentBlockType = "tool_use"
+	MessageBlockKindText                  MessageBlockKind = "text"
+	MessageBlockKindNativeToolCall        MessageBlockKind = "native_tool_call"
+	MessageBlockKindNativeToolResult      MessageBlockKind = "native_tool_result"
+	MessageBlockKindCodeActToolCall       MessageBlockKind = "code_act_tool_call"
+	MessageBlockKindCodeActToolResult     MessageBlockKind = "code_act_tool_result"
+	MessageBlockKindCodeInterpreterCall   MessageBlockKind = "code_interpreter_call"
+	MessageBlockKindCodeInterpreterResult MessageBlockKind = "code_interpreter_result"
 )
 
 type MessageContent struct {
-	Blocks []MessageContentBlock `json:"blocks"`
+	Blocks []MessageBlock `json:"blocks"`
 }
 
-type MessageContentBlock struct {
-	Type MessageContentBlockType `json:"type"`
-	Text string                  `json:"text"`
+type MessageBlock struct {
+	Kind    MessageBlockKind `json:"kind"`
+	Payload string           `json:"payload"`
 }
 
-type MessageRole string
+type MessageSource string
 
 const (
-	MessageRoleUser      MessageRole = "user"
-	MessageRoleAssistant MessageRole = "assistant"
+	MessageSourceUser      MessageSource = "user"
+	MessageSourceAssistant MessageSource = "assistant"
+	MessageSourceSystem    MessageSource = "system"
 )
 
-func (r MessageRole) Values() []string {
+func (r MessageSource) Values() []string {
 	return []string{
-		string(MessageRoleUser),
-		string(MessageRoleAssistant),
+		string(MessageSourceUser),
+		string(MessageSourceAssistant),
+		string(MessageSourceSystem),
 	}
 }
 

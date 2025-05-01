@@ -315,7 +315,7 @@ type MessageBuilder struct {
 
 	agentID uuid.UUID
 	modelID uuid.UUID
-	role    types.MessageRole
+	role    types.MessageSource
 	content *types.MessageContent
 }
 
@@ -328,11 +328,11 @@ func NewMessageBuilder(t *testing.T, db *memory.Client, task *memory.Task) *Mess
 		entityBuilder: newEntityBuilder(t, db),
 		messageID:     MessageID(),
 		taskID:        task.ID,
-		role:          types.MessageRoleUser,
-		content: &types.MessageContent{Blocks: []types.MessageContentBlock{
+		role:          types.MessageSourceUser,
+		content: &types.MessageContent{Blocks: []types.MessageBlock{
 			{
-				Type: types.MessageContentBlockTypeText,
-				Text: "test message",
+				Kind:    types.MessageBlockKindText,
+				Payload: "test message",
 			},
 		}},
 	}
@@ -341,7 +341,7 @@ func NewMessageBuilder(t *testing.T, db *memory.Client, task *memory.Task) *Mess
 func (b *MessageBuilder) WithAgent(agent *memory.Agent) *MessageBuilder {
 	b.agentID = agent.ID
 	b.modelID = agent.DefaultModel
-	b.role = types.MessageRoleAssistant
+	b.role = types.MessageSourceAssistant
 	return b
 }
 

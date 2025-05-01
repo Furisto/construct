@@ -167,34 +167,34 @@ func UpdateTimeLTE(v time.Time) predicate.Message {
 	return predicate.Message(sql.FieldLTE(FieldUpdateTime, v))
 }
 
-// RoleEQ applies the EQ predicate on the "role" field.
-func RoleEQ(v types.MessageRole) predicate.Message {
+// SourceEQ applies the EQ predicate on the "source" field.
+func SourceEQ(v types.MessageSource) predicate.Message {
 	vc := v
-	return predicate.Message(sql.FieldEQ(FieldRole, vc))
+	return predicate.Message(sql.FieldEQ(FieldSource, vc))
 }
 
-// RoleNEQ applies the NEQ predicate on the "role" field.
-func RoleNEQ(v types.MessageRole) predicate.Message {
+// SourceNEQ applies the NEQ predicate on the "source" field.
+func SourceNEQ(v types.MessageSource) predicate.Message {
 	vc := v
-	return predicate.Message(sql.FieldNEQ(FieldRole, vc))
+	return predicate.Message(sql.FieldNEQ(FieldSource, vc))
 }
 
-// RoleIn applies the In predicate on the "role" field.
-func RoleIn(vs ...types.MessageRole) predicate.Message {
+// SourceIn applies the In predicate on the "source" field.
+func SourceIn(vs ...types.MessageSource) predicate.Message {
 	v := make([]any, len(vs))
 	for i := range v {
 		v[i] = vs[i]
 	}
-	return predicate.Message(sql.FieldIn(FieldRole, v...))
+	return predicate.Message(sql.FieldIn(FieldSource, v...))
 }
 
-// RoleNotIn applies the NotIn predicate on the "role" field.
-func RoleNotIn(vs ...types.MessageRole) predicate.Message {
+// SourceNotIn applies the NotIn predicate on the "source" field.
+func SourceNotIn(vs ...types.MessageSource) predicate.Message {
 	v := make([]any, len(vs))
 	for i := range v {
 		v[i] = vs[i]
 	}
-	return predicate.Message(sql.FieldNotIn(FieldRole, v...))
+	return predicate.Message(sql.FieldNotIn(FieldSource, v...))
 }
 
 // UsageIsNil applies the IsNil predicate on the "usage" field.
