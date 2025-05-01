@@ -34,7 +34,14 @@
             "mode": "auto",
             "program": "${workspaceFolder}/frontend/cli",
             "args": ["daemon"],
-            "cwd": "${workspaceFolder}"
+            "cwd": "${workspaceFolder}",
+            "dlvLoadConfig": {
+                "followPointers": true,
+                "maxVariableRecurse": 1,
+                "maxStringLen": 1200,
+                "maxArrayValues": 64,
+                "maxStructFields": -1
+            }
         },
         {
             "name": "Attach to Process",
