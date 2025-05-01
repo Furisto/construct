@@ -19,7 +19,7 @@ type AgentRuntime interface {
 	GetMemory() *memory.Client
 	GetEncryption() *secret.Client
 	TriggerReconciliation(id uuid.UUID)
-	GetMessageHub() *stream.MessageHub
+	GetMessageHub() *stream.EventHub
 }
 
 type Server struct {
@@ -65,16 +65,16 @@ type HandlerOptions struct {
 	Encryption     *secret.Client
 	RequestOptions []connect.HandlerOption
 	AgentRuntime   AgentRuntime
-	MessageHub     *stream.MessageHub
+	MessageHub     *stream.EventHub
 }
 
 type Handler struct {
-	mux        *http.ServeMux
+	mux *http.ServeMux
 }
 
 func NewHandler(opts HandlerOptions) *Handler {
 	handler := &Handler{
-		mux:        http.NewServeMux(),
+		mux: http.NewServeMux(),
 	}
 
 	modelProviderHandler := NewModelProviderHandler(opts.DB, opts.Encryption)
@@ -95,7 +95,6 @@ func NewHandler(opts HandlerOptions) *Handler {
 	return handler
 }
 
-
 func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.mux.ServeHTTP(w, r)
 }
@@ -115,5 +114,3 @@ func apiError(err error) error {
 func sanitizeError(err error) error {
 	return errors.New(strings.ReplaceAll(err.Error(), "memory: ", ""))
 }
-
-

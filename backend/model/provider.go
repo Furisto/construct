@@ -9,7 +9,7 @@ import (
 
 type InvokeModelOptions struct {
 	Messages      []Message
-	Tools         []tool.Tool
+	Tools         []tool.NativeTool
 	MaxTokens     int
 	Temperature   float64
 	StreamHandler func(ctx context.Context, message *Message)
@@ -17,7 +17,7 @@ type InvokeModelOptions struct {
 
 func DefaultInvokeModelOptions() *InvokeModelOptions {
 	return &InvokeModelOptions{
-		Tools:       []tool.Tool{},
+		Tools:       []tool.NativeTool{},
 		MaxTokens:   8192,
 		Temperature: 0.0,
 	}
@@ -25,7 +25,7 @@ func DefaultInvokeModelOptions() *InvokeModelOptions {
 
 type InvokeModelOption func(*InvokeModelOptions)
 
-func WithTools(tools ...tool.Tool) InvokeModelOption {
+func WithTools(tools ...tool.NativeTool) InvokeModelOption {
 	return func(o *InvokeModelOptions) {
 		o.Tools = tools
 	}
@@ -58,7 +58,6 @@ type MessageSource string
 const (
 	MessageSourceUser  MessageSource = "user"
 	MessageSourceModel MessageSource = "model"
-	MessageSourceTool  MessageSource = "tool"
 )
 
 type Message struct {
@@ -76,29 +75,42 @@ func NewModelMessage(content []ContentBlock) *Message {
 type ContentBlockType string
 
 const (
-	ContentBlockTypeText     ContentBlockType = "text"
-	ContentBlockTypeToolCall ContentBlockType = "tool_call"
+	ContentBlockTypeText        ContentBlockType = "text"
+	ContentBlockTypeToolRequest ContentBlockType = "tool_request"
+	ContentBlockTypeToolResult  ContentBlockType = "tool_result"
 )
 
 type ContentBlock interface {
 	Type() ContentBlockType
 }
 
-type TextContentBlock struct {
+type TextBlock struct {
 	Text string
 }
 
-func (t *TextContentBlock) Type() ContentBlockType {
+func (t *TextBlock) Type() ContentBlockType {
 	return ContentBlockTypeText
 }
 
-type ToolCallContentBlock struct {
-	Name  string
-	Input json.RawMessage
+type ToolCallBlock struct {
+	ID   string
+	Tool string
+	Args json.RawMessage
 }
 
-func (t *ToolCallContentBlock) Type() ContentBlockType {
-	return ContentBlockTypeToolCall
+func (t *ToolCallBlock) Type() ContentBlockType {
+	return ContentBlockTypeToolRequest
+}
+
+type ToolResultBlock struct {
+	ID        string
+	Name      string
+	Result    string
+	Succeeded bool
+}
+
+func (t *ToolResultBlock) Type() ContentBlockType {
+	return ContentBlockTypeToolResult
 }
 
 type ModelResponse struct {
@@ -111,8 +123,4 @@ type Usage struct {
 	OutputTokens     int64
 	CacheWriteTokens int64
 	CacheReadTokens  int64
-}
-
-type ToolCall struct {
-	Name string
 }

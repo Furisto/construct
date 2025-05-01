@@ -32,32 +32,32 @@ const (
 )
 
 type MessageBlock struct {
-	Block    *types.MessageContentBlock
+	Block    *types.MessageBlock
 	Type     MessageBlockType
 	Received map[string]bool
 }
 
-type MessageHub struct {
+type EventHub struct {
 	memory      *memory.Client
 	messages    *otter.Cache[uuid.UUID, []*MessageBlock]
 	subscribers map[uuid.UUID][]*subscription
 	mu          sync.RWMutex
 }
 
-func NewMessageHub(db *memory.Client) (*MessageHub, error) {
+func NewMessageHub(db *memory.Client) (*EventHub, error) {
 	messagesCache, err := otter.MustBuilder[uuid.UUID, []*MessageBlock](1000).Build()
 	if err != nil {
 		return nil, err
 	}
 
-	return &MessageHub{
+	return &EventHub{
 		memory:      db,
 		messages:    &messagesCache,
 		subscribers: make(map[uuid.UUID][]*subscription),
 	}, nil
 }
 
-func (h *MessageHub) Publish(taskID uuid.UUID, message *memory.Message) {
+func (h *EventHub) Publish(taskID uuid.UUID, message *memory.Message) {
 	h.mu.RLock()
 	var subscribers []*subscription
 	for _, subscriber := range h.subscribers[taskID] {
@@ -70,7 +70,7 @@ func (h *MessageHub) Publish(taskID uuid.UUID, message *memory.Message) {
 	}
 }
 
-func (h *MessageHub) Subscribe(ctx context.Context, taskID uuid.UUID) iter.Seq2[*memory.Message, error] {
+func (h *EventHub) Subscribe(ctx context.Context, taskID uuid.UUID) iter.Seq2[*memory.Message, error] {
 	subscription := &subscription{
 		channel: make(chan *memory.Message, 64),
 	}
@@ -118,4 +118,3 @@ func (h *MessageHub) Subscribe(ctx context.Context, taskID uuid.UUID) iter.Seq2[
 		}
 	}
 }
-

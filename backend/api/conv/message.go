@@ -22,7 +22,7 @@ func ConvertMemoryMessageToProto(m *memory.Message) (*v1.Message, error) {
 			TaskId:    m.TaskID.String(),
 			AgentId:   ConvertUUIDPtrToStringPtr(m.AgentID),
 			ModelId:   ConvertUUIDPtrToStringPtr(m.ModelID),
-			Role:      convertRole(m.Role),
+			Role:      convertRole(m.Source),
 			Usage:     convertUsage(m.Usage),
 		},
 		Content: &v1.MessageContent{
@@ -33,11 +33,11 @@ func ConvertMemoryMessageToProto(m *memory.Message) (*v1.Message, error) {
 	}, nil
 }
 
-func convertRole(role types.MessageRole) v1.MessageRole {
+func convertRole(role types.MessageSource) v1.MessageRole {
 	switch role {
-	case types.MessageRoleUser:
+	case types.MessageSourceUser:
 		return v1.MessageRole_MESSAGE_ROLE_USER
-	case types.MessageRoleAssistant:
+	case types.MessageSourceAssistant:
 		return v1.MessageRole_MESSAGE_ROLE_ASSISTANT
 	default:
 		return v1.MessageRole_MESSAGE_ROLE_UNSPECIFIED
@@ -64,10 +64,9 @@ func convertContent(content *types.MessageContent) string {
 	}
 
 	for _, block := range content.Blocks {
-		if block.Type == types.MessageContentBlockTypeText {
-			return block.Text
+		if block.Kind == types.MessageBlockKindText {
+			return block.Payload
 		}
 	}
 	return ""
 }
-

@@ -18,7 +18,7 @@ import (
 
 var _ v1connect.MessageServiceHandler = (*MessageHandler)(nil)
 
-func NewMessageHandler(db *memory.Client, runtime AgentRuntime, messageHub *stream.MessageHub) *MessageHandler {
+func NewMessageHandler(db *memory.Client, runtime AgentRuntime, messageHub *stream.EventHub) *MessageHandler {
 	return &MessageHandler{
 		db:         db,
 		runtime:    runtime,
@@ -29,7 +29,7 @@ func NewMessageHandler(db *memory.Client, runtime AgentRuntime, messageHub *stre
 type MessageHandler struct {
 	db         *memory.Client
 	runtime    AgentRuntime
-	messageHub *stream.MessageHub
+	messageHub *stream.EventHub
 	v1connect.UnimplementedMessageServiceHandler
 }
 
@@ -45,10 +45,10 @@ func (h *MessageHandler) CreateMessage(ctx context.Context, req *connect.Request
 	}
 
 	content := &types.MessageContent{
-		Blocks: []types.MessageContentBlock{
+		Blocks: []types.MessageBlock{
 			{
-				Type: types.MessageContentBlockTypeText,
-				Text: req.Msg.Content,
+				Kind:    types.MessageBlockKindText,
+				Payload: req.Msg.Content,
 			},
 		},
 	}
@@ -56,7 +56,7 @@ func (h *MessageHandler) CreateMessage(ctx context.Context, req *connect.Request
 	msg, err := h.db.Message.Create().
 		SetTask(task).
 		SetContent(content).
-		SetRole(types.MessageRoleUser).
+		SetSource(types.MessageSourceUser).
 		Save(ctx)
 	if err != nil {
 		return nil, apiError(err)
@@ -119,14 +119,14 @@ func (h *MessageHandler) ListMessages(ctx context.Context, req *connect.Request[
 		}
 
 		if req.Msg.Filter.Role != nil {
-			var role types.MessageRole
+			var role types.MessageSource
 			switch *req.Msg.Filter.Role {
 			case v1.MessageRole_MESSAGE_ROLE_USER:
-				role = types.MessageRoleUser
+				role = types.MessageSourceUser
 			case v1.MessageRole_MESSAGE_ROLE_ASSISTANT:
-				role = types.MessageRoleAssistant
+				role = types.MessageSourceAssistant
 			}
-			query = query.Where(message.RoleEQ(role))
+			query = query.Where(message.SourceEQ(role))
 		}
 	}
 
@@ -156,10 +156,10 @@ func (h *MessageHandler) UpdateMessage(ctx context.Context, req *connect.Request
 	}
 
 	content := &types.MessageContent{
-		Blocks: []types.MessageContentBlock{
+		Blocks: []types.MessageBlock{
 			{
-				Type: types.MessageContentBlockTypeText,
-				Text: req.Msg.Content,
+				Kind:    types.MessageBlockKindText,
+				Payload: req.Msg.Content,
 			},
 		},
 	}

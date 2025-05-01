@@ -260,8 +260,12 @@ func (p *AnthropicProvider) InvokeModel(ctx context.Context, model, systemPrompt
 		anthropicBlocks := make([]anthropic.ContentBlockParamUnion, len(message.Content))
 		for j, b := range message.Content {
 			switch block := b.(type) {
-			case *TextContentBlock:
+			case *TextBlock:
 				anthropicBlocks[j] = anthropic.NewTextBlock(block.Text)
+			case *ToolCallBlock:
+				anthropicBlocks[j] = anthropic.NewToolUseBlockParam(block.ID, block.Tool, block.Args)
+			case *ToolResultBlock:
+				anthropicBlocks[j] = anthropic.NewToolResultBlock(block.ID, block.Result, !block.Succeeded)
 			}
 		}
 
@@ -283,9 +287,9 @@ func (p *AnthropicProvider) InvokeModel(ctx context.Context, model, systemPrompt
 	var tools []anthropic.ToolUnionUnionParam
 	for i, tool := range options.Tools {
 		toolParam := anthropic.ToolParam{
-			Name:        anthropic.F(tool.Name),
-			Description: anthropic.F(tool.Description),
-			InputSchema: anthropic.F(tool.Schema),
+			Name:        anthropic.F(tool.Name()),
+			Description: anthropic.F(tool.Description()),
+			InputSchema: anthropic.F(tool.Schema()),
 		}
 
 		if i == len(options.Tools)-1 {
@@ -330,7 +334,7 @@ func (p *AnthropicProvider) InvokeModel(ctx context.Context, model, systemPrompt
 				options.StreamHandler(ctx, &Message{
 					Source: MessageSourceModel,
 					Content: []ContentBlock{
-						&TextContentBlock{Text: delta.Text},
+						&TextBlock{Text: delta.Text},
 					},
 				})
 			}
@@ -345,13 +349,14 @@ func (p *AnthropicProvider) InvokeModel(ctx context.Context, model, systemPrompt
 	for i, block := range anthropicMessage.Content {
 		switch block := block.AsUnion().(type) {
 		case anthropic.TextBlock:
-			content[i] = &TextContentBlock{
+			content[i] = &TextBlock{
 				Text: block.Text,
 			}
 		case anthropic.ToolUseBlock:
-			content[i] = &ToolCallContentBlock{
-				Name:  block.Name,
-				Input: block.Input,
+			content[i] = &ToolCallBlock{
+				ID:   block.ID,
+				Tool: block.Name,
+				Args: block.Input,
 			}
 		}
 	}

@@ -130,10 +130,10 @@ func TestGetMessage(t *testing.T) {
 
 				test.NewMessageBuilder(t, db, task).
 					WithContent(&types.MessageContent{
-						Blocks: []types.MessageContentBlock{
+						Blocks: []types.MessageBlock{
 							{
-								Type: types.MessageContentBlockTypeText,
-								Text: "Test message content",
+								Kind:    types.MessageBlockKindText,
+								Payload: "Test message content",
 							},
 						},
 					}).
@@ -228,10 +228,10 @@ func TestListMessages(t *testing.T) {
 					WithID(test.MessageID2()).
 					WithAgent(agent).
 					WithContent(&types.MessageContent{
-						Blocks: []types.MessageContentBlock{
+						Blocks: []types.MessageBlock{
 							{
-								Type: types.MessageContentBlockTypeText,
-								Text: "Message 2 content",
+								Kind:    types.MessageBlockKindText,
+								Payload: "Message 2 content",
 							},
 						},
 					}).
@@ -282,10 +282,10 @@ func TestListMessages(t *testing.T) {
 					WithID(test.MessageID()).
 					WithAgent(agent1).
 					WithContent(&types.MessageContent{
-						Blocks: []types.MessageContentBlock{
+						Blocks: []types.MessageBlock{
 							{
-								Type: types.MessageContentBlockTypeText,
-								Text: "Message 1 content",
+								Kind:    types.MessageBlockKindText,
+								Payload: "Message 1 content",
 							},
 						},
 					}).
@@ -295,10 +295,10 @@ func TestListMessages(t *testing.T) {
 					WithID(test.MessageID2()).
 					WithAgent(agent2).
 					WithContent(&types.MessageContent{
-						Blocks: []types.MessageContentBlock{
+						Blocks: []types.MessageBlock{
 							{
-								Type: types.MessageContentBlockTypeText,
-								Text: "Message 2 content",
+								Kind:    types.MessageBlockKindText,
+								Payload: "Message 2 content",
 							},
 						},
 					}).
@@ -345,10 +345,10 @@ func TestListMessages(t *testing.T) {
 				test.NewMessageBuilder(t, db, task).
 					WithID(test.MessageID()).
 					WithContent(&types.MessageContent{
-						Blocks: []types.MessageContentBlock{
+						Blocks: []types.MessageBlock{
 							{
-								Type: types.MessageContentBlockTypeText,
-								Text: "Message 1 content",
+								Kind:    types.MessageBlockKindText,
+								Payload: "Message 1 content",
 							},
 						},
 					}).
@@ -358,10 +358,10 @@ func TestListMessages(t *testing.T) {
 					WithID(test.MessageID2()).
 					WithAgent(agent).
 					WithContent(&types.MessageContent{
-						Blocks: []types.MessageContentBlock{
+						Blocks: []types.MessageBlock{
 							{
-								Type: types.MessageContentBlockTypeText,
-								Text: "Message 2 content",
+								Kind:    types.MessageBlockKindText,
+								Payload: "Message 2 content",
 							},
 						},
 					}).
@@ -412,10 +412,10 @@ func TestListMessages(t *testing.T) {
 				test.NewMessageBuilder(t, db, task1).
 					WithID(test.MessageID()).
 					WithContent(&types.MessageContent{
-						Blocks: []types.MessageContentBlock{
+						Blocks: []types.MessageBlock{
 							{
-								Type: types.MessageContentBlockTypeText,
-								Text: "Message 1 content",
+								Kind:    types.MessageBlockKindText,
+								Payload: "Message 1 content",
 							},
 						},
 					}).
@@ -425,10 +425,10 @@ func TestListMessages(t *testing.T) {
 					WithID(test.MessageID2()).
 					WithAgent(agent).
 					WithContent(&types.MessageContent{
-						Blocks: []types.MessageContentBlock{
+						Blocks: []types.MessageBlock{
 							{
-								Type: types.MessageContentBlockTypeText,
-								Text: "Message 2 content",
+								Kind:    types.MessageBlockKindText,
+								Payload: "Message 2 content",
 							},
 						},
 					}).
@@ -522,10 +522,10 @@ func TestUpdateMessage(t *testing.T) {
 				test.NewMessageBuilder(t, db, task).
 					WithID(messageID).
 					WithContent(&types.MessageContent{
-						Blocks: []types.MessageContentBlock{
+						Blocks: []types.MessageBlock{
 							{
-								Type: types.MessageContentBlockTypeText,
-								Text: "Original content",
+								Kind:    types.MessageBlockKindText,
+								Payload: "Original content",
 							},
 						},
 					}).
@@ -603,10 +603,10 @@ func TestDeleteMessage(t *testing.T) {
 				test.NewMessageBuilder(t, db, task).
 					WithID(messageID).
 					WithContent(&types.MessageContent{
-						Blocks: []types.MessageContentBlock{
+						Blocks: []types.MessageBlock{
 							{
-								Type: types.MessageContentBlockTypeText,
-								Text: "Message content",
+								Kind:    types.MessageBlockKindText,
+								Payload: "Message content",
 							},
 						},
 					}).
