@@ -43,7 +43,10 @@ message ModelPricing {
 message Model {
   string id = 1 [(buf.validate.field).string.uuid = true];
   ModelMetadata metadata = 2;
-  string name = 3 [(buf.validate.field).string.min_len = 1];
+  string name = 3 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 255
+  ];
   optional string alias = 4;
   string model_provider_id = 5 [(buf.validate.field).string.uuid = true];
   repeated ModelCapability capabilities = 6;
@@ -53,8 +56,11 @@ message Model {
 }
 
 message CreateModelRequest {
-  string name = 1 [(buf.validate.field).string.min_len = 1];
-  optional string alias = 2;
+  string name = 1 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 255
+  ];
+  optional string alias = 2 [(buf.validate.field).string.max_len = 255];
   string model_provider_id = 3 [(buf.validate.field).string.uuid = true];
   repeated ModelCapability capabilities = 4;
   ModelPricing pricing = 5;
@@ -89,8 +95,11 @@ message ListModelsResponse {
 
 message UpdateModelRequest {
   string id = 1 [(buf.validate.field).string.uuid = true];
-  optional string name = 2 [(buf.validate.field).string.min_len = 1];
-  optional string alias = 3;
+  optional string name = 2 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 255
+  ];
+  optional string alias = 3 [(buf.validate.field).string.max_len = 255];
   optional string model_provider_id = 4 [(buf.validate.field).string.uuid = true];
   repeated ModelCapability capabilities = 5;
   optional ModelPricing pricing = 6;
