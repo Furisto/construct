@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"text/template"
 	"time"
 
 	"github.com/furisto/construct/backend/agent/conv"
@@ -67,7 +70,7 @@ type Runtime struct {
 	api         *api.Server
 	memory      *memory.Client
 	encryption  *secret.Client
-	messageHub  *stream.EventHub
+	eventHub    *stream.EventHub
 	concurrency int
 	queue       workqueue.TypedDelayingInterface[uuid.UUID]
 	interpreter *CodeInterpreter
@@ -98,7 +101,7 @@ func NewRuntime(memory *memory.Client, encryption *secret.Client, opts ...Runtim
 		memory:     memory,
 		encryption: encryption,
 
-		messageHub:  messageHub,
+		eventHub:    messageHub,
 		concurrency: options.Concurrency,
 		queue:       queue,
 		interpreter: interpreter,
@@ -110,8 +113,8 @@ func NewRuntime(memory *memory.Client, encryption *secret.Client, opts ...Runtim
 	return runtime, nil
 }
 
-func (a *Runtime) Run(ctx context.Context) error {
-	if !a.running.CompareAndSwap(false, true) {
+func (rt *Runtime) Run(ctx context.Context) error {
+	if !rt.running.CompareAndSwap(false, true) {
 		return nil
 	}
 
@@ -120,22 +123,22 @@ func (a *Runtime) Run(ctx context.Context) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		err := a.api.ListenAndServe()
+		err := rt.api.ListenAndServe()
 		if err != nil && err != http.ErrServerClosed {
 			slog.Error("API server failed", "error", err)
 		}
 	}()
 
-	for range a.concurrency {
+	for range rt.concurrency {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for {
-				taskID, shutdown := a.queue.Get()
+				taskID, shutdown := rt.queue.Get()
 				if shutdown {
 					return
 				}
-				err := a.processTask(ctx, taskID)
+				err := rt.processTask(ctx, taskID)
 				if err != nil {
 					slog.Error("failed to process task", "error", err)
 				}
@@ -148,12 +151,12 @@ func (a *Runtime) Run(ctx context.Context) error {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
 
-	err := a.api.Shutdown(shutdownCtx)
+	err := rt.api.Shutdown(shutdownCtx)
 	if err != nil {
 		slog.Error("failed to shutdown API server", "error", err)
 	}
 
-	a.queue.ShutDownWithDrain()
+	rt.queue.ShutDownWithDrain()
 
 	stop := make(chan struct{})
 	go func() {
@@ -169,15 +172,15 @@ func (a *Runtime) Run(ctx context.Context) error {
 	}
 }
 
-func (a *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
-	defer a.queue.Done(taskID)
+func (rt *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
+	defer rt.queue.Done(taskID)
 
-	task, agent, err := a.fetchTaskWithAgent(ctx, taskID)
+	task, agent, err := rt.fetchTaskWithAgent(ctx, taskID)
 	if err != nil {
 		return err
 	}
 
-	processedMessages, nextMessage, err := a.fetchTaskMessages(task.ID)
+	processedMessages, nextMessage, err := rt.fetchTaskMessages(ctx, task.ID)
 	if err != nil {
 		return err
 	}
@@ -187,40 +190,45 @@ func (a *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 		return nil
 	}
 
-	modelProvider, err := a.createModelProvider(ctx, agent)
+	modelProvider, err := rt.createModelProvider(ctx, agent)
 	if err != nil {
 		return err
 	}
 
-	modelMessages, err := a.prepareModelData(processedMessages, nextMessage)
+	modelMessages, err := rt.prepareModelData(processedMessages, nextMessage)
 	if err != nil {
 		return err
 	}
 
-	systemPrompt := a.appendToolInstruction(agent.Instructions)
-	resp, err := a.invokeModel(ctx, modelProvider, agent.Edges.Model.Name, systemPrompt, modelMessages)
+	systemPrompt, err := rt.assembleSystemPrompt(agent.Instructions)
+	if err != nil {
+		return err
+	}
+	os.WriteFile("system_prompt.txt", []byte(systemPrompt), 0644)
+
+	resp, err := rt.invokeModel(ctx, modelProvider, agent.Edges.Model.Name, systemPrompt, modelMessages)
 	if err != nil {
 		return err
 	}
 
-	newMessage, err := a.saveResponse(ctx, taskID, nextMessage, resp, agent.Edges.Model)
+	newMessage, err := rt.saveResponse(ctx, taskID, nextMessage, resp, agent.Edges.Model)
 	if err != nil {
 		return err
 	}
 
-	err = a.callTools(ctx, taskID, resp.Message.Content)
+	err = rt.callTools(ctx, taskID, resp.Message.Content)
 	if err != nil {
 		return err
 	}
 
-	a.messageHub.Publish(taskID, newMessage)
-	a.TriggerReconciliation(taskID)
+	rt.eventHub.Publish(taskID, newMessage)
+	rt.TriggerReconciliation(taskID)
 
 	return nil
 }
 
-func (a *Runtime) fetchTaskWithAgent(ctx context.Context, taskID uuid.UUID) (*memory.Task, *memory.Agent, error) {
-	task, err := a.memory.Task.Query().Where(memory_task.IDEQ(taskID)).WithAgent().Only(ctx)
+func (rt *Runtime) fetchTaskWithAgent(ctx context.Context, taskID uuid.UUID) (*memory.Task, *memory.Agent, error) {
+	task, err := rt.memory.Task.Query().Where(memory_task.IDEQ(taskID)).WithAgent().Only(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -232,11 +240,11 @@ func (a *Runtime) fetchTaskWithAgent(ctx context.Context, taskID uuid.UUID) (*me
 	return task, task.Edges.Agent, nil
 }
 
-func (a *Runtime) fetchTaskMessages(taskID uuid.UUID) ([]*memory.Message, *memory.Message, error) {
-	messages, err := a.memory.Message.Query().
+func (rt *Runtime) fetchTaskMessages(ctx context.Context, taskID uuid.UUID) ([]*memory.Message, *memory.Message, error) {
+	messages, err := rt.memory.Message.Query().
 		Where(memory_message.TaskIDEQ(taskID)).
 		Order(memory_message.ByCreateTime()).
-		All(context.Background())
+		All(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -276,13 +284,13 @@ func (a *Runtime) fetchTaskMessages(taskID uuid.UUID) ([]*memory.Message, *memor
 	return categorized["processed"], nextMessage, nil
 }
 
-func (a *Runtime) createModelProvider(ctx context.Context, agent *memory.Agent) (model.ModelProvider, error) {
-	m, err := a.memory.Model.Query().Where(memory_model.IDEQ(agent.DefaultModel)).WithModelProvider().Only(ctx)
+func (rt *Runtime) createModelProvider(ctx context.Context, agent *memory.Agent) (model.ModelProvider, error) {
+	m, err := rt.memory.Model.Query().Where(memory_model.IDEQ(agent.DefaultModel)).WithModelProvider().Only(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	providerAPI, err := a.modelProviderAPI(m)
+	providerAPI, err := rt.modelProviderAPI(m)
 	if err != nil {
 		return nil, err
 	}
@@ -290,7 +298,7 @@ func (a *Runtime) createModelProvider(ctx context.Context, agent *memory.Agent) 
 	return providerAPI, nil
 }
 
-func (a *Runtime) prepareModelData(
+func (rt *Runtime) prepareModelData(
 	processedMessages []*memory.Message,
 	nextMessage *memory.Message,
 ) ([]*model.Message, error) {
@@ -312,7 +320,7 @@ func (a *Runtime) prepareModelData(
 	return modelMessages, nil
 }
 
-func (a *Runtime) appendToolInstruction(agentInstruction string) string {
+func (rt *Runtime) assembleSystemPrompt(agentInstruction string) (string, error) {
 	var toolInstruction strings.Builder
 	toolInstruction.WriteString(`
 # Tool Instructions
@@ -324,14 +332,52 @@ If you try to call any other function that is not specified here the execution w
 `)
 
 	toolInstruction.WriteString("\n\n")
-	for _, tool := range a.interpreter.Tools {
+	for _, tool := range rt.interpreter.Tools {
 		toolInstruction.WriteString(fmt.Sprintf("# %s\n%s\n\n", tool.Name(), tool.Description()))
 	}
 
-	return fmt.Sprintf("%s\n\n%s", agentInstruction, toolInstruction.String())
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+
+	files, err := os.ReadDir(cwd)
+	if err != nil {
+		return "", err
+	}
+
+	fileNames := make([]string, 0, len(files))
+	for _, file := range files {
+		fileNames = append(fileNames, file.Name())
+	}
+	projectStructure := strings.Join(fileNames, "\n")
+
+	tmplParams := struct {
+		CurrentTime      string
+		WorkingDirectory string
+		OperatingSystem  string
+		ToolInstructions string
+		ProjectStructure string
+	}{
+		CurrentTime:      time.Now().Format(time.RFC3339),
+		WorkingDirectory: cwd,
+		OperatingSystem:  runtime.GOOS,
+		ProjectStructure: projectStructure,
+		ToolInstructions: toolInstruction.String(),
+	}
+
+	tmpl, err := template.New("system_prompt").Parse(agentInstruction)
+	if err != nil {
+		return "", err
+	}
+
+	var systemPrompt strings.Builder
+	tmpl.Execute(&systemPrompt, tmplParams)
+
+	return systemPrompt.String(), nil
 }
 
-func (a *Runtime) invokeModel(ctx context.Context, providerAPI model.ModelProvider, modelName, instructions string, modelMessages []*model.Message) (*model.ModelResponse, error) {
+func (rt *Runtime) invokeModel(ctx context.Context, providerAPI model.ModelProvider, modelName, instructions string, modelMessages []*model.Message) (*model.ModelResponse, error) {
 	return providerAPI.InvokeModel(
 		ctx,
 		modelName,
@@ -347,11 +393,11 @@ func (a *Runtime) invokeModel(ctx context.Context, providerAPI model.ModelProvid
 				}
 			}
 		}),
-		model.WithTools(a.interpreter),
+		model.WithTools(rt.interpreter),
 	)
 }
 
-func (a *Runtime) saveResponse(ctx context.Context, taskID uuid.UUID, messageToProcess *memory.Message, resp *model.ModelResponse, m *memory.Model) (*memory.Message, error) {
+func (rt *Runtime) saveResponse(ctx context.Context, taskID uuid.UUID, messageToProcess *memory.Message, resp *model.ModelResponse, m *memory.Model) (*memory.Message, error) {
 	_, err := messageToProcess.Update().SetProcessedTime(time.Now()).Save(ctx)
 	if err != nil {
 		return nil, err
@@ -365,7 +411,7 @@ func (a *Runtime) saveResponse(ctx context.Context, taskID uuid.UUID, messageToP
 	cost := calculateCost(resp.Usage, m)
 
 	t := time.Now()
-	newMessage, err := a.memory.Message.Create().
+	newMessage, err := rt.memory.Message.Create().
 		SetTaskID(taskID).
 		SetSource(types.MessageSourceAssistant).
 		SetContent(memoryContent).
@@ -383,7 +429,7 @@ func (a *Runtime) saveResponse(ctx context.Context, taskID uuid.UUID, messageToP
 		return nil, err
 	}
 
-	_, err = a.memory.Task.UpdateOneID(taskID).
+	_, err = rt.memory.Task.UpdateOneID(taskID).
 		AddInputTokens(resp.Usage.InputTokens).
 		AddOutputTokens(resp.Usage.OutputTokens).
 		AddCacheWriteTokens(resp.Usage.CacheWriteTokens).
@@ -398,7 +444,7 @@ func (a *Runtime) saveResponse(ctx context.Context, taskID uuid.UUID, messageToP
 	return newMessage, nil
 }
 
-func (a *Runtime) callTools(ctx context.Context, taskID uuid.UUID, content []model.ContentBlock) error {
+func (rt *Runtime) callTools(ctx context.Context, taskID uuid.UUID, content []model.ContentBlock) error {
 	var toolResults []string
 
 	for _, block := range content {
@@ -408,7 +454,7 @@ func (a *Runtime) callTools(ctx context.Context, taskID uuid.UUID, content []mod
 		}
 
 		fsys := afero.NewBasePathFs(afero.NewOsFs(), "/tmp")
-		result, err := a.interpreter.Run(ctx, fsys, toolCall.Args)
+		result, err := rt.interpreter.Run(ctx, fsys, toolCall.Args)
 		if err != nil {
 			return err
 		}
@@ -425,7 +471,7 @@ func (a *Runtime) callTools(ctx context.Context, taskID uuid.UUID, content []mod
 			})
 		}
 
-		_, err := a.memory.Message.Create().
+		_, err := rt.memory.Message.Create().
 			SetTaskID(taskID).
 			SetSource(types.MessageSourceSystem).
 			SetContent(&types.MessageContent{
@@ -441,7 +487,7 @@ func (a *Runtime) callTools(ctx context.Context, taskID uuid.UUID, content []mod
 	return nil
 }
 
-func (a *Runtime) modelProviderAPI(m *memory.Model) (model.ModelProvider, error) {
+func (rt *Runtime) modelProviderAPI(m *memory.Model) (model.ModelProvider, error) {
 	if m.Edges.ModelProvider == nil {
 		return nil, fmt.Errorf("model provider not found")
 	}
@@ -449,7 +495,7 @@ func (a *Runtime) modelProviderAPI(m *memory.Model) (model.ModelProvider, error)
 
 	switch provider.ProviderType {
 	case types.ModelProviderTypeAnthropic:
-		providerAuth, err := a.encryption.Decrypt(provider.Secret, []byte(secret.ModelProviderSecret(provider.ID)))
+		providerAuth, err := rt.encryption.Decrypt(provider.Secret, []byte(secret.ModelProviderSecret(provider.ID)))
 		if err != nil {
 			return nil, err
 		}
@@ -479,18 +525,18 @@ func calculateCost(usage model.Usage, model *memory.Model) float64 {
 		float64(usage.CacheReadTokens)*model.CacheReadCost
 }
 
-func (a *Runtime) GetEncryption() *secret.Client {
-	return a.encryption
+func (rt *Runtime) Encryption() *secret.Client {
+	return rt.encryption
 }
 
-func (a *Runtime) GetMemory() *memory.Client {
-	return a.memory
+func (rt *Runtime) Memory() *memory.Client {
+	return rt.memory
 }
 
-func (a *Runtime) TriggerReconciliation(taskID uuid.UUID) {
-	a.queue.Add(taskID)
+func (rt *Runtime) TriggerReconciliation(taskID uuid.UUID) {
+	rt.queue.Add(taskID)
 }
 
-func (a *Runtime) GetMessageHub() *stream.EventHub {
-	return a.messageHub
+func (rt *Runtime) EventHub() *stream.EventHub {
+	return rt.eventHub
 }
