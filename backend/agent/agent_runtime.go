@@ -90,7 +90,10 @@ func NewRuntime(memory *memory.Client, encryption *secret.Client, opts ...Runtim
 		return nil, err
 	}
 
-	interpreter := NewCodeInterpreter(options.Tools)
+	interpreter := NewCodeInterpreter(options.Tools,
+		NewInputOutputInterceptor(),
+		InterpreterInterceptor(ToolNameInterceptor),
+	)
 
 	runtime := &Runtime{
 		memory:     memory,
@@ -320,6 +323,7 @@ func (a *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 		return err
 	}
 
+	var toolResults []string
 	for _, block := range resp.Message.Content {
 		switch block := block.(type) {
 		case *model.ToolCallBlock:
@@ -329,11 +333,34 @@ func (a *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 				return err
 			}
 
+			toolResults = append(toolResults, result)
 			fmt.Println(result)
 		}
 	}
 	if err != nil {
 		return err
+	}
+
+	if len(toolResults) > 0 {
+		toolBlocks := make([]types.MessageBlock, 0, len(toolResults))
+		for _, result := range toolResults {
+			toolBlocks = append(toolBlocks, types.MessageBlock{
+				Kind:    types.MessageBlockKindCodeActToolResult,
+				Payload: result,
+			})
+		}
+
+		a.memory.Message.Create().
+			SetTaskID(taskID).
+			SetSource(types.MessageSourceSystem).
+			SetContent(&types.MessageContent{
+				Blocks: toolBlocks,
+			}).
+			Save(ctx)
+
+		if err != nil {
+			return err
+		}
 	}
 
 	a.messageHub.Publish(taskID, newMessage)
