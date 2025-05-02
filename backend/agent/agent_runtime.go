@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -173,95 +172,169 @@ func (a *Runtime) Run(ctx context.Context) error {
 func (a *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 	defer a.queue.Done(taskID)
 
-	task, err := a.memory.Task.Query().Where(memory_task.IDEQ(taskID)).WithAgent().Only(ctx)
+	task, agent, err := a.fetchTaskWithAgent(ctx, taskID)
 	if err != nil {
 		return err
+	}
+
+	processedMessages, nextMessage, err := a.fetchTaskMessages(task.ID)
+	if err != nil {
+		return err
+	}
+
+	if nextMessage == nil {
+		slog.DebugContext(ctx, "no unprocessed messages, skipping", "task_id", taskID)
+		return nil
+	}
+
+	modelProvider, err := a.createModelProvider(ctx, agent)
+	if err != nil {
+		return err
+	}
+
+	modelMessages, err := a.prepareModelData(processedMessages, nextMessage)
+	if err != nil {
+		return err
+	}
+
+	systemPrompt := a.appendToolInstruction(agent.Instructions)
+	resp, err := a.invokeModel(ctx, modelProvider, agent.Edges.Model.Name, systemPrompt, modelMessages)
+	if err != nil {
+		return err
+	}
+
+	newMessage, err := a.saveResponse(ctx, taskID, nextMessage, resp, agent.Edges.Model)
+	if err != nil {
+		return err
+	}
+
+	err = a.callTools(ctx, taskID, resp.Message.Content)
+	if err != nil {
+		return err
+	}
+
+	a.messageHub.Publish(taskID, newMessage)
+	a.TriggerReconciliation(taskID)
+
+	return nil
+}
+
+func (a *Runtime) fetchTaskWithAgent(ctx context.Context, taskID uuid.UUID) (*memory.Task, *memory.Agent, error) {
+	task, err := a.memory.Task.Query().Where(memory_task.IDEQ(taskID)).WithAgent().Only(ctx)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	if task.AgentID == uuid.Nil {
-		slog.Info("task has no agent, skipping", "task_id", taskID)
-		return nil
+		return nil, nil, fmt.Errorf("task has no agent: %s", taskID)
 	}
 
+	return task, task.Edges.Agent, nil
+}
+
+func (a *Runtime) fetchTaskMessages(taskID uuid.UUID) ([]*memory.Message, *memory.Message, error) {
 	messages, err := a.memory.Message.Query().
 		Where(memory_message.TaskIDEQ(taskID)).
 		Order(memory_message.ByCreateTime()).
-		All(ctx)
+		All(context.Background())
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
-	processedMessages := make([]*memory.Message, 0)
-	unprocessedUserMessages := make([]*memory.Message, 0)
-	unprocessedAssistantMessages := make([]*memory.Message, 0)
+	categorized := map[string][]*memory.Message{
+		"processed":            make([]*memory.Message, 0),
+		"unprocessedUser":      make([]*memory.Message, 0),
+		"unprocessedAssistant": make([]*memory.Message, 0),
+		"unprocessedSystem":    make([]*memory.Message, 0),
+	}
 
 	for _, message := range messages {
 		if message.ProcessedTime.IsZero() {
-			if message.Source == types.MessageSourceUser {
-				unprocessedUserMessages = append(unprocessedUserMessages, message)
-			} else if message.Source == types.MessageSourceAssistant {
-				unprocessedAssistantMessages = append(unprocessedAssistantMessages, message)
+			switch message.Source {
+			case types.MessageSourceUser:
+				categorized["unprocessedUser"] = append(categorized["unprocessedUser"], message)
+			case types.MessageSourceAssistant:
+				categorized["unprocessedAssistant"] = append(categorized["unprocessedAssistant"], message)
+			case types.MessageSourceSystem:
+				categorized["unprocessedSystem"] = append(categorized["unprocessedSystem"], message)
 			}
 		} else {
-			processedMessages = append(processedMessages, message)
+			categorized["processed"] = append(categorized["processed"], message)
 		}
 	}
 
-	if len(unprocessedUserMessages) == 0 && len(unprocessedAssistantMessages) == 0 {
-		slog.Info("no unprocessed messages, skipping", "task_id", taskID)
-		return nil
+	var nextMessage *memory.Message
+	switch {
+	case len(categorized["unprocessedSystem"]) > 0:
+		nextMessage = categorized["unprocessedSystem"][0]
+	case len(categorized["unprocessedAssistant"]) > 0:
+		nextMessage = categorized["unprocessedAssistant"][0]
+	case len(categorized["unprocessedUser"]) > 0:
+		nextMessage = categorized["unprocessedUser"][0]
 	}
 
-	agent := task.Edges.Agent
+	return categorized["processed"], nextMessage, nil
+}
+
+func (a *Runtime) createModelProvider(ctx context.Context, agent *memory.Agent) (model.ModelProvider, error) {
 	m, err := a.memory.Model.Query().Where(memory_model.IDEQ(agent.DefaultModel)).WithModelProvider().Only(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	providerAPI, err := a.modelProviderAPI(m)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	var messageToProcess *memory.Message
-	if len(unprocessedAssistantMessages) > 0 {
-		messageToProcess = unprocessedAssistantMessages[0]
-	} else if len(unprocessedUserMessages) > 0 {
-		messageToProcess = unprocessedUserMessages[0]
-	}
+	return providerAPI, nil
+}
 
+func (a *Runtime) prepareModelData(
+	processedMessages []*memory.Message,
+	nextMessage *memory.Message,
+) ([]*model.Message, error) {
 	modelMessages := make([]*model.Message, 0, len(processedMessages))
 	for _, msg := range processedMessages {
 		modelMsg, err := conv.ConvertMemoryMessageToModel(msg)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		modelMessages = append(modelMessages, modelMsg)
 	}
 
-	modelMsg, err := conv.ConvertMemoryMessageToModel(messageToProcess)
+	modelMsg, err := conv.ConvertMemoryMessageToModel(nextMessage)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	modelMessages = append(modelMessages, modelMsg)
 
-	var toolDescriptions strings.Builder
-	toolDescriptions.WriteString("You can use the following tools to help you answer the user's question. The tools are specified as Javascript functions." +
-		"In order to use them you have to write a javascript program and then call the code interpreter tool with the script as argument." +
-		"The only functions that are allowed for this javascript program are the ones specified in the tool descriptions." +
-		"The script will be executed in a new process, so you don't need to worry about the environment it is executed in." +
-		"If you try to call any other function that is not specified here the execution will fail." +
-		"\n\n")
+	return modelMessages, nil
+}
+
+func (a *Runtime) appendToolInstruction(agentInstruction string) string {
+	var toolInstruction strings.Builder
+	toolInstruction.WriteString(`
+# Tool Instructions
+You can use the following tools to help you answer the user's question. The tools are specified as Javascript functions.
+In order to use them you have to write a javascript program and then call the code interpreter tool with the script as argument.
+The only functions that are allowed for this javascript program are the ones specified in the tool descriptions.
+The script will be executed in a new process, so you don't need to worry about the environment it is executed in.
+If you try to call any other function that is not specified here the execution will fail.
+`)
+
+	toolInstruction.WriteString("\n\n")
 	for _, tool := range a.interpreter.Tools {
-		toolDescriptions.WriteString(fmt.Sprintf("%s: %s\n", tool.Name(), tool.Description()))
+		toolInstruction.WriteString(fmt.Sprintf("# %s\n%s\n\n", tool.Name(), tool.Description()))
 	}
 
-	instructions := fmt.Sprintf("%s\n\n%s", agent.Instructions, toolDescriptions.String())
-	os.WriteFile("/tmp/tool_descriptions.txt", []byte(instructions), 0644)
+	return fmt.Sprintf("%s\n\n%s", agentInstruction, toolInstruction.String())
+}
 
-	resp, err := providerAPI.InvokeModel(
+func (a *Runtime) invokeModel(ctx context.Context, providerAPI model.ModelProvider, modelName, instructions string, modelMessages []*model.Message) (*model.ModelResponse, error) {
+	return providerAPI.InvokeModel(
 		ctx,
-		m.Name,
+		modelName,
 		instructions,
 		modelMessages,
 		model.WithStreamHandler(func(ctx context.Context, message *model.Message) {
@@ -269,27 +342,26 @@ func (a *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 				switch block := block.(type) {
 				case *model.TextBlock:
 					fmt.Print(block.Text)
+				case *model.ToolCallBlock:
+					fmt.Println(block.Args)
 				}
 			}
 		}),
 		model.WithTools(a.interpreter),
 	)
+}
 
+func (a *Runtime) saveResponse(ctx context.Context, taskID uuid.UUID, messageToProcess *memory.Message, resp *model.ModelResponse, m *memory.Model) (*memory.Message, error) {
+	_, err := messageToProcess.Update().SetProcessedTime(time.Now()).Save(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	_, err = messageToProcess.Update().SetProcessedTime(time.Now()).Save(ctx)
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("%+v\n", resp.Message.Content)
 
 	memoryContent, err := conv.ConvertModelContentBlocksToMemory(resp.Message.Content)
 	if err != nil {
-		return err
+		return nil, err
 	}
+
 	cost := calculateCost(resp.Usage, m)
 
 	t := time.Now()
@@ -308,10 +380,10 @@ func (a *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 		Save(ctx)
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	_, err = task.Update().
+	_, err = a.memory.Task.UpdateOneID(taskID).
 		AddInputTokens(resp.Usage.InputTokens).
 		AddOutputTokens(resp.Usage.OutputTokens).
 		AddCacheWriteTokens(resp.Usage.CacheWriteTokens).
@@ -320,25 +392,28 @@ func (a *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 		Save(ctx)
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
+	return newMessage, nil
+}
+
+func (a *Runtime) callTools(ctx context.Context, taskID uuid.UUID, content []model.ContentBlock) error {
 	var toolResults []string
-	for _, block := range resp.Message.Content {
-		switch block := block.(type) {
-		case *model.ToolCallBlock:
-			fsys := afero.NewBasePathFs(afero.NewOsFs(), "/tmp")
-			result, err := a.interpreter.Run(ctx, fsys, block.Args)
-			if err != nil {
-				return err
-			}
 
-			toolResults = append(toolResults, result)
-			fmt.Println(result)
+	for _, block := range content {
+		toolCall, ok := block.(*model.ToolCallBlock)
+		if !ok {
+			continue
 		}
-	}
-	if err != nil {
-		return err
+
+		fsys := afero.NewBasePathFs(afero.NewOsFs(), "/tmp")
+		result, err := a.interpreter.Run(ctx, fsys, toolCall.Args)
+		if err != nil {
+			return err
+		}
+
+		toolResults = append(toolResults, result)
 	}
 
 	if len(toolResults) > 0 {
@@ -350,7 +425,7 @@ func (a *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 			})
 		}
 
-		a.memory.Message.Create().
+		_, err := a.memory.Message.Create().
 			SetTaskID(taskID).
 			SetSource(types.MessageSourceSystem).
 			SetContent(&types.MessageContent{
@@ -362,10 +437,6 @@ func (a *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 			return err
 		}
 	}
-
-	a.messageHub.Publish(taskID, newMessage)
-
-	a.TriggerReconciliation(taskID)
 
 	return nil
 }
