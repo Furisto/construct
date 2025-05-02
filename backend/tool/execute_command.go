@@ -103,24 +103,28 @@ func NewExecuteCommandTool() CodeActTool {
 	return NewOnDemandTool(
 		"execute_command",
 		fmt.Sprintf(executeCommandDescription, "```"),
-		executeCommandCallback,
+		commandHandler,
 	)
 }
 
-func executeCommandCallback(session CodeActSession) func(call sobek.FunctionCall) sobek.Value {
+func commandHandler(session CodeActSession) func(call sobek.FunctionCall) sobek.Value {
 	return func(call sobek.FunctionCall) sobek.Value {
 		command := call.Argument(0).String()
 
-		output, err := exec.Command(command).Output()
+		cmd := exec.Command(command)
+		output, err := cmd.CombinedOutput()
 		if err != nil {
-			session.Throw("error executing command: %w", err)
+			session.Throw(NewCustomError("error executing command", []string{
+				"Check if the command is valid and executable.",
+				"Ensure the command is properly formatted for the target operating system.",
+			}, "command", command, "error", err))
 		}
 
 		return session.VM.ToValue(ExecuteCommandResult{
+			Command:  command,
 			Stdout:   string(output),
 			Stderr:   "",
-			ExitCode: 0,
-			Command:  command,
+			ExitCode: cmd.ProcessState.ExitCode(),
 		})
 	}
 }

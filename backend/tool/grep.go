@@ -2,7 +2,6 @@ package tool
 
 import (
 	"fmt"
-	"os/exec"
 
 	"github.com/grafana/sobek"
 )
@@ -123,32 +122,20 @@ func NewGrepTool() CodeActTool {
 	return NewOnDemandTool(
 		"regex_search",
 		fmt.Sprintf(grepDescription, "```"),
-		grepCallback,
+		grepHandler,
 	)
 }
 
-func grepCallback(session CodeActSession) func(call sobek.FunctionCall) sobek.Value {
+func grepHandler(session CodeActSession) func(call sobek.FunctionCall) sobek.Value {
 	return func(call sobek.FunctionCall) sobek.Value {
-		query := call.Argument(0).String()
-		path := call.Argument(1).String()
-		includePattern := call.Argument(2).String()
-		excludePattern := call.Argument(3).String()
-		caseSensitive := call.Argument(4).ToBoolean()
-		maxResults := call.Argument(5).ToInteger()
+		// query := call.Argument(0).String()
+		// path := call.Argument(1).String()
+		// includePattern := call.Argument(2).String()
+		// excludePattern := call.Argument(3).String()
+		// caseSensitive := call.Argument(4).ToBoolean()
+		// maxResults := call.Argument(5).ToInteger()
 
-		_, err := exec.LookPath("grep")
-		if err != nil {
-			session.Throw("grep not found: %w", err)
-		}
+		return sobek.Undefined()
 
-		command := fmt.Sprintf("grep -E %s %s %s %s %v %d", query, path, includePattern, excludePattern, caseSensitive, maxResults)
-		output, err := exec.Command(command).Output()
-		if err != nil {
-			session.Throw("error executing command: %w", err)
-		}
-
-		return session.VM.ToValue(GrepResult{
-			Output: string(output),
-		})
 	}
 }

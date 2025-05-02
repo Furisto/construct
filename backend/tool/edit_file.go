@@ -54,18 +54,21 @@ Returns an object indicating success and details about changes made:
 
 func NewEditFileTool() CodeActTool {
 	return NewOnDemandTool(
-		"edit_file",                             
-		fmt.Sprintf(editFileDescription, "```"), 
-		editFileCallback,                        
+		"edit_file",
+		fmt.Sprintf(editFileDescription, "```"),
+		editFileCallback,
 	)
 }
 
 func editFileCallback(session CodeActSession) func(call sobek.FunctionCall) sobek.Value {
 	return func(call sobek.FunctionCall) sobek.Value {
 		if len(call.Arguments) != 2 {
-			session.Throw("edit_file requires exactly 2 arguments: path and diffs array")
+			session.Throw(NewCustomError("edit_file requires exactly 2 arguments: path and diffs", []string{
+				"- **path** (string, required): Absolute path to the file to modify (e.g., \"/workspace/project/src/components/Button.jsx\").",
+				"- **diffs** (array, required): Array of diff objects, each containing: - **old** (string, required): The exact text to find and replace - **new** (string, required): The new text to replace it with",
+			}))
 		}
-		return sobek.Undefined() 
+
+		return sobek.Undefined()
 	}
 }
-

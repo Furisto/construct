@@ -16,7 +16,7 @@ Lists the contents of a directory, showing files and subdirectories. This tool p
 
 # Parameters
 - **path** (string, required): Absolute path to the directory you want to list (e.g., "/workspace/project/src"). Forward slashes (/) work on all platforms.
-- **recursive** (boolean, optional): When set to true, lists all files and directories recursively through all subdirectories. When false or omitted, only lists the top-level contents of the specified directory.
+- **recursive** (boolean, required): When set to true, lists all files and directories recursively through all subdirectories. When false or omitted, only lists the top-level contents of the specified directory.
 
 # Expected Output
 Returns an object containing an array of directory entries. A file is identified by the type code "f" and a directory by the type code "d":
@@ -113,7 +113,7 @@ func NewListFilesTool() CodeActTool {
 	return NewOnDemandTool(
 		"list_files",
 		fmt.Sprintf(listFilesDescription, "```"),
-		listFilesCallback,
+		listFilesHandler,
 	)
 }
 
@@ -123,88 +123,110 @@ type DirectoryEntry struct {
 	Size int64  `json:"size"`
 }
 
-func listFilesCallback(session CodeActSession) func(call sobek.FunctionCall) sobek.Value {
+func listFilesHandler(session CodeActSession) func(call sobek.FunctionCall) sobek.Value {
 	return func(call sobek.FunctionCall) sobek.Value {
-		path := call.Argument(0).String()
-
-		if !filepath.IsAbs(path) {
-			session.Throw("path is not absolute: %s", path)
+		if len(call.Arguments) != 2 {
+			session.Throw(NewCustomError("list_files requires exactly 2 arguments: path and recursive", []string{
+				"- **path** (string, required): Absolute path to the directory you want to list (e.g., \"/workspace/project/src\"). Forward slashes (/) work on all platforms.\n" +
+					"- **recursive** (boolean, required): When set to true, lists all files and directories recursively through all subdirectories. When false only lists the top-level contents of the specified directory.",
+			}))
 		}
 
+		path := call.Argument(0).String()
 		recursive := call.Argument(1).ToBoolean()
 
-		fileInfo, err := os.Stat(path)
+		dirEntries, err := listFiles(session, path, recursive)
 		if err != nil {
-			if os.IsNotExist(err) {
-				session.Throw("directory not found: %s", path)
-			}
-			if os.IsPermission(err) {
-				session.Throw("permission denied: %s", path)
-			}
-			session.Throw("error accessing directory: %v", err)
+			session.Throw(err)
 		}
 
-		if !fileInfo.IsDir() {
-			session.Throw("path is not a directory: %s", path)
-		}
-
-		var entries []DirectoryEntry
-		if recursive {
-			err = filepath.WalkDir(path, func(filePath string, entry fs.DirEntry, err error) error {
-				if err != nil {
-					return err
-				}
-
-				if filePath == path {
-					return nil
-				}
-
-				entries = append(entries, toDirectoryEntry(session, entry))
-				return nil
-			})
-
-			if err != nil {
-				if os.IsPermission(err) {
-					session.Throw("permission denied: %s", path)
-				}
-				session.Throw("error listing directory: %w", err)
-			}
-		} else {
-			dirEntries, err := os.ReadDir(path)
-			if err != nil {
-				if os.IsPermission(err) {
-					session.Throw("permission denied: %s", path)
-				}
-				session.Throw("error listing directory: %w", err)
-			}
-
-			for _, entry := range dirEntries {
-				entries = append(entries, toDirectoryEntry(session, entry))
-			}
-		}
-
-		return session.VM.ToValue(entries)
+		return session.VM.ToValue(dirEntries)
 	}
 }
 
-func toDirectoryEntry(session CodeActSession, entry fs.DirEntry) DirectoryEntry {
+func listFiles(session CodeActSession, path string, recursive bool) ([]DirectoryEntry, error) {
+	if !filepath.IsAbs(path) {
+		return nil, NewError(PathIsNotAbsolute, "path", path)
+	}
+
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, NewError(DirectoryNotFound, "path", path)
+		}
+		if os.IsPermission(err) {
+			return nil, NewError(PermissionDenied, "path", path)
+		}
+		return nil, NewError(CannotStatFile, "path", path)
+	}
+
+	if !fileInfo.IsDir() {
+		return nil, NewError(PathIsNotDirectory, "path", path)
+	}
+
+	var entries []DirectoryEntry
+	if recursive {
+		err = filepath.WalkDir(path, func(filePath string, entry fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+
+			if filePath == path {
+				return nil
+			}
+
+			dirEntry, err := toDirectoryEntry(entry)
+			if err != nil {
+				return err
+			}
+			entries = append(entries, *dirEntry)
+			return nil
+		})
+
+		if err != nil {
+			if os.IsPermission(err) {
+				return nil, NewError(PermissionDenied, "path", path)
+			}
+			return nil, NewError(GenericFileError, "path", path, "error", err)
+		}
+	} else {
+		dirEntries, err := os.ReadDir(path)
+		if err != nil {
+			if os.IsPermission(err) {
+				return nil, NewError(PermissionDenied, "path", path)
+			}
+			return nil, NewError(GenericFileError, "path", path, "error", err)
+		}
+
+		for _, entry := range dirEntries {
+			dirEntry, err := toDirectoryEntry(entry)
+			if err != nil {
+				return nil, err
+			}
+			entries = append(entries, *dirEntry)
+		}
+	}
+
+	return entries, nil
+}
+
+func toDirectoryEntry(entry fs.DirEntry) (*DirectoryEntry, error) {
 	info, err := entry.Info()
 	if err != nil {
-		session.Throw("error getting info for entry: %w", err)
+		return nil, NewError(GenericFileError, "path", entry.Name(), "error", err)
 	}
 
 	if entry.IsDir() {
-		return DirectoryEntry{
+		return &DirectoryEntry{
 			Name: entry.Name(),
 			Type: "d",
 			Size: 0,
-		}
+		}, nil
 	} else {
-		return DirectoryEntry{
+		return &DirectoryEntry{
 			Name: entry.Name(),
 			Type: "f",
 			Size: (info.Size() + 1023) / 1024, // Size in KB
-		}
+		}, nil
 	}
 }
-

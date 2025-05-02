@@ -92,7 +92,7 @@ func readFileAdapter(session CodeActSession) func(call sobek.FunctionCall) sobek
 
 		result, err := readFile(session.FS, path)
 		if err != nil {
-			session.Throw("error reading file %s: %w", path, err)
+			session.Throw(err)
 		}
 
 		return session.VM.ToValue(result)
@@ -102,20 +102,19 @@ func readFileAdapter(session CodeActSession) func(call sobek.FunctionCall) sobek
 func readFile(fs afero.Fs, path string) (*ReadFileResult, error) {
 	if _, err := fs.Stat(path); err != nil {
 		if os.IsNotExist(err) {
-			return nil, &ToolError{
-				Message:    "file not found",
-				Suggestion: fmt.Sprintf("Please check if the file exists and you have read permissions: %s", path),
-			}
+			return nil, NewError(FileNotFound, "path", path)
 		}
 		if os.IsPermission(err) {
-			return nil, fmt.Errorf("permission denied: %s", path)
+			return nil, NewError(PermissionDenied, "path", path)
 		}
-		return nil, fmt.Errorf("error reading file %s: %w", path, err)
+		return nil, NewError(CannotStatFile, "path", path)
 	}
 
 	content, err := afero.ReadFile(fs, path)
 	if err != nil {
-		return nil, fmt.Errorf("error reading file %s: %w", path, err)
+		return nil, NewCustomError("error reading file", []string{
+			"Verify that you have the permission to read the file",
+		}, "path", path, "error", err)
 	}
 
 	return &ReadFileResult{
