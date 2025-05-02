@@ -7,10 +7,10 @@ import (
 )
 
 var grepDescription = `
-# Description
+## Description
 The regex_search tool performs fast text-based regex searches to find exact pattern matches within files or directories. It leverages efficient searching algorithms to quickly scan through your codebase and locate specific patterns.
 
-# Parameters
+## Parameters
 - **query** (*string*, required): The regex pattern to search for. Must be a valid regex pattern; special characters must be escaped appropriately.
 - **path** (*string*, required): Absolute path to the directory or file to search within. Forward slashes (/) work on all platforms.
 - **include_pattern** (*string*, optional): Glob pattern for files to include in the search (e.g., "*.js" for JavaScript files only). Allows focusing your search on specific file types.
@@ -18,7 +18,7 @@ The regex_search tool performs fast text-based regex searches to find exact patt
 - **case_sensitive** (*boolean*, optional): Whether the search should be case sensitive. Defaults to false.
 - **max_results** (*number*, optional): Maximum number of results to return. Defaults to 50 to prevent overwhelming output.
 
-# Expected Output
+## Expected Output
 Returns an object containing the search results:
 %[1]s
 {
@@ -41,7 +41,7 @@ Returns an object containing the search results:
 }
 %[1]s
 
-# CRITICAL REQUIREMENTS
+## CRITICAL REQUIREMENTS
 - **Precise Pattern Specification**: Your regex pattern must be properly escaped for accurate matching.
   %[1]s
   // To search for "user.login()", escape special characters:
@@ -80,7 +80,7 @@ Returns an object containing the search results:
   })
   %[1]s
 
-# When to use
+## When to use
 - **Finding Symbol Definitions**: When you need to locate specific function, class, or variable definitions.
 - **Code Pattern Discovery**: When identifying patterns across multiple files (error handling, API calls, etc.).
 - **API Usage Exploration**: When discovering how specific APIs or functions are used throughout the codebase.
@@ -88,7 +88,7 @@ Returns an object containing the search results:
 - **Dependency Identification**: When finding all imports or requires of a specific module.
 - **Configuration Search**: When locating specific configuration patterns across multiple files.
 
-# Common Errors and Solutions
+## Common Errors and Solutions
 - **"Invalid regex pattern"**: Ensure special characters (., +, *, ?, ^, $, (, ), [, ], {, }, |, \) are properly escaped with backslashes.
   %[1]s
   // Incorrect: regex_search({ query: "function doSomething()", ... })
@@ -101,9 +101,9 @@ Returns an object containing the search results:
   - Try a simpler pattern first and then refine
 - **"Path not found"**: Ensure the search path exists and you have access permissions.
 
-# Usage Examples
+## Usage Examples
 
-## Finding Function Definitions
+### Finding Function Definitions
 %[1]s
 regex_search({
   query: "function\\s+getUserData\\s*\\(",
