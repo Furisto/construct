@@ -190,7 +190,7 @@ func (rt *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 		return nil
 	}
 
-	modelProvider, err := rt.createModelProvider(ctx, agent)
+	modelProvider, err := rt.createModelProviderClient(ctx, agent)
 	if err != nil {
 		return err
 	}
@@ -228,7 +228,9 @@ func (rt *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 }
 
 func (rt *Runtime) fetchTaskWithAgent(ctx context.Context, taskID uuid.UUID) (*memory.Task, *memory.Agent, error) {
-	task, err := rt.memory.Task.Query().Where(memory_task.IDEQ(taskID)).WithAgent().Only(ctx)
+	task, err := rt.memory.Task.Query().Where(memory_task.IDEQ(taskID)).WithAgent(func(query *memory.AgentQuery) {
+		query.WithModel()
+	}).Only(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -284,7 +286,7 @@ func (rt *Runtime) fetchTaskMessages(ctx context.Context, taskID uuid.UUID) ([]*
 	return categorized["processed"], nextMessage, nil
 }
 
-func (rt *Runtime) createModelProvider(ctx context.Context, agent *memory.Agent) (model.ModelProvider, error) {
+func (rt *Runtime) createModelProviderClient(ctx context.Context, agent *memory.Agent) (model.ModelProvider, error) {
 	m, err := rt.memory.Model.Query().Where(memory_model.IDEQ(agent.DefaultModel)).WithModelProvider().Only(ctx)
 	if err != nil {
 		return nil, err
@@ -321,19 +323,17 @@ func (rt *Runtime) prepareModelData(
 }
 
 func (rt *Runtime) assembleSystemPrompt(agentInstruction string) (string, error) {
-	var toolInstruction strings.Builder
-	toolInstruction.WriteString(`
-# Tool Instructions
+	toolInstruction := `
 You can use the following tools to help you answer the user's question. The tools are specified as Javascript functions.
 In order to use them you have to write a javascript program and then call the code interpreter tool with the script as argument.
 The only functions that are allowed for this javascript program are the ones specified in the tool descriptions.
 The script will be executed in a new process, so you don't need to worry about the environment it is executed in.
 If you try to call any other function that is not specified here the execution will fail.
-`)
+`
 
-	toolInstruction.WriteString("\n\n")
+	var builder strings.Builder
 	for _, tool := range rt.interpreter.Tools {
-		toolInstruction.WriteString(fmt.Sprintf("# %s\n%s\n\n", tool.Name(), tool.Description()))
+		fmt.Fprintf(&builder, "# %s\n%s\n\n", tool.Name(), tool.Description())
 	}
 
 	cwd, err := os.Getwd()
@@ -341,29 +341,32 @@ If you try to call any other function that is not specified here the execution w
 		return "", err
 	}
 
-	files, err := os.ReadDir(cwd)
+	projectStructure, err := ProjectStructure(cwd)
 	if err != nil {
-		return "", err
+		slog.Error("failed to get project structure", "error", err)
 	}
 
-	fileNames := make([]string, 0, len(files))
-	for _, file := range files {
-		fileNames = append(fileNames, file.Name())
+	shell, err := DefaultShell()
+	if err != nil {
+		slog.Error("failed to get user shell", "error", err)
 	}
-	projectStructure := strings.Join(fileNames, "\n")
 
 	tmplParams := struct {
 		CurrentTime      string
 		WorkingDirectory string
 		OperatingSystem  string
-		ToolInstructions string
+		DefaultShell     string
 		ProjectStructure string
+		ToolInstructions string
+		Tools            string
 	}{
 		CurrentTime:      time.Now().Format(time.RFC3339),
 		WorkingDirectory: cwd,
 		OperatingSystem:  runtime.GOOS,
+		DefaultShell:     shell.Name,
 		ProjectStructure: projectStructure,
-		ToolInstructions: toolInstruction.String(),
+		ToolInstructions: toolInstruction,
+		Tools:            builder.String(),
 	}
 
 	tmpl, err := template.New("system_prompt").Parse(agentInstruction)
@@ -371,10 +374,13 @@ If you try to call any other function that is not specified here the execution w
 		return "", err
 	}
 
-	var systemPrompt strings.Builder
-	tmpl.Execute(&systemPrompt, tmplParams)
+	builder.Reset()
+	err = tmpl.Execute(&builder, tmplParams)
+	if err != nil {
+		return "", err
+	}
 
-	return systemPrompt.String(), nil
+	return builder.String(), nil
 }
 
 func (rt *Runtime) invokeModel(ctx context.Context, providerAPI model.ModelProvider, modelName, instructions string, modelMessages []*model.Message) (*model.ModelResponse, error) {
@@ -445,11 +451,16 @@ func (rt *Runtime) saveResponse(ctx context.Context, taskID uuid.UUID, messageTo
 }
 
 func (rt *Runtime) callTools(ctx context.Context, taskID uuid.UUID, content []model.ContentBlock) error {
-	var toolResults []string
+	var toolResults []types.CodeInterpreterResult
 
 	for _, block := range content {
 		toolCall, ok := block.(*model.ToolCallBlock)
 		if !ok {
+			continue
+		}
+
+		if toolCall.Tool != "code_interpreter" {
+			slog.WarnContext(ctx, "model requested unknown tool", "tool", toolCall.Tool)
 			continue
 		}
 
@@ -459,15 +470,23 @@ func (rt *Runtime) callTools(ctx context.Context, taskID uuid.UUID, content []mo
 			return err
 		}
 
-		toolResults = append(toolResults, result)
+		toolResults = append(toolResults, types.CodeInterpreterResult{
+			ID:     toolCall.ID,
+			Result: result,
+		})
 	}
 
 	if len(toolResults) > 0 {
 		toolBlocks := make([]types.MessageBlock, 0, len(toolResults))
 		for _, result := range toolResults {
+			jsonResult, err := json.Marshal(result)
+			if err != nil {
+				return err
+			}
+
 			toolBlocks = append(toolBlocks, types.MessageBlock{
-				Kind:    types.MessageBlockKindCodeActToolResult,
-				Payload: result,
+				Kind:    types.MessageBlockKindCodeInterpreterResult,
+				Payload: string(jsonResult),
 			})
 		}
 
