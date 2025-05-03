@@ -9,13 +9,13 @@ import (
 )
 
 const readFileDescription = `
-# Description
+## Description
 Reads and returns the complete contents of a file at the specified path. This tool is essential for examining existing files when you need to understand, analyze, or extract information from them. The file content is returned as a string, making it suitable for text files such as code, configuration files, documentation, and structured data.
 
-# Parameters
+## Parameters
 - **path** (string, required): Absolute path to the file you want to read (e.g., "/workspace/project/src/app.js"). Forward slashes (/) work on all platforms.
 
-# Expected Output
+## Expected Output
 Returns an object containing the file content as a string:
 %[1]s
 {
@@ -26,7 +26,7 @@ Returns an object containing the file content as a string:
 
 If the file doesn't exist or cannot be read, it will throw an exception describing the issue.
 
-# CRITICAL REQUIREMENTS
+## CRITICAL REQUIREMENTS
 - **Always verify file existence**: Check if a file exists before attempting operations that assume its presence
 - **Handle large files appropriately**: For very large files, consider processing the content in chunks
 - **Check file extensions**: Ensure you're reading appropriate file types; this tool is best suited for text files
@@ -37,7 +37,7 @@ If the file doesn't exist or cannot be read, it will throw an exception describi
   read_file("/workspace/project/package.json")
 %[1]s
 
-# When to use
+## When to use
 - **Code analysis**: When you need to understand existing code structure, imports, or implementations
 - **Configuration inspection**: To examine settings in config files like JSON, YAML, or .env files
 - **Content extraction**: To retrieve data from text files for processing or analysis
@@ -45,14 +45,14 @@ If the file doesn't exist or cannot be read, it will throw an exception describi
 - **Documentation review**: To analyze README files, specifications, or documentation
 - **Data gathering**: When collecting information stored in logs, CSVs, or other structured data files
 
-# Common Errors and Solutions
+## Common Errors and Solutions
 - **"File not found"**: Verify the file path is correct and the file exists using appropriate tools
 - **"Permission denied"**: Ensure you have read permissions for the file
 - **"Path is not absolute"**: Always use paths starting with "/" (e.g., "/workspace/project/file.txt")
 
-# Usage Examples
+## Usage Examples
 
-## Analyzing source code
+### Analyzing source code
 %[1]s
 const sourceCode = read_file("/workspace/project/src/components/Button.jsx");
 if (!sourceCode.error) {
@@ -62,7 +62,7 @@ if (!sourceCode.error) {
 }
 %[1]s
 
-## Reading and processing structured data
+### Reading and processing structured data
 %[1]s
 const csvData = read_file("/workspace/project/data/users.csv");
 if (!csvData.error) {
@@ -92,7 +92,7 @@ func readFileAdapter(session CodeActSession) func(call sobek.FunctionCall) sobek
 
 		result, err := readFile(session.FS, path)
 		if err != nil {
-			session.Throw("error reading file %s: %w", path, err)
+			session.Throw(err)
 		}
 
 		return session.VM.ToValue(result)
@@ -102,20 +102,19 @@ func readFileAdapter(session CodeActSession) func(call sobek.FunctionCall) sobek
 func readFile(fs afero.Fs, path string) (*ReadFileResult, error) {
 	if _, err := fs.Stat(path); err != nil {
 		if os.IsNotExist(err) {
-			return nil, &ToolError{
-				Message:    "file not found",
-				Suggestion: fmt.Sprintf("Please check if the file exists and you have read permissions: %s", path),
-			}
+			return nil, NewError(FileNotFound, "path", path)
 		}
 		if os.IsPermission(err) {
-			return nil, fmt.Errorf("permission denied: %s", path)
+			return nil, NewError(PermissionDenied, "path", path)
 		}
-		return nil, fmt.Errorf("error reading file %s: %w", path, err)
+		return nil, NewError(CannotStatFile, "path", path)
 	}
 
 	content, err := afero.ReadFile(fs, path)
 	if err != nil {
-		return nil, fmt.Errorf("error reading file %s: %w", path, err)
+		return nil, NewCustomError("error reading file", []string{
+			"Verify that you have the permission to read the file",
+		}, "path", path, "error", err)
 	}
 
 	return &ReadFileResult{

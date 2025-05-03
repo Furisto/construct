@@ -7,21 +7,21 @@ import (
 )
 
 const printDescription = `
-# Description
+## Description
 The print function outputs values from your CodeAct JavaScript program back to you. It serves as a communication channel to display information during code execution, helping with debugging, monitoring program state, and returning computation results.
 Unlike console.log() which writes to the standard output stream, print specifically communicates back to the agent, ensuring the output is visible in the conversation. ALWAYS use print instead of console.log().
 
-# Parameters
+## Parameters
 - **value** (*any*, required): The value to output. Can be any JavaScript value:
   - Primitive types (numbers, strings, booleans, etc.)
   - Complex objects and arrays (automatically stringified)
   - Function references
   - Errors
 
-# Expected Output
+## Expected Output
 The print function returns undefined. It's used for its side effect of displaying output, not for its return value.
 
-# CRITICAL REQUIREMENTS
+## CRITICAL REQUIREMENTS
 - **Always use print instead of console.log()**: Unlike console.log(), print is specifically designed to communicate back to you.
 - **Large Data**: Very large objects or strings might be truncated in the output
 - **Performance**: Excessive printing of large objects may impact performance
@@ -44,17 +44,17 @@ The print function returns undefined. It's used for its side effect of displayin
   print("Database query returned ${results.length} records");
 %[1]s
 
-# When to Use
+## When to Use
 - **Debugging**: Display variable values, execution flow, or program state at different points
 - **Result Reporting**: Show computation results, statistics, or processed data
 - **Verification**: Confirm that file operations, API calls, or data transformations worked as expected
 - **Data Exploration**: Examine the structure and content of objects, arrays, or file data
 
-# Common Errors and How to Fix Them
+## Common Errors and How to Fix Them
 - **Output Not Visible**: Ensure the print statement is actually executed. Check conditional logic or function calls.
 - **Truncated Output**: Split large outputs into smaller chunks or print specific properties instead of entire objects.
 
-# Usage Examples
+## Usage Examples
 %[1]s
 // Basic primitive types
 print("Hello, world!");  // String

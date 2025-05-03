@@ -8,13 +8,13 @@ import (
 )
 
 const executeCommandDescription = `
-# Description
+## Description
 The execute_command tool allows you to run system commands directly from your CodeAct JavaScript program. Use this tool when you need to interact with the system environment, file operations, execute CLI tools, or perform operations that require shell access. This tool provides a bridge between your code and the underlying operating system's command line interface.
 
-# Parameters
+## Parameters
 - **command** (string, required): The CLI command to execute. This should be valid for the current operating system. Ensure the command is properly formatted and does not contain any harmful instructions.
 
-# Expected Output
+## Expected Output
 Returns an object containing the command's output:
 %[1]s
 {
@@ -25,7 +25,7 @@ Returns an object containing the command's output:
 }
 %[1]s
 
-# CRITICAL REQUIREMENTS
+## CRITICAL REQUIREMENTS
 - **Command safety**: Always ensure commands are safe and appropriate for the user's environment
 - **Error handling**: Always check the exit code and stderr to determine if the command was successful
 %[1]s
@@ -46,7 +46,7 @@ Returns an object containing the command's output:
 %[1]s
 - IMPORTANT: You are not allowed to run any destructive commands. You should always use special tools for destructive commands.
 
-# When to use
+## When to use
 - **System interactions**: When you need to access system functionality not available through JavaScript APIs
 - **File and directory operations**: For complex file operations beyond basic read/write
 - **Development tools**: To run build processes, dev servers, or package managers
@@ -54,7 +54,7 @@ Returns an object containing the command's output:
 - **Network utilities**: For ping, curl, wget, and other network tools
 - **Process management**: To start, stop, or monitor system processes
 
-# Common Errors and Solutions
+## Common Errors and Solutions
 - **Command not found**: Ensure the command exists on the user's system and is in the PATH
   - Solution: Check if the command is installed, or provide installation instructions
 - **Permission denied**: The command requires elevated privileges
@@ -70,7 +70,7 @@ Returns an object containing the command's output:
   }
 %[1]s
 
-# Usage Examples
+## Usage Examples
 %[1]s
 // Simple command with error checking
 const result = execute_command("ls -la");
@@ -103,24 +103,28 @@ func NewExecuteCommandTool() CodeActTool {
 	return NewOnDemandTool(
 		"execute_command",
 		fmt.Sprintf(executeCommandDescription, "```"),
-		executeCommandCallback,
+		commandHandler,
 	)
 }
 
-func executeCommandCallback(session CodeActSession) func(call sobek.FunctionCall) sobek.Value {
+func commandHandler(session CodeActSession) func(call sobek.FunctionCall) sobek.Value {
 	return func(call sobek.FunctionCall) sobek.Value {
 		command := call.Argument(0).String()
 
-		output, err := exec.Command(command).Output()
+		cmd := exec.Command(command)
+		output, err := cmd.CombinedOutput()
 		if err != nil {
-			session.Throw("error executing command: %w", err)
+			session.Throw(NewCustomError("error executing command", []string{
+				"Check if the command is valid and executable.",
+				"Ensure the command is properly formatted for the target operating system.",
+			}, "command", command, "error", err))
 		}
 
 		return session.VM.ToValue(ExecuteCommandResult{
+			Command:  command,
 			Stdout:   string(output),
 			Stderr:   "",
-			ExitCode: 0,
-			Command:  command,
+			ExitCode: cmd.ProcessState.ExitCode(),
 		})
 	}
 }

@@ -9,21 +9,21 @@ import (
 )
 
 const writeFileDescription = `
-# Description
+## Description
 Creates a new file or replaces an existing file with your specified content. This tool writes the complete file in a single operation.
 
-# Parameters
+## Parameters
 - **path**: (string, required) Absolute path to the file (e.g., "/workspace/construct/src/components/button.js"). Forward slashes (/) work on all platforms. All necessary parent directories will be created automatically.
 - **content**: (string, required) ENTIRE content to write to the file. No placeholders, ellipses, or "rest of file unchanged". 
 
-# Expected Output
+## Expected Output
 This tool does return whether the file already existed. If the operation fails, it will return an error message describing the issue.
 Example output:
 {
 	"existed": true
 }
 
-# CRITICAL REQUIREMENTS
+## CRITICAL REQUIREMENTS
 - **Maintain proper syntax, indentation, and structure**
 - **Include complete file content**: Always provide the entire content, including imports, exports, and all necessary code
 - **Match file extension with content**: Ensure the file extension corresponds to the content type
@@ -46,19 +46,19 @@ Example output:
   Line three%[2]s)
 %[1]s
 
-# When to use
+## When to use
 - Creating new files: When you need to generate source code files, configuration files, or documentation from scratch
 - Full file replacements: When you need to completely replace the contents of an existing file
 - Generating code: When creating boilerplate code, templates, or scaffolding for a project
 - Saving computation results: When you need to persist data, logs, or computation results to disk
 - Building project structure: When setting up initial project organization or adding new components
 
-# Common Errors and Solutions
-- **"Invalid path"**: Ensure you're using an absolute path starting with "/"
+## Common Errors and Solutions
+- **"Path is not absolute"**: Ensure you're using an absolute path starting with "/"
 
-# Usage examples
+## Usage examples
 
-## Write a JSON file
+### Write a JSON file
 %[1]s
 write_file("config/settings.json",
 "{\n\
@@ -68,7 +68,7 @@ write_file("config/settings.json",
 }")
 %[1]s
 
-## Write a JavaScript file
+### Write a JavaScript file
 %[1]s
 write_file("src/components/Button.jsx", 
 "import React from \'react\';\\n\\\
@@ -96,7 +96,7 @@ func NewCreateFileTool() CodeActTool {
 func createFileCallback(session CodeActSession) func(call sobek.FunctionCall) sobek.Value {
 	return func(call sobek.FunctionCall) sobek.Value {
 		if len(call.Arguments) != 2 {
-			session.Throw("invalid arguments")
+			session.Throw(NewError(InvalidArgument))
 		}
 
 		path := call.Arguments[0].String()
@@ -104,7 +104,7 @@ func createFileCallback(session CodeActSession) func(call sobek.FunctionCall) so
 
 		result, err := createFile(session.FS, path, content)
 		if err != nil {
-			session.Throw("error creating file %s: %w", path, err)
+			session.Throw(err)
 		}
 
 		return session.VM.ToValue(result)
@@ -113,13 +113,13 @@ func createFileCallback(session CodeActSession) func(call sobek.FunctionCall) so
 
 func createFile(fs afero.Fs, path string, content string) (*CreateFileResult, error) {
 	if !filepath.IsAbs(path) {
-		return nil, fmt.Errorf("path must be absolute: %s", path)
+		return nil, NewError(PathIsNotAbsolute, "path", path)
 	}
 
 	var existed bool
 	if stat, err := fs.Stat(path); err == nil {
 		if stat.IsDir() {
-			return nil, fmt.Errorf("path is a directory: %s", path)
+			return nil, NewError(PathIsDirectory, "path", path)
 		}
 
 		existed = true
@@ -127,12 +127,19 @@ func createFile(fs afero.Fs, path string, content string) (*CreateFileResult, er
 
 	err := fs.MkdirAll(filepath.Dir(path), 0755)
 	if err != nil {
-		return nil, fmt.Errorf("error creating parent directories for %s: %w", path, err)
+		return nil, NewCustomError("could not create the parent directory", []string{
+			"Verify that you have the permissions to create the parent directories",
+			"Create the missing parent directories manually",
+		},
+			"path", path, "error", err)
 	}
 
 	err = afero.WriteFile(fs, path, []byte(content), 0644)
 	if err != nil {
-		return nil, fmt.Errorf("error writing file %s: %w", path, err)
+		return nil, NewCustomError(fmt.Sprintf("error writing file %s", path), []string{
+			"Ensure that you have the permission to write to the file",
+		},
+			"path", path, "error", err)
 	}
 
 	return &CreateFileResult{Existed: existed}, nil

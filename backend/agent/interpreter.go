@@ -154,21 +154,36 @@ func (r *InputOutputInterceptor) export(value sobek.Value) (string, error) {
 	case *sobek.Object:
 		jsonObject, err := kind.MarshalJSON()
 		if err != nil {
-			return "", tool.NewToolError("failed to marshal object", "This is probably due to a bug in the tool implementation.")
+			return "", tool.NewError(tool.Internal, "failed to marshal object")
 		}
 		var prettyJSON bytes.Buffer
 		err = json.Indent(&prettyJSON, jsonObject, "", "  ")
 		if err != nil {
-			return "", tool.NewToolError("failed to format object", "This is probably due to a bug in the tool implementation.")
+			return "", tool.NewError(tool.Internal, "failed to format object")
 		} else {
 			return prettyJSON.String(), nil
 		}
 	default:
-		return "", tool.NewToolError(fmt.Sprintf("unknown type: %T", kind), "This is probably due to a bug in the tool implementation.")
+		return "", tool.NewError(tool.Internal, fmt.Sprintf("unknown type: %T", kind))
 	}
 }
 
 var _ CodeInterpreterInterceptor = (*InputOutputInterceptor)(nil)
+
+type InterpreterInterceptor func(session tool.CodeActSession, tool tool.CodeActTool, inner func(sobek.FunctionCall) sobek.Value) func(sobek.FunctionCall) sobek.Value
+
+func (i InterpreterInterceptor) Intercept(session tool.CodeActSession, tool tool.CodeActTool, inner func(sobek.FunctionCall) sobek.Value) func(sobek.FunctionCall) sobek.Value {
+	return i(session, tool, inner)
+}
+
+func ToolNameInterceptor(session tool.CodeActSession, tool tool.CodeActTool, inner func(sobek.FunctionCall) sobek.Value) func(sobek.FunctionCall) sobek.Value {
+	return func(call sobek.FunctionCall) sobek.Value {
+		session.ToolName = tool.Name()
+		res := inner(call)
+		session.ToolName = ""
+		return res
+	}
+}
 
 func (c *CodeInterpreter) intercept(session tool.CodeActSession, toolName tool.CodeActTool, inner func(sobek.FunctionCall) sobek.Value) func(sobek.FunctionCall) sobek.Value {
 	return func(call sobek.FunctionCall) sobek.Value {
