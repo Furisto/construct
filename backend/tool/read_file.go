@@ -82,11 +82,11 @@ func NewReadFileTool() CodeActTool {
 	return NewOnDemandTool(
 		"read_file",
 		fmt.Sprintf(readFileDescription, "```"),
-		readFileAdapter,
+		readFileHandler,
 	)
 }
 
-func readFileAdapter(session CodeActSession) func(call sobek.FunctionCall) sobek.Value {
+func readFileHandler(session *CodeActSession) func(call sobek.FunctionCall) sobek.Value {
 	return func(call sobek.FunctionCall) sobek.Value {
 		path := call.Argument(0).String()
 
@@ -99,8 +99,8 @@ func readFileAdapter(session CodeActSession) func(call sobek.FunctionCall) sobek
 	}
 }
 
-func readFile(fs afero.Fs, path string) (*ReadFileResult, error) {
-	if _, err := fs.Stat(path); err != nil {
+func readFile(fsys afero.Fs, path string) (*ReadFileResult, error) {
+	if _, err := fsys.Stat(path); err != nil {
 		if os.IsNotExist(err) {
 			return nil, NewError(FileNotFound, "path", path)
 		}
@@ -110,7 +110,7 @@ func readFile(fs afero.Fs, path string) (*ReadFileResult, error) {
 		return nil, NewError(CannotStatFile, "path", path)
 	}
 
-	content, err := afero.ReadFile(fs, path)
+	content, err := afero.ReadFile(fsys, path)
 	if err != nil {
 		return nil, NewCustomError("error reading file", []string{
 			"Verify that you have the permission to read the file",

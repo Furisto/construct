@@ -103,11 +103,11 @@ func NewExecuteCommandTool() CodeActTool {
 	return NewOnDemandTool(
 		"execute_command",
 		fmt.Sprintf(executeCommandDescription, "```"),
-		commandHandler,
+		executeCommandHandler,
 	)
 }
 
-func commandHandler(session CodeActSession) func(call sobek.FunctionCall) sobek.Value {
+func executeCommandHandler(session *CodeActSession) func(call sobek.FunctionCall) sobek.Value {
 	return func(call sobek.FunctionCall) sobek.Value {
 		command := call.Argument(0).String()
 

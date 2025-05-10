@@ -126,7 +126,7 @@ func NewGrepTool() CodeActTool {
 	)
 }
 
-func grepHandler(session CodeActSession) func(call sobek.FunctionCall) sobek.Value {
+func grepHandler(session *CodeActSession) func(call sobek.FunctionCall) sobek.Value {
 	return func(call sobek.FunctionCall) sobek.Value {
 		// query := call.Argument(0).String()
 		// path := call.Argument(1).String()

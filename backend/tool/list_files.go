@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/grafana/sobek"
+	"github.com/spf13/afero"
 )
 
 const listFilesDescription = `
@@ -122,7 +123,7 @@ type DirectoryEntry struct {
 	Size int64  `json:"size"`
 }
 
-func listFilesHandler(session CodeActSession) func(call sobek.FunctionCall) sobek.Value {
+func listFilesHandler(session *CodeActSession) func(call sobek.FunctionCall) sobek.Value {
 	return func(call sobek.FunctionCall) sobek.Value {
 		if len(call.Arguments) != 2 {
 			session.Throw(NewCustomError("list_files requires exactly 2 arguments: path and recursive", []string{
@@ -134,7 +135,7 @@ func listFilesHandler(session CodeActSession) func(call sobek.FunctionCall) sobe
 		path := call.Argument(0).String()
 		recursive := call.Argument(1).ToBoolean()
 
-		dirEntries, err := listFiles(path, recursive)
+		dirEntries, err := listFiles(session.FS, path, recursive)
 		if err != nil {
 			session.Throw(err)
 		}
@@ -143,12 +144,12 @@ func listFilesHandler(session CodeActSession) func(call sobek.FunctionCall) sobe
 	}
 }
 
-func listFiles(path string, recursive bool) ([]DirectoryEntry, error) {
+func listFiles(fsys afero.Fs, path string, recursive bool) ([]DirectoryEntry, error) {
 	if !filepath.IsAbs(path) {
 		return nil, NewError(PathIsNotAbsolute, "path", path)
 	}
 
-	fileInfo, err := os.Stat(path)
+	fileInfo, err := fsys.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, NewError(DirectoryNotFound, "path", path)
@@ -165,7 +166,7 @@ func listFiles(path string, recursive bool) ([]DirectoryEntry, error) {
 
 	var entries []DirectoryEntry
 	if recursive {
-		err = filepath.WalkDir(path, func(filePath string, entry fs.DirEntry, err error) error {
+		err = afero.Walk(fsys, path, func(filePath string, entry fs.FileInfo, err error) error {
 			if err != nil {
 				return err
 			}
@@ -189,7 +190,7 @@ func listFiles(path string, recursive bool) ([]DirectoryEntry, error) {
 			return nil, NewError(GenericFileError, "path", path, "error", err)
 		}
 	} else {
-		dirEntries, err := os.ReadDir(path)
+		dirEntries, err := afero.ReadDir(fsys, path)
 		if err != nil {
 			if os.IsPermission(err) {
 				return nil, NewError(PermissionDenied, "path", path)
@@ -209,21 +210,16 @@ func listFiles(path string, recursive bool) ([]DirectoryEntry, error) {
 	return entries, nil
 }
 
-func toDirectoryEntry(entry fs.DirEntry) (*DirectoryEntry, error) {
-	info, err := entry.Info()
-	if err != nil {
-		return nil, NewError(GenericFileError, "path", entry.Name(), "error", err)
-	}
-
-	if entry.IsDir() {
+func toDirectoryEntry(info fs.FileInfo) (*DirectoryEntry, error) {
+	if info.IsDir() {
 		return &DirectoryEntry{
-			Name: entry.Name(),
+			Name: info.Name(),
 			Type: "d",
 			Size: 0,
 		}, nil
 	} else {
 		return &DirectoryEntry{
-			Name: entry.Name(),
+			Name: info.Name(),
 			Type: "f",
 			Size: (info.Size() + 1023) / 1024, // Size in KB
 		}, nil

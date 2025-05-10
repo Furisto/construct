@@ -89,11 +89,11 @@ func NewCreateFileTool() CodeActTool {
 	return NewOnDemandTool(
 		"create_file",
 		fmt.Sprintf(writeFileDescription, "```", "`"),
-		createFileCallback,
+		createFileHandler,
 	)
 }
 
-func createFileCallback(session CodeActSession) func(call sobek.FunctionCall) sobek.Value {
+func createFileHandler(session *CodeActSession) func(call sobek.FunctionCall) sobek.Value {
 	return func(call sobek.FunctionCall) sobek.Value {
 		if len(call.Arguments) != 2 {
 			session.Throw(NewError(InvalidArgument))
@@ -111,13 +111,13 @@ func createFileCallback(session CodeActSession) func(call sobek.FunctionCall) so
 	}
 }
 
-func createFile(fs afero.Fs, path string, content string) (*CreateFileResult, error) {
+func createFile(fsys afero.Fs, path string, content string) (*CreateFileResult, error) {
 	if !filepath.IsAbs(path) {
 		return nil, NewError(PathIsNotAbsolute, "path", path)
 	}
 
 	var existed bool
-	if stat, err := fs.Stat(path); err == nil {
+	if stat, err := fsys.Stat(path); err == nil {
 		if stat.IsDir() {
 			return nil, NewError(PathIsDirectory, "path", path)
 		}
@@ -125,7 +125,7 @@ func createFile(fs afero.Fs, path string, content string) (*CreateFileResult, er
 		existed = true
 	}
 
-	err := fs.MkdirAll(filepath.Dir(path), 0755)
+	err := fsys.MkdirAll(filepath.Dir(path), 0755)
 	if err != nil {
 		return nil, NewCustomError("could not create the parent directory", []string{
 			"Verify that you have the permissions to create the parent directories",
@@ -134,7 +134,7 @@ func createFile(fs afero.Fs, path string, content string) (*CreateFileResult, er
 			"path", path, "error", err)
 	}
 
-	err = afero.WriteFile(fs, path, []byte(content), 0644)
+	err = afero.WriteFile(fsys, path, []byte(content), 0644)
 	if err != nil {
 		return nil, NewCustomError(fmt.Sprintf("error writing file %s", path), []string{
 			"Ensure that you have the permission to write to the file",

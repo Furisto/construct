@@ -10,7 +10,10 @@ import (
 )
 
 func ConvertMemoryMessageToModel(m *memory.Message) (*model.Message, error) {
-	source := ConvertMemoryMessageSourceToModel(m.Source)
+	source, err := ConvertMemoryMessageSourceToModel(m.Source)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert memory message source to model: %w", err)
+	}
 	contentBlocks, err := ConvertMemoryMessageBlocksToModel(m.Content.Blocks)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert memory message blocks to model: %w", err)
@@ -22,19 +25,19 @@ func ConvertMemoryMessageToModel(m *memory.Message) (*model.Message, error) {
 	}, nil
 }
 
-func ConvertMemoryMessageSourceToModel(source types.MessageSource) model.MessageSource {
+func ConvertMemoryMessageSourceToModel(source types.MessageSource) (model.MessageSource, error) {
 	switch source {
 	case types.MessageSourceAssistant:
-		return model.MessageSourceModel
-	case types.MessageSourceUser:
-		return model.MessageSourceUser
+		return model.MessageSourceModel, nil
+	case types.MessageSourceUser, types.MessageSourceSystem:
+		return model.MessageSourceUser, nil
 	default:
-		return model.MessageSourceUser
+		return "", fmt.Errorf("unknown message source: %s", source)
 	}
 }
 
 func ConvertMemoryMessageBlocksToModel(blocks []types.MessageBlock) ([]model.ContentBlock, error) {
-	contentBlocks := make([]model.ContentBlock, len(blocks))
+	var contentBlocks []model.ContentBlock
 	for _, block := range blocks {
 		switch block.Kind {
 		case types.MessageBlockKindText:
@@ -56,10 +59,30 @@ func ConvertMemoryMessageBlocksToModel(blocks []types.MessageBlock) ([]model.Con
 			}
 			contentBlocks = append(contentBlocks, &toolResult)
 
+		case types.MessageBlockKindCodeInterpreterCall:
+			var toolCall model.ToolCallBlock
+			err := json.Unmarshal([]byte(block.Payload), &toolCall)
+			if err != nil {
+				return nil, fmt.Errorf("failed to unmarshal code interpreter call block: %w", err)
+			}
+			contentBlocks = append(contentBlocks, &toolCall)
+
+		case types.MessageBlockKindCodeInterpreterResult:
+			var interpreterResult types.CodeInterpreterResult
+			err := json.Unmarshal([]byte(block.Payload), &interpreterResult)
+			if err != nil {
+				return nil, fmt.Errorf("failed to unmarshal code interpreter result block: %w", err)
+			}
+			contentBlocks = append(contentBlocks, &model.ToolResultBlock{
+				ID:        interpreterResult.ID,
+				Name:      "code_interpreter",
+				Result:    interpreterResult.Result,
+				Succeeded: true,
+			})
+
 		case types.MessageBlockKindCodeActToolCall,
-			types.MessageBlockKindCodeActToolResult,
-			types.MessageBlockKindCodeInterpreterCall,
-			types.MessageBlockKindCodeInterpreterResult:
+			types.MessageBlockKindCodeActToolResult:
+
 			continue
 		default:
 			return nil, fmt.Errorf("unknown message block kind: %s", block.Kind)

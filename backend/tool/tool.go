@@ -4,28 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 
-	"github.com/grafana/sobek"
 	"github.com/invopop/jsonschema"
 	"github.com/spf13/afero"
 )
-
-type CodeActToolCallback func(session CodeActSession) func(call sobek.FunctionCall) sobek.Value
-
-type CodeActSession struct {
-	VM     *sobek.Runtime
-	System io.Writer
-	User   io.Writer
-	FS     afero.Fs
-
-	ToolName string
-}
-
-func (s *CodeActSession) Throw(err error) {
-	jsErr := s.VM.NewGoError(err)
-	panic(jsErr)
-}
 
 type ErrorCode int32
 
@@ -169,38 +151,6 @@ func NewCustomError(message string, suggestions []string, args ...any) *ToolErro
 	}
 }
 
-type CodeActTool interface {
-	Name() string
-	Description() string
-	ToolCallback(session CodeActSession) func(call sobek.FunctionCall) sobek.Value
-}
-
-type onDemandTool struct {
-	name        string
-	description string
-	handler     CodeActToolCallback
-}
-
-func (t *onDemandTool) Name() string {
-	return t.name
-}
-
-func (t *onDemandTool) Description() string {
-	return t.description
-}
-
-func (t *onDemandTool) ToolCallback(session CodeActSession) func(call sobek.FunctionCall) sobek.Value {
-	return t.handler(session)
-}
-
-func NewOnDemandTool(name, description string, handler CodeActToolCallback) CodeActTool {
-	return &onDemandTool{
-		name:        name,
-		description: description,
-		handler:     handler,
-	}
-}
-
 type ToolHandler[T any] func(ctx context.Context, input T) (string, error)
 
 type ToolOptions struct {
@@ -227,11 +177,6 @@ func WithAdditionalCategory(category string) ToolOption {
 	return func(o *ToolOptions) {
 		o.Categories = append(o.Categories, category)
 	}
-}
-
-type Result struct {
-	User   []string
-	System []string
 }
 
 type NativeTool interface {

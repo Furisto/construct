@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/furisto/construct/backend/agent/conv"
+	"github.com/furisto/construct/backend/agent/interpreter"
 	"github.com/furisto/construct/backend/api"
 	"github.com/furisto/construct/backend/memory"
 	memory_message "github.com/furisto/construct/backend/memory/message"
@@ -73,8 +74,8 @@ type Runtime struct {
 	eventHub    *stream.EventHub
 	concurrency int
 	queue       workqueue.TypedDelayingInterface[uuid.UUID]
-	interpreter *CodeInterpreter
 	running     atomic.Bool
+	interpreter *interpreter.CodeInterpreter
 }
 
 func NewRuntime(memory *memory.Client, encryption *secret.Client, opts ...RuntimeOption) (*Runtime, error) {
@@ -92,11 +93,6 @@ func NewRuntime(memory *memory.Client, encryption *secret.Client, opts ...Runtim
 		return nil, err
 	}
 
-	interpreter := NewCodeInterpreter(options.Tools,
-		NewInputOutputInterceptor(),
-		InterpreterInterceptor(ToolNameInterceptor),
-	)
-
 	runtime := &Runtime{
 		memory:     memory,
 		encryption: encryption,
@@ -104,7 +100,7 @@ func NewRuntime(memory *memory.Client, encryption *secret.Client, opts ...Runtim
 		eventHub:    messageHub,
 		concurrency: options.Concurrency,
 		queue:       queue,
-		interpreter: interpreter,
+		interpreter: interpreter.NewCodeInterpreter(options.Tools...),
 	}
 
 	api := api.NewServer(runtime, options.ServerPort)
@@ -403,8 +399,8 @@ func (rt *Runtime) invokeModel(ctx context.Context, providerAPI model.ModelProvi
 	)
 }
 
-func (rt *Runtime) saveResponse(ctx context.Context, taskID uuid.UUID, messageToProcess *memory.Message, resp *model.ModelResponse, m *memory.Model) (*memory.Message, error) {
-	_, err := messageToProcess.Update().SetProcessedTime(time.Now()).Save(ctx)
+func (rt *Runtime) saveResponse(ctx context.Context, taskID uuid.UUID, processedMessage *memory.Message, resp *model.ModelResponse, m *memory.Model) (*memory.Message, error) {
+	_, err := processedMessage.Update().SetProcessedTime(time.Now()).Save(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -464,8 +460,7 @@ func (rt *Runtime) callTools(ctx context.Context, taskID uuid.UUID, content []mo
 			continue
 		}
 
-		fsys := afero.NewBasePathFs(afero.NewOsFs(), "/tmp")
-		result, err := rt.interpreter.Run(ctx, fsys, toolCall.Args)
+		result, err := rt.interpreter.Run(ctx, afero.NewBasePathFs(afero.NewOsFs(), "/tmp/repo"), toolCall.Args)
 		if err != nil {
 			return err
 		}

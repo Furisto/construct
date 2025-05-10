@@ -1,4 +1,4 @@
-package agent
+package interpreter
 
 import (
 	"context"
@@ -30,7 +30,7 @@ func TestInterpreter(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			interpreter := NewCodeInterpreter(test.Tools)
+			interpreter := NewCodeInterpreter(test.Tools...)
 			args := CodeInterpreterArgs{
 				Script: test.Script,
 			}

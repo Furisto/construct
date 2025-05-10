@@ -86,11 +86,11 @@ func NewPrintTool() CodeActTool {
 	return NewOnDemandTool(
 		"print",
 		fmt.Sprintf(printDescription, "```"),
-		printCallback,
+		printHandler,
 	)
 }
 
-func printCallback(session CodeActSession) func(call sobek.FunctionCall) sobek.Value {
+func printHandler(session *CodeActSession) func(call sobek.FunctionCall) sobek.Value {
 	return func(call sobek.FunctionCall) sobek.Value {
 		args := make([]interface{}, len(call.Arguments))
 		for i, arg := range call.Arguments {

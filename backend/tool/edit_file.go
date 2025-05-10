@@ -56,11 +56,11 @@ func NewEditFileTool() CodeActTool {
 	return NewOnDemandTool(
 		"edit_file",
 		fmt.Sprintf(editFileDescription, "```"),
-		editFileCallback,
+		editFileHandler,
 	)
 }
 
-func editFileCallback(session CodeActSession) func(call sobek.FunctionCall) sobek.Value {
+func editFileHandler(session *CodeActSession) func(call sobek.FunctionCall) sobek.Value {
 	return func(call sobek.FunctionCall) sobek.Value {
 		if len(call.Arguments) != 2 {
 			session.Throw(NewCustomError("edit_file requires exactly 2 arguments: path and diffs", []string{

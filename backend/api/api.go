@@ -16,10 +16,10 @@ import (
 )
 
 type AgentRuntime interface {
-	GetMemory() *memory.Client
-	GetEncryption() *secret.Client
+	Memory() *memory.Client
+	Encryption() *secret.Client
 	TriggerReconciliation(id uuid.UUID)
-	GetMessageHub() *stream.EventHub
+	EventHub() *stream.EventHub
 }
 
 type Server struct {
@@ -31,10 +31,10 @@ type Server struct {
 func NewServer(runtime AgentRuntime, port int) *Server {
 	apiHandler := NewHandler(
 		HandlerOptions{
-			DB:           runtime.GetMemory(),
-			Encryption:   runtime.GetEncryption(),
+			DB:           runtime.Memory(),
+			Encryption:   runtime.Encryption(),
 			AgentRuntime: runtime,
-			MessageHub:   runtime.GetMessageHub(),
+			MessageHub:   runtime.EventHub(),
 		},
 	)
 
