@@ -3,6 +3,7 @@ package tool
 import (
 	"fmt"
 
+	"github.com/furisto/construct/backend/tool/codeact"
 	"github.com/grafana/sobek"
 )
 
@@ -82,15 +83,15 @@ print("File content:", content);
 %[1]s
 `
 
-func NewPrintTool() CodeActTool {
-	return NewOnDemandTool(
+func NewPrintTool() codeact.Tool {
+	return codeact.NewOnDemandTool(
 		"print",
 		fmt.Sprintf(printDescription, "```"),
 		printHandler,
 	)
 }
 
-func printHandler(session *CodeActSession) func(call sobek.FunctionCall) sobek.Value {
+func printHandler(session *codeact.Session) func(call sobek.FunctionCall) sobek.Value {
 	return func(call sobek.FunctionCall) sobek.Value {
 		args := make([]interface{}, len(call.Arguments))
 		for i, arg := range call.Arguments {

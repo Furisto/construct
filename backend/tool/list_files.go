@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/furisto/construct/backend/tool/codeact"
 	"github.com/grafana/sobek"
 	"github.com/spf13/afero"
 )
@@ -109,8 +110,8 @@ try {
 %[1]s
 `
 
-func NewListFilesTool() CodeActTool {
-	return NewOnDemandTool(
+func NewListFilesTool() codeact.Tool {
+	return codeact.NewOnDemandTool(
 		"list_files",
 		fmt.Sprintf(listFilesDescription, "```"),
 		listFilesHandler,
@@ -123,10 +124,10 @@ type DirectoryEntry struct {
 	Size int64  `json:"size"`
 }
 
-func listFilesHandler(session *CodeActSession) func(call sobek.FunctionCall) sobek.Value {
+func listFilesHandler(session *codeact.Session) func(call sobek.FunctionCall) sobek.Value {
 	return func(call sobek.FunctionCall) sobek.Value {
 		if len(call.Arguments) != 2 {
-			session.Throw(NewCustomError("list_files requires exactly 2 arguments: path and recursive", []string{
+			session.Throw(codeact.NewCustomError("list_files requires exactly 2 arguments: path and recursive", []string{
 				"- **path** (string, required): Absolute path to the directory you want to list (e.g., \"/workspace/project/src\"). Forward slashes (/) work on all platforms.\n" +
 					"- **recursive** (boolean, required): When set to true, lists all files and directories recursively through all subdirectories. When false only lists the top-level contents of the specified directory.",
 			}))
@@ -146,22 +147,22 @@ func listFilesHandler(session *CodeActSession) func(call sobek.FunctionCall) sob
 
 func listFiles(fsys afero.Fs, path string, recursive bool) ([]DirectoryEntry, error) {
 	if !filepath.IsAbs(path) {
-		return nil, NewError(PathIsNotAbsolute, "path", path)
+		return nil, codeact.NewError(codeact.PathIsNotAbsolute, "path", path)
 	}
 
 	fileInfo, err := fsys.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, NewError(DirectoryNotFound, "path", path)
+			return nil, codeact.NewError(codeact.DirectoryNotFound, "path", path)
 		}
 		if os.IsPermission(err) {
-			return nil, NewError(PermissionDenied, "path", path)
+			return nil, codeact.NewError(codeact.PermissionDenied, "path", path)
 		}
-		return nil, NewError(CannotStatFile, "path", path)
+		return nil, codeact.NewError(codeact.CannotStatFile, "path", path)
 	}
 
 	if !fileInfo.IsDir() {
-		return nil, NewError(PathIsNotDirectory, "path", path)
+		return nil, codeact.NewError(codeact.PathIsNotDirectory, "path", path)
 	}
 
 	var entries []DirectoryEntry
@@ -185,17 +186,17 @@ func listFiles(fsys afero.Fs, path string, recursive bool) ([]DirectoryEntry, er
 
 		if err != nil {
 			if os.IsPermission(err) {
-				return nil, NewError(PermissionDenied, "path", path)
+				return nil, codeact.NewError(codeact.PermissionDenied, "path", path)
 			}
-			return nil, NewError(GenericFileError, "path", path, "error", err)
+			return nil, codeact.NewError(codeact.GenericFileError, "path", path, "error", err)
 		}
 	} else {
 		dirEntries, err := afero.ReadDir(fsys, path)
 		if err != nil {
 			if os.IsPermission(err) {
-				return nil, NewError(PermissionDenied, "path", path)
+				return nil, codeact.NewError(codeact.PermissionDenied, "path", path)
 			}
-			return nil, NewError(GenericFileError, "path", path, "error", err)
+			return nil, codeact.NewError(codeact.GenericFileError, "path", path, "error", err)
 		}
 
 		for _, entry := range dirEntries {

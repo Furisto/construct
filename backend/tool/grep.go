@@ -3,6 +3,7 @@ package tool
 import (
 	"fmt"
 
+	"github.com/furisto/construct/backend/tool/codeact"
 	"github.com/grafana/sobek"
 )
 
@@ -118,15 +119,15 @@ type GrepResult struct {
 	Output string `json:"output"`
 }
 
-func NewGrepTool() CodeActTool {
-	return NewOnDemandTool(
+func NewGrepTool() codeact.Tool {
+	return codeact.NewOnDemandTool(
 		"regex_search",
 		fmt.Sprintf(grepDescription, "```"),
 		grepHandler,
 	)
 }
 
-func grepHandler(session *CodeActSession) func(call sobek.FunctionCall) sobek.Value {
+func grepHandler(session *codeact.Session) func(call sobek.FunctionCall) sobek.Value {
 	return func(call sobek.FunctionCall) sobek.Value {
 		// query := call.Argument(0).String()
 		// path := call.Argument(1).String()

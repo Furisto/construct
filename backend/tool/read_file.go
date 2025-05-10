@@ -6,6 +6,8 @@ import (
 
 	"github.com/grafana/sobek"
 	"github.com/spf13/afero"
+
+	"github.com/furisto/construct/backend/tool/codeact"
 )
 
 const readFileDescription = `
@@ -78,15 +80,15 @@ type ReadFileResult struct {
 	Content string `json:"content"`
 }
 
-func NewReadFileTool() CodeActTool {
-	return NewOnDemandTool(
+func NewReadFileTool() codeact.Tool {
+	return codeact.NewOnDemandTool(
 		"read_file",
 		fmt.Sprintf(readFileDescription, "```"),
 		readFileHandler,
 	)
 }
 
-func readFileHandler(session *CodeActSession) func(call sobek.FunctionCall) sobek.Value {
+func readFileHandler(session *codeact.Session) func(call sobek.FunctionCall) sobek.Value {
 	return func(call sobek.FunctionCall) sobek.Value {
 		path := call.Argument(0).String()
 
@@ -102,17 +104,17 @@ func readFileHandler(session *CodeActSession) func(call sobek.FunctionCall) sobe
 func readFile(fsys afero.Fs, path string) (*ReadFileResult, error) {
 	if _, err := fsys.Stat(path); err != nil {
 		if os.IsNotExist(err) {
-			return nil, NewError(FileNotFound, "path", path)
+			return nil, codeact.NewError(codeact.FileNotFound, "path", path)
 		}
 		if os.IsPermission(err) {
-			return nil, NewError(PermissionDenied, "path", path)
+			return nil, codeact.NewError(codeact.PermissionDenied, "path", path)
 		}
-		return nil, NewError(CannotStatFile, "path", path)
+		return nil, codeact.NewError(codeact.CannotStatFile, "path", path)
 	}
 
 	content, err := afero.ReadFile(fsys, path)
 	if err != nil {
-		return nil, NewCustomError("error reading file", []string{
+		return nil, codeact.NewCustomError("error reading file", []string{
 			"Verify that you have the permission to read the file",
 		}, "path", path, "error", err)
 	}

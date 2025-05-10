@@ -5,6 +5,8 @@ import (
 	"os/exec"
 
 	"github.com/grafana/sobek"
+
+	"github.com/furisto/construct/backend/tool/codeact"
 )
 
 const executeCommandDescription = `
@@ -99,22 +101,22 @@ type ExecuteCommandResult struct {
 	Command  string `json:"command"`
 }
 
-func NewExecuteCommandTool() CodeActTool {
-	return NewOnDemandTool(
+func NewExecuteCommandTool() codeact.Tool {
+	return codeact.NewOnDemandTool(
 		"execute_command",
 		fmt.Sprintf(executeCommandDescription, "```"),
 		executeCommandHandler,
 	)
 }
 
-func executeCommandHandler(session *CodeActSession) func(call sobek.FunctionCall) sobek.Value {
+func executeCommandHandler(session *codeact.Session) func(call sobek.FunctionCall) sobek.Value {
 	return func(call sobek.FunctionCall) sobek.Value {
 		command := call.Argument(0).String()
 
 		cmd := exec.Command(command)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
-			session.Throw(NewCustomError("error executing command", []string{
+			session.Throw(codeact.NewCustomError("error executing command", []string{
 				"Check if the command is valid and executable.",
 				"Ensure the command is properly formatted for the target operating system.",
 			}, "command", command, "error", err))

@@ -1,4 +1,4 @@
-package interpreter
+package codeact
 
 import (
 	"bytes"
@@ -6,17 +6,16 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/furisto/construct/backend/tool"
 	"github.com/grafana/sobek"
 )
 
 type Interceptor interface {
-	Intercept(session *tool.CodeActSession, tool tool.CodeActTool, inner func(sobek.FunctionCall) sobek.Value) func(sobek.FunctionCall) sobek.Value
+	Intercept(session *Session, tool Tool, inner func(sobek.FunctionCall) sobek.Value) func(sobek.FunctionCall) sobek.Value
 }
 
-type InterceptorFunc func(session *tool.CodeActSession, tool tool.CodeActTool, inner func(sobek.FunctionCall) sobek.Value) func(sobek.FunctionCall) sobek.Value
+type InterceptorFunc func(session *Session, tool Tool, inner func(sobek.FunctionCall) sobek.Value) func(sobek.FunctionCall) sobek.Value
 
-func (i InterceptorFunc) Intercept(session *tool.CodeActSession, tool tool.CodeActTool, inner func(sobek.FunctionCall) sobek.Value) func(sobek.FunctionCall) sobek.Value {
+func (i InterceptorFunc) Intercept(session *Session, tool Tool, inner func(sobek.FunctionCall) sobek.Value) func(sobek.FunctionCall) sobek.Value {
 	return i(session, tool, inner)
 }
 
@@ -28,10 +27,10 @@ type FunctionExecution struct {
 	Output   string
 }
 
-func FunctionExecutionInterceptor(session *tool.CodeActSession, codeActTool tool.CodeActTool, inner func(sobek.FunctionCall) sobek.Value) func(sobek.FunctionCall) sobek.Value {
+func FunctionExecutionInterceptor(session *Session, tool Tool, inner func(sobek.FunctionCall) sobek.Value) func(sobek.FunctionCall) sobek.Value {
 	return func(call sobek.FunctionCall) sobek.Value {
 		functionResult := FunctionExecution{
-			ToolName: codeActTool.Name(),
+			ToolName: tool.Name(),
 		}
 		for _, arg := range call.Arguments {
 			exported, err := export(arg)
@@ -48,12 +47,12 @@ func FunctionExecutionInterceptor(session *tool.CodeActSession, codeActTool tool
 		}
 		functionResult.Output = exported
 
-		executions, ok := tool.GetValue[[]FunctionExecution](session, "executions")
+		executions, ok := GetValue[[]FunctionExecution](session, "executions")
 		if !ok {
 			executions = []FunctionExecution{}
 		}
 		executions = append(executions, functionResult)
-		tool.SetValue(session, "executions", executions)
+		SetValue(session, "executions", executions)
 		return result
 	}
 }
@@ -65,21 +64,21 @@ func export(value sobek.Value) (string, error) {
 	case *sobek.Object:
 		jsonObject, err := kind.MarshalJSON()
 		if err != nil {
-			return "", tool.NewError(tool.Internal, "failed to marshal object")
+			return "", NewError(Internal, "failed to marshal object")
 		}
 		var prettyJSON bytes.Buffer
 		err = json.Indent(&prettyJSON, jsonObject, "", "  ")
 		if err != nil {
-			return "", tool.NewError(tool.Internal, "failed to format object")
+			return "", NewError(Internal, "failed to format object")
 		} else {
 			return prettyJSON.String(), nil
 		}
 	default:
-		return "", tool.NewError(tool.Internal, fmt.Sprintf("unknown type: %T", kind))
+		return "", NewError(Internal, fmt.Sprintf("unknown type: %T", kind))
 	}
 }
 
-func ToolNameInterceptor(session *tool.CodeActSession, tool tool.CodeActTool, inner func(sobek.FunctionCall) sobek.Value) func(sobek.FunctionCall) sobek.Value {
+func ToolNameInterceptor(session *Session, tool Tool, inner func(sobek.FunctionCall) sobek.Value) func(sobek.FunctionCall) sobek.Value {
 	return func(call sobek.FunctionCall) sobek.Value {
 		session.CurrentTool = tool.Name()
 		res := inner(call)

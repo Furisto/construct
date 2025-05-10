@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/furisto/construct/backend/agent/conv"
-	"github.com/furisto/construct/backend/agent/interpreter"
 	"github.com/furisto/construct/backend/api"
 	"github.com/furisto/construct/backend/memory"
 	memory_message "github.com/furisto/construct/backend/memory/message"
@@ -25,7 +24,7 @@ import (
 	"github.com/furisto/construct/backend/model"
 	"github.com/furisto/construct/backend/secret"
 	"github.com/furisto/construct/backend/stream"
-	"github.com/furisto/construct/backend/tool"
+	"github.com/furisto/construct/backend/tool/codeact"
 	"github.com/google/uuid"
 	"github.com/spf13/afero"
 	"k8s.io/client-go/util/workqueue"
@@ -34,14 +33,14 @@ import (
 const DefaultServerPort = 29333
 
 type RuntimeOptions struct {
-	Tools       []tool.CodeActTool
+	Tools       []codeact.Tool
 	Concurrency int
 	ServerPort  int
 }
 
 func DefaultRuntimeOptions() *RuntimeOptions {
 	return &RuntimeOptions{
-		Tools:       []tool.CodeActTool{},
+		Tools:       []codeact.Tool{},
 		Concurrency: 5,
 		ServerPort:  DefaultServerPort,
 	}
@@ -49,7 +48,7 @@ func DefaultRuntimeOptions() *RuntimeOptions {
 
 type RuntimeOption func(*RuntimeOptions)
 
-func WithCodeActTools(tools ...tool.CodeActTool) RuntimeOption {
+func WithCodeActTools(tools ...codeact.Tool) RuntimeOption {
 	return func(o *RuntimeOptions) {
 		o.Tools = tools
 	}
@@ -75,7 +74,7 @@ type Runtime struct {
 	concurrency int
 	queue       workqueue.TypedDelayingInterface[uuid.UUID]
 	running     atomic.Bool
-	interpreter *interpreter.CodeInterpreter
+	interpreter *codeact.Interpreter
 }
 
 func NewRuntime(memory *memory.Client, encryption *secret.Client, opts ...RuntimeOption) (*Runtime, error) {
@@ -100,7 +99,7 @@ func NewRuntime(memory *memory.Client, encryption *secret.Client, opts ...Runtim
 		eventHub:    messageHub,
 		concurrency: options.Concurrency,
 		queue:       queue,
-		interpreter: interpreter.NewCodeInterpreter(options.Tools...),
+		interpreter: codeact.NewInterpreter(options.Tools...),
 	}
 
 	api := api.NewServer(runtime, options.ServerPort)

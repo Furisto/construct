@@ -1,4 +1,4 @@
-package interpreter
+package codeact
 
 import (
 	"bytes"
@@ -6,34 +6,33 @@ import (
 	"encoding/json"
 	"os"
 
-	"github.com/furisto/construct/backend/tool"
 	"github.com/grafana/sobek"
 	"github.com/invopop/jsonschema"
 	"github.com/spf13/afero"
 )
 
-type CodeInterpreterArgs struct {
+type InterpreterArgs struct {
 	Script string `json:"script"`
 }
 
-type CodeInterpreterResult struct {
+type InterpreterResult struct {
 	ConsoleOutput      string
 	FunctionExecutions []FunctionExecution
 }
 
-type CodeInterpreter struct {
-	Tools        []tool.CodeActTool
+type Interpreter struct {
+	Tools        []Tool
 	Interceptors []Interceptor
 
 	inputSchema any
 }
 
-func NewCodeInterpreter(tools ...tool.CodeActTool) *CodeInterpreter {
+func NewInterpreter(tools ...Tool) *Interpreter {
 	reflector := jsonschema.Reflector{
 		AllowAdditionalProperties: false,
 		DoNotReference:            true,
 	}
-	var args CodeInterpreterArgs
+	var args InterpreterArgs
 	reflected := reflector.Reflect(args)
 	inputSchema := map[string]interface{}{
 		"type":       "object",
@@ -45,31 +44,31 @@ func NewCodeInterpreter(tools ...tool.CodeActTool) *CodeInterpreter {
 		InterceptorFunc(ToolNameInterceptor),
 	}
 
-	return &CodeInterpreter{
+	return &Interpreter{
 		Tools:        tools,
 		Interceptors: interceptors,
 		inputSchema:  inputSchema,
 	}
 }
 
-func (c *CodeInterpreter) Name() string {
+func (c *Interpreter) Name() string {
 	return "code_interpreter"
 }
 
-func (c *CodeInterpreter) Description() string {
+func (c *Interpreter) Description() string {
 	return "Can be used to call tools using Javascript syntax. Write a complete javascript program and use only the functions that have been specified. If you use any other functions the tool call will fail."
 }
 
-func (c *CodeInterpreter) Schema() any {
+func (c *Interpreter) Schema() any {
 	return c.inputSchema
 }
 
-func (c *CodeInterpreter) Run(ctx context.Context, fsys afero.Fs, input json.RawMessage) (string, error) {
+func (c *Interpreter) Run(ctx context.Context, fsys afero.Fs, input json.RawMessage) (string, error) {
 	return "", nil
 }
 
-func (c *CodeInterpreter) Interpret(ctx context.Context, fsys afero.Fs, input json.RawMessage) (*CodeInterpreterResult, error) {
-	var args CodeInterpreterArgs
+func (c *Interpreter) Interpret(ctx context.Context, fsys afero.Fs, input json.RawMessage) (*InterpreterResult, error) {
+	var args InterpreterArgs
 	err := json.Unmarshal(input, &args)
 	if err != nil {
 		return nil, err
@@ -79,14 +78,14 @@ func (c *CodeInterpreter) Interpret(ctx context.Context, fsys afero.Fs, input js
 	vm.SetFieldNameMapper(sobek.TagFieldNameMapper("json", true))
 
 	var stdout bytes.Buffer
-	session := &tool.CodeActSession{
+	session := &Session{
 		VM:     vm,
 		System: &stdout,
 		FS:     fsys,
 	}
 
 	for _, tool := range c.Tools {
-		vm.Set(tool.Name(), c.intercept(session, tool, tool.ToolCallback(session)))
+		vm.Set(tool.Name(), c.intercept(session, tool, tool.ToolHandler(session)))
 	}
 
 	done := make(chan error)
@@ -102,18 +101,18 @@ func (c *CodeInterpreter) Interpret(ctx context.Context, fsys afero.Fs, input js
 	_, err = vm.RunString(args.Script)
 	close(done)
 
-	executions, ok := tool.GetValue[[]FunctionExecution](session, "executions")
+	executions, ok := GetValue[[]FunctionExecution](session, "executions")
 	if !ok {
 		executions = []FunctionExecution{}
 	}
 
-	return &CodeInterpreterResult{
+	return &InterpreterResult{
 		ConsoleOutput:      stdout.String(),
 		FunctionExecutions: executions,
 	}, err
 }
 
-func (c *CodeInterpreter) intercept(session *tool.CodeActSession, toolName tool.CodeActTool, inner func(sobek.FunctionCall) sobek.Value) func(sobek.FunctionCall) sobek.Value {
+func (c *Interpreter) intercept(session *Session, toolName Tool, inner func(sobek.FunctionCall) sobek.Value) func(sobek.FunctionCall) sobek.Value {
 	return func(call sobek.FunctionCall) sobek.Value {
 		for _, interceptor := range c.Interceptors {
 			inner = interceptor.Intercept(session, toolName, inner)
