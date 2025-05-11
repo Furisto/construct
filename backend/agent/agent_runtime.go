@@ -14,7 +14,6 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/furisto/construct/backend/agent/conv"
 	"github.com/furisto/construct/backend/api"
 	"github.com/furisto/construct/backend/memory"
 	memory_message "github.com/furisto/construct/backend/memory/message"
@@ -301,14 +300,14 @@ func (rt *Runtime) prepareModelData(
 ) ([]*model.Message, error) {
 	modelMessages := make([]*model.Message, 0, len(processedMessages))
 	for _, msg := range processedMessages {
-		modelMsg, err := conv.ConvertMemoryMessageToModel(msg)
+		modelMsg, err := ConvertMemoryMessageToModel(msg)
 		if err != nil {
 			return nil, err
 		}
 		modelMessages = append(modelMessages, modelMsg)
 	}
 
-	modelMsg, err := conv.ConvertMemoryMessageToModel(nextMessage)
+	modelMsg, err := ConvertMemoryMessageToModel(nextMessage)
 	if err != nil {
 		return nil, err
 	}
@@ -404,7 +403,7 @@ func (rt *Runtime) saveResponse(ctx context.Context, taskID uuid.UUID, processed
 		return nil, err
 	}
 
-	memoryContent, err := conv.ConvertModelContentBlocksToMemory(resp.Message.Content)
+	memoryContent, err := ConvertModelContentBlocksToMemory(resp.Message.Content)
 	if err != nil {
 		return nil, err
 	}
@@ -445,8 +444,8 @@ func (rt *Runtime) saveResponse(ctx context.Context, taskID uuid.UUID, processed
 	return newMessage, nil
 }
 
-func (rt *Runtime) callTools(ctx context.Context, taskID uuid.UUID, content []model.ContentBlock) error {
-	var toolResults []types.CodeInterpreterResult
+func (rt *Runtime) callTools(ctx context.Context, task *memory.Task, content []model.ContentBlock) error {
+	var toolResults []InterpreterToolResult
 
 	for _, block := range content {
 		toolCall, ok := block.(*model.ToolCallBlock)
@@ -459,14 +458,15 @@ func (rt *Runtime) callTools(ctx context.Context, taskID uuid.UUID, content []mo
 			continue
 		}
 
-		result, err := rt.interpreter.Run(ctx, afero.NewBasePathFs(afero.NewOsFs(), "/tmp/repo"), toolCall.Args)
+		result, err := rt.interpreter.Interpret(ctx, afero.NewBasePathFs(afero.NewOsFs(), "/tmp/repo"), toolCall.Args)
 		if err != nil {
 			return err
 		}
 
-		toolResults = append(toolResults, types.CodeInterpreterResult{
+		toolResults = append(toolResults, InterpreterToolResult{
 			ID:     toolCall.ID,
-			Result: result,
+			Output: result,
+			Error:  err,
 		})
 	}
 
@@ -552,4 +552,10 @@ func (rt *Runtime) TriggerReconciliation(taskID uuid.UUID) {
 
 func (rt *Runtime) EventHub() *stream.EventHub {
 	return rt.eventHub
+}
+
+type InterpreterToolResult struct {
+	ID     string                     `json:"id"`
+	Output *codeact.InterpreterResult `json:"result"`
+	Error  error                      `json:"error"`
 }
