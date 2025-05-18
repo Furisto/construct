@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 
+	"github.com/google/uuid"
 	"github.com/grafana/sobek"
 	"github.com/invopop/jsonschema"
 	"github.com/spf13/afero"
@@ -17,7 +18,7 @@ type InterpreterArgs struct {
 
 type InterpreterResult struct {
 	ConsoleOutput      string
-	FunctionExecutions []FunctionExecution
+	FunctionExecutions []FunctionCall
 }
 
 type Interpreter struct {
@@ -40,7 +41,7 @@ func NewInterpreter(tools ...Tool) *Interpreter {
 	}
 
 	interceptors := []Interceptor{
-		InterceptorFunc(FunctionExecutionInterceptor),
+		InterceptorFunc(FunctionCallLogInterceptor),
 		InterceptorFunc(ToolNameInterceptor),
 	}
 
@@ -78,11 +79,7 @@ func (c *Interpreter) Interpret(ctx context.Context, fsys afero.Fs, input json.R
 	vm.SetFieldNameMapper(sobek.TagFieldNameMapper("json", true))
 
 	var stdout bytes.Buffer
-	session := &Session{
-		VM:     vm,
-		System: &stdout,
-		FS:     fsys,
-	}
+	session := NewSession(uuid.New(), vm, &stdout, &stdout, fsys)
 
 	for _, tool := range c.Tools {
 		vm.Set(tool.Name(), c.intercept(session, tool, tool.ToolHandler(session)))
@@ -101,9 +98,9 @@ func (c *Interpreter) Interpret(ctx context.Context, fsys afero.Fs, input json.R
 	_, err = vm.RunString(args.Script)
 	close(done)
 
-	executions, ok := GetValue[[]FunctionExecution](session, "executions")
+	executions, ok := GetValue[[]FunctionCall](session, "executions")
 	if !ok {
-		executions = []FunctionExecution{}
+		executions = []FunctionCall{}
 	}
 
 	return &InterpreterResult{
@@ -119,4 +116,10 @@ func (c *Interpreter) intercept(session *Session, toolName Tool, inner func(sobe
 		}
 		return inner(call)
 	}
+}
+
+type InterpreterToolResult struct {
+	ID     string             `json:"id"`
+	Output *InterpreterResult `json:"result"`
+	Error  error              `json:"error"`
 }
