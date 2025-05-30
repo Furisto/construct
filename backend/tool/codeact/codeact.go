@@ -1,19 +1,25 @@
 package codeact
 
 import (
+	"context"
+	"errors"
 	"io"
 
+	"github.com/furisto/construct/backend/memory"
 	"github.com/google/uuid"
 	"github.com/grafana/sobek"
 	"github.com/spf13/afero"
 )
 
 type Session struct {
+	Context context.Context
 	TaskID uuid.UUID
+	AgentID uuid.UUID
 	VM     *sobek.Runtime
 	System io.Writer
 	User   io.Writer
 	FS     afero.Fs
+	Memory *memory.Client
 
 	CurrentTool string
 	values      map[string]any
@@ -32,6 +38,11 @@ func NewSession(taskID uuid.UUID, vm *sobek.Runtime, system io.Writer, user io.W
 }
 
 func (s *Session) Throw(err error) {
+	var toolErr *ToolError
+	if errors.As(err, &toolErr) {
+		toolErr.Details["toolName"] = s.CurrentTool
+	}
+
 	jsErr := s.VM.NewGoError(err)
 	panic(jsErr)
 }
