@@ -2,7 +2,6 @@ package tool
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 
 	"github.com/furisto/construct/backend/memory"
@@ -10,6 +9,7 @@ import (
 	"github.com/furisto/construct/backend/memory/test"
 	"github.com/furisto/construct/backend/tool/codeact"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/google/uuid"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -17,7 +17,7 @@ import (
 
 func TestHandoff(t *testing.T) {
 	t.Parallel()
-	
+
 	type DatabaseResult struct {
 		AssignedAgent   uuid.UUID
 		HandoverMessage string
@@ -46,18 +46,7 @@ func TestHandoff(t *testing.T) {
 			return result, nil
 		},
 		CmpOptions: []cmp.Option{
-			cmp.Transformer("ErrorMessageOnly", func(err string) string {
-				var errorObj map[string]interface{}
-				if json.Unmarshal([]byte(err), &errorObj) != nil {
-					return err
-				}
-				if msg, ok := errorObj["Message"]; ok {
-					if msgStr, ok := msg.(string); ok {
-						return msgStr
-					}
-				}
-				return err
-			}),
+			cmpopts.IgnoreFields(codeact.ToolError{}, "Suggestions"),
 		},
 	}
 
@@ -70,7 +59,7 @@ func TestHandoff(t *testing.T) {
 				RequestedAgent: "source",
 			},
 			Expected: ToolTestExpectation[struct{}]{
-				Error: codeact.NewCustomError("failed to get current agent: agent not found", []string{}).Error(),
+				Error: codeact.NewCustomError("failed to get current agent: agent not found", []string{}),
 			},
 		},
 		{
@@ -92,7 +81,7 @@ func TestHandoff(t *testing.T) {
 			Expected: ToolTestExpectation[struct{}]{
 				Error: codeact.NewCustomError("agent target does not exist", []string{
 					"Check the agent name and try again",
-				}).Error(),
+				}),
 			},
 		},
 		{
@@ -106,7 +95,6 @@ func TestHandoff(t *testing.T) {
 					Build(ctx)
 
 				test.NewAgentBuilder(t, targetAgentID, db, model).
-					WithID(test.AgentID2()).
 					WithName("target").
 					Build(ctx)
 			},
@@ -116,7 +104,7 @@ func TestHandoff(t *testing.T) {
 				RequestedAgent: "target",
 			},
 			Expected: ToolTestExpectation[struct{}]{
-				Error: "memory: task not found",
+				Error: codeact.NewCustomError("failed to get task: task not found", []string{}),
 			},
 		},
 		{
@@ -194,7 +182,7 @@ func TestHandoff(t *testing.T) {
 				RequestedAgent: "source",
 			},
 			Expected: ToolTestExpectation[struct{}]{
-				Error: "agent cannot handoff to itself",
+				Error: codeact.NewCustomError("agent cannot handoff to itself", []string{}),
 			},
 		},
 	})

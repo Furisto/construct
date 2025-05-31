@@ -14,7 +14,7 @@ import (
 
 const handoffDescription = `
 ## Description
-Delegates the current task to the specified agent. It allows for controlled delegation by optionally setting a maximum number of turns for the receiving agent. Once the target agent completes its task, reaches its max_turns limit, or hands off further, control may return to the original calling agent or proceed according to the defined system workflow.
+Delegates the current task to the specified agent.
 
 ## Parameters
 - **agent_name** (string, required): The unique name or identifier of the target agent to which the conversation or task will be handed off. This must be a known and available agent in the system. 
@@ -104,7 +104,7 @@ func handoff(ctx context.Context, db *memory.Client, input *HandoffInput) error 
 		currentAgent, err := tx.Agent.Query().Where(agent.IDEQ(input.CurrentAgentID)).WithModel().Only(ctx)
 		if err != nil {
 			return nil, codeact.NewCustomError(fmt.Sprintf("failed to get current agent: %v", memory.SanitizeError(err)), []string{
-				"This is likely due to a bug in the system. Retrying this operation probably won't help.",
+				"This is likely due to a bug in the system or the agent being deleted in the meantime. Retrying this operation probably won't help.",
 				"Ask the user how to proceed",
 			})
 		}
@@ -127,7 +127,10 @@ func handoff(ctx context.Context, db *memory.Client, input *HandoffInput) error 
 
 		task, err := tx.Task.Get(ctx, input.TaskID)
 		if err != nil {
-			return nil, err
+			return nil, codeact.NewCustomError(fmt.Sprintf("failed to get task: %v", memory.SanitizeError(err)), []string{
+				"This is likely due to a bug in the system or the task being deleted in the meantime. Retrying this operation probably won't help.",
+				"Ask the user how to proceed",
+			})
 		}
 
 		_, err = task.Update().SetAgent(requestedAgent).Save(ctx)
