@@ -9,59 +9,6 @@ import (
 	"github.com/google/uuid"
 )
 
-var (
-	modelProviderID  = uuid.MustParse("0195fc02-59ef-7194-93d5-387400b068cb")
-	modelProviderID2 = uuid.MustParse("01963a4e-62c7-7de8-8e7d-95a68b287927")
-	modelID          = uuid.MustParse("0195fbbe-adda-76cf-be67-9f1b64b50a4a")
-	modelID2         = uuid.MustParse("01963a4f-efe4-713e-915a-da933983c193")
-	agentID          = uuid.MustParse("0195fbbe-42e1-75fe-8e08-28758035ff95")
-	agentID2         = uuid.MustParse("0195fd1c-04c3-7576-aae7-2409b325b350")
-	taskID           = uuid.MustParse("0195fbbe-0be8-74b1-af7a-6e76e80e2462")
-	taskID2          = uuid.MustParse("0195fd1c-2b8d-75c7-b30d-858e67825ac3")
-	messageID        = uuid.MustParse("0195fbbd-757d-7db6-83c2-f556128b4586")
-	messageID2       = uuid.MustParse("0195fd1c-58fc-7960-85ef-e05cf64db136")
-)
-
-func ModelProviderID() uuid.UUID {
-	return modelProviderID
-}
-
-func ModelProviderID2() uuid.UUID {
-	return modelProviderID2
-}
-
-func ModelID() uuid.UUID {
-	return modelID
-}
-
-func ModelID2() uuid.UUID {
-	return modelID2
-}
-
-func AgentID() uuid.UUID {
-	return agentID
-}
-
-func AgentID2() uuid.UUID {
-	return agentID2
-}
-
-func TaskID() uuid.UUID {
-	return taskID
-}
-
-func TaskID2() uuid.UUID {
-	return taskID2
-}
-
-func MessageID() uuid.UUID {
-	return messageID
-}
-
-func MessageID2() uuid.UUID {
-	return messageID2
-}
-
 type entityBuilder struct {
 	db *memory.Client
 	t  *testing.T
@@ -92,10 +39,10 @@ type ModelProviderBuilder struct {
 	enabled      bool
 }
 
-func NewModelProviderBuilder(t *testing.T, db *memory.Client) *ModelProviderBuilder {
+func NewModelProviderBuilder(t *testing.T, id uuid.UUID, db *memory.Client) *ModelProviderBuilder {
 	return &ModelProviderBuilder{
 		entityBuilder:   newEntityBuilder(t, db),
-		modelProviderID: ModelProviderID(),
+		modelProviderID: id,
 		providerType:    types.ModelProviderTypeAnthropic,
 		name:            "anthropic",
 		secret:          []byte("mock-secret"),
@@ -156,7 +103,7 @@ type ModelBuilder struct {
 	enabled        bool
 }
 
-func NewModelBuilder(t *testing.T, db *memory.Client, modelProvider *memory.ModelProvider) *ModelBuilder {
+func NewModelBuilder(t *testing.T, id uuid.UUID, db *memory.Client, modelProvider *memory.ModelProvider) *ModelBuilder {
 	if modelProvider == nil {
 		t.Fatal("model provider is required")
 	}
@@ -164,7 +111,7 @@ func NewModelBuilder(t *testing.T, db *memory.Client, modelProvider *memory.Mode
 	return &ModelBuilder{
 		entityBuilder:   newEntityBuilder(t, db),
 		modelProviderID: modelProvider.ID,
-		modelID:         ModelID(),
+		modelID:         id,
 		name:            "claude-3-7-sonnet-20250219",
 		alias:           "claude-3-7-sonnet",
 		contextWindow:   200_000,
@@ -315,20 +262,20 @@ type MessageBuilder struct {
 
 	agentID uuid.UUID
 	modelID uuid.UUID
-	source    types.MessageSource
+	source  types.MessageSource
 	content *types.MessageContent
 }
 
-func NewMessageBuilder(t *testing.T, db *memory.Client, task *memory.Task) *MessageBuilder {
+func NewMessageBuilder(t *testing.T, id uuid.UUID, db *memory.Client, task *memory.Task) *MessageBuilder {
 	if task == nil {
 		t.Fatal("task is required")
 	}
 
 	return &MessageBuilder{
 		entityBuilder: newEntityBuilder(t, db),
-		messageID:     MessageID(),
+		messageID:     id,
 		taskID:        task.ID,
-		source:          types.MessageSourceUser,
+		source:        types.MessageSourceUser,
 		content: &types.MessageContent{Blocks: []types.MessageBlock{
 			{
 				Kind:    types.MessageBlockKindText,

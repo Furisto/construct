@@ -27,10 +27,10 @@ func ConvertTaskMetadataToProto(t *memory.Task) *v1.TaskMetadata {
 }
 
 func ConvertTaskSpecToProto(t *memory.Task) (*v1.TaskSpec, error) {
-	task := &v1.TaskSpec{}
-
-	task.AgentId = strPtr(t.AgentID.String())
-	return task, nil
+	return &v1.TaskSpec{
+		AgentId:          strPtr(t.AgentID.String()),
+		ProjectDirectory: t.ProjectDirectory,
+	}, nil
 }
 
 func ConvertTaskStatusToProto(t *memory.Task) *v1.TaskStatus {

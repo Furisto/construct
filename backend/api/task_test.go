@@ -29,16 +29,51 @@ func TestCreateTask(t *testing.T) {
 		},
 	}
 
+	agentID := uuid.New()
+	modelID := uuid.New()
+
 	setup.RunServiceTests(t, []ServiceTestScenario[v1.CreateTaskRequest, v1.CreateTaskResponse]{
 		{
-			Name:    "success",
-			Request: &v1.CreateTaskRequest{},
+			Name: "invalid agent ID format",
+			Request: &v1.CreateTaskRequest{
+				AgentId:          "not-a-valid-uuid",
+				ProjectDirectory: "/tmp/test",
+			},
+			Expected: ServiceTestExpectation[v1.CreateTaskResponse]{
+				Error: "invalid_argument: invalid agent ID format: invalid UUID length: 16",
+			},
+		},
+		{
+			Name: "agent not found",
+			Request: &v1.CreateTaskRequest{
+				AgentId:          agentID.String(),
+				ProjectDirectory: "/tmp/test",
+			},
+			Expected: ServiceTestExpectation[v1.CreateTaskResponse]{
+				Error: "not_found: agent not found",
+			},
+		},
+		{
+			Name: "success",
+			SeedDatabase: func(ctx context.Context, db *memory.Client) {
+				modelProvider := test.NewModelProviderBuilder(t, uuid.New(), db).Build(ctx)
+				model := test.NewModelBuilder(t, modelID, db, modelProvider).Build(ctx)
+
+				test.NewAgentBuilder(t, agentID, db, model).Build(ctx)
+			},
+			Request: &v1.CreateTaskRequest{
+				AgentId:          agentID.String(),
+				ProjectDirectory: "/tmp/test",
+			},
 			Expected: ServiceTestExpectation[v1.CreateTaskResponse]{
 				Response: v1.CreateTaskResponse{
 					Task: &v1.Task{
 						Metadata: &v1.TaskMetadata{},
-						Spec:     &v1.TaskSpec{},
-						Status:   &v1.TaskStatus{Usage: &v1.TaskUsage{}},
+						Spec: &v1.TaskSpec{
+							AgentId:          strPtr(agentID.String()),
+							ProjectDirectory: "/tmp/test",
+						},
+						Status: &v1.TaskStatus{Usage: &v1.TaskUsage{}},
 					},
 				},
 			},
@@ -58,6 +93,10 @@ func TestGetTask(t *testing.T) {
 		},
 	}
 
+	taskID := uuid.New()
+	agentID := uuid.New()
+	modelID := uuid.New()
+
 	setup.RunServiceTests(t, []ServiceTestScenario[v1.GetTaskRequest, v1.GetTaskResponse]{
 		{
 			Name: "invalid id format",
@@ -71,7 +110,7 @@ func TestGetTask(t *testing.T) {
 		{
 			Name: "task not found",
 			Request: &v1.GetTaskRequest{
-				Id: test.TaskID().String(),
+				Id: taskID.String(),
 			},
 			Expected: ServiceTestExpectation[v1.GetTaskResponse]{
 				Error: "not_found: task not found",
@@ -80,22 +119,22 @@ func TestGetTask(t *testing.T) {
 		{
 			Name: "success",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
-				model := test.NewModelBuilder(t, db, modelProvider).Build(ctx)
+				modelProvider := test.NewModelProviderBuilder(t, uuid.New(), db).Build(ctx)
+				model := test.NewModelBuilder(t, modelID, db, modelProvider).Build(ctx)
 
-				agent := test.NewAgentBuilder(t, db, model).Build(ctx)
-				test.NewTaskBuilder(t, db, agent).Build(ctx)
+				agent := test.NewAgentBuilder(t, agentID, db, model).Build(ctx)
+				test.NewTaskBuilder(t, taskID, db, agent).Build(ctx)
 			},
 			Request: &v1.GetTaskRequest{
-				Id: test.TaskID().String(),
+				Id: taskID.String(),
 			},
 			Expected: ServiceTestExpectation[v1.GetTaskResponse]{
 				Response: v1.GetTaskResponse{
 					Task: &v1.Task{
-						Id:       test.TaskID().String(),
+						Id:       taskID.String(),
 						Metadata: &v1.TaskMetadata{},
 						Spec: &v1.TaskSpec{
-							AgentId: strPtr(test.AgentID().String()),
+							AgentId: strPtr(agentID.String()),
 						},
 						Status: &v1.TaskStatus{
 							Usage: &v1.TaskUsage{},
@@ -119,6 +158,11 @@ func TestListTasks(t *testing.T) {
 		},
 	}
 
+	taskID1 := uuid.New()
+	taskID2 := uuid.New()
+	agentID := uuid.New()
+	modelID := uuid.New()
+
 	setup.RunServiceTests(t, []ServiceTestScenario[v1.ListTasksRequest, v1.ListTasksResponse]{
 		{
 			Name:    "empty list",
@@ -132,30 +176,28 @@ func TestListTasks(t *testing.T) {
 		{
 			Name: "filter by agent ID",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
-				model := test.NewModelBuilder(t, db, modelProvider).Build(ctx)
+				modelProvider := test.NewModelProviderBuilder(t, uuid.New(), db).Build(ctx)
+				model := test.NewModelBuilder(t, modelID, db, modelProvider).Build(ctx)
 
-				agent1 := test.NewAgentBuilder(t, db, model).Build(ctx)
-				agent2 := test.NewAgentBuilder(t, db, model).WithID(uuid.New()).Build(ctx)
+				agent1 := test.NewAgentBuilder(t, agentID, db, model).Build(ctx)
+				agent2 := test.NewAgentBuilder(t, uuid.New(), db, model).WithID(uuid.New()).Build(ctx)
 
-				test.NewTaskBuilder(t, db, agent1).Build(ctx)
-				test.NewTaskBuilder(t, db, agent2).
-					WithID(test.TaskID2()).
-					Build(ctx)
+				test.NewTaskBuilder(t, taskID1, db, agent1).Build(ctx)
+				test.NewTaskBuilder(t, taskID2, db, agent2).Build(ctx)
 			},
 			Request: &v1.ListTasksRequest{
 				Filter: &v1.ListTasksRequest_Filter{
-					AgentId: strPtr(test.AgentID().String()),
+					AgentId: strPtr(agentID.String()),
 				},
 			},
 			Expected: ServiceTestExpectation[v1.ListTasksResponse]{
 				Response: v1.ListTasksResponse{
 					Tasks: []*v1.Task{
 						{
-							Id:       test.TaskID().String(),
+							Id:       taskID1.String(),
 							Metadata: &v1.TaskMetadata{},
 							Spec: &v1.TaskSpec{
-								AgentId: strPtr(test.AgentID().String()),
+								AgentId: strPtr(agentID.String()),
 							},
 							Status: &v1.TaskStatus{
 								Usage: &v1.TaskUsage{},
@@ -179,36 +221,33 @@ func TestListTasks(t *testing.T) {
 		{
 			Name: "multiple tasks",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
-				model := test.NewModelBuilder(t, db, modelProvider).Build(ctx)
+				modelProvider := test.NewModelProviderBuilder(t, uuid.New(), db).Build(ctx)
+				model := test.NewModelBuilder(t, modelID, db, modelProvider).Build(ctx)
 
-				agent1 := test.NewAgentBuilder(t, db, model).Build(ctx)
+				agent1 := test.NewAgentBuilder(t, agentID, db, model).Build(ctx)
 
-				test.NewTaskBuilder(t, db, agent1).Build(ctx)
-
-				test.NewTaskBuilder(t, db, agent1).
-					WithID(test.TaskID2()).
-					Build(ctx)
+				test.NewTaskBuilder(t, taskID1, db, agent1).Build(ctx)
+				test.NewTaskBuilder(t, taskID2, db, agent1).Build(ctx)
 			},
 			Request: &v1.ListTasksRequest{},
 			Expected: ServiceTestExpectation[v1.ListTasksResponse]{
 				Response: v1.ListTasksResponse{
 					Tasks: []*v1.Task{
 						{
-							Id:       test.TaskID().String(),
+							Id:       taskID1.String(),
 							Metadata: &v1.TaskMetadata{},
 							Spec: &v1.TaskSpec{
-								AgentId: strPtr(test.AgentID().String()),
+								AgentId: strPtr(agentID.String()),
 							},
 							Status: &v1.TaskStatus{
 								Usage: &v1.TaskUsage{},
 							},
 						},
 						{
-							Id:       test.TaskID2().String(),
+							Id:       taskID2.String(),
 							Metadata: &v1.TaskMetadata{},
 							Spec: &v1.TaskSpec{
-								AgentId: strPtr(test.AgentID().String()),
+								AgentId: strPtr(agentID.String()),
 							},
 							Status: &v1.TaskStatus{
 								Usage: &v1.TaskUsage{},
@@ -233,6 +272,11 @@ func TestUpdateTask(t *testing.T) {
 		},
 	}
 
+	taskID := uuid.New()
+	agentID := uuid.New()
+	agentID2 := uuid.New()
+	modelID := uuid.New()
+
 	setup.RunServiceTests(t, []ServiceTestScenario[v1.UpdateTaskRequest, v1.UpdateTaskResponse]{
 		{
 			Name: "invalid task ID format",
@@ -246,8 +290,8 @@ func TestUpdateTask(t *testing.T) {
 		{
 			Name: "task not found",
 			Request: &v1.UpdateTaskRequest{
-				Id:      test.TaskID().String(),
-				AgentId: strPtr(test.AgentID().String()),
+				Id:      taskID.String(),
+				AgentId: strPtr(agentID.String()),
 			},
 			Expected: ServiceTestExpectation[v1.UpdateTaskResponse]{
 				Error: "not_found: task not found",
@@ -256,14 +300,14 @@ func TestUpdateTask(t *testing.T) {
 		{
 			Name: "invalid agent ID format",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
-				model := test.NewModelBuilder(t, db, modelProvider).Build(ctx)
+				modelProvider := test.NewModelProviderBuilder(t, uuid.New(), db).Build(ctx)
+				model := test.NewModelBuilder(t, modelID, db, modelProvider).Build(ctx)
 
-				agent := test.NewAgentBuilder(t, db, model).Build(ctx)
-				test.NewTaskBuilder(t, db, agent).Build(ctx)
+				agent := test.NewAgentBuilder(t, agentID, db, model).Build(ctx)
+				test.NewTaskBuilder(t, taskID, db, agent).Build(ctx)
 			},
 			Request: &v1.UpdateTaskRequest{
-				Id:      test.TaskID().String(),
+				Id:      taskID.String(),
 				AgentId: strPtr("not-a-valid-uuid"),
 			},
 			Expected: ServiceTestExpectation[v1.UpdateTaskResponse]{
@@ -273,17 +317,15 @@ func TestUpdateTask(t *testing.T) {
 		{
 			Name: "agent not found",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
-				model := test.NewModelBuilder(t, db, modelProvider).Build(ctx)
+				modelProvider := test.NewModelProviderBuilder(t, uuid.New(), db).Build(ctx)
+				model := test.NewModelBuilder(t, modelID, db, modelProvider).Build(ctx)
 
-				agent := test.NewAgentBuilder(t, db, model).
-					Build(ctx)
-
-				test.NewTaskBuilder(t, db, agent).Build(ctx)
+				agent := test.NewAgentBuilder(t, agentID, db, model).Build(ctx)
+				test.NewTaskBuilder(t, taskID, db, agent).Build(ctx)
 			},
 			Request: &v1.UpdateTaskRequest{
-				Id:      test.TaskID().String(),
-				AgentId: strPtr(test.AgentID2().String()),
+				Id:      taskID.String(),
+				AgentId: strPtr(agentID2.String()),
 			},
 			Expected: ServiceTestExpectation[v1.UpdateTaskResponse]{
 				Error: "not_found: agent not found",
@@ -292,27 +334,25 @@ func TestUpdateTask(t *testing.T) {
 		{
 			Name: "success - update agent",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
-				model := test.NewModelBuilder(t, db, modelProvider).Build(ctx)
+				modelProvider := test.NewModelProviderBuilder(t, uuid.New(), db).Build(ctx)
+				model := test.NewModelBuilder(t, modelID, db, modelProvider).Build(ctx)
 
-				agent1 := test.NewAgentBuilder(t, db, model).Build(ctx)
-				test.NewAgentBuilder(t, db, model).
-					WithID(test.AgentID2()).
-					Build(ctx)
+				agent1 := test.NewAgentBuilder(t, agentID, db, model).Build(ctx)
+				test.NewAgentBuilder(t, agentID2, db, model).Build(ctx)
 
-				test.NewTaskBuilder(t, db, agent1).Build(ctx)
+				test.NewTaskBuilder(t, taskID, db, agent1).Build(ctx)
 			},
 			Request: &v1.UpdateTaskRequest{
-				Id:      test.TaskID().String(),
-				AgentId: strPtr(test.AgentID2().String()),
+				Id:      taskID.String(),
+				AgentId: strPtr(agentID2.String()),
 			},
 			Expected: ServiceTestExpectation[v1.UpdateTaskResponse]{
 				Response: v1.UpdateTaskResponse{
 					Task: &v1.Task{
-						Id:       test.TaskID().String(),
+						Id:       taskID.String(),
 						Metadata: &v1.TaskMetadata{},
 						Spec: &v1.TaskSpec{
-							AgentId: strPtr(test.AgentID2().String()),
+							AgentId: strPtr(agentID2.String()),
 						},
 						Status: &v1.TaskStatus{
 							Usage: &v1.TaskUsage{},
@@ -361,21 +401,16 @@ func TestDeleteTask(t *testing.T) {
 		{
 			Name: "success",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
-				model := test.NewModelBuilder(t, db, modelProvider).
-					WithID(modelID).
-					Build(ctx)
+				modelProvider := test.NewModelProviderBuilder(t, uuid.New(), db).Build(ctx)
+				model := test.NewModelBuilder(t, modelID, db, modelProvider).Build(ctx)
 
-				agent := test.NewAgentBuilder(t, db, model).
-					WithID(agentID).
+				agent := test.NewAgentBuilder(t, agentID, db, model).
 					WithName("test-agent").
 					WithDescription("Test agent description").
 					WithInstructions("Test agent instructions").
 					Build(ctx)
 
-				test.NewTaskBuilder(t, db, agent).
-					WithID(taskID).
-					Build(ctx)
+				test.NewTaskBuilder(t, taskID, db, agent).Build(ctx)
 			},
 			Request: &v1.DeleteTaskRequest{
 				Id: taskID.String(),

@@ -169,36 +169,39 @@ func (h *ModelProviderHandler) UpdateModelProvider(ctx context.Context, req *con
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid ID format: %w", err))
 	}
 
-	modelProvider, err := h.db.ModelProvider.Get(ctx, id)
-	if err != nil {
-		return nil, apiError(err)
-	}
-
-	update := h.db.ModelProvider.UpdateOne(modelProvider)
-
-	if req.Msg.Name != nil {
-		update = update.SetName(*req.Msg.Name)
-	}
-
-	if req.Msg.Enabled != nil {
-		update = update.SetEnabled(*req.Msg.Enabled)
-	}
-
-	if req.Msg.Authentication != nil {
-		jsonSecret, err := marshalAuthToJson(req.Msg.Authentication)
+	modelProvider, err := memory.Transaction(ctx, h.db, func(tx *memory.Client) (*memory.ModelProvider, error) {
+		modelProvider, err := h.db.ModelProvider.Get(ctx, id)
 		if err != nil {
-			return nil, apiError(fmt.Errorf("failed to marshal API key: %w", err))
+			return nil, apiError(err)
 		}
 
-		encryptedSecret, err := h.encryption.Encrypt(jsonSecret, []byte(secret.ModelProviderSecret(id)))
-		if err != nil {
-			return nil, apiError(fmt.Errorf("failed to encrypt API key: %w", err))
+		update := h.db.ModelProvider.UpdateOne(modelProvider)
+
+		if req.Msg.Name != nil {
+			update = update.SetName(*req.Msg.Name)
 		}
 
-		update = update.SetSecret(encryptedSecret)
-	}
+		if req.Msg.Enabled != nil {
+			update = update.SetEnabled(*req.Msg.Enabled)
+		}
 
-	modelProvider, err = update.Save(ctx)
+		if req.Msg.Authentication != nil {
+			jsonSecret, err := marshalAuthToJson(req.Msg.Authentication)
+			if err != nil {
+				return nil, apiError(fmt.Errorf("failed to marshal API key: %w", err))
+			}
+
+			encryptedSecret, err := h.encryption.Encrypt(jsonSecret, []byte(secret.ModelProviderSecret(id)))
+			if err != nil {
+				return nil, apiError(fmt.Errorf("failed to encrypt API key: %w", err))
+			}
+
+			update = update.SetSecret(encryptedSecret)
+		}
+
+		return update.Save(ctx)
+	})
+
 	if err != nil {
 		return nil, apiError(err)
 	}
