@@ -201,17 +201,34 @@ func (rt *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 	}
 	os.WriteFile("system_prompt.txt", []byte(systemPrompt), 0644)
 
-	resp, err := rt.invokeModel(ctx, modelProvider, agent.Edges.Model.Name, systemPrompt, modelMessages)
+	message, err := modelProvider.InvokeModel(
+		ctx,
+		agent.Edges.Model.Name,
+		systemPrompt,
+		modelMessages,
+		model.WithStreamHandler(func(ctx context.Context, message *model.Message) {
+			for _, block := range message.Content {
+				switch block := block.(type) {
+				case *model.TextBlock:
+					fmt.Print(block.Text)
+				case *model.ToolCallBlock:
+					fmt.Println(block.Args)
+				}
+			}
+		}),
+		model.WithTools(rt.interpreter),
+	)
+
 	if err != nil {
 		return err
 	}
 
-	newMessage, err := rt.saveResponse(ctx, taskID, nextMessage, resp, agent.Edges.Model)
+	newMessage, err := rt.saveResponse(ctx, taskID, nextMessage, message, agent.Edges.Model)
 	if err != nil {
 		return err
 	}
 
-	err = rt.callTools(ctx, task, resp.Message.Content)
+	err = rt.callTools(ctx, task, message.Content)
 	if err != nil {
 		return err
 	}
@@ -385,38 +402,18 @@ If you try to call any other function that is not specified here the execution w
 	return builder.String(), nil
 }
 
-func (rt *Runtime) invokeModel(ctx context.Context, providerAPI model.ModelProvider, modelName, instructions string, modelMessages []*model.Message) (*model.ModelResponse, error) {
-	return providerAPI.InvokeModel(
-		ctx,
-		modelName,
-		instructions,
-		modelMessages,
-		model.WithStreamHandler(func(ctx context.Context, message *model.Message) {
-			for _, block := range message.Content {
-				switch block := block.(type) {
-				case *model.TextBlock:
-					fmt.Print(block.Text)
-				case *model.ToolCallBlock:
-					fmt.Println(block.Args)
-				}
-			}
-		}),
-		model.WithTools(rt.interpreter),
-	)
-}
-
-func (rt *Runtime) saveResponse(ctx context.Context, taskID uuid.UUID, processedMessage *memory.Message, resp *model.ModelResponse, m *memory.Model) (*memory.Message, error) {
+func (rt *Runtime) saveResponse(ctx context.Context, taskID uuid.UUID, processedMessage *memory.Message, msg *model.Message, m *memory.Model) (*memory.Message, error) {
 	_, err := processedMessage.Update().SetProcessedTime(time.Now()).Save(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	memoryContent, err := ConvertModelContentBlocksToMemory(resp.Message.Content)
+	memoryContent, err := ConvertModelContentBlocksToMemory(msg.Content)
 	if err != nil {
 		return nil, err
 	}
 
-	cost := calculateCost(resp.Usage, m)
+	cost := calculateCost(msg.Usage, m)
 
 	t := time.Now()
 	newMessage, err := rt.memory.Message.Create().
@@ -425,10 +422,10 @@ func (rt *Runtime) saveResponse(ctx context.Context, taskID uuid.UUID, processed
 		SetContent(memoryContent).
 		SetProcessedTime(t).
 		SetUsage(&types.MessageUsage{
-			InputTokens:      resp.Usage.InputTokens,
-			OutputTokens:     resp.Usage.OutputTokens,
-			CacheWriteTokens: resp.Usage.CacheWriteTokens,
-			CacheReadTokens:  resp.Usage.CacheReadTokens,
+			InputTokens:      msg.Usage.InputTokens,
+			OutputTokens:     msg.Usage.OutputTokens,
+			CacheWriteTokens: msg.Usage.CacheWriteTokens,
+			CacheReadTokens:  msg.Usage.CacheReadTokens,
 			Cost:             cost,
 		}).
 		Save(ctx)
@@ -438,10 +435,10 @@ func (rt *Runtime) saveResponse(ctx context.Context, taskID uuid.UUID, processed
 	}
 
 	_, err = rt.memory.Task.UpdateOneID(taskID).
-		AddInputTokens(resp.Usage.InputTokens).
-		AddOutputTokens(resp.Usage.OutputTokens).
-		AddCacheWriteTokens(resp.Usage.CacheWriteTokens).
-		AddCacheReadTokens(resp.Usage.CacheReadTokens).
+		AddInputTokens(msg.Usage.InputTokens).
+		AddOutputTokens(msg.Usage.OutputTokens).
+		AddCacheWriteTokens(msg.Usage.CacheWriteTokens).
+		AddCacheReadTokens(msg.Usage.CacheReadTokens).
 		AddCost(cost).
 		Save(ctx)
 
