@@ -50,7 +50,7 @@ func WithStreamHandler(handler func(ctx context.Context, message *Message)) Invo
 }
 
 type ModelProvider interface {
-	InvokeModel(ctx context.Context, model, prompt string, messages []*Message, opts ...InvokeModelOption) (*ModelResponse, error)
+	InvokeModel(ctx context.Context, model, prompt string, messages []*Message, opts ...InvokeModelOption) (*Message, error)
 }
 
 type MessageSource string
@@ -61,14 +61,16 @@ const (
 )
 
 type Message struct {
-	Source  MessageSource
-	Content []ContentBlock
+	Source  MessageSource  `json:"source"`
+	Content []ContentBlock `json:"content"`
+	Usage   Usage          `json:"usage"`
 }
 
-func NewModelMessage(content []ContentBlock) *Message {
+func NewModelMessage(content []ContentBlock, usage Usage) *Message {
 	return &Message{
 		Source:  MessageSourceModel,
 		Content: content,
+		Usage:   usage,
 	}
 }
 
@@ -93,9 +95,9 @@ func (t *TextBlock) Type() ContentBlockType {
 }
 
 type ToolCallBlock struct {
-	ID   string
-	Tool string
-	Args json.RawMessage
+	ID   string          `json:"id"`
+	Tool string          `json:"tool"`
+	Args json.RawMessage `json:"args"`
 }
 
 func (t *ToolCallBlock) Type() ContentBlockType {
@@ -103,24 +105,19 @@ func (t *ToolCallBlock) Type() ContentBlockType {
 }
 
 type ToolResultBlock struct {
-	ID        string
-	Name      string
-	Result    string
-	Succeeded bool
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Result    string `json:"result"`
+	Succeeded bool   `json:"succeeded"`
 }
 
 func (t *ToolResultBlock) Type() ContentBlockType {
 	return ContentBlockTypeToolResult
 }
 
-type ModelResponse struct {
-	Message *Message
-	Usage   Usage
-}
-
 type Usage struct {
-	InputTokens      int64
-	OutputTokens     int64
-	CacheWriteTokens int64
-	CacheReadTokens  int64
+	InputTokens      int64 `json:"input_tokens"`
+	OutputTokens     int64 `json:"output_tokens"`
+	CacheWriteTokens int64 `json:"cache_write_tokens"`
+	CacheReadTokens  int64 `json:"cache_read_tokens"`
 }

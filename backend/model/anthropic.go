@@ -11,7 +11,6 @@ import (
 
 type AnthropicProvider struct {
 	client *anthropic.Client
-	models map[uuid.UUID]Model
 }
 
 func SupportedAnthropicModels() []Model {
@@ -125,118 +124,12 @@ func NewAnthropicProvider(apiKey string) (*AnthropicProvider, error) {
 
 	provider := &AnthropicProvider{
 		client: anthropic.NewClient(option.WithAPIKey(apiKey)),
-		models: make(map[uuid.UUID]Model),
-	}
-
-	models := []Model{
-		{
-			ID:       uuid.MustParse("0195b4e2-45b6-76df-b208-f48b7b0d5f51"),
-			Name:     "claude-3-7-sonnet-20250219",
-			Provider: Anthropic,
-			Capabilities: []Capability{
-				CapabilityImage,
-				CapabilityComputerUse,
-				CapabilityPromptCache,
-				CapabilityExtendedThinking,
-			},
-			ContextWindow: 200000,
-			Pricing: ModelPricing{
-				Input:      3.0,
-				Output:     15.0,
-				CacheWrite: 3.75,
-				CacheRead:  0.3,
-			},
-		},
-		{
-			ID:       uuid.MustParse("0195b4e2-7d71-79e0-97da-3045fb1ffc3e"),
-			Name:     "claude-3-5-sonnet-20241022",
-			Provider: Anthropic,
-			Capabilities: []Capability{
-				CapabilityImage,
-				CapabilityComputerUse,
-				CapabilityPromptCache,
-			},
-			ContextWindow: 200000,
-			Pricing: ModelPricing{
-				Input:      3.0,
-				Output:     15.0,
-				CacheWrite: 3.75,
-				CacheRead:  0.3,
-			},
-		},
-		{
-			ID:       uuid.MustParse("0195b4e2-a5df-736d-82ea-00f46db3dadc"),
-			Name:     "claude-3-5-sonnet-20240620",
-			Provider: Anthropic,
-			Capabilities: []Capability{
-				CapabilityImage,
-				CapabilityComputerUse,
-				CapabilityPromptCache,
-			},
-			ContextWindow: 100000,
-			Pricing: ModelPricing{
-				Input:      3.0,
-				Output:     15.0,
-				CacheWrite: 3.75,
-				CacheRead:  0.3,
-			},
-		},
-		{
-			ID:       uuid.MustParse("0195b4e2-c741-724d-bb2a-3b0f7fdbc5f4"),
-			Name:     "claude-3-5-haiku-20241022",
-			Provider: Anthropic,
-			Capabilities: []Capability{
-				CapabilityPromptCache,
-			},
-			ContextWindow: 200000,
-			Pricing: ModelPricing{
-				Input:      0.8,
-				Output:     4.0,
-				CacheWrite: 1.0,
-				CacheRead:  0.08,
-			},
-		},
-		{
-			ID:       uuid.MustParse("0195b4e2-efd4-7c5c-a9a2-219318e0e181"),
-			Name:     "claude-3-opus-20240229",
-			Provider: Anthropic,
-			Capabilities: []Capability{
-				CapabilityImage,
-				CapabilityPromptCache,
-			},
-			ContextWindow: 200000,
-			Pricing: ModelPricing{
-				Input:      15.0,
-				Output:     75.0,
-				CacheWrite: 18.75,
-				CacheRead:  1.5,
-			},
-		},
-		{
-			ID:       uuid.MustParse("0195b4e3-1da7-71af-ba34-6689aed6c4a2"),
-			Name:     "claude-3-haiku-20240307",
-			Provider: Anthropic,
-			Capabilities: []Capability{
-				CapabilityImage,
-				CapabilityPromptCache,
-			},
-			ContextWindow: 200000,
-			Pricing: ModelPricing{
-				Input:      0.25,
-				Output:     1.25,
-				CacheWrite: 0.3,
-				CacheRead:  0.03,
-			},
-		},
-	}
-	for _, model := range models {
-		provider.models[model.ID] = model
 	}
 
 	return provider, nil
 }
 
-func (p *AnthropicProvider) InvokeModel(ctx context.Context, model, systemPrompt string, messages []*Message, opts ...InvokeModelOption) (*ModelResponse, error) {
+func (p *AnthropicProvider) InvokeModel(ctx context.Context, model, systemPrompt string, messages []*Message, opts ...InvokeModelOption) (*Message, error) {
 	if model == "" {
 		return nil, fmt.Errorf("model is required")
 	}
@@ -268,12 +161,6 @@ func (p *AnthropicProvider) InvokeModel(ctx context.Context, model, systemPrompt
 				anthropicBlocks[j] = anthropic.NewToolResultBlock(block.ID, block.Result, !block.Succeeded)
 			}
 		}
-
-		// if i == len(messages)-1 || i == prevUserMessageIndex {
-		// 	block.CacheControl = anthropic.F(anthropic.CacheControlEphemeralParam{
-		// 		Type: anthropic.F(anthropic.CacheControlEphemeralTypeEphemeral),
-		// 	})
-		// }
 
 		switch message.Source {
 		case MessageSourceUser:
@@ -361,15 +248,12 @@ func (p *AnthropicProvider) InvokeModel(ctx context.Context, model, systemPrompt
 		}
 	}
 
-	return &ModelResponse{
-		Message: NewModelMessage(content),
-		Usage: Usage{
-			InputTokens:      anthropicMessage.Usage.InputTokens,
-			OutputTokens:     anthropicMessage.Usage.OutputTokens,
-			CacheWriteTokens: anthropicMessage.Usage.CacheCreationInputTokens,
-			CacheReadTokens:  anthropicMessage.Usage.CacheReadInputTokens,
-		},
-	}, nil
+	return NewModelMessage(content, Usage{
+		InputTokens:      anthropicMessage.Usage.InputTokens,
+		OutputTokens:     anthropicMessage.Usage.OutputTokens,
+		CacheWriteTokens: anthropicMessage.Usage.CacheCreationInputTokens,
+		CacheReadTokens:  anthropicMessage.Usage.CacheReadInputTokens,
+	}), nil
 }
 
 func (p *AnthropicProvider) GetModel(ctx context.Context, modelID uuid.UUID) (Model, error) {
@@ -380,8 +264,4 @@ func (p *AnthropicProvider) GetModel(ctx context.Context, modelID uuid.UUID) (Mo
 	}
 
 	return Model{}, fmt.Errorf("model not supported")
-}
-
-type AnthropicSecret struct {
-	APIKey string `json:"api_key"`
 }
