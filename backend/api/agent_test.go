@@ -29,7 +29,7 @@ func TestCreateAgent(t *testing.T) {
 		},
 	}
 
-	modelID := uuid.MustParse("01234567-89ab-cdef-0123-456789abcdef")
+	modelID := uuid.New()
 
 	setup.RunServiceTests(t, []ServiceTestScenario[v1.CreateAgentRequest, v1.CreateAgentResponse]{
 		{
@@ -59,9 +59,8 @@ func TestCreateAgent(t *testing.T) {
 		{
 			Name: "model is disabled",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
-				test.NewModelBuilder(t, db, modelProvider).
-					WithID(modelID).
+				modelProvider := test.NewModelProviderBuilder(t, uuid.New(), db).Build(ctx)
+				test.NewModelBuilder(t, modelID, db, modelProvider).
 					WithEnabled(false).
 					Build(ctx)
 			},
@@ -78,9 +77,8 @@ func TestCreateAgent(t *testing.T) {
 		{
 			Name: "success",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
-				test.NewModelBuilder(t, db, modelProvider).
-					WithID(modelID).
+				modelProvider := test.NewModelProviderBuilder(t, uuid.New(), db).Build(ctx)
+				test.NewModelBuilder(t, modelID, db, modelProvider).
 					Build(ctx)
 			},
 			Request: &v1.CreateAgentRequest{
@@ -120,8 +118,8 @@ func TestGetAgent(t *testing.T) {
 		},
 	}
 
-	agentID := uuid.MustParse("01234567-89ab-cdef-0123-456789abcdef")
-	modelID := uuid.MustParse("98765432-10fe-dcba-9876-543210fedcba")
+	agentID := uuid.New()
+	modelID := uuid.New()
 
 	setup.RunServiceTests(t, []ServiceTestScenario[v1.GetAgentRequest, v1.GetAgentResponse]{
 		{
@@ -145,13 +143,11 @@ func TestGetAgent(t *testing.T) {
 		{
 			Name: "success",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
-				model := test.NewModelBuilder(t, db, modelProvider).
-					WithID(modelID).
+				modelProvider := test.NewModelProviderBuilder(t, uuid.New(), db).Build(ctx)
+				model := test.NewModelBuilder(t, modelID, db, modelProvider).
 					Build(ctx)
-				
-				test.NewAgentBuilder(t, db, model).
-					WithID(agentID).
+
+				test.NewAgentBuilder(t, agentID, db, model).
 					WithName("architect-agent").
 					WithDescription("Architect agent description").
 					WithInstructions("Architect agent instructions").
@@ -192,10 +188,10 @@ func TestListAgents(t *testing.T) {
 		},
 	}
 
-	agent1ID := uuid.MustParse("01234567-89ab-cdef-0123-456789abcdef")
-	agent2ID := uuid.MustParse("fedcba98-7654-3210-fedc-ba9876543210")
-	model1ID := uuid.MustParse("98765432-10fe-dcba-9876-543210fedcba")
-	model2ID := uuid.MustParse("abcdef01-2345-6789-abcd-ef0123456789")
+	agent1ID := uuid.New()
+	agent2ID := uuid.New()
+	model1ID := uuid.New()
+	model2ID := uuid.New()
 
 	setup.RunServiceTests(t, []ServiceTestScenario[v1.ListAgentsRequest, v1.ListAgentsResponse]{
 		{
@@ -210,25 +206,21 @@ func TestListAgents(t *testing.T) {
 		{
 			Name: "filter by model ID",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
-				
-				model1 := test.NewModelBuilder(t, db, modelProvider).
-					WithID(model1ID).
+				modelProvider := test.NewModelProviderBuilder(t, uuid.New(), db).Build(ctx)
+
+				model1 := test.NewModelBuilder(t, model1ID, db, modelProvider).
 					Build(ctx)
-				
-				model2 := test.NewModelBuilder(t, db, modelProvider).
-					WithID(model2ID).
+
+				model2 := test.NewModelBuilder(t, model2ID, db, modelProvider).
 					Build(ctx)
-				
-				test.NewAgentBuilder(t, db, model1).
-					WithID(agent1ID).
+
+				test.NewAgentBuilder(t, agent1ID, db, model1).
 					WithName("architect-agent-1").
 					WithDescription("Architect agent 1 description").
 					WithInstructions("Architect agent 1 instructions").
 					Build(ctx)
-				
-				test.NewAgentBuilder(t, db, model2).
-					WithID(agent2ID).
+
+				test.NewAgentBuilder(t, agent2ID, db, model2).
 					WithName("architect-agent-2").
 					WithDescription("Architect agent 2 description").
 					WithInstructions("Architect agent 2 instructions").
@@ -261,21 +253,18 @@ func TestListAgents(t *testing.T) {
 		{
 			Name: "multiple agents",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
-				
-				model1 := test.NewModelBuilder(t, db, modelProvider).
-					WithID(model1ID).
+				modelProvider := test.NewModelProviderBuilder(t, uuid.New(), db).Build(ctx)
+
+				model1 := test.NewModelBuilder(t, model1ID, db, modelProvider).
 					Build(ctx)
-				
-				test.NewAgentBuilder(t, db, model1).
-					WithID(agent1ID).
+
+				test.NewAgentBuilder(t, agent1ID, db, model1).
 					WithName("architect-agent-1").
 					WithDescription("Architect agent 1 description").
 					WithInstructions("Architect agent 1 instructions").
 					Build(ctx)
-				
-				test.NewAgentBuilder(t, db, model1).
-					WithID(agent2ID).
+
+				test.NewAgentBuilder(t, agent2ID, db, model1).
 					WithName("architect-agent-2").
 					WithDescription("Architect agent 2 description").
 					WithInstructions("Architect agent 2 instructions").
@@ -328,9 +317,9 @@ func TestUpdateAgent(t *testing.T) {
 		},
 	}
 
-	agentID := uuid.MustParse("01234567-89ab-cdef-0123-456789abcdef")
-	modelID := uuid.MustParse("98765432-10fe-dcba-9876-543210fedcba")
-	newModelID := uuid.MustParse("abcdef01-2345-6789-abcd-ef0123456789")
+	agentID := uuid.New()
+	modelID := uuid.New()
+	newModelID := uuid.New()
 
 	setup.RunServiceTests(t, []ServiceTestScenario[v1.UpdateAgentRequest, v1.UpdateAgentResponse]{
 		{
@@ -356,13 +345,11 @@ func TestUpdateAgent(t *testing.T) {
 		{
 			Name: "invalid model ID",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
-				model := test.NewModelBuilder(t, db, modelProvider).
-					WithID(modelID).
+				modelProvider := test.NewModelProviderBuilder(t, uuid.New(), db).Build(ctx)
+				model := test.NewModelBuilder(t, modelID, db, modelProvider).
 					Build(ctx)
-				
-				test.NewAgentBuilder(t, db, model).
-					WithID(agentID).
+
+				test.NewAgentBuilder(t, agentID, db, model).
 					WithName("architect-agent").
 					WithDescription("Architect agent description").
 					WithInstructions("Architect agent instructions").
@@ -379,13 +366,11 @@ func TestUpdateAgent(t *testing.T) {
 		{
 			Name: "model not found",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
-				model := test.NewModelBuilder(t, db, modelProvider).
-					WithID(modelID).
+				modelProvider := test.NewModelProviderBuilder(t, uuid.New(), db).Build(ctx)
+				model := test.NewModelBuilder(t, modelID, db, modelProvider).
 					Build(ctx)
-				
-				test.NewAgentBuilder(t, db, model).
-					WithID(agentID).
+
+				test.NewAgentBuilder(t, agentID, db, model).
 					WithName("architect-agent").
 					WithDescription("Architect agent description").
 					WithInstructions("Architect agent instructions").
@@ -402,13 +387,11 @@ func TestUpdateAgent(t *testing.T) {
 		{
 			Name: "success - update fields",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
-				model := test.NewModelBuilder(t, db, modelProvider).
-					WithID(modelID).
+				modelProvider := test.NewModelProviderBuilder(t, uuid.New(), db).Build(ctx)
+				model := test.NewModelBuilder(t, modelID, db, modelProvider).
 					Build(ctx)
-				
-				test.NewAgentBuilder(t, db, model).
-					WithID(agentID).
+
+				test.NewAgentBuilder(t, agentID, db, model).
 					WithName("architect-agent").
 					WithDescription("Architect agent description").
 					WithInstructions("Architect agent instructions").
@@ -440,19 +423,16 @@ func TestUpdateAgent(t *testing.T) {
 		{
 			Name: "success - update model",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
-				
-				model1 := test.NewModelBuilder(t, db, modelProvider).
-					WithID(modelID).
+				modelProvider := test.NewModelProviderBuilder(t, uuid.New(), db).Build(ctx)
+
+				model1 := test.NewModelBuilder(t, modelID, db, modelProvider).
 					Build(ctx)
-				
+
 				// Create the new model that will be used in the update
-				test.NewModelBuilder(t, db, modelProvider).
-					WithID(newModelID).
+				test.NewModelBuilder(t, newModelID, db, modelProvider).
 					Build(ctx)
-				
-				test.NewAgentBuilder(t, db, model1).
-					WithID(agentID).
+
+				test.NewAgentBuilder(t, agentID, db, model1).
 					WithName("architect-agent").
 					WithDescription("Architect agent description").
 					WithInstructions("Architect agent instructions").
@@ -493,8 +473,8 @@ func TestDeleteAgent(t *testing.T) {
 		},
 	}
 
-	agentID := uuid.MustParse("01234567-89ab-cdef-0123-456789abcdef")
-	modelID := uuid.MustParse("98765432-10fe-dcba-9876-543210fedcba")
+	agentID := uuid.New()
+	modelID := uuid.New()
 
 	setup.RunServiceTests(t, []ServiceTestScenario[v1.DeleteAgentRequest, v1.DeleteAgentResponse]{
 		{
@@ -518,13 +498,11 @@ func TestDeleteAgent(t *testing.T) {
 		{
 			Name: "success",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
-				model := test.NewModelBuilder(t, db, modelProvider).
-					WithID(modelID).
+				modelProvider := test.NewModelProviderBuilder(t, uuid.New(), db).Build(ctx)
+				model := test.NewModelBuilder(t, modelID, db, modelProvider).
 					Build(ctx)
-				
-				test.NewAgentBuilder(t, db, model).
-					WithID(agentID).
+
+				test.NewAgentBuilder(t, agentID, db, model).
 					WithName("architect-agent").
 					WithDescription("Architect agent description").
 					WithInstructions("Architect agent instructions").

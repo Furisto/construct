@@ -29,14 +29,16 @@ type ToolTestScenario[ToolInput any, ToolResult any] struct {
 	Name           string
 	SeedDatabase   func(ctx context.Context, db *memory.Client)
 	SeedFilesystem func(ctx context.Context, fs afero.Fs)
+	QueryFilesystem func(fs afero.Fs) (any, error)
 	TestInput      ToolInput
 	Expected       ToolTestExpectation[ToolResult]
 }
 
 type ToolTestExpectation[ToolResult any] struct {
-	Database any
-	Result   ToolResult
-	Error    error
+	Database        any
+	Filesystem      any
+	Result          ToolResult
+	Error           error
 }
 
 func (s *ToolTestSetup[ToolInput, ToolResult]) RunToolTests(t *testing.T, scenarios []ToolTestScenario[ToolInput, ToolResult]) {
@@ -76,6 +78,14 @@ func (s *ToolTestSetup[ToolInput, ToolResult]) RunToolTests(t *testing.T, scenar
 					t.Fatalf("failed to query database resources: %v", err)
 				}
 				actual.Database = resources
+			}
+
+			if scenario.QueryFilesystem != nil {
+				filesystem, err := scenario.QueryFilesystem(fs)
+				if err != nil {
+					t.Fatalf("failed to query filesystem: %v", err)
+				}
+				actual.Filesystem = filesystem
 			}
 
 			if diff := cmp.Diff(scenario.Expected, actual, s.CmpOptions...); diff != "" {

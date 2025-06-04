@@ -56,14 +56,12 @@ func TestCreateMessage(t *testing.T) {
 		{
 			Name: "success",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
-				model := test.NewModelBuilder(t, db, modelProvider).Build(ctx)
+				modelProvider := test.NewModelProviderBuilder(t, uuid.New(), db).Build(ctx)
+				model := test.NewModelBuilder(t, uuid.New(), db, modelProvider).Build(ctx)
 
-				agent := test.NewAgentBuilder(t, db, model).Build(ctx)
+				agent := test.NewAgentBuilder(t, uuid.New(), db, model).Build(ctx)
 
-				test.NewTaskBuilder(t, db, agent).
-					WithID(taskID).
-					Build(ctx)
+				test.NewTaskBuilder(t, taskID, db, agent).Build(ctx)
 			},
 			Request: &v1.CreateMessageRequest{
 				TaskId:  taskID.String(),
@@ -100,6 +98,11 @@ func TestGetMessage(t *testing.T) {
 		},
 	}
 
+	messageID := uuid.New()
+	taskID := uuid.New()
+	agentID := uuid.New()
+	modelID := uuid.New()
+
 	setup.RunServiceTests(t, []ServiceTestScenario[v1.GetMessageRequest, v1.GetMessageResponse]{
 		{
 			Name: "invalid id format",
@@ -113,7 +116,7 @@ func TestGetMessage(t *testing.T) {
 		{
 			Name: "message not found",
 			Request: &v1.GetMessageRequest{
-				Id: test.MessageID().String(),
+				Id: messageID.String(),
 			},
 			Expected: ServiceTestExpectation[v1.GetMessageResponse]{
 				Error: "not_found: message not found",
@@ -122,13 +125,13 @@ func TestGetMessage(t *testing.T) {
 		{
 			Name: "success",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
-				model := test.NewModelBuilder(t, db, modelProvider).Build(ctx)
+				modelProvider := test.NewModelProviderBuilder(t, uuid.New(), db).Build(ctx)
+				model := test.NewModelBuilder(t, modelID, db, modelProvider).Build(ctx)
 
-				agent := test.NewAgentBuilder(t, db, model).Build(ctx)
-				task := test.NewTaskBuilder(t, db, agent).Build(ctx)
+				agent := test.NewAgentBuilder(t, agentID, db, model).Build(ctx)
+				task := test.NewTaskBuilder(t, taskID, db, agent).Build(ctx)
 
-				test.NewMessageBuilder(t, db, task).
+				test.NewMessageBuilder(t, messageID, db, task).
 					WithContent(&types.MessageContent{
 						Blocks: []types.MessageBlock{
 							{
@@ -141,16 +144,16 @@ func TestGetMessage(t *testing.T) {
 					Build(ctx)
 			},
 			Request: &v1.GetMessageRequest{
-				Id: test.MessageID().String(),
+				Id: messageID.String(),
 			},
 			Expected: ServiceTestExpectation[v1.GetMessageResponse]{
 				Response: v1.GetMessageResponse{
 					Message: &v1.Message{
-						Id: test.MessageID().String(),
+						Id: messageID.String(),
 						Metadata: &v1.MessageMetadata{
-							TaskId:  test.TaskID().String(),
-							AgentId: strPtr(test.AgentID().String()),
-							ModelId: strPtr(test.ModelID().String()),
+							TaskId:  taskID.String(),
+							AgentId: strPtr(agentID.String()),
+							ModelId: strPtr(modelID.String()),
 							Role:    v1.MessageRole_MESSAGE_ROLE_ASSISTANT,
 						},
 						Content: &v1.MessageContent{
@@ -166,8 +169,6 @@ func TestGetMessage(t *testing.T) {
 }
 
 func TestListMessages(t *testing.T) {
-	t.Parallel()
-
 	setup := ServiceTestSetup[v1.ListMessagesRequest, v1.ListMessagesResponse]{
 		Call: func(ctx context.Context, client *client.Client, req *connect.Request[v1.ListMessagesRequest]) (*connect.Response[v1.ListMessagesResponse], error) {
 			return client.Message().ListMessages(ctx, req)
@@ -178,6 +179,14 @@ func TestListMessages(t *testing.T) {
 			protocmp.IgnoreFields(&v1.MessageMetadata{}, "created_at", "updated_at"),
 		},
 	}
+
+	taskID1 := uuid.New()
+	taskID2 := uuid.New()
+	messageID1 := uuid.New()
+	messageID2 := uuid.New()
+	agentID1 := uuid.New()
+	agentID2 := uuid.New()
+	modelID := uuid.New()
 
 	setup.RunServiceTests(t, []ServiceTestScenario[v1.ListMessagesRequest, v1.ListMessagesResponse]{
 		{
@@ -214,18 +223,15 @@ func TestListMessages(t *testing.T) {
 		{
 			Name: "filter by task ID",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
-				model := test.NewModelBuilder(t, db, modelProvider).Build(ctx)
-				agent := test.NewAgentBuilder(t, db, model).Build(ctx)
+				modelProvider := test.NewModelProviderBuilder(t, uuid.New(), db).Build(ctx)
+				model := test.NewModelBuilder(t, modelID, db, modelProvider).Build(ctx)
+				agent := test.NewAgentBuilder(t, agentID1, db, model).Build(ctx)
 
-				task1 := test.NewTaskBuilder(t, db, agent).Build(ctx)
-				task2 := test.NewTaskBuilder(t, db, agent).
-					WithID(test.TaskID2()).
-					Build(ctx)
+				task1 := test.NewTaskBuilder(t, taskID1, db, agent).Build(ctx)
+				task2 := test.NewTaskBuilder(t, taskID2, db, agent).Build(ctx)
 
-				test.NewMessageBuilder(t, db, task1).Build(ctx)
-				test.NewMessageBuilder(t, db, task2).
-					WithID(test.MessageID2()).
+				test.NewMessageBuilder(t, messageID1, db, task1).Build(ctx)
+				test.NewMessageBuilder(t, messageID2, db, task2).
 					WithAgent(agent).
 					WithContent(&types.MessageContent{
 						Blocks: []types.MessageBlock{
@@ -239,18 +245,18 @@ func TestListMessages(t *testing.T) {
 			},
 			Request: &v1.ListMessagesRequest{
 				Filter: &v1.ListMessagesRequest_Filter{
-					TaskId: strPtr(test.TaskID2().String()),
+					TaskId: strPtr(taskID2.String()),
 				},
 			},
 			Expected: ServiceTestExpectation[v1.ListMessagesResponse]{
 				Response: v1.ListMessagesResponse{
 					Messages: []*v1.Message{
 						{
-							Id: test.MessageID2().String(),
+							Id: messageID2.String(),
 							Metadata: &v1.MessageMetadata{
-								TaskId:  test.TaskID2().String(),
-								AgentId: strPtr(test.AgentID().String()),
-								ModelId: strPtr(test.ModelID().String()),
+								TaskId:  taskID2.String(),
+								AgentId: strPtr(agentID1.String()),
+								ModelId: strPtr(modelID.String()),
 								Role:    v1.MessageRole_MESSAGE_ROLE_ASSISTANT,
 							},
 							Content: &v1.MessageContent{
@@ -266,20 +272,15 @@ func TestListMessages(t *testing.T) {
 		{
 			Name: "filter by agent ID",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
-				model := test.NewModelBuilder(t, db, modelProvider).Build(ctx)
+				modelProvider := test.NewModelProviderBuilder(t, uuid.New(), db).Build(ctx)
+				model := test.NewModelBuilder(t, modelID, db, modelProvider).Build(ctx)
 
-				agent1 := test.NewAgentBuilder(t, db, model).Build(ctx)
-				agent2 := test.NewAgentBuilder(t, db, model).
-					WithID(test.AgentID2()).
-					Build(ctx)
+				agent1 := test.NewAgentBuilder(t, agentID1, db, model).Build(ctx)
+				agent2 := test.NewAgentBuilder(t, agentID2, db, model).Build(ctx)
 
-				task1 := test.NewTaskBuilder(t, db, agent1).
-					WithID(test.TaskID()).
-					Build(ctx)
+				task1 := test.NewTaskBuilder(t, taskID1, db, agent1).Build(ctx)
 
-				test.NewMessageBuilder(t, db, task1).
-					WithID(test.MessageID()).
+				test.NewMessageBuilder(t, messageID1, db, task1).
 					WithAgent(agent1).
 					WithContent(&types.MessageContent{
 						Blocks: []types.MessageBlock{
@@ -291,8 +292,7 @@ func TestListMessages(t *testing.T) {
 					}).
 					Build(ctx)
 
-				test.NewMessageBuilder(t, db, task1).
-					WithID(test.MessageID2()).
+				test.NewMessageBuilder(t, messageID2, db, task1).
 					WithAgent(agent2).
 					WithContent(&types.MessageContent{
 						Blocks: []types.MessageBlock{
@@ -306,18 +306,18 @@ func TestListMessages(t *testing.T) {
 			},
 			Request: &v1.ListMessagesRequest{
 				Filter: &v1.ListMessagesRequest_Filter{
-					AgentId: strPtr(test.AgentID2().String()),
+					AgentId: strPtr(agentID2.String()),
 				},
 			},
 			Expected: ServiceTestExpectation[v1.ListMessagesResponse]{
 				Response: v1.ListMessagesResponse{
 					Messages: []*v1.Message{
 						{
-							Id: test.MessageID2().String(),
+							Id: messageID2.String(),
 							Metadata: &v1.MessageMetadata{
-								TaskId:  test.TaskID().String(),
-								AgentId: strPtr(test.AgentID2().String()),
-								ModelId: strPtr(test.ModelID().String()),
+								TaskId:  taskID1.String(),
+								AgentId: strPtr(agentID2.String()),
+								ModelId: strPtr(modelID.String()),
 								Role:    v1.MessageRole_MESSAGE_ROLE_ASSISTANT,
 							},
 							Content: &v1.MessageContent{
@@ -333,17 +333,14 @@ func TestListMessages(t *testing.T) {
 		{
 			Name: "filter by role",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
-				model := test.NewModelBuilder(t, db, modelProvider).Build(ctx)
+				modelProvider := test.NewModelProviderBuilder(t, uuid.New(), db).Build(ctx)
+				model := test.NewModelBuilder(t, modelID, db, modelProvider).Build(ctx)
 
-				agent := test.NewAgentBuilder(t, db, model).Build(ctx)
+				agent := test.NewAgentBuilder(t, agentID1, db, model).Build(ctx)
 
-				task := test.NewTaskBuilder(t, db, agent).
-					WithID(test.TaskID()).
-					Build(ctx)
+				task := test.NewTaskBuilder(t, taskID1, db, agent).Build(ctx)
 
-				test.NewMessageBuilder(t, db, task).
-					WithID(test.MessageID()).
+				test.NewMessageBuilder(t, messageID1, db, task).
 					WithContent(&types.MessageContent{
 						Blocks: []types.MessageBlock{
 							{
@@ -354,8 +351,7 @@ func TestListMessages(t *testing.T) {
 					}).
 					Build(ctx)
 
-				test.NewMessageBuilder(t, db, task).
-					WithID(test.MessageID2()).
+				test.NewMessageBuilder(t, messageID2, db, task).
 					WithAgent(agent).
 					WithContent(&types.MessageContent{
 						Blocks: []types.MessageBlock{
@@ -376,11 +372,11 @@ func TestListMessages(t *testing.T) {
 				Response: v1.ListMessagesResponse{
 					Messages: []*v1.Message{
 						{
-							Id: test.MessageID2().String(),
+							Id: messageID2.String(),
 							Metadata: &v1.MessageMetadata{
-								TaskId:  test.TaskID().String(),
-								AgentId: strPtr(test.AgentID().String()),
-								ModelId: strPtr(test.ModelID().String()),
+								TaskId:  taskID1.String(),
+								AgentId: strPtr(agentID1.String()),
+								ModelId: strPtr(modelID.String()),
 								Role:    v1.MessageRole_MESSAGE_ROLE_ASSISTANT,
 							},
 							Content: &v1.MessageContent{
@@ -396,21 +392,15 @@ func TestListMessages(t *testing.T) {
 		{
 			Name: "all messages",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
-				model := test.NewModelBuilder(t, db, modelProvider).Build(ctx)
+				modelProvider := test.NewModelProviderBuilder(t, uuid.New(), db).Build(ctx)
+				model := test.NewModelBuilder(t, modelID, db, modelProvider).Build(ctx)
 
-				agent := test.NewAgentBuilder(t, db, model).Build(ctx)
+				agent := test.NewAgentBuilder(t, agentID1, db, model).Build(ctx)
 
-				task1 := test.NewTaskBuilder(t, db, agent).
-					WithID(test.TaskID()).
-					Build(ctx)
+				task1 := test.NewTaskBuilder(t, taskID1, db, agent).Build(ctx)
+				task2 := test.NewTaskBuilder(t, taskID2, db, agent).Build(ctx)
 
-				task2 := test.NewTaskBuilder(t, db, agent).
-					WithID(test.TaskID2()).
-					Build(ctx)
-
-				test.NewMessageBuilder(t, db, task1).
-					WithID(test.MessageID()).
+				test.NewMessageBuilder(t, messageID1, db, task1).
 					WithContent(&types.MessageContent{
 						Blocks: []types.MessageBlock{
 							{
@@ -421,8 +411,7 @@ func TestListMessages(t *testing.T) {
 					}).
 					Build(ctx)
 
-				test.NewMessageBuilder(t, db, task2).
-					WithID(test.MessageID2()).
+				test.NewMessageBuilder(t, messageID2, db, task2).
 					WithAgent(agent).
 					WithContent(&types.MessageContent{
 						Blocks: []types.MessageBlock{
@@ -439,9 +428,9 @@ func TestListMessages(t *testing.T) {
 				Response: v1.ListMessagesResponse{
 					Messages: []*v1.Message{
 						{
-							Id: test.MessageID().String(),
+							Id: messageID1.String(),
 							Metadata: &v1.MessageMetadata{
-								TaskId: test.TaskID().String(),
+								TaskId: taskID1.String(),
 								Role:   v1.MessageRole_MESSAGE_ROLE_USER,
 							},
 							Content: &v1.MessageContent{
@@ -451,11 +440,11 @@ func TestListMessages(t *testing.T) {
 							},
 						},
 						{
-							Id: test.MessageID2().String(),
+							Id: messageID2.String(),
 							Metadata: &v1.MessageMetadata{
-								TaskId:  test.TaskID2().String(),
-								AgentId: strPtr(test.AgentID().String()),
-								ModelId: strPtr(test.ModelID().String()),
+								TaskId:  taskID2.String(),
+								AgentId: strPtr(agentID1.String()),
+								ModelId: strPtr(modelID.String()),
 								Role:    v1.MessageRole_MESSAGE_ROLE_ASSISTANT,
 							},
 							Content: &v1.MessageContent{
@@ -510,17 +499,14 @@ func TestUpdateMessage(t *testing.T) {
 		{
 			Name: "success",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
-				model := test.NewModelBuilder(t, db, modelProvider).Build(ctx)
+				modelProvider := test.NewModelProviderBuilder(t, uuid.New(), db).Build(ctx)
+				model := test.NewModelBuilder(t, uuid.New(), db, modelProvider).Build(ctx)
 
-				agent := test.NewAgentBuilder(t, db, model).Build(ctx)
+				agent := test.NewAgentBuilder(t, uuid.New(), db, model).Build(ctx)
 
-				task := test.NewTaskBuilder(t, db, agent).
-					WithID(taskID).
-					Build(ctx)
+				task := test.NewTaskBuilder(t, taskID, db, agent).Build(ctx)
 
-				test.NewMessageBuilder(t, db, task).
-					WithID(messageID).
+				test.NewMessageBuilder(t, messageID, db, task).
 					WithContent(&types.MessageContent{
 						Blocks: []types.MessageBlock{
 							{
@@ -556,6 +542,7 @@ func TestUpdateMessage(t *testing.T) {
 }
 
 func TestDeleteMessage(t *testing.T) {
+	t.Parallel()
 	setup := ServiceTestSetup[v1.DeleteMessageRequest, v1.DeleteMessageResponse]{
 		Call: func(ctx context.Context, client *client.Client, req *connect.Request[v1.DeleteMessageRequest]) (*connect.Response[v1.DeleteMessageResponse], error) {
 			return client.Message().DeleteMessage(ctx, req)
@@ -591,17 +578,14 @@ func TestDeleteMessage(t *testing.T) {
 		{
 			Name: "success",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
-				model := test.NewModelBuilder(t, db, modelProvider).Build(ctx)
+				modelProvider := test.NewModelProviderBuilder(t, uuid.New(), db).Build(ctx)
+				model := test.NewModelBuilder(t, uuid.New(), db, modelProvider).Build(ctx)
 
-				agent := test.NewAgentBuilder(t, db, model).Build(ctx)
+				agent := test.NewAgentBuilder(t, uuid.New(), db, model).Build(ctx)
 
-				task := test.NewTaskBuilder(t, db, agent).
-					WithID(taskID).
-					Build(ctx)
+				task := test.NewTaskBuilder(t, taskID, db, agent).Build(ctx)
 
-				test.NewMessageBuilder(t, db, task).
-					WithID(messageID).
+				test.NewMessageBuilder(t, messageID, db, task).
 					WithContent(&types.MessageContent{
 						Blocks: []types.MessageBlock{
 							{

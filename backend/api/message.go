@@ -39,25 +39,28 @@ func (h *MessageHandler) CreateMessage(ctx context.Context, req *connect.Request
 		return nil, apiError(connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid task ID format: %w", err)))
 	}
 
-	task, err := h.db.Task.Get(ctx, taskID)
-	if err != nil {
-		return nil, apiError(err)
-	}
+	msg, err := memory.Transaction(ctx, h.db, func(tx *memory.Client) (*memory.Message, error) {
+		task, err := tx.Task.Get(ctx, taskID)
+		if err != nil {
+			return nil, err
+		}
 
-	content := &types.MessageContent{
-		Blocks: []types.MessageBlock{
-			{
-				Kind:    types.MessageBlockKindText,
-				Payload: req.Msg.Content,
+		content := &types.MessageContent{
+			Blocks: []types.MessageBlock{
+				{
+					Kind:    types.MessageBlockKindText,
+					Payload: req.Msg.Content,
+				},
 			},
-		},
-	}
+		}
 
-	msg, err := h.db.Message.Create().
-		SetTask(task).
-		SetContent(content).
-		SetSource(types.MessageSourceUser).
-		Save(ctx)
+		return tx.Message.Create().
+			SetTask(task).
+			SetContent(content).
+			SetSource(types.MessageSourceUser).
+			Save(ctx)
+	})
+
 	if err != nil {
 		return nil, apiError(err)
 	}
@@ -79,7 +82,7 @@ func (h *MessageHandler) GetMessage(ctx context.Context, req *connect.Request[v1
 	if err != nil {
 		return nil, apiError(connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid ID format: %w", err)))
 	}
-
+	
 	msg, err := h.db.Message.Query().
 		Where(message.ID(id)).
 		First(ctx)

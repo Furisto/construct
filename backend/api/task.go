@@ -34,6 +34,11 @@ func (h *TaskHandler) CreateTask(ctx context.Context, req *connect.Request[v1.Cr
 	}
 
 	createdTask, err := memory.Transaction(ctx, h.db, func(tx *memory.Client) (*memory.Task, error) {
+		_, err := tx.Agent.Get(ctx, agentID)
+		if err != nil {
+			return nil, err
+		}
+
 		return tx.Task.Create().
 			SetAgentID(agentID).
 			SetProjectDirectory(req.Msg.ProjectDirectory).
@@ -111,33 +116,30 @@ func (h *TaskHandler) UpdateTask(ctx context.Context, req *connect.Request[v1.Up
 		return nil, apiError(connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid task ID format: %w", err)))
 	}
 
-	t, err := h.db.Task.Query().Where(task.ID(id)).WithAgent().First(ctx)
-	if err != nil {
-		return nil, apiError(err)
-	}
-
-	update := t.Update()
-
-	if req.Msg.AgentId != nil {
-		agentID, err := uuid.Parse(*req.Msg.AgentId)
+	updatedTask, err := memory.Transaction(ctx, h.db, func(tx *memory.Client) (*memory.Task, error) {
+		t, err := tx.Task.Get(ctx, id)
 		if err != nil {
-			return nil, apiError(connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid agent ID format: %w", err)))
+			return nil, err
+		}
+		update := t.Update()
+
+		if req.Msg.AgentId != nil {
+			agentID, err := uuid.Parse(*req.Msg.AgentId)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid agent ID format: %w", err))
+			}
+
+			_, err = tx.Agent.Get(ctx, agentID)
+			if err != nil {
+				return nil, err
+			}
+
+			update = update.SetAgentID(agentID)
 		}
 
-		_, err = h.db.Agent.Query().Where(agent.ID(agentID)).First(ctx)
-		if err != nil {
-			return nil, apiError(err)
-		}
+		return update.Save(ctx)
+	})
 
-		update = update.SetAgentID(agentID)
-	}
-
-	_, err = update.Save(ctx)
-	if err != nil {
-		return nil, apiError(err)
-	}
-
-	updatedTask, err := h.db.Task.Query().Where(task.ID(id)).WithAgent().First(ctx)
 	if err != nil {
 		return nil, apiError(err)
 	}

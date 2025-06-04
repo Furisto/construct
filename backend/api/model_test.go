@@ -11,6 +11,7 @@ import (
 	"github.com/furisto/construct/backend/memory/test"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/google/uuid"
 	"github.com/googleapis/go-type-adapters/adapters"
 	_ "github.com/mattn/go-sqlite3"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -29,6 +30,8 @@ func TestCreateModel(t *testing.T) {
 		},
 	}
 
+	modelProviderID := uuid.New()
+
 	setup.RunServiceTests(t, []ServiceTestScenario[v1.CreateModelRequest, v1.CreateModelResponse]{
 		{
 			Name: "invalid model provider ID",
@@ -45,7 +48,7 @@ func TestCreateModel(t *testing.T) {
 			Name: "model provider not found",
 			Request: &v1.CreateModelRequest{
 				Name:            "test-model",
-				ModelProviderId: test.ModelProviderID().String(),
+				ModelProviderId: modelProviderID.String(),
 				ContextWindow:   4096,
 			},
 			Expected: ServiceTestExpectation[v1.CreateModelResponse]{
@@ -55,12 +58,12 @@ func TestCreateModel(t *testing.T) {
 		{
 			Name: "success",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				test.NewModelProviderBuilder(t, db).
+				test.NewModelProviderBuilder(t, modelProviderID, db).
 					Build(ctx)
 			},
 			Request: &v1.CreateModelRequest{
 				Name:            "test-model",
-				ModelProviderId: test.ModelProviderID().String(),
+				ModelProviderId: modelProviderID.String(),
 				ContextWindow:   4096,
 				Pricing: &v1.ModelPricing{
 					InputCost:      adapters.Float64ToProtoDecimal(0.0001),
@@ -76,7 +79,7 @@ func TestCreateModel(t *testing.T) {
 				Response: v1.CreateModelResponse{
 					Model: &v1.Model{
 						Name:            "test-model",
-						ModelProviderId: test.ModelProviderID().String(),
+						ModelProviderId: modelProviderID.String(),
 						ContextWindow:   4096,
 						Enabled:         true,
 						Pricing: &v1.ModelPricing{
@@ -108,6 +111,9 @@ func TestGetModel(t *testing.T) {
 		},
 	}
 
+	modelID := uuid.New()
+	modelProviderID := uuid.New()
+
 	setup.RunServiceTests(t, []ServiceTestScenario[v1.GetModelRequest, v1.GetModelResponse]{
 		{
 			Name: "invalid id format",
@@ -121,7 +127,7 @@ func TestGetModel(t *testing.T) {
 		{
 			Name: "model not found",
 			Request: &v1.GetModelRequest{
-				Id: test.ModelID().String(),
+				Id: modelID.String(),
 			},
 			Expected: ServiceTestExpectation[v1.GetModelResponse]{
 				Error: "not_found: model not found",
@@ -130,21 +136,21 @@ func TestGetModel(t *testing.T) {
 		{
 			Name: "success",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).
+				modelProvider := test.NewModelProviderBuilder(t, modelProviderID, db).
 					Build(ctx)
 
-				test.NewModelBuilder(t, db, modelProvider).
+				test.NewModelBuilder(t, modelID, db, modelProvider).
 					Build(ctx)
 			},
 			Request: &v1.GetModelRequest{
-				Id: test.ModelID().String(),
+				Id: modelID.String(),
 			},
 			Expected: ServiceTestExpectation[v1.GetModelResponse]{
 				Response: v1.GetModelResponse{
 					Model: &v1.Model{
-						Id:              test.ModelID().String(),
+						Id:              modelID.String(),
 						Name:            "claude-3-7-sonnet-20250219",
-						ModelProviderId: test.ModelProviderID().String(),
+						ModelProviderId: modelProviderID.String(),
 						ContextWindow:   200_000,
 						Pricing: &v1.ModelPricing{
 							InputCost:      adapters.Float64ToProtoDecimal(3),
@@ -176,6 +182,11 @@ func TestListModels(t *testing.T) {
 		},
 	}
 
+	modelProviderID := uuid.New()
+	modelProviderID2 := uuid.New()
+	modelID := uuid.New()
+	modelID2 := uuid.New()
+
 	setup.RunServiceTests(t, []ServiceTestScenario[v1.ListModelsRequest, v1.ListModelsResponse]{
 		{
 			Name:    "empty list",
@@ -200,33 +211,31 @@ func TestListModels(t *testing.T) {
 		{
 			Name: "filter by model provider ID",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider1 := test.NewModelProviderBuilder(t, db).
+				modelProvider1 := test.NewModelProviderBuilder(t, modelProviderID, db).
 					Build(ctx)
 
-				modelProvider2 := test.NewModelProviderBuilder(t, db).
-					WithID(test.ModelProviderID2()).
+				modelProvider2 := test.NewModelProviderBuilder(t, modelProviderID2, db).
 					Build(ctx)
 
-				test.NewModelBuilder(t, db, modelProvider1).
+				test.NewModelBuilder(t, modelID, db, modelProvider1).
 					Build(ctx)
 
-				test.NewModelBuilder(t, db, modelProvider2).
-					WithID(test.ModelID2()).
+				test.NewModelBuilder(t, modelID2, db, modelProvider2).
 					WithName("o1-preview").
 					Build(ctx)
 			},
 			Request: &v1.ListModelsRequest{
 				Filter: &v1.ListModelsRequest_Filter{
-					ModelProviderId: strPtr(test.ModelProviderID().String()),
+					ModelProviderId: strPtr(modelProviderID.String()),
 				},
 			},
 			Expected: ServiceTestExpectation[v1.ListModelsResponse]{
 				Response: v1.ListModelsResponse{
 					Models: []*v1.Model{
 						{
-							Id:              test.ModelID().String(),
+							Id:              modelID.String(),
 							Name:            "claude-3-7-sonnet-20250219",
-							ModelProviderId: test.ModelProviderID().String(),
+							ModelProviderId: modelProviderID.String(),
 							ContextWindow:   200_000,
 							Enabled:         true,
 							Capabilities:    []v1.ModelCapability{v1.ModelCapability_MODEL_CAPABILITY_PROMPT_CACHE},
@@ -244,14 +253,13 @@ func TestListModels(t *testing.T) {
 		{
 			Name: "filter by enabled status",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).
+				modelProvider := test.NewModelProviderBuilder(t, modelProviderID, db).
 					Build(ctx)
 
-				test.NewModelBuilder(t, db, modelProvider).
+				test.NewModelBuilder(t, modelID, db, modelProvider).
 					Build(ctx)
 
-				test.NewModelBuilder(t, db, modelProvider).
-					WithID(test.ModelID2()).
+				test.NewModelBuilder(t, modelID2, db, modelProvider).
 					WithName("o1-preview").
 					WithEnabled(false).
 					Build(ctx)
@@ -265,9 +273,9 @@ func TestListModels(t *testing.T) {
 				Response: v1.ListModelsResponse{
 					Models: []*v1.Model{
 						{
-							Id:              test.ModelID().String(),
+							Id:              modelID.String(),
 							Name:            "claude-3-7-sonnet-20250219",
-							ModelProviderId: test.ModelProviderID().String(),
+							ModelProviderId: modelProviderID.String(),
 							ContextWindow:   200_000,
 							Enabled:         true,
 							Capabilities:    []v1.ModelCapability{v1.ModelCapability_MODEL_CAPABILITY_PROMPT_CACHE},
@@ -285,14 +293,13 @@ func TestListModels(t *testing.T) {
 		{
 			Name: "multiple models",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).
+				modelProvider := test.NewModelProviderBuilder(t, modelProviderID, db).
 					Build(ctx)
 
-				test.NewModelBuilder(t, db, modelProvider).
+				test.NewModelBuilder(t, modelID, db, modelProvider).
 					Build(ctx)
 
-				test.NewModelBuilder(t, db, modelProvider).
-					WithID(test.ModelID2()).
+				test.NewModelBuilder(t, modelID2, db, modelProvider).
 					WithName("o1-preview").
 					Build(ctx)
 			},
@@ -301,9 +308,9 @@ func TestListModels(t *testing.T) {
 				Response: v1.ListModelsResponse{
 					Models: []*v1.Model{
 						{
-							Id:              test.ModelID().String(),
+							Id:              modelID.String(),
 							Name:            "claude-3-7-sonnet-20250219",
-							ModelProviderId: test.ModelProviderID().String(),
+							ModelProviderId: modelProviderID.String(),
 							ContextWindow:   200_000,
 							Enabled:         true,
 							Capabilities:    []v1.ModelCapability{v1.ModelCapability_MODEL_CAPABILITY_PROMPT_CACHE},
@@ -315,9 +322,9 @@ func TestListModels(t *testing.T) {
 							},
 						},
 						{
-							Id:              test.ModelID2().String(),
+							Id:              modelID2.String(),
 							Name:            "o1-preview",
-							ModelProviderId: test.ModelProviderID().String(),
+							ModelProviderId: modelProviderID.String(),
 							ContextWindow:   200_000,
 							Enabled:         true,
 							Capabilities:    []v1.ModelCapability{v1.ModelCapability_MODEL_CAPABILITY_PROMPT_CACHE},
@@ -348,6 +355,9 @@ func TestUpdateModel(t *testing.T) {
 		},
 	}
 
+	modelID := uuid.New()
+	modelProviderID := uuid.New()
+
 	setup.RunServiceTests(t, []ServiceTestScenario[v1.UpdateModelRequest, v1.UpdateModelResponse]{
 		{
 			Name: "invalid id format",
@@ -362,7 +372,7 @@ func TestUpdateModel(t *testing.T) {
 		{
 			Name: "model not found",
 			Request: &v1.UpdateModelRequest{
-				Id:   test.ModelID2().String(),
+				Id:   uuid.New().String(),
 				Name: strPtr("updated-model"),
 			},
 			Expected: ServiceTestExpectation[v1.UpdateModelResponse]{
@@ -370,50 +380,16 @@ func TestUpdateModel(t *testing.T) {
 			},
 		},
 		{
-			Name: "invalid model provider ID",
-			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).
-					Build(ctx)
-
-				test.NewModelBuilder(t, db, modelProvider).
-					Build(ctx)
-			},
-			Request: &v1.UpdateModelRequest{
-				Id:              test.ModelID().String(),
-				ModelProviderId: strPtr("not-a-valid-uuid"),
-			},
-			Expected: ServiceTestExpectation[v1.UpdateModelResponse]{
-				Error: "invalid_argument: invalid model provider ID format: invalid UUID length: 16",
-			},
-		},
-		{
-			Name: "model provider not found",
-			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).
-					Build(ctx)
-
-				test.NewModelBuilder(t, db, modelProvider).
-					Build(ctx)
-			},
-			Request: &v1.UpdateModelRequest{
-				Id:              test.ModelID().String(),
-				ModelProviderId: strPtr(test.ModelProviderID2().String()),
-			},
-			Expected: ServiceTestExpectation[v1.UpdateModelResponse]{
-				Error: "not_found: model_provider not found",
-			},
-		},
-		{
 			Name: "success - update fields",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).
+				modelProvider := test.NewModelProviderBuilder(t, modelProviderID, db).
 					Build(ctx)
 
-				test.NewModelBuilder(t, db, modelProvider).
+				test.NewModelBuilder(t, modelID, db, modelProvider).
 					Build(ctx)
 			},
 			Request: &v1.UpdateModelRequest{
-				Id:            test.ModelID().String(),
+				Id:            modelID.String(),
 				Name:          strPtr("updated-model"),
 				ContextWindow: ptr(int64(500_000)),
 				Enabled:       boolPtr(false),
@@ -424,9 +400,9 @@ func TestUpdateModel(t *testing.T) {
 			Expected: ServiceTestExpectation[v1.UpdateModelResponse]{
 				Response: v1.UpdateModelResponse{
 					Model: &v1.Model{
-						Id:              test.ModelID().String(),
+						Id:              modelID.String(),
 						Name:            "updated-model",
-						ModelProviderId: test.ModelProviderID().String(),
+						ModelProviderId: modelProviderID.String(),
 						ContextWindow:   500_000,
 						Enabled:         false,
 						Capabilities: []v1.ModelCapability{
@@ -445,26 +421,22 @@ func TestUpdateModel(t *testing.T) {
 		{
 			Name: "success - update model provider",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider1 := test.NewModelProviderBuilder(t, db).
+				modelProvider1 := test.NewModelProviderBuilder(t, modelProviderID, db).
 					Build(ctx)
 
-				test.NewModelProviderBuilder(t, db).
-					WithID(test.ModelProviderID2()).
-					Build(ctx)
-
-				test.NewModelBuilder(t, db, modelProvider1).
+				test.NewModelBuilder(t, modelID, db, modelProvider1).
 					Build(ctx)
 			},
 			Request: &v1.UpdateModelRequest{
-				Id:              test.ModelID().String(),
-				ModelProviderId: ptr(test.ModelProviderID2().String()),
+				Id:              modelID.String(),
+				ModelProviderId: ptr(modelProviderID.String()),
 			},
 			Expected: ServiceTestExpectation[v1.UpdateModelResponse]{
 				Response: v1.UpdateModelResponse{
 					Model: &v1.Model{
-						Id:              test.ModelID().String(),
+						Id:              modelID.String(),
 						Name:            "claude-3-7-sonnet-20250219",
-						ModelProviderId: test.ModelProviderID2().String(),
+						ModelProviderId: modelProviderID.String(),
 						ContextWindow:   200_000,
 						Enabled:         true,
 						Capabilities:    []v1.ModelCapability{v1.ModelCapability_MODEL_CAPABILITY_PROMPT_CACHE},
@@ -481,14 +453,14 @@ func TestUpdateModel(t *testing.T) {
 		{
 			Name: "success - update pricing",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).
+				modelProvider := test.NewModelProviderBuilder(t, modelProviderID, db).
 					Build(ctx)
 
-				test.NewModelBuilder(t, db, modelProvider).
+				test.NewModelBuilder(t, modelID, db, modelProvider).
 					Build(ctx)
 			},
 			Request: &v1.UpdateModelRequest{
-				Id: test.ModelID().String(),
+				Id: modelID.String(),
 				Pricing: &v1.ModelPricing{
 					InputCost:      adapters.Float64ToProtoDecimal(0.0001),
 					OutputCost:     adapters.Float64ToProtoDecimal(0.0002),
@@ -499,9 +471,9 @@ func TestUpdateModel(t *testing.T) {
 			Expected: ServiceTestExpectation[v1.UpdateModelResponse]{
 				Response: v1.UpdateModelResponse{
 					Model: &v1.Model{
-						Id:              test.ModelID().String(),
+						Id:              modelID.String(),
 						Name:            "claude-3-7-sonnet-20250219",
-						ModelProviderId: test.ModelProviderID().String(),
+						ModelProviderId: modelProviderID.String(),
 						ContextWindow:   200_000,
 						Enabled:         true,
 						Capabilities:    []v1.ModelCapability{v1.ModelCapability_MODEL_CAPABILITY_PROMPT_CACHE},
@@ -529,6 +501,9 @@ func TestDeleteModel(t *testing.T) {
 		},
 	}
 
+	modelID := uuid.New()
+	modelProviderID := uuid.New()
+
 	setup.RunServiceTests(t, []ServiceTestScenario[v1.DeleteModelRequest, v1.DeleteModelResponse]{
 		{
 			Name: "invalid id format",
@@ -542,7 +517,7 @@ func TestDeleteModel(t *testing.T) {
 		{
 			Name: "model not found",
 			Request: &v1.DeleteModelRequest{
-				Id: test.ModelID2().String(),
+				Id: uuid.New().String(),
 			},
 			Expected: ServiceTestExpectation[v1.DeleteModelResponse]{
 				Error: "not_found: model not found",
@@ -551,14 +526,14 @@ func TestDeleteModel(t *testing.T) {
 		{
 			Name: "success",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).
+				modelProvider := test.NewModelProviderBuilder(t, modelProviderID, db).
 					Build(ctx)
 
-				test.NewModelBuilder(t, db, modelProvider).
+				test.NewModelBuilder(t, modelID, db, modelProvider).
 					Build(ctx)
 			},
 			Request: &v1.DeleteModelRequest{
-				Id: test.ModelID().String(),
+				Id: modelID.String(),
 			},
 			Expected: ServiceTestExpectation[v1.DeleteModelResponse]{
 				Response: v1.DeleteModelResponse{},

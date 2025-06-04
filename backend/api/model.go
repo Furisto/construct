@@ -33,43 +33,46 @@ func (h *ModelHandler) CreateModel(ctx context.Context, req *connect.Request[v1.
 		return nil, apiError(connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid model provider ID format: %w", err)))
 	}
 
-	modelProvider, err := h.db.ModelProvider.Get(ctx, modelProviderID)
-	if err != nil {
-		return nil, apiError(err)
-	}
-
-	capabilities := make([]types.ModelCapability, 0, len(req.Msg.Capabilities))
-	for _, cap := range req.Msg.Capabilities {
-		cap, err := conv.ProtoModelCapabilityToMemory(cap)
+	model, err := memory.Transaction(ctx, h.db, func(tx *memory.Client) (*memory.Model, error) {
+		modelProvider, err := tx.ModelProvider.Get(ctx, modelProviderID)
 		if err != nil {
-			return nil, apiError(err)
+			return nil, err
 		}
-		capabilities = append(capabilities, cap)
-	}
 
-	modelCreate := h.db.Model.Create().
-		SetName(req.Msg.Name).
-		SetModelProvider(modelProvider).
-		SetContextWindow(req.Msg.ContextWindow).
-		SetEnabled(true)
-
-	if len(capabilities) > 0 {
-		modelCreate.SetCapabilities(capabilities)
-	}
-
-	if req.Msg.Pricing != nil {
-		inputCost, outputCost, cacheWriteCost, cacheReadCost, err := conv.ProtoModelPricingToMemory(req.Msg.Pricing)
-		if err != nil {
-			return nil, apiError(err)
+		capabilities := make([]types.ModelCapability, 0, len(req.Msg.Capabilities))
+		for _, cap := range req.Msg.Capabilities {
+			cap, err := conv.ProtoModelCapabilityToMemory(cap)
+			if err != nil {
+				return nil, err
+			}
+			capabilities = append(capabilities, cap)
 		}
-		modelCreate.
-			SetInputCost(inputCost).
-			SetOutputCost(outputCost).
-			SetCacheWriteCost(cacheWriteCost).
-			SetCacheReadCost(cacheReadCost)
-	}
 
-	model, err := modelCreate.Save(ctx)
+		modelCreate := tx.Model.Create().
+			SetName(req.Msg.Name).
+			SetModelProvider(modelProvider).
+			SetContextWindow(req.Msg.ContextWindow).
+			SetEnabled(true)
+
+		if len(capabilities) > 0 {
+			modelCreate.SetCapabilities(capabilities)
+		}
+
+		if req.Msg.Pricing != nil {
+			inputCost, outputCost, cacheWriteCost, cacheReadCost, err := conv.ProtoModelPricingToMemory(req.Msg.Pricing)
+			if err != nil {
+				return nil, err
+			}
+			modelCreate.
+				SetInputCost(inputCost).
+				SetOutputCost(outputCost).
+				SetCacheWriteCost(cacheWriteCost).
+				SetCacheReadCost(cacheReadCost)
+		}
+
+		return modelCreate.Save(ctx)
+	})
+
 	if err != nil {
 		return nil, apiError(err)
 	}
@@ -147,69 +150,58 @@ func (h *ModelHandler) UpdateModel(ctx context.Context, req *connect.Request[v1.
 		return nil, apiError(connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid ID format: %w", err)))
 	}
 
-	_, err = h.db.Model.Get(ctx, id)
-	if err != nil {
-		return nil, apiError(err)
-	}
-
-	update := h.db.Model.UpdateOneID(id)
-
-	if req.Msg.Name != nil {
-		update = update.SetName(*req.Msg.Name)
-	}
-
-	if req.Msg.ModelProviderId != nil {
-		modelProviderID, err := uuid.Parse(*req.Msg.ModelProviderId)
-		if err != nil {
-			return nil, apiError(connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid model provider ID format: %w", err)))
-		}
-
-		_, err = h.db.ModelProvider.Get(ctx, modelProviderID)
+	model, err := memory.Transaction(ctx, h.db, func(tx *memory.Client) (*memory.Model, error) {
+		_, err = tx.Model.Get(ctx, id)
 		if err != nil {
 			return nil, apiError(err)
 		}
 
-		update = update.SetModelProviderID(modelProviderID)
-	}
+		update := tx.Model.UpdateOneID(id)
 
-	if len(req.Msg.Capabilities) > 0 {
-		capabilities := make([]types.ModelCapability, 0, len(req.Msg.Capabilities))
-		for _, cap := range req.Msg.Capabilities {
-			switch cap {
-			case v1.ModelCapability_MODEL_CAPABILITY_IMAGE:
-				capabilities = append(capabilities, types.ModelCapabilityImage)
-			case v1.ModelCapability_MODEL_CAPABILITY_COMPUTER_USE:
-				capabilities = append(capabilities, types.ModelCapabilityComputerUse)
-			case v1.ModelCapability_MODEL_CAPABILITY_PROMPT_CACHE:
-				capabilities = append(capabilities, types.ModelCapabilityPromptCache)
-			case v1.ModelCapability_MODEL_CAPABILITY_THINKING:
-				capabilities = append(capabilities, types.ModelCapabilityExtendedThinking)
+		if req.Msg.Name != nil {
+			update = update.SetName(*req.Msg.Name)
+		}
+
+		if len(req.Msg.Capabilities) > 0 {
+			capabilities := make([]types.ModelCapability, 0, len(req.Msg.Capabilities))
+			for _, cap := range req.Msg.Capabilities {
+				switch cap {
+				case v1.ModelCapability_MODEL_CAPABILITY_IMAGE:
+					capabilities = append(capabilities, types.ModelCapabilityImage)
+				case v1.ModelCapability_MODEL_CAPABILITY_COMPUTER_USE:
+					capabilities = append(capabilities, types.ModelCapabilityComputerUse)
+				case v1.ModelCapability_MODEL_CAPABILITY_PROMPT_CACHE:
+					capabilities = append(capabilities, types.ModelCapabilityPromptCache)
+				case v1.ModelCapability_MODEL_CAPABILITY_THINKING:
+					capabilities = append(capabilities, types.ModelCapabilityExtendedThinking)
+				}
 			}
+			update = update.SetCapabilities(capabilities)
 		}
-		update = update.SetCapabilities(capabilities)
-	}
 
-	if req.Msg.Pricing != nil {
-		inputCost, outputCost, cacheWriteCost, cacheReadCost, err := conv.ProtoModelPricingToMemory(req.Msg.Pricing)
-		if err != nil {
-			return nil, apiError(err)
+		if req.Msg.Pricing != nil {
+			inputCost, outputCost, cacheWriteCost, cacheReadCost, err := conv.ProtoModelPricingToMemory(req.Msg.Pricing)
+			if err != nil {
+				return nil, apiError(err)
+			}
+			update = update.
+				SetInputCost(inputCost).
+				SetOutputCost(outputCost).
+				SetCacheWriteCost(cacheWriteCost).
+				SetCacheReadCost(cacheReadCost)
 		}
-		update = update.
-			SetInputCost(inputCost).
-			SetOutputCost(outputCost).
-			SetCacheWriteCost(cacheWriteCost).
-			SetCacheReadCost(cacheReadCost)
-	}
 
-	if req.Msg.ContextWindow != nil {
-		update = update.SetContextWindow(*req.Msg.ContextWindow)
-	}
+		if req.Msg.ContextWindow != nil {
+			update = update.SetContextWindow(*req.Msg.ContextWindow)
+		}
 
-	if req.Msg.Enabled != nil {
-		update = update.SetEnabled(*req.Msg.Enabled)
-	}
+		if req.Msg.Enabled != nil {
+			update = update.SetEnabled(*req.Msg.Enabled)
+		}
 
-	model, err := update.Save(ctx)
+		return update.Save(ctx)
+	})
+
 	if err != nil {
 		return nil, apiError(err)
 	}

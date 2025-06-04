@@ -65,8 +65,8 @@ func TestHandoff(t *testing.T) {
 		{
 			Name: "target agent does not exist",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
-				model := test.NewModelBuilder(t, db, modelProvider).Build(ctx)
+				modelProvider := test.NewModelProviderBuilder(t, uuid.New(), db).Build(ctx)
+				model := test.NewModelBuilder(t, uuid.New(), db, modelProvider).Build(ctx)
 				sourceAgent := test.NewAgentBuilder(t, sourceAgentID, db, model).
 					WithName("source").
 					Build(ctx)
@@ -87,8 +87,8 @@ func TestHandoff(t *testing.T) {
 		{
 			Name: "task does not exist",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
-				model := test.NewModelBuilder(t, db, modelProvider).Build(ctx)
+				modelProvider := test.NewModelProviderBuilder(t, uuid.New(), db).Build(ctx)
+				model := test.NewModelBuilder(t, uuid.New(), db, modelProvider).Build(ctx)
 
 				test.NewAgentBuilder(t, sourceAgentID, db, model).
 					WithName("source").
@@ -110,8 +110,8 @@ func TestHandoff(t *testing.T) {
 		{
 			Name: "successful handoff without handover message",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
-				model := test.NewModelBuilder(t, db, modelProvider).Build(ctx)
+				modelProvider := test.NewModelProviderBuilder(t, uuid.New(), db).Build(ctx)
+				model := test.NewModelBuilder(t, uuid.New(), db, modelProvider).Build(ctx)
 
 				sourceAgent := test.NewAgentBuilder(t, sourceAgentID, db, model).
 					WithName("source").
@@ -138,8 +138,8 @@ func TestHandoff(t *testing.T) {
 		{
 			Name: "successful handoff with handover message",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
-				model := test.NewModelBuilder(t, db, modelProvider).Build(ctx)
+				modelProvider := test.NewModelProviderBuilder(t, uuid.New(), db).Build(ctx)
+				model := test.NewModelBuilder(t, uuid.New(), db, modelProvider).Build(ctx)
 
 				sourceAgent := test.NewAgentBuilder(t, sourceAgentID, db, model).
 					WithName("source").
@@ -167,8 +167,8 @@ func TestHandoff(t *testing.T) {
 		{
 			Name: "handoff to same agent",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, db).Build(ctx)
-				model := test.NewModelBuilder(t, db, modelProvider).Build(ctx)
+				modelProvider := test.NewModelProviderBuilder(t, uuid.New(), db).Build(ctx)
+				model := test.NewModelBuilder(t, uuid.New(), db, modelProvider).Build(ctx)
 
 				sourceAgent := test.NewAgentBuilder(t, sourceAgentID, db, model).
 					WithName("source").

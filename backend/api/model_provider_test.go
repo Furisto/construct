@@ -74,6 +74,8 @@ func TestGetModelProvider(t *testing.T) {
 		},
 	}
 
+	modelProviderID := uuid.New()
+
 	setup.RunServiceTests(t, []ServiceTestScenario[v1.GetModelProviderRequest, v1.GetModelProviderResponse]{
 		{
 			Name: "invalid id format",
@@ -96,16 +98,16 @@ func TestGetModelProvider(t *testing.T) {
 		{
 			Name: "success",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				test.NewModelProviderBuilder(t, db).
+				test.NewModelProviderBuilder(t, modelProviderID, db).
 					Build(ctx)
 			},
 			Request: &v1.GetModelProviderRequest{
-				Id: test.ModelProviderID().String(),
+				Id: modelProviderID.String(),
 			},
 			Expected: ServiceTestExpectation[v1.GetModelProviderResponse]{
 				Response: v1.GetModelProviderResponse{
 					ModelProvider: &v1.ModelProvider{
-						Id:           test.ModelProviderID().String(),
+						Id:           modelProviderID.String(),
 						Name:         "anthropic",
 						ProviderType: v1.ModelProviderType_MODEL_PROVIDER_TYPE_ANTHROPIC,
 						Enabled:      true,
@@ -145,16 +147,14 @@ func TestListModelProviders(t *testing.T) {
 			Name: "filter by enabled",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
 				// Create enabled provider
-				test.NewModelProviderBuilder(t, db).
-					WithID(anthropicID).
+				test.NewModelProviderBuilder(t, anthropicID, db).
 					WithName("anthropic").
 					WithProviderType(types.ModelProviderTypeAnthropic).
 					WithEnabled(true).
 					Build(ctx)
 
 				// Create disabled provider
-				test.NewModelProviderBuilder(t, db).
-					WithID(openaiID).
+				test.NewModelProviderBuilder(t, openaiID, db).
 					WithName("openai").
 					WithProviderType(types.ModelProviderTypeOpenAI).
 					WithEnabled(false).
@@ -182,16 +182,14 @@ func TestListModelProviders(t *testing.T) {
 			Name: "filter by provider type",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
 				// Create Anthropic provider
-				test.NewModelProviderBuilder(t, db).
-					WithID(anthropicID).
+				test.NewModelProviderBuilder(t, anthropicID, db).
 					WithName("anthropic").
 					WithProviderType(types.ModelProviderTypeAnthropic).
 					WithEnabled(true).
 					Build(ctx)
 
 				// Create OpenAI provider
-				test.NewModelProviderBuilder(t, db).
-					WithID(openaiID).
+				test.NewModelProviderBuilder(t, openaiID, db).
 					WithName("openai").
 					WithProviderType(types.ModelProviderTypeOpenAI).
 					WithEnabled(true).
@@ -219,16 +217,14 @@ func TestListModelProviders(t *testing.T) {
 			Name: "multiple providers",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
 				// Create Anthropic provider
-				test.NewModelProviderBuilder(t, db).
-					WithID(anthropicID).
+				test.NewModelProviderBuilder(t, anthropicID, db).
 					WithName("anthropic").
 					WithProviderType(types.ModelProviderTypeAnthropic).
 					WithEnabled(true).
 					Build(ctx)
 
 				// Create OpenAI provider
-				test.NewModelProviderBuilder(t, db).
-					WithID(openaiID).
+				test.NewModelProviderBuilder(t, openaiID, db).
 					WithName("openai").
 					WithProviderType(types.ModelProviderTypeOpenAI).
 					WithEnabled(true).
@@ -292,8 +288,7 @@ func TestDeleteModelProvider(t *testing.T) {
 		{
 			Name: "success",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				test.NewModelProviderBuilder(t, db).
-					WithID(testProviderID).
+				test.NewModelProviderBuilder(t, testProviderID, db).
 					WithName("anthropic").
 					WithProviderType(types.ModelProviderTypeAnthropic).
 					WithEnabled(true).
