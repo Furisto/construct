@@ -17,7 +17,7 @@ var modelListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List models",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		client := getAPIClient()
+		client := getAPIClient(cmd.Context())
 
 		filter := &v1.ListModelsRequest_Filter{}
 		if modelListOptions.ModelProviderID != "" {

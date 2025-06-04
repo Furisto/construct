@@ -87,7 +87,12 @@ func RunAgent(ctx context.Context) error {
 	return runtime.Run(ctx)
 }
 
-func getAPIClient() *api.Client {
+func getAPIClient(ctx context.Context) *api.Client {
+	apiTestClient := ctx.Value("api_test_client")
+	if apiTestClient != nil {
+		return apiTestClient.(*api.Client)
+	}
+
 	return api.NewClient("http://localhost:29333/api")
 }
 

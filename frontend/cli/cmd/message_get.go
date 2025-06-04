@@ -11,7 +11,7 @@ var messageGetCmd = &cobra.Command{
 	Short: "Get a message",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		client := getAPIClient()
+		client := getAPIClient(cmd.Context())
 
 		resp, err := client.Message().GetMessage(cmd.Context(), &connect.Request[v1.GetMessageRequest]{
 			Msg: &v1.GetMessageRequest{Id: args[0]},

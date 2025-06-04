@@ -31,7 +31,7 @@ var newCmd = &cobra.Command{
 		slog.SetDefault(slog.New(slog.NewTextHandler(tempFile, &slog.HandlerOptions{
 			Level: slog.LevelDebug,
 		})))
-		apiClient := getAPIClient()
+		apiClient := getAPIClient(cmd.Context())
 
 		agentResp, err := apiClient.Agent().ListAgents(cmd.Context(), &connect.Request[v1.ListAgentsRequest]{
 			Msg: &v1.ListAgentsRequest{

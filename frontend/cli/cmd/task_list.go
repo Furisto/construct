@@ -9,7 +9,7 @@ import (
 var taskListCmd = &cobra.Command{
 	Use: "list",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		client := getAPIClient()
+		client := getAPIClient(cmd.Context())
 
 		resp, err := client.Task().ListTasks(cmd.Context(), &connect.Request[v1.ListTasksRequest]{})
 		if err != nil {

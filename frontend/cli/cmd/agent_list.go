@@ -15,7 +15,7 @@ var agentListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List agents",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		client := getAPIClient()
+		client := getAPIClient(cmd.Context())
 
 		filter := &v1.ListAgentsRequest_Filter{}
 		if agentListOptions.ModelID != "" {

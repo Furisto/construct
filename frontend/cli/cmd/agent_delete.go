@@ -11,7 +11,7 @@ var agentDeleteCmd = &cobra.Command{
 	Short: "Delete an agent by ID",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		client := getAPIClient()
+		client := getAPIClient(cmd.Context())
 
 		for _, id := range args {
 			_, err := client.Agent().DeleteAgent(cmd.Context(), &connect.Request[v1.DeleteAgentRequest]{

@@ -11,7 +11,7 @@ var modelProviderDeleteCmd = &cobra.Command{
 	Short: "Delete a model provider",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		client := getAPIClient()
+		client := getAPIClient(cmd.Context())
 
 		for _, id := range args {
 			resp, err := client.ModelProvider().GetModelProvider(cmd.Context(), &connect.Request[v1.GetModelProviderRequest]{
