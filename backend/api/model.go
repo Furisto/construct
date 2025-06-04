@@ -34,7 +34,7 @@ func (h *ModelHandler) CreateModel(ctx context.Context, req *connect.Request[v1.
 	}
 
 	model, err := memory.Transaction(ctx, h.db, func(tx *memory.Client) (*memory.Model, error) {
-		modelProvider, err := h.db.ModelProvider.Get(ctx, modelProviderID)
+		modelProvider, err := tx.ModelProvider.Get(ctx, modelProviderID)
 		if err != nil {
 			return nil, err
 		}
@@ -48,7 +48,7 @@ func (h *ModelHandler) CreateModel(ctx context.Context, req *connect.Request[v1.
 			capabilities = append(capabilities, cap)
 		}
 
-		modelCreate := h.db.Model.Create().
+		modelCreate := tx.Model.Create().
 			SetName(req.Msg.Name).
 			SetModelProvider(modelProvider).
 			SetContextWindow(req.Msg.ContextWindow).
@@ -151,29 +151,15 @@ func (h *ModelHandler) UpdateModel(ctx context.Context, req *connect.Request[v1.
 	}
 
 	model, err := memory.Transaction(ctx, h.db, func(tx *memory.Client) (*memory.Model, error) {
-		_, err = h.db.Model.Get(ctx, id)
+		_, err = tx.Model.Get(ctx, id)
 		if err != nil {
 			return nil, apiError(err)
 		}
 
-		update := h.db.Model.UpdateOneID(id)
+		update := tx.Model.UpdateOneID(id)
 
 		if req.Msg.Name != nil {
 			update = update.SetName(*req.Msg.Name)
-		}
-
-		if req.Msg.ModelProviderId != nil {
-			modelProviderID, err := uuid.Parse(*req.Msg.ModelProviderId)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid model provider ID format: %w", err))
-			}
-
-			_, err = h.db.ModelProvider.Get(ctx, modelProviderID)
-			if err != nil {
-				return nil, err
-			}
-
-			update = update.SetModelProviderID(modelProviderID)
 		}
 
 		if len(req.Msg.Capabilities) > 0 {
@@ -215,6 +201,10 @@ func (h *ModelHandler) UpdateModel(ctx context.Context, req *connect.Request[v1.
 
 		return update.Save(ctx)
 	})
+
+	if err != nil {
+		return nil, apiError(err)
+	}
 
 	protoModel, err := conv.MemoryModelToProto(model)
 	if err != nil {

@@ -357,7 +357,6 @@ func TestUpdateModel(t *testing.T) {
 
 	modelID := uuid.New()
 	modelProviderID := uuid.New()
-	modelProviderID2 := uuid.New()
 
 	setup.RunServiceTests(t, []ServiceTestScenario[v1.UpdateModelRequest, v1.UpdateModelResponse]{
 		{
@@ -378,40 +377,6 @@ func TestUpdateModel(t *testing.T) {
 			},
 			Expected: ServiceTestExpectation[v1.UpdateModelResponse]{
 				Error: "not_found: model not found",
-			},
-		},
-		{
-			Name: "invalid model provider ID",
-			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, modelProviderID, db).
-					Build(ctx)
-
-				test.NewModelBuilder(t, modelID, db, modelProvider).
-					Build(ctx)
-			},
-			Request: &v1.UpdateModelRequest{
-				Id:              modelID.String(),
-				ModelProviderId: strPtr("not-a-valid-uuid"),
-			},
-			Expected: ServiceTestExpectation[v1.UpdateModelResponse]{
-				Error: "invalid_argument: invalid model provider ID format: invalid UUID length: 16",
-			},
-		},
-		{
-			Name: "model provider not found",
-			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				modelProvider := test.NewModelProviderBuilder(t, modelProviderID, db).
-					Build(ctx)
-
-				test.NewModelBuilder(t, modelID, db, modelProvider).
-					Build(ctx)
-			},
-			Request: &v1.UpdateModelRequest{
-				Id:              modelID.String(),
-				ModelProviderId: strPtr(modelProviderID2.String()),
-			},
-			Expected: ServiceTestExpectation[v1.UpdateModelResponse]{
-				Error: "not_found: model_provider not found",
 			},
 		},
 		{
@@ -459,22 +424,19 @@ func TestUpdateModel(t *testing.T) {
 				modelProvider1 := test.NewModelProviderBuilder(t, modelProviderID, db).
 					Build(ctx)
 
-				test.NewModelProviderBuilder(t, modelProviderID2, db).
-					Build(ctx)
-
 				test.NewModelBuilder(t, modelID, db, modelProvider1).
 					Build(ctx)
 			},
 			Request: &v1.UpdateModelRequest{
 				Id:              modelID.String(),
-				ModelProviderId: ptr(modelProviderID2.String()),
+				ModelProviderId: ptr(modelProviderID.String()),
 			},
 			Expected: ServiceTestExpectation[v1.UpdateModelResponse]{
 				Response: v1.UpdateModelResponse{
 					Model: &v1.Model{
 						Id:              modelID.String(),
 						Name:            "claude-3-7-sonnet-20250219",
-						ModelProviderId: modelProviderID2.String(),
+						ModelProviderId: modelProviderID.String(),
 						ContextWindow:   200_000,
 						Enabled:         true,
 						Capabilities:    []v1.ModelCapability{v1.ModelCapability_MODEL_CAPABILITY_PROMPT_CACHE},

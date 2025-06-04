@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"testing"
-
 	"net/http/httptest"
+	"os"
+	"sync"
+	"testing"
 
 	"connectrpc.com/connect"
 	"entgo.io/ent/dialect"
@@ -15,8 +15,12 @@ import (
 	api_client "github.com/furisto/construct/api/go/client"
 	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/secret"
+	"github.com/furisto/construct/backend/stream"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/uuid"
 )
+
+var migrationMutex sync.Mutex
 
 type ClientServiceCall[Request any, Response any] func(ctx context.Context, client *api_client.Client, req *connect.Request[Request]) (*connect.Response[Response], error)
 
@@ -50,9 +54,9 @@ func (s *ServiceTestSetup[Request, Response]) RunServiceTests(t *testing.T, scen
 
 	ctx := context.Background()
 	handlerOptions := DefaultTestHandlerOptions(t)
-	server := NewTestServer(ctx, t, handlerOptions)
+	server := NewTestServer(t, handlerOptions)
 
-	server.Start()
+	server.Start(ctx)
 	defer server.Close()
 
 	apiClient := api_client.NewClient(server.API.URL)
@@ -84,7 +88,9 @@ func (s *ServiceTestSetup[Request, Response]) RunServiceTests(t *testing.T, scen
 			}
 
 			if diff := cmp.Diff(scenario.Expected, actual, s.CmpOptions...); diff != "" {
-				server.DebugDatabase(ctx, t)
+				if s.Debug {
+					server.DebugDatabase(ctx, t)
+				}
 				t.Errorf("%s() mismatch (-want +got):\n%s", scenario.Name, diff)
 			}
 		})
@@ -107,31 +113,36 @@ func DefaultTestHandlerOptions(t *testing.T) HandlerOptions {
 		t.Fatalf("failed creating encryption client: %v", err)
 	}
 
+	runtime := &MockAgentRuntime{}
+
 	return HandlerOptions{
-		DB:         db,
-		Encryption: encryption,
+		DB:           db,
+		Encryption:   encryption,
+		AgentRuntime: runtime,
 	}
 }
 
 type TestServer struct {
 	API     *httptest.Server
 	Options HandlerOptions
+
+	t *testing.T
 }
 
-func NewTestServer(ctx context.Context, t *testing.T, handlerOptions HandlerOptions) *TestServer {
+func NewTestServer(t *testing.T, handlerOptions HandlerOptions) *TestServer {
 	server := httptest.NewUnstartedServer(NewHandler(handlerOptions))
-
-	if err := handlerOptions.DB.Schema.Create(ctx); err != nil {
-		t.Fatalf("failed creating schema resources: %v", err)
-	}
 
 	return &TestServer{
 		API:     server,
 		Options: handlerOptions,
+		t:       t,
 	}
 }
 
-func (s *TestServer) Start() {
+func (s *TestServer) Start(ctx context.Context) {
+	if err := s.Options.DB.Schema.Create(ctx); err != nil {
+		s.t.Fatalf("failed creating schema resources: %v", err)
+	}
 	s.API.Start()
 }
 
@@ -249,3 +260,21 @@ func boolPtr(b bool) *bool {
 	return &b
 }
 
+type MockAgentRuntime struct {
+}
+
+func (m *MockAgentRuntime) Memory() *memory.Client {
+	return nil
+}
+
+func (m *MockAgentRuntime) Encryption() *secret.Client {
+	return nil
+}
+
+func (m *MockAgentRuntime) EventHub() *stream.EventHub {
+	return nil
+}
+
+func (m *MockAgentRuntime) TriggerReconciliation(id uuid.UUID) {
+	return
+}

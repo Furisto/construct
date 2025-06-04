@@ -98,7 +98,7 @@ func TestGetModelProvider(t *testing.T) {
 		{
 			Name: "success",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				test.NewModelProviderBuilder(t, uuid.MustParse("01234567-89ab-cdef-0123-456789abcdef"), db).
+				test.NewModelProviderBuilder(t, modelProviderID, db).
 					Build(ctx)
 			},
 			Request: &v1.GetModelProviderRequest{

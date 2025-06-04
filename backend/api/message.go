@@ -40,7 +40,7 @@ func (h *MessageHandler) CreateMessage(ctx context.Context, req *connect.Request
 	}
 
 	msg, err := memory.Transaction(ctx, h.db, func(tx *memory.Client) (*memory.Message, error) {
-		task, err := h.db.Task.Get(ctx, taskID)
+		task, err := tx.Task.Get(ctx, taskID)
 		if err != nil {
 			return nil, err
 		}
@@ -54,7 +54,7 @@ func (h *MessageHandler) CreateMessage(ctx context.Context, req *connect.Request
 			},
 		}
 
-		return h.db.Message.Create().
+		return tx.Message.Create().
 			SetTask(task).
 			SetContent(content).
 			SetSource(types.MessageSourceUser).

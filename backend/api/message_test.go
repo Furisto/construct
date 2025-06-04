@@ -169,8 +169,6 @@ func TestGetMessage(t *testing.T) {
 }
 
 func TestListMessages(t *testing.T) {
-	t.Parallel()
-
 	setup := ServiceTestSetup[v1.ListMessagesRequest, v1.ListMessagesResponse]{
 		Call: func(ctx context.Context, client *client.Client, req *connect.Request[v1.ListMessagesRequest]) (*connect.Response[v1.ListMessagesResponse], error) {
 			return client.Message().ListMessages(ctx, req)
@@ -182,7 +180,6 @@ func TestListMessages(t *testing.T) {
 		},
 	}
 
-	// Define test IDs
 	taskID1 := uuid.New()
 	taskID2 := uuid.New()
 	messageID1 := uuid.New()
@@ -545,6 +542,7 @@ func TestUpdateMessage(t *testing.T) {
 }
 
 func TestDeleteMessage(t *testing.T) {
+	t.Parallel()
 	setup := ServiceTestSetup[v1.DeleteMessageRequest, v1.DeleteMessageResponse]{
 		Call: func(ctx context.Context, client *client.Client, req *connect.Request[v1.DeleteMessageRequest]) (*connect.Response[v1.DeleteMessageResponse], error) {
 			return client.Message().DeleteMessage(ctx, req)
