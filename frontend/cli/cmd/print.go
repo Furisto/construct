@@ -9,17 +9,23 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var formatOptions struct {
+type FormatOptions struct {
 	Output OutputFormat
 }
 
-func DisplayResources[T any](resources []T, outputFormat OutputFormat) (err error) {
-	if len(resources) == 0 {
-		return nil
-	}
+type ResourceFormatter interface {
+	Display(resources any, format OutputFormat) error
+}
+
+type DefaultResourceFormatter struct{}
+
+func (f *DefaultResourceFormatter) Display(resources any, format OutputFormat) (err error) {
+	// if len(resources) == 0 {
+	// 	return nil
+	// }
 
 	var output []byte
-	switch outputFormat {
+	switch format {
 	case OutputFormatJSON:
 		output, err = json.MarshalIndent(resources, "", "  ")
 		if err != nil {
@@ -41,8 +47,8 @@ func DisplayResources[T any](resources []T, outputFormat OutputFormat) (err erro
 	return nil
 }
 
-func addFormatOptions(cmd *cobra.Command) {
-	cmd.Flags().VarP(&formatOptions.Output, "output", "o", "output format (json, yaml)")
+func addFormatOptions(cmd *cobra.Command, options *FormatOptions) {
+	cmd.Flags().VarP(&options.Output, "output", "o", "output format (json, yaml)")
 }
 
 type OutputFormat string

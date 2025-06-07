@@ -8,7 +8,8 @@ import (
 )
 
 var agentListOptions struct {
-	ModelID string
+	ModelID       string
+	FormatOptions FormatOptions
 }
 
 var agentListCmd = &cobra.Command{
@@ -38,12 +39,13 @@ var agentListCmd = &cobra.Command{
 			displayAgents[i] = ConvertAgentToDisplay(agent)
 		}
 
-		return DisplayResources(displayAgents, formatOptions.Output)
+		return getFormatter(cmd.Context()).Display(displayAgents, agentListOptions.FormatOptions.Output)
 	},
 }
 
 func init() {
-	addFormatOptions(agentListCmd) // Assumes addFormatOptions exists in print.go
-	agentListCmd.Flags().StringVarP(&agentListOptions.ModelID, "model-id", "m", "", "Filter by model ID")
-	agentCmd.AddCommand(agentListCmd) // Needs agentCmd defined later
+	agentListCmd.Flags().StringVarP(&agentListOptions.ModelID, "model", "m", "", "Filter agents by model ID")
+
+	addFormatOptions(agentListCmd, &agentListOptions.FormatOptions)
+	agentCmd.AddCommand(agentListCmd)
 }

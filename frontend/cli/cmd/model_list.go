@@ -11,6 +11,7 @@ var modelListOptions struct {
 	ModelProviderID string
 	Enabled         bool
 	ShowDisabled    bool
+	FormatOptions   FormatOptions
 }
 
 var modelListCmd = &cobra.Command{
@@ -45,12 +46,12 @@ var modelListCmd = &cobra.Command{
 			displayModels[i] = ConvertModelToDisplay(model)
 		}
 
-		return DisplayResources(displayModels, formatOptions.Output)
+		return getFormatter(cmd.Context()).Display(displayModels, modelListOptions.FormatOptions.Output)
 	},
 }
 
 func init() {
-	addFormatOptions(modelListCmd)
+	addFormatOptions(modelListCmd, &modelListOptions.FormatOptions)
 	modelListCmd.Flags().StringVarP(&modelListOptions.ModelProviderID, "model-provider-id", "p", "", "Filter by model provider ID")
 	modelListCmd.Flags().BoolVar(&modelListOptions.ShowDisabled, "show-disabled", false, "Show disabled models")
 	modelCmd.AddCommand(modelListCmd)

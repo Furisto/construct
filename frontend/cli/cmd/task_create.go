@@ -7,7 +7,9 @@ import (
 )
 
 var taskCreateOptions struct {
-	Name string
+	Name  string
+	Agent string
+
 }
 
 var taskCreateCmd = &cobra.Command{
@@ -16,7 +18,8 @@ var taskCreateCmd = &cobra.Command{
 		client := getAPIClient(cmd.Context())
 
 		_, err := client.Task().CreateTask(cmd.Context(), &connect.Request[v1.CreateTaskRequest]{
-			Msg: &v1.CreateTaskRequest{},
+			Msg: &v1.CreateTaskRequest{
+			},
 		})
 
 		if err != nil {
@@ -29,4 +32,7 @@ var taskCreateCmd = &cobra.Command{
 
 func init() {
 	taskCmd.AddCommand(taskCreateCmd)
+
+	taskCreateCmd.Flags().StringVarP(&taskCreateOptions.Name, "name", "n", "", "The name of the task")
+	taskCreateCmd.Flags().StringVarP(&taskCreateOptions.Agent, "agent", "a", "", "The agent to use")
 }

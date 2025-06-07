@@ -7,7 +7,8 @@ import (
 )
 
 var modelGetOptions struct {
-	Id string
+	Id            string
+	FormatOptions FormatOptions
 }
 
 var modelGetCmd = &cobra.Command{
@@ -27,12 +28,12 @@ var modelGetCmd = &cobra.Command{
 
 		displayModel := ConvertModelToDisplay(resp.Msg.Model)
 
-		return DisplayResources([]*ModelDisplay{displayModel}, formatOptions.Output)
+		return getFormatter(cmd.Context()).Display([]*ModelDisplay{displayModel}, modelGetOptions.FormatOptions.Output)
 	},
 }
 
 func init() {
-	addFormatOptions(modelGetCmd)
+	addFormatOptions(modelGetCmd, &modelGetOptions.FormatOptions)
 	modelGetCmd.Flags().StringVarP(&modelGetOptions.Id, "id", "i", "", "The ID of the model to get")
 	modelGetCmd.MarkFlagRequired("id")
 	modelCmd.AddCommand(modelGetCmd)

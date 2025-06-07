@@ -7,7 +7,8 @@ import (
 )
 
 var taskGetOptions struct {
-	Id string
+	Id            string
+	FormatOptions FormatOptions
 }
 
 var taskGetCmd = &cobra.Command{
@@ -24,10 +25,11 @@ var taskGetCmd = &cobra.Command{
 			return err
 		}
 
-		return DisplayResources([]*DisplayTask{ConvertTaskToDisplay(resp.Msg.Task)}, formatOptions.Output)
+		return getFormatter(cmd.Context()).Display([]*DisplayTask{ConvertTaskToDisplay(resp.Msg.Task)}, taskGetOptions.FormatOptions.Output)
 	},
 }
 
 func init() {
+	addFormatOptions(taskGetCmd, &taskGetOptions.FormatOptions)
 	taskCmd.AddCommand(taskGetCmd)
 }

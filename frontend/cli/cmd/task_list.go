@@ -6,6 +6,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var taskListOptions struct {
+	FormatOptions FormatOptions
+}
+
 var taskListCmd = &cobra.Command{
 	Use: "list",
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -21,10 +25,11 @@ var taskListCmd = &cobra.Command{
 			tasks[i] = ConvertTaskToDisplay(task)
 		}
 
-		return DisplayResources(tasks, formatOptions.Output)
+		return getFormatter(cmd.Context()).Display(tasks, taskListOptions.FormatOptions.Output)
 	},
 }
 
 func init() {
+	addFormatOptions(taskListCmd, &taskListOptions.FormatOptions)
 	taskCmd.AddCommand(taskListCmd)
 }

@@ -1,26 +1,28 @@
 package cmd
 
 import (
+	"fmt"
+
 	"connectrpc.com/connect"
 	v1 "github.com/furisto/construct/api/go/v1"
 	"github.com/spf13/cobra"
 )
 
 var messageCreateOptions struct {
-	TaskId  string
-	Content string
+	FormatOptions FormatOptions
 }
 
 var messageCreateCmd = &cobra.Command{
-	Use:   "create",
+	Use:   "create <task-id> <content>",
 	Short: "Create a new message",
+	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		client := getAPIClient(cmd.Context())
 
 		resp, err := client.Message().CreateMessage(cmd.Context(), &connect.Request[v1.CreateMessageRequest]{
 			Msg: &v1.CreateMessageRequest{
-				TaskId:  messageCreateOptions.TaskId,
-				Content: messageCreateOptions.Content,
+				TaskId:  args[0],
+				Content: args[1],
 			},
 		})
 
@@ -28,15 +30,12 @@ var messageCreateCmd = &cobra.Command{
 			return err
 		}
 
-		return DisplayResources([]*DisplayMessage{ConvertMessageToDisplay(resp.Msg.Message)}, formatOptions.Output)
+		fmt.Println(resp.Msg.Message.Id)
+		return nil
 	},
 }
 
 func init() {
-	messageCreateCmd.Flags().StringVarP(&messageCreateOptions.TaskId, "task-id", "t", "", "The ID of the task to create the message for")
-	messageCreateCmd.Flags().StringVarP(&messageCreateOptions.Content, "content", "c", "", "The content of the message")
-	messageCreateCmd.MarkFlagRequired("task-id")
-	messageCreateCmd.MarkFlagRequired("content")
-	addFormatOptions(messageCreateCmd)
+	addFormatOptions(messageCreateCmd, &messageCreateOptions.FormatOptions)
 	messageCmd.AddCommand(messageCreateCmd)
 }

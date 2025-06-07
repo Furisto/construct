@@ -3,7 +3,9 @@ package client
 import (
 	"net/http"
 
+	"github.com/furisto/construct/api/go/client/mocks"
 	"github.com/furisto/construct/api/go/v1/v1connect"
+	"go.uber.org/mock/gomock"
 )
 
 type Client struct {
@@ -42,4 +44,36 @@ func (c *Client) Task() v1connect.TaskServiceClient {
 
 func (c *Client) Message() v1connect.MessageServiceClient {
 	return c.message
+}
+
+type MockClient struct {
+	ModelProvider *mocks.MockModelProviderServiceClient
+	Model         *mocks.MockModelServiceClient
+	Agent         *mocks.MockAgentServiceClient
+	Task          *mocks.MockTaskServiceClient
+	Message       *mocks.MockMessageServiceClient
+}
+
+func NewMockClient(ctrl *gomock.Controller) *MockClient {
+	return &MockClient{
+		ModelProvider: mocks.NewMockModelProviderServiceClient(ctrl),
+		Model:         mocks.NewMockModelServiceClient(ctrl),
+		Agent:         mocks.NewMockAgentServiceClient(ctrl),
+		Task:          mocks.NewMockTaskServiceClient(ctrl),
+		Message:       mocks.NewMockMessageServiceClient(ctrl),
+	}
+}
+
+func (c *MockClient) Client() *Client {
+	return &Client{
+		modelProvider: c.ModelProvider,
+		model:         c.Model,
+		agent:         c.Agent,
+		task:          c.Task,
+		message:       c.Message,
+	}
+}
+
+func Ptr[T any](v T) *T {
+	return &v
 }

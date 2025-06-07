@@ -6,6 +6,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var messageGetOptions struct {
+	FormatOptions FormatOptions
+}
+
 var messageGetCmd = &cobra.Command{
 	Use:   "get",
 	Short: "Get a message",
@@ -21,11 +25,11 @@ var messageGetCmd = &cobra.Command{
 			return err
 		}
 
-		return DisplayResources([]*DisplayMessage{ConvertMessageToDisplay(resp.Msg.Message)}, formatOptions.Output)
+		return getFormatter(cmd.Context()).Display([]*DisplayMessage{ConvertMessageToDisplay(resp.Msg.Message)}, messageGetOptions.FormatOptions.Output)
 	},
 }
 
 func init() {
-	addFormatOptions(messageGetCmd)
+	addFormatOptions(messageGetCmd, &messageGetOptions.FormatOptions)
 	messageCmd.AddCommand(messageGetCmd)
 }

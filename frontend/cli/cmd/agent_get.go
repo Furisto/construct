@@ -7,7 +7,8 @@ import (
 )
 
 var agentGetOptions struct {
-	Id string
+	Id            string
+	FormatOptions FormatOptions
 }
 
 var agentGetCmd = &cobra.Command{
@@ -27,14 +28,11 @@ var agentGetCmd = &cobra.Command{
 
 		displayAgent := ConvertAgentToDisplay(resp.Msg.Agent)
 
-		return DisplayResources([]*AgentDisplay{displayAgent}, formatOptions.Output)
+		return getFormatter(cmd.Context()).Display([]*AgentDisplay{displayAgent}, agentGetOptions.FormatOptions.Output)
 	},
 }
 
 func init() {
-	addFormatOptions(agentGetCmd)
-	agentGetCmd.Flags().StringVarP(&agentGetOptions.Id, "id", "i", "", "The ID of the agent to get")
-	agentGetCmd.MarkFlagRequired("id")
-
+	addFormatOptions(agentGetCmd, &agentGetOptions.FormatOptions)
 	agentCmd.AddCommand(agentGetCmd)
 }

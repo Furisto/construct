@@ -10,11 +10,13 @@ import (
 	"syscall"
 
 	"entgo.io/ent/dialect"
+	"github.com/common-nighthawk/go-figure"
 	"github.com/furisto/construct/backend/agent"
 	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/secret"
 	"github.com/furisto/construct/backend/tool"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/tink-crypto/tink-go/keyset"
 
@@ -26,7 +28,9 @@ var globalOptions struct {
 }
 
 var rootCmd = &cobra.Command{
-	Use: "construct",
+	Use:   "construct",
+	Short: "Construct: Build intelligent agents.",
+	Long:  figure.NewColorFigure("construct", "standard", "blue", true).String(),
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 			Level: slog.LevelDebug,
@@ -39,7 +43,6 @@ func Execute() {
 	defer cancel()
 
 	if err := rootCmd.ExecuteContext(ctx); err != nil {
-		slog.Error("failed to execute command", "error", err)
 		os.Exit(1)
 	}
 }
@@ -96,6 +99,15 @@ func getAPIClient(ctx context.Context) *api.Client {
 	return api.NewClient("http://localhost:29333/api")
 }
 
+func getFileSystem(ctx context.Context) *afero.Afero {
+	fs := ctx.Value("filesystem")
+	if fs != nil {
+		return fs.(*afero.Afero)
+	}
+
+	return &afero.Afero{Fs: afero.NewOsFs()}
+}
+
 func getEncryptionClient() (*secret.Client, error) {
 	var keyHandle *keyset.Handle
 	keyHandleJson, err := secret.GetSecret[string](secret.ModelProviderEncryptionKey())
@@ -127,6 +139,15 @@ func getEncryptionClient() (*secret.Client, error) {
 	}
 
 	return secret.NewClient(keyHandle)
+}
+
+func getFormatter(ctx context.Context) ResourceFormatter {
+	printer := ctx.Value("printer")
+	if printer != nil {
+		return printer.(ResourceFormatter)
+	}
+
+	return &DefaultResourceFormatter{}
 }
 
 func init() {

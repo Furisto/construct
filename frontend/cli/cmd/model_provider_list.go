@@ -6,6 +6,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var modelProviderListOptions struct {
+	FormatOptions FormatOptions
+}
+
 var modelProviderListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List model providers",
@@ -22,11 +26,11 @@ var modelProviderListCmd = &cobra.Command{
 			modelProviders[i] = ConvertModelProviderToDisplay(modelProvider)
 		}
 
-		return DisplayResources(modelProviders, formatOptions.Output)
+		return getFormatter(cmd.Context()).Display(modelProviders, modelProviderListOptions.FormatOptions.Output)
 	},
 }
 
 func init() {
-	addFormatOptions(modelProviderListCmd)
+	addFormatOptions(modelProviderListCmd, &modelProviderListOptions.FormatOptions)
 	modelProviderCmd.AddCommand(modelProviderListCmd)
 }
