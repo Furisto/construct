@@ -228,7 +228,7 @@ func TestListAgents(t *testing.T) {
 			},
 			Request: &v1.ListAgentsRequest{
 				Filter: &v1.ListAgentsRequest_Filter{
-					ModelId: strPtr(model1ID.String()),
+					ModelIds: []string{model1ID.String()},
 				},
 			},
 			Expected: ServiceTestExpectation[v1.ListAgentsResponse]{

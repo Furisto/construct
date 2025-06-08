@@ -123,12 +123,15 @@ func (h *AgentHandler) GetAgent(ctx context.Context, req *connect.Request[v1.Get
 func (h *AgentHandler) ListAgents(ctx context.Context, req *connect.Request[v1.ListAgentsRequest]) (*connect.Response[v1.ListAgentsResponse], error) {
 	query := h.db.Agent.Query().WithModel().WithDelegates()
 
-	if req.Msg.Filter != nil && req.Msg.Filter.ModelId != nil {
-		modelID, err := uuid.Parse(*req.Msg.Filter.ModelId)
-		if err != nil {
-			return nil, apiError(connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid model ID format: %w", err)))
+	if req.Msg.Filter != nil && req.Msg.Filter.ModelIds != nil {
+		// TODO: support multiple models
+		for _, modelID := range req.Msg.Filter.ModelIds {
+			modelID, err := uuid.Parse(modelID)
+			if err != nil {
+				return nil, apiError(connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid model ID format: %w", err)))
+			}
+			query = query.Where(agent.HasModelWith(model.ID(modelID)))
 		}
-		query = query.Where(agent.HasModelWith(model.ID(modelID)))
 	}
 
 	agents, err := query.All(ctx)
