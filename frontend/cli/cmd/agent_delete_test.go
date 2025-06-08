@@ -10,7 +10,7 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-func TestAgentDeleteCLI(t *testing.T) {
+func TestAgentDelete(t *testing.T) {
 	setup := &TestSetup{}
 
 	agentID1 := uuid.New().String()

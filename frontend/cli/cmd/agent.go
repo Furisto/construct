@@ -75,3 +75,28 @@ func getAgentID(ctx context.Context, client *api.Client, idOrName string) (strin
 
 	return agentResp.Msg.Agents[0].Id, nil
 }
+
+func getModelID(ctx context.Context, client *api.Client, modelName string) (string, error) {
+	// todo: consider using fuzzy matching
+	modelResp, err := client.Model().ListModels(ctx, &connect.Request[v1.ListModelsRequest]{
+		Msg: &v1.ListModelsRequest{
+			Filter: &v1.ListModelsRequest_Filter{
+				Name: api.Ptr(modelName),
+			},
+		},
+	})
+
+	if err != nil {
+		return "", fmt.Errorf("failed to list models: %w", err)
+	}
+
+	if len(modelResp.Msg.Models) == 0 {
+		return "", fmt.Errorf("model %s not found", modelName)
+	}
+
+	if len(modelResp.Msg.Models) > 1 {
+		return "", fmt.Errorf("multiple models found for %s", modelName)
+	}
+
+	return modelResp.Msg.Models[0].Id, nil
+}

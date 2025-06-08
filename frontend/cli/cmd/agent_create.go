@@ -1,13 +1,11 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"io"
 
 	"connectrpc.com/connect"
 
-	api "github.com/furisto/construct/api/go/client"
 	v1 "github.com/furisto/construct/api/go/v1"
 	"github.com/google/uuid"
 	"github.com/spf13/afero"
@@ -138,29 +136,4 @@ func getSystemPrompt(options *agentCreateOptions, stdin io.Reader, fs *afero.Afe
 	}
 
 	return "", fmt.Errorf("no prompt source specified")
-}
-
-func getModelID(ctx context.Context, client *api.Client, modelName string) (string, error) {
-	// todo: consider using fuzzy matching
-	modelResp, err := client.Model().ListModels(ctx, &connect.Request[v1.ListModelsRequest]{
-		Msg: &v1.ListModelsRequest{
-			Filter: &v1.ListModelsRequest_Filter{
-				Name: api.Ptr(modelName),
-			},
-		},
-	})
-
-	if err != nil {
-		return "", fmt.Errorf("failed to list models: %w", err)
-	}
-
-	if len(modelResp.Msg.Models) == 0 {
-		return "", fmt.Errorf("model %s not found", modelName)
-	}
-
-	if len(modelResp.Msg.Models) > 1 {
-		return "", fmt.Errorf("multiple models found for %s", modelName)
-	}
-
-	return modelResp.Msg.Models[0].Id, nil
 }

@@ -12,7 +12,7 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-func TestAgentCreateCLI(t *testing.T) {
+func TestAgentCreate(t *testing.T) {
 	setup := &TestSetup{}
 
 	agentID := uuid.New().String()
