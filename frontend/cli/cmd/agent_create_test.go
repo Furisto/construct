@@ -202,7 +202,6 @@ func setupAgentCreationMock(mockClient *api_client.MockClient, agentName, instru
 		Name: agentName,
 	}
 
-	// Add description if provided
 	if description != "" {
 		req.Description = description
 		metadata.Description = description

@@ -49,6 +49,9 @@ func NewRootCmd() *cobra.Command {
 			})))
 		},
 	}
+
+	cmd.PersistentFlags().BoolVarP(&globalOptions.Verbose, "verbose", "v", false, "verbose output")
+
 	cmd.AddCommand(NewAgentCmd())
 	return cmd
 }
@@ -57,6 +60,7 @@ func Execute() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
+	rootCmd := NewRootCmd()
 	if err := rootCmd.ExecuteContext(ctx); err != nil {
 		os.Exit(1)
 	}
@@ -110,6 +114,7 @@ type ContextKey string
 const (
 	ContextKeyAPI        ContextKey = "api"
 	ContextKeyFileSystem ContextKey = "filesystem"
+	ContextKeyFormatter  ContextKey = "formatter"
 )
 
 func getAPIClient(ctx context.Context) *api.Client {
@@ -164,14 +169,10 @@ func getEncryptionClient() (*secret.Client, error) {
 }
 
 func getFormatter(ctx context.Context) ResourceFormatter {
-	printer := ctx.Value("printer")
+	printer := ctx.Value(ContextKeyFormatter)
 	if printer != nil {
 		return printer.(ResourceFormatter)
 	}
 
 	return &DefaultResourceFormatter{}
-}
-
-func init() {
-	rootCmd.PersistentFlags().BoolVarP(&globalOptions.Verbose, "verbose", "v", false, "verbose output")
 }

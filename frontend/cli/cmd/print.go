@@ -19,6 +19,8 @@ type ResourceFormatter interface {
 
 type DefaultResourceFormatter struct{}
 
+var _ ResourceFormatter = (*DefaultResourceFormatter)(nil)
+
 func (f *DefaultResourceFormatter) Display(resources any, format OutputFormat) (err error) {
 	// if len(resources) == 0 {
 	// 	return nil
@@ -26,7 +28,7 @@ func (f *DefaultResourceFormatter) Display(resources any, format OutputFormat) (
 
 	var output []byte
 	switch format {
-	case OutputFormatJSON:
+	case OutputFormatJSON, OutputFormatTable:
 		output, err = json.MarshalIndent(resources, "", "  ")
 		if err != nil {
 			return err
@@ -54,8 +56,9 @@ func addFormatOptions(cmd *cobra.Command, options *FormatOptions) {
 type OutputFormat string
 
 const (
-	OutputFormatJSON OutputFormat = "json"
-	OutputFormatYAML OutputFormat = "yaml"
+	OutputFormatJSON  OutputFormat = "json"
+	OutputFormatYAML  OutputFormat = "yaml"
+	OutputFormatTable OutputFormat = "table"
 )
 
 func (e *OutputFormat) String() string {
@@ -83,6 +86,3 @@ func PtrToString(v *string) string {
 	return *v
 }
 
-func toPtr[T any](v T) *T {
-	return &v
-}

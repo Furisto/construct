@@ -11,6 +11,17 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
+type MockFormatter struct {
+	DisplayedObjects []any
+	DisplayFormat    OutputFormat
+}
+
+func (m *MockFormatter) Display(resources any, format OutputFormat) error {
+	m.DisplayedObjects = append(m.DisplayedObjects, resources)
+	m.DisplayFormat = format
+	return nil
+}
+
 type TestSetup struct {
 	CmpOptions []cmp.Option
 }
@@ -25,8 +36,10 @@ type TestScenario struct {
 }
 
 type TestExpectation struct {
-	Stdout string
-	Error  string
+	Stdout           string
+	Error            string
+	DisplayedObjects any
+	DisplayFormat    OutputFormat
 }
 
 func (s *TestSetup) RunTests(t *testing.T, scenarios []TestScenario) {
@@ -63,15 +76,22 @@ func (s *TestSetup) RunTests(t *testing.T, scenarios []TestScenario) {
 
 			testCmd.SetArgs(scenario.Command)
 
-			var actual TestExpectation
+			mockFormatter := &MockFormatter{}
 			ctx := context.Background()
 			ctx = context.WithValue(ctx, ContextKeyAPI, mockClient.Client())
 			ctx = context.WithValue(ctx, ContextKeyFileSystem, fs)
+			ctx = context.WithValue(ctx, ContextKeyFormatter, mockFormatter)
+
+			var actual TestExpectation
 			err := testCmd.ExecuteContext(ctx)
 			if err != nil {
 				actual.Error = err.Error()
 			} else {
 				actual.Stdout = stdout.String()
+				if len(mockFormatter.DisplayedObjects) > 0 {
+					actual.DisplayedObjects = mockFormatter.DisplayedObjects
+					actual.DisplayFormat = mockFormatter.DisplayFormat
+				}
 			}
 
 			if diff := cmp.Diff(scenario.Expected, actual, s.CmpOptions...); diff != "" {

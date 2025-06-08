@@ -25,10 +25,21 @@ type agentCreateOptions struct {
 func NewAgentCreateCmd() *cobra.Command {
 	var options agentCreateOptions
 
-	cmd := &cobra.Command{
+	var cmd = &cobra.Command{
 		Use:   "create <name> [flags]",
-		Short: "Create a new AI agent",
+		Short: "Create a new agent",
 		Args:  cobra.ExactArgs(1),
+		Example: `  # Create agent with inline prompt
+  construct agent create "coder" --prompt "You are a coding assistant" --model "claude-4"
+
+  # Create agent with prompt from file
+  construct agent create "sql-expert" --prompt-file ./prompts/sql-expert.txt --model "claude-4"
+
+  # Create agent with prompt from stdin
+  echo "You review code" | construct agent create "reviewer" --prompt-stdin --model "gpt-4o"
+
+  # With description
+  construct agent create "RFC writer" --prompt "You help with writing" --model "gemini-2.5.pro" --description "RFC writing assistant"`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 
@@ -71,6 +82,8 @@ func NewAgentCreateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&options.PromptFile, "prompt-file", "", "Read system prompt from file")
 	cmd.Flags().BoolVar(&options.PromptStdin, "prompt-stdin", false, "Read system prompt from stdin")
 	cmd.Flags().StringVarP(&options.Model, "model", "m", "", "AI model to use (e.g. gpt-4o, claude-4 or model ID) (required)")
+
+	cmd.MarkFlagRequired("model")
 
 	return cmd
 }
