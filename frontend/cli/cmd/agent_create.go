@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var agentCreateOptions struct {
+type agentCreateOptions struct {
 	Description  string
 	SystemPrompt string
 	PromptFile   string
@@ -22,68 +22,69 @@ var agentCreateOptions struct {
 	Model        string
 }
 
-var agentCreateCmd = &cobra.Command{
-	Use:   "create <name> [flags]",
-	Short: "Create a new AI agent",
-	Args:  cobra.ExactArgs(1),
-	Example: `  # Create agent with inline prompt
-  construct agent create "coder" --prompt "You are a coding assistant" --model "claude-4"
+func NewAgentCreateCmd() *cobra.Command {
+	var options agentCreateOptions
 
-  # Create agent with prompt from file
-  construct agent create "sql-expert" --prompt-file ./prompts/sql-expert.txt --model "claude-4"
+	cmd := &cobra.Command{
+		Use:   "create <name> [flags]",
+		Short: "Create a new AI agent",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			name := args[0]
 
-  # Create agent with prompt from stdin
-  echo "You review code" | construct agent create "reviewer" --prompt-stdin --model "gpt-4o"
-
-  # With description
-  construct agent create "RFC writer" --prompt "You help with writing" --model "gemini-2.5.pro" --description "RFC writing assistant"`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		name := args[0]
-
-		systemPrompt, err := getSystemPrompt(cmd.InOrStdin(), getFileSystem(cmd.Context()))
-		if err != nil {
-			return err
-		}
-
-		client := getAPIClient(cmd.Context())
-
-		_, err = uuid.Parse(agentCreateOptions.Model)
-		if err != nil {
-			modelID, err := getModelID(cmd.Context(), client, agentCreateOptions.Model)
+			systemPrompt, err := getSystemPrompt(&options, cmd.InOrStdin(), getFileSystem(cmd.Context()))
 			if err != nil {
 				return err
 			}
-			agentCreateOptions.Model = modelID
-		}
 
-		agentResp, err := client.Agent().CreateAgent(cmd.Context(), &connect.Request[v1.CreateAgentRequest]{
-			Msg: &v1.CreateAgentRequest{
-				Name:         name,
-				Description:  agentCreateOptions.Description,
-				Instructions: systemPrompt,
-				ModelId:      agentCreateOptions.Model,
-			},
-		})
+			client := getAPIClient(cmd.Context())
 
-		if err != nil {
-			return fmt.Errorf("failed to create agent: %w", err)
-		}
+			_, err = uuid.Parse(options.Model)
+			if err != nil {
+				modelID, err := getModelID(cmd.Context(), client, options.Model)
+				if err != nil {
+					return err
+				}
+				options.Model = modelID
+			}
 
-		fmt.Fprintln(cmd.OutOrStdout(), agentResp.Msg.Agent.Id)
-		return nil
-	},
+			agentResp, err := client.Agent().CreateAgent(cmd.Context(), &connect.Request[v1.CreateAgentRequest]{
+				Msg: &v1.CreateAgentRequest{
+					Name:         name,
+					Description:  options.Description,
+					Instructions: systemPrompt,
+					ModelId:      options.Model,
+				},
+			})
+
+			if err != nil {
+				return fmt.Errorf("failed to create agent: %w", err)
+			}
+
+			fmt.Fprintln(cmd.OutOrStdout(), agentResp.Msg.Agent.Id)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVarP(&options.Description, "description", "d", "", "Description of the agent (optional)")
+	cmd.Flags().StringVarP(&options.SystemPrompt, "prompt", "p", "", "System prompt that defines the agent's behavior")
+	cmd.Flags().StringVar(&options.PromptFile, "prompt-file", "", "Read system prompt from file")
+	cmd.Flags().BoolVar(&options.PromptStdin, "prompt-stdin", false, "Read system prompt from stdin")
+	cmd.Flags().StringVarP(&options.Model, "model", "m", "", "AI model to use (e.g. gpt-4o, claude-4 or model ID) (required)")
+
+	return cmd
 }
 
-func getSystemPrompt(stdin io.Reader, fs *afero.Afero) (string, error) {
+func getSystemPrompt(options *agentCreateOptions, stdin io.Reader, fs *afero.Afero) (string, error) {
 	promptSources := 0
 
-	if agentCreateOptions.SystemPrompt != "" {
+	if options.SystemPrompt != "" {
 		promptSources++
 	}
-	if agentCreateOptions.PromptFile != "" {
+	if options.PromptFile != "" {
 		promptSources++
 	}
-	if agentCreateOptions.PromptStdin {
+	if options.PromptStdin {
 		promptSources++
 	}
 
@@ -95,21 +96,24 @@ func getSystemPrompt(stdin io.Reader, fs *afero.Afero) (string, error) {
 	}
 
 	// Inline prompt
-	if agentCreateOptions.SystemPrompt != "" {
-		return agentCreateOptions.SystemPrompt, nil
+	if options.SystemPrompt != "" {
+		return options.SystemPrompt, nil
 	}
 
 	// From file
-	if agentCreateOptions.PromptFile != "" {
-		content, err := fs.ReadFile(agentCreateOptions.PromptFile)
+	if options.PromptFile != "" {
+		content, err := fs.ReadFile(options.PromptFile)
 		if err != nil {
-			return "", fmt.Errorf("failed to read prompt file %s: %w", agentCreateOptions.PromptFile, err)
+			return "", fmt.Errorf("failed to read prompt file %s: %w", options.PromptFile, err)
+		}
+		if len(content) == 0 {
+			return "", fmt.Errorf("prompt file %s is empty", options.PromptFile)
 		}
 		return string(content), nil
 	}
 
 	// From stdin
-	if agentCreateOptions.PromptStdin {
+	if options.PromptStdin {
 		content, err := io.ReadAll(stdin)
 		if err != nil {
 			return "", fmt.Errorf("failed to read prompt from stdin: %w", err)
@@ -128,7 +132,7 @@ func getModelID(ctx context.Context, client *api.Client, modelName string) (stri
 	modelResp, err := client.Model().ListModels(ctx, &connect.Request[v1.ListModelsRequest]{
 		Msg: &v1.ListModelsRequest{
 			Filter: &v1.ListModelsRequest_Filter{
-				Name: api.Ptr(agentCreateOptions.Model),
+				Name: api.Ptr(modelName),
 			},
 		},
 	})
@@ -138,23 +142,12 @@ func getModelID(ctx context.Context, client *api.Client, modelName string) (stri
 	}
 
 	if len(modelResp.Msg.Models) == 0 {
-		return "", fmt.Errorf("model %s not found", agentCreateOptions.Model)
+		return "", fmt.Errorf("model %s not found", modelName)
 	}
 
 	if len(modelResp.Msg.Models) > 1 {
-		return "", fmt.Errorf("multiple models found for %s", agentCreateOptions.Model)
+		return "", fmt.Errorf("multiple models found for %s", modelName)
 	}
 
 	return modelResp.Msg.Models[0].Id, nil
-}
-
-func init() {
-	agentCreateCmd.Flags().StringVarP(&agentCreateOptions.Description, "description", "d", "", "Description of the agent (optional)")
-	agentCreateCmd.Flags().StringVarP(&agentCreateOptions.SystemPrompt, "prompt", "p", "", "System prompt that defines the agent's behavior")
-	agentCreateCmd.Flags().StringVar(&agentCreateOptions.PromptFile, "prompt-file", "", "Read system prompt from file")
-	agentCreateCmd.Flags().BoolVar(&agentCreateOptions.PromptStdin, "prompt-stdin", false, "Read system prompt from stdin")
-	agentCreateCmd.Flags().StringVarP(&agentCreateOptions.Model, "model", "m", "", "AI model to use (e.g. gpt-4o, claude-4 or model ID) (required)")
-	agentCreateCmd.MarkFlagRequired("model")
-
-	agentCmd.AddCommand(agentCreateCmd)
 }

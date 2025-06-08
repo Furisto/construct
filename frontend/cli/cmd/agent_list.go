@@ -7,45 +7,47 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var agentListOptions struct {
+type agentListOptions struct {
 	ModelID       string
 	FormatOptions FormatOptions
 }
 
-var agentListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List agents",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		client := getAPIClient(cmd.Context())
+func NewAgentListCmd() *cobra.Command {
+	var options agentListOptions
 
-		filter := &v1.ListAgentsRequest_Filter{}
-		if agentListOptions.ModelID != "" {
-			filter.ModelId = &agentListOptions.ModelID
-		}
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List agents",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client := getAPIClient(cmd.Context())
 
-		req := &connect.Request[v1.ListAgentsRequest]{
-			Msg: &v1.ListAgentsRequest{
-				Filter: filter,
-			},
-		}
+			filter := &v1.ListAgentsRequest_Filter{}
+			if options.ModelID != "" {
+				filter.ModelId = &options.ModelID
+			}
 
-		resp, err := client.Agent().ListAgents(cmd.Context(), req)
-		if err != nil {
-			return err
-		}
+			req := &connect.Request[v1.ListAgentsRequest]{
+				Msg: &v1.ListAgentsRequest{
+					Filter: filter,
+				},
+			}
 
-		displayAgents := make([]*AgentDisplay, len(resp.Msg.Agents))
-		for i, agent := range resp.Msg.Agents {
-			displayAgents[i] = ConvertAgentToDisplay(agent)
-		}
+			resp, err := client.Agent().ListAgents(cmd.Context(), req)
+			if err != nil {
+				return err
+			}
 
-		return getFormatter(cmd.Context()).Display(displayAgents, agentListOptions.FormatOptions.Output)
-	},
-}
+			displayAgents := make([]*AgentDisplay, len(resp.Msg.Agents))
+			for i, agent := range resp.Msg.Agents {
+				displayAgents[i] = ConvertAgentToDisplay(agent)
+			}
 
-func init() {
-	agentListCmd.Flags().StringVarP(&agentListOptions.ModelID, "model", "m", "", "Filter agents by model ID")
+			return getFormatter(cmd.Context()).Display(displayAgents, options.FormatOptions.Output)
+		},
+	}
 
-	addFormatOptions(agentListCmd, &agentListOptions.FormatOptions)
-	agentCmd.AddCommand(agentListCmd)
+	cmd.Flags().StringVarP(&options.ModelID, "model", "m", "", "Filter agents by model ID")
+	addFormatOptions(cmd, &options.FormatOptions)
+
+	return cmd
 }

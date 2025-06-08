@@ -7,6 +7,7 @@ import (
 
 	api_client "github.com/furisto/construct/api/go/client"
 	"github.com/google/go-cmp/cmp"
+	"github.com/spf13/afero"
 	"go.uber.org/mock/gomock"
 )
 
@@ -15,11 +16,12 @@ type TestSetup struct {
 }
 
 type TestScenario struct {
-	Name       string
-	Command    []string
-	Stdin      string
-	SetupMocks func(mockClient *api_client.MockClient)
-	Expected   TestExpectation
+	Name            string
+	Command         []string
+	Stdin           string
+	SetupMocks      func(mockClient *api_client.MockClient)
+	SetupFileSystem func(fs *afero.Afero)
+	Expected        TestExpectation
 }
 
 type TestExpectation struct {
@@ -42,22 +44,30 @@ func (s *TestSetup) RunTests(t *testing.T, scenarios []TestScenario) {
 				scenario.SetupMocks(mockClient)
 			}
 
+			fs := &afero.Afero{Fs: afero.NewMemMapFs()}
+			if scenario.SetupFileSystem != nil {
+				scenario.SetupFileSystem(fs)
+			}
+
+			testCmd := NewRootCmd()
+
 			var stdin bytes.Buffer
 			if scenario.Stdin != "" {
 				stdin.WriteString(scenario.Stdin)
-				rootCmd.SetIn(&stdin)
+				testCmd.SetIn(&stdin)
 			}
 
 			var stdout bytes.Buffer
-			rootCmd.SetOut(&stdout)
-			rootCmd.SetErr(&stdout)
+			testCmd.SetOut(&stdout)
+			testCmd.SetErr(&stdout)
 
-			rootCmd.SetArgs(scenario.Command)
+			testCmd.SetArgs(scenario.Command)
 
 			var actual TestExpectation
 			ctx := context.Background()
-			ctx = context.WithValue(ctx, "api_test_client", mockClient.Client())
-			err := rootCmd.ExecuteContext(ctx)
+			ctx = context.WithValue(ctx, ContextKeyAPI, mockClient.Client())
+			ctx = context.WithValue(ctx, ContextKeyFileSystem, fs)
+			err := testCmd.ExecuteContext(ctx)
 			if err != nil {
 				actual.Error = err.Error()
 			} else {

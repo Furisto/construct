@@ -6,33 +6,35 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var agentGetOptions struct {
+type agentGetOptions struct {
 	Id            string
 	FormatOptions FormatOptions
 }
 
-var agentGetCmd = &cobra.Command{
-	Use:   "get",
-	Short: "Get an agent by ID",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		client := getAPIClient(cmd.Context())
+func NewAgentGetCmd() *cobra.Command {
+	var options agentGetOptions
 
-		req := &connect.Request[v1.GetAgentRequest]{
-			Msg: &v1.GetAgentRequest{Id: agentGetOptions.Id},
-		}
+	cmd := &cobra.Command{
+		Use:   "get",
+		Short: "Get an agent by ID",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client := getAPIClient(cmd.Context())
 
-		resp, err := client.Agent().GetAgent(cmd.Context(), req)
-		if err != nil {
-			return err
-		}
+			req := &connect.Request[v1.GetAgentRequest]{
+				Msg: &v1.GetAgentRequest{Id: options.Id},
+			}
 
-		displayAgent := ConvertAgentToDisplay(resp.Msg.Agent)
+			resp, err := client.Agent().GetAgent(cmd.Context(), req)
+			if err != nil {
+				return err
+			}
 
-		return getFormatter(cmd.Context()).Display([]*AgentDisplay{displayAgent}, agentGetOptions.FormatOptions.Output)
-	},
-}
+			displayAgent := ConvertAgentToDisplay(resp.Msg.Agent)
 
-func init() {
-	addFormatOptions(agentGetCmd, &agentGetOptions.FormatOptions)
-	agentCmd.AddCommand(agentGetCmd)
+			return getFormatter(cmd.Context()).Display([]*AgentDisplay{displayAgent}, options.FormatOptions.Output)
+		},
+	}
+
+	addFormatOptions(cmd, &options.FormatOptions)
+	return cmd
 }

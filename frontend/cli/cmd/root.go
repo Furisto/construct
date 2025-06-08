@@ -38,6 +38,21 @@ var rootCmd = &cobra.Command{
 	},
 }
 
+func NewRootCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "construct",
+		Short: "Construct: Build intelligent agents.",
+		Long:  figure.NewColorFigure("construct", "standard", "blue", true).String(),
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+				Level: slog.LevelDebug,
+			})))
+		},
+	}
+	cmd.AddCommand(NewAgentCmd())
+	return cmd
+}
+
 func Execute() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
@@ -90,8 +105,15 @@ func RunAgent(ctx context.Context) error {
 	return runtime.Run(ctx)
 }
 
+type ContextKey string
+
+const (
+	ContextKeyAPI        ContextKey = "api"
+	ContextKeyFileSystem ContextKey = "filesystem"
+)
+
 func getAPIClient(ctx context.Context) *api.Client {
-	apiTestClient := ctx.Value("api_test_client")
+	apiTestClient := ctx.Value(ContextKeyAPI)
 	if apiTestClient != nil {
 		return apiTestClient.(*api.Client)
 	}
@@ -100,7 +122,7 @@ func getAPIClient(ctx context.Context) *api.Client {
 }
 
 func getFileSystem(ctx context.Context) *afero.Afero {
-	fs := ctx.Value("filesystem")
+	fs := ctx.Value(ContextKeyFileSystem)
 	if fs != nil {
 		return fs.(*afero.Afero)
 	}

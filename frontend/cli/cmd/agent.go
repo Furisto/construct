@@ -5,14 +5,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var agentCmd = &cobra.Command{
-	Use:   "agent",
-	Short: "Manage agents",
-	Long:  `Manage agents, including creation, deletion, retrieval, and listing.`,
-}
+func NewAgentCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "agent",
+		Short: "Manage agents",
+		Long:  `Manage agents, including creation, deletion, retrieval, and listing.`,
+	}
 
-func init() {
-	rootCmd.AddCommand(agentCmd)
+	cmd.AddCommand(NewAgentCreateCmd())
+	cmd.AddCommand(NewAgentGetCmd())
+	cmd.AddCommand(NewAgentListCmd())
+	cmd.AddCommand(NewAgentDeleteCmd())
+
+	return cmd
 }
 
 type AgentDisplay struct {
@@ -20,7 +25,7 @@ type AgentDisplay struct {
 	Name         string   `json:"name" yaml:"name"`
 	Description  string   `json:"description,omitempty" yaml:"description,omitempty"`
 	Instructions string   `json:"instructions" yaml:"instructions"`
-	ModelID      string   `json:"modelId" yaml:"modelId"`
+	Model        string   `json:"model" yaml:"model"`
 	DelegateIDs  []string `json:"delegateIds,omitempty" yaml:"delegateIds,omitempty"`
 }
 
@@ -33,7 +38,7 @@ func ConvertAgentToDisplay(agent *v1.Agent) *AgentDisplay {
 		Name:         agent.Metadata.Name,
 		Description:  agent.Metadata.Description,
 		Instructions: agent.Spec.Instructions,
-		ModelID:      agent.Spec.ModelId,
+		Model:        agent.Spec.ModelId,
 		DelegateIDs:  agent.Spec.DelegateIds,
 	}
 }
