@@ -15,7 +15,7 @@ require (
 	github.com/invopop/jsonschema v0.13.0
 	github.com/mattn/go-sqlite3 v1.14.27
 	github.com/maypok86/otter v1.2.4
-	github.com/openai/openai-go v0.1.0-beta.2
+	github.com/openai/openai-go v1.2.0
 	github.com/shopspring/decimal v1.4.0
 	github.com/spf13/afero v1.14.0
 	github.com/tink-crypto/tink-go v0.0.0-20230613075026-d6de17e3f164
@@ -55,6 +55,7 @@ require (
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	github.com/zclconf/go-cty v1.14.4 // indirect
 	github.com/zclconf/go-cty-yaml v1.1.0 // indirect
+	go.uber.org/mock v0.5.2 // indirect
 	golang.org/x/crypto v0.33.0 // indirect
 	golang.org/x/mod v0.23.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect

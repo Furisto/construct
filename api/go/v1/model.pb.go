@@ -28,7 +28,7 @@ type ModelCapability int32
 
 const (
 	ModelCapability_MODEL_CAPABILITY_UNSPECIFIED  ModelCapability = 0
-	ModelCapability_MODEL_CAPABILITY_IMAGE        ModelCapability = 1
+	ModelCapability_MODEL_CAPABILITY_VISION       ModelCapability = 1
 	ModelCapability_MODEL_CAPABILITY_COMPUTER_USE ModelCapability = 2
 	ModelCapability_MODEL_CAPABILITY_PROMPT_CACHE ModelCapability = 3
 	ModelCapability_MODEL_CAPABILITY_THINKING     ModelCapability = 4
@@ -38,14 +38,14 @@ const (
 var (
 	ModelCapability_name = map[int32]string{
 		0: "MODEL_CAPABILITY_UNSPECIFIED",
-		1: "MODEL_CAPABILITY_IMAGE",
+		1: "MODEL_CAPABILITY_VISION",
 		2: "MODEL_CAPABILITY_COMPUTER_USE",
 		3: "MODEL_CAPABILITY_PROMPT_CACHE",
 		4: "MODEL_CAPABILITY_THINKING",
 	}
 	ModelCapability_value = map[string]int32{
 		"MODEL_CAPABILITY_UNSPECIFIED":  0,
-		"MODEL_CAPABILITY_IMAGE":        1,
+		"MODEL_CAPABILITY_VISION":       1,
 		"MODEL_CAPABILITY_COMPUTER_USE": 2,
 		"MODEL_CAPABILITY_PROMPT_CACHE": 3,
 		"MODEL_CAPABILITY_THINKING":     4,
@@ -81,8 +81,8 @@ func (ModelCapability) EnumDescriptor() ([]byte, []int) {
 
 type ModelMetadata struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -204,7 +204,7 @@ type Model struct {
 	Id              string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	Metadata        *ModelMetadata         `protobuf:"bytes,2,opt,name=metadata,proto3" json:"metadata,omitempty"`
 	Name            string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
-	Alias           *string                `protobuf:"bytes,4,opt,name=alias,proto3,oneof" json:"alias,omitempty"`
+	DisplayName     *string                `protobuf:"bytes,4,opt,name=display_name,json=displayName,proto3,oneof" json:"display_name,omitempty"`
 	ModelProviderId string                 `protobuf:"bytes,5,opt,name=model_provider_id,json=modelProviderId,proto3" json:"model_provider_id,omitempty"`
 	Capabilities    []ModelCapability      `protobuf:"varint,6,rep,packed,name=capabilities,proto3,enum=construct.v1.ModelCapability" json:"capabilities,omitempty"`
 	Pricing         *ModelPricing          `protobuf:"bytes,7,opt,name=pricing,proto3" json:"pricing,omitempty"`
@@ -265,9 +265,9 @@ func (x *Model) GetName() string {
 	return ""
 }
 
-func (x *Model) GetAlias() string {
-	if x != nil && x.Alias != nil {
-		return *x.Alias
+func (x *Model) GetDisplayName() string {
+	if x != nil && x.DisplayName != nil {
+		return *x.DisplayName
 	}
 	return ""
 }
@@ -310,7 +310,7 @@ func (x *Model) GetEnabled() bool {
 type CreateModelRequest struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	Name            string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Alias           *string                `protobuf:"bytes,2,opt,name=alias,proto3,oneof" json:"alias,omitempty"`
+	DisplayName     *string                `protobuf:"bytes,2,opt,name=display_name,json=displayName,proto3,oneof" json:"display_name,omitempty"`
 	ModelProviderId string                 `protobuf:"bytes,3,opt,name=model_provider_id,json=modelProviderId,proto3" json:"model_provider_id,omitempty"`
 	Capabilities    []ModelCapability      `protobuf:"varint,4,rep,packed,name=capabilities,proto3,enum=construct.v1.ModelCapability" json:"capabilities,omitempty"`
 	Pricing         *ModelPricing          `protobuf:"bytes,5,opt,name=pricing,proto3" json:"pricing,omitempty"`
@@ -356,9 +356,9 @@ func (x *CreateModelRequest) GetName() string {
 	return ""
 }
 
-func (x *CreateModelRequest) GetAlias() string {
-	if x != nil && x.Alias != nil {
-		return *x.Alias
+func (x *CreateModelRequest) GetDisplayName() string {
+	if x != nil && x.DisplayName != nil {
+		return *x.DisplayName
 	}
 	return ""
 }
@@ -631,7 +631,7 @@ type UpdateModelRequest struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	Id              string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	Name            *string                `protobuf:"bytes,2,opt,name=name,proto3,oneof" json:"name,omitempty"`
-	Alias           *string                `protobuf:"bytes,3,opt,name=alias,proto3,oneof" json:"alias,omitempty"`
+	DisplayName     *string                `protobuf:"bytes,3,opt,name=display_name,json=displayName,proto3,oneof" json:"display_name,omitempty"`
 	ModelProviderId *string                `protobuf:"bytes,4,opt,name=model_provider_id,json=modelProviderId,proto3,oneof" json:"model_provider_id,omitempty"`
 	Capabilities    []ModelCapability      `protobuf:"varint,5,rep,packed,name=capabilities,proto3,enum=construct.v1.ModelCapability" json:"capabilities,omitempty"`
 	Pricing         *ModelPricing          `protobuf:"bytes,6,opt,name=pricing,proto3,oneof" json:"pricing,omitempty"`
@@ -685,9 +685,9 @@ func (x *UpdateModelRequest) GetName() string {
 	return ""
 }
 
-func (x *UpdateModelRequest) GetAlias() string {
-	if x != nil && x.Alias != nil {
-		return *x.Alias
+func (x *UpdateModelRequest) GetDisplayName() string {
+	if x != nil && x.DisplayName != nil {
+		return *x.DisplayName
 	}
 	return ""
 }
@@ -855,6 +855,7 @@ type ListModelsRequest_Filter struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	ModelProviderId *string                `protobuf:"bytes,1,opt,name=model_provider_id,json=modelProviderId,proto3,oneof" json:"model_provider_id,omitempty"`
 	Enabled         *bool                  `protobuf:"varint,2,opt,name=enabled,proto3,oneof" json:"enabled,omitempty"`
+	Name            *string                `protobuf:"bytes,3,opt,name=name,proto3,oneof" json:"name,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -903,6 +904,13 @@ func (x *ListModelsRequest_Filter) GetEnabled() bool {
 	return false
 }
 
+func (x *ListModelsRequest_Filter) GetName() string {
+	if x != nil && x.Name != nil {
+		return *x.Name
+	}
+	return ""
+}
+
 var File_construct_v1_model_proto protoreflect.FileDescriptor
 
 const file_construct_v1_model_proto_rawDesc = "" +
@@ -910,68 +918,71 @@ const file_construct_v1_model_proto_rawDesc = "" +
 	"\x18construct/v1/model.proto\x12\fconstruct.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x19google/type/decimal.proto\"\x95\x01\n" +
 	"\rModelMetadata\x12A\n" +
 	"\n" +
-	"created_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\tcreatedAt\x12A\n" +
+	"created_at\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\tcreatedAt\x12A\n" +
 	"\n" +
-	"updated_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\tupdatedAt\"\xf8\x01\n" +
+	"updated_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\tupdatedAt\"\xf8\x01\n" +
 	"\fModelPricing\x123\n" +
 	"\n" +
 	"input_cost\x18\x01 \x01(\v2\x14.google.type.DecimalR\tinputCost\x125\n" +
 	"\voutput_cost\x18\x02 \x01(\v2\x14.google.type.DecimalR\n" +
 	"outputCost\x12>\n" +
 	"\x10cache_write_cost\x18\x03 \x01(\v2\x14.google.type.DecimalR\x0ecacheWriteCost\x12<\n" +
-	"\x0fcache_read_cost\x18\x04 \x01(\v2\x14.google.type.DecimalR\rcacheReadCost\"\x8f\x03\n" +
+	"\x0fcache_read_cost\x18\x04 \x01(\v2\x14.google.type.DecimalR\rcacheReadCost\"\xac\x03\n" +
 	"\x05Model\x12\x18\n" +
 	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\x127\n" +
 	"\bmetadata\x18\x02 \x01(\v2\x1b.construct.v1.ModelMetadataR\bmetadata\x12\x1e\n" +
 	"\x04name\x18\x03 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\xff\x01R\x04name\x12\x19\n" +
-	"\x05alias\x18\x04 \x01(\tH\x00R\x05alias\x88\x01\x01\x124\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xff\x01R\x04name\x12&\n" +
+	"\fdisplay_name\x18\x04 \x01(\tH\x00R\vdisplayName\x88\x01\x01\x124\n" +
 	"\x11model_provider_id\x18\x05 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x0fmodelProviderId\x12A\n" +
 	"\fcapabilities\x18\x06 \x03(\x0e2\x1d.construct.v1.ModelCapabilityR\fcapabilities\x124\n" +
-	"\apricing\x18\a \x01(\v2\x1a.construct.v1.ModelPricingR\apricing\x12%\n" +
-	"\x0econtext_window\x18\b \x01(\x03R\rcontextWindow\x12\x18\n" +
-	"\aenabled\x18\t \x01(\bR\aenabledB\b\n" +
-	"\x06_alias\"\xb9\x02\n" +
+	"\apricing\x18\a \x01(\v2\x1a.construct.v1.ModelPricingR\apricing\x12.\n" +
+	"\x0econtext_window\x18\b \x01(\x03B\a\xbaH\x04\"\x02 \x00R\rcontextWindow\x12\x18\n" +
+	"\aenabled\x18\t \x01(\bR\aenabledB\x0f\n" +
+	"\r_display_name\"\xd6\x02\n" +
 	"\x12CreateModelRequest\x12\x1e\n" +
 	"\x04name\x18\x01 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\xff\x01R\x04name\x12#\n" +
-	"\x05alias\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x18\xff\x01H\x00R\x05alias\x88\x01\x01\x124\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xff\x01R\x04name\x120\n" +
+	"\fdisplay_name\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x18\xff\x01H\x00R\vdisplayName\x88\x01\x01\x124\n" +
 	"\x11model_provider_id\x18\x03 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x0fmodelProviderId\x12A\n" +
 	"\fcapabilities\x18\x04 \x03(\x0e2\x1d.construct.v1.ModelCapabilityR\fcapabilities\x124\n" +
-	"\apricing\x18\x05 \x01(\v2\x1a.construct.v1.ModelPricingR\apricing\x12%\n" +
-	"\x0econtext_window\x18\x06 \x01(\x03R\rcontextWindowB\b\n" +
-	"\x06_alias\"H\n" +
+	"\apricing\x18\x05 \x01(\v2\x1a.construct.v1.ModelPricingR\apricing\x12.\n" +
+	"\x0econtext_window\x18\x06 \x01(\x03B\a\xbaH\x04\"\x02 \x00R\rcontextWindowB\x0f\n" +
+	"\r_display_name\"H\n" +
 	"\x13CreateModelResponse\x121\n" +
 	"\x05model\x18\x01 \x01(\v2\x13.construct.v1.ModelB\x06\xbaH\x03\xc8\x01\x01R\x05model\"+\n" +
 	"\x0fGetModelRequest\x12\x18\n" +
 	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\"E\n" +
 	"\x10GetModelResponse\x121\n" +
-	"\x05model\x18\x01 \x01(\v2\x13.construct.v1.ModelB\x06\xbaH\x03\xc8\x01\x01R\x05model\"\x83\x02\n" +
+	"\x05model\x18\x01 \x01(\v2\x13.construct.v1.ModelB\x06\xbaH\x03\xc8\x01\x01R\x05model\"\xb1\x02\n" +
 	"\x11ListModelsRequest\x12>\n" +
 	"\x06filter\x18\x01 \x01(\v2&.construct.v1.ListModelsRequest.FilterR\x06filter\x12'\n" +
 	"\n" +
-	"page_token\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x18\xff\x01R\tpageToken\x1a\x84\x01\n" +
+	"page_token\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x18\xff\x01R\tpageToken\x1a\xb2\x01\n" +
 	"\x06Filter\x129\n" +
 	"\x11model_provider_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\x0fmodelProviderId\x88\x01\x01\x12\x1d\n" +
-	"\aenabled\x18\x02 \x01(\bH\x01R\aenabled\x88\x01\x01B\x14\n" +
+	"\aenabled\x18\x02 \x01(\bH\x01R\aenabled\x88\x01\x01\x12#\n" +
+	"\x04name\x18\x03 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xff\x01H\x02R\x04name\x88\x01\x01B\x14\n" +
 	"\x12_model_provider_idB\n" +
 	"\n" +
-	"\b_enabled\"i\n" +
+	"\b_enabledB\a\n" +
+	"\x05_name\"i\n" +
 	"\x12ListModelsResponse\x12+\n" +
 	"\x06models\x18\x01 \x03(\v2\x13.construct.v1.ModelR\x06models\x12&\n" +
-	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"\xd0\x03\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"\xed\x03\n" +
 	"\x12UpdateModelRequest\x12\x18\n" +
 	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\x12#\n" +
 	"\x04name\x18\x02 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\xff\x01H\x00R\x04name\x88\x01\x01\x12#\n" +
-	"\x05alias\x18\x03 \x01(\tB\b\xbaH\x05r\x03\x18\xff\x01H\x01R\x05alias\x88\x01\x01\x129\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xff\x01H\x00R\x04name\x88\x01\x01\x120\n" +
+	"\fdisplay_name\x18\x03 \x01(\tB\b\xbaH\x05r\x03\x18\xff\x01H\x01R\vdisplayName\x88\x01\x01\x129\n" +
 	"\x11model_provider_id\x18\x04 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x02R\x0fmodelProviderId\x88\x01\x01\x12A\n" +
 	"\fcapabilities\x18\x05 \x03(\x0e2\x1d.construct.v1.ModelCapabilityR\fcapabilities\x129\n" +
-	"\apricing\x18\x06 \x01(\v2\x1a.construct.v1.ModelPricingH\x03R\apricing\x88\x01\x01\x12*\n" +
-	"\x0econtext_window\x18\a \x01(\x03H\x04R\rcontextWindow\x88\x01\x01\x12\x1d\n" +
+	"\apricing\x18\x06 \x01(\v2\x1a.construct.v1.ModelPricingH\x03R\apricing\x88\x01\x01\x123\n" +
+	"\x0econtext_window\x18\a \x01(\x03B\a\xbaH\x04\"\x02 \x00H\x04R\rcontextWindow\x88\x01\x01\x12\x1d\n" +
 	"\aenabled\x18\b \x01(\bH\x05R\aenabled\x88\x01\x01B\a\n" +
-	"\x05_nameB\b\n" +
-	"\x06_aliasB\x14\n" +
+	"\x05_nameB\x0f\n" +
+	"\r_display_nameB\x14\n" +
 	"\x12_model_provider_idB\n" +
 	"\n" +
 	"\b_pricingB\x11\n" +
@@ -982,10 +993,10 @@ const file_construct_v1_model_proto_rawDesc = "" +
 	"\x05model\x18\x01 \x01(\v2\x13.construct.v1.ModelB\x06\xbaH\x03\xc8\x01\x01R\x05model\".\n" +
 	"\x12DeleteModelRequest\x12\x18\n" +
 	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\"\x15\n" +
-	"\x13DeleteModelResponse*\xb4\x01\n" +
+	"\x13DeleteModelResponse*\xb5\x01\n" +
 	"\x0fModelCapability\x12 \n" +
-	"\x1cMODEL_CAPABILITY_UNSPECIFIED\x10\x00\x12\x1a\n" +
-	"\x16MODEL_CAPABILITY_IMAGE\x10\x01\x12!\n" +
+	"\x1cMODEL_CAPABILITY_UNSPECIFIED\x10\x00\x12\x1b\n" +
+	"\x17MODEL_CAPABILITY_VISION\x10\x01\x12!\n" +
 	"\x1dMODEL_CAPABILITY_COMPUTER_USE\x10\x02\x12!\n" +
 	"\x1dMODEL_CAPABILITY_PROMPT_CACHE\x10\x03\x12\x1d\n" +
 	"\x19MODEL_CAPABILITY_THINKING\x10\x042\xb6\x03\n" +

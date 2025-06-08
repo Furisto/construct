@@ -72,7 +72,11 @@ message GetAgentResponse {
 
 message ListAgentsRequest {
   message Filter {
-    optional string model_id = 1 [(buf.validate.field).string.uuid = true];
+    repeated string model_ids = 1 [(buf.validate.field).repeated.items.string.uuid = true];
+    repeated string name = 2 [
+      (buf.validate.field).string.min_len = 1,
+      (buf.validate.field).string.max_len = 255
+    ];
   }
   Filter filter = 1;
   string page_token = 2 [(buf.validate.field).string.max_len = 255];

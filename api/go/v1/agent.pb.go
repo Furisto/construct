@@ -733,7 +733,8 @@ func (*DeleteAgentResponse) Descriptor() ([]byte, []int) {
 
 type ListAgentsRequest_Filter struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	ModelId       *string                `protobuf:"bytes,1,opt,name=model_id,json=modelId,proto3,oneof" json:"model_id,omitempty"`
+	ModelIds      []string               `protobuf:"bytes,1,rep,name=model_ids,json=modelIds,proto3" json:"model_ids,omitempty"`
+	Name          []string               `protobuf:"bytes,2,rep,name=name,proto3" json:"name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -768,11 +769,18 @@ func (*ListAgentsRequest_Filter) Descriptor() ([]byte, []int) {
 	return file_construct_v1_agent_proto_rawDescGZIP(), []int{7, 0}
 }
 
-func (x *ListAgentsRequest_Filter) GetModelId() string {
-	if x != nil && x.ModelId != nil {
-		return *x.ModelId
+func (x *ListAgentsRequest_Filter) GetModelIds() []string {
+	if x != nil {
+		return x.ModelIds
 	}
-	return ""
+	return nil
+}
+
+func (x *ListAgentsRequest_Filter) GetName() []string {
+	if x != nil {
+		return x.Name
+	}
+	return nil
 }
 
 var File_construct_v1_agent_proto protoreflect.FileDescriptor
@@ -812,14 +820,16 @@ const file_construct_v1_agent_proto_rawDesc = "" +
 	"\x0fGetAgentRequest\x12\x18\n" +
 	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\"E\n" +
 	"\x10GetAgentResponse\x121\n" +
-	"\x05agent\x18\x01 \x01(\v2\x13.construct.v1.AgentB\x06\xbaH\x03\xc8\x01\x01R\x05agent\"\xbd\x01\n" +
+	"\x05agent\x18\x01 \x01(\v2\x13.construct.v1.AgentB\x06\xbaH\x03\xc8\x01\x01R\x05agent\"\xd2\x01\n" +
 	"\x11ListAgentsRequest\x12>\n" +
 	"\x06filter\x18\x01 \x01(\v2&.construct.v1.ListAgentsRequest.FilterR\x06filter\x12'\n" +
 	"\n" +
-	"page_token\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x18\xff\x01R\tpageToken\x1a?\n" +
-	"\x06Filter\x12(\n" +
-	"\bmodel_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\amodelId\x88\x01\x01B\v\n" +
-	"\t_model_id\"i\n" +
+	"page_token\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x18\xff\x01R\tpageToken\x1aT\n" +
+	"\x06Filter\x12*\n" +
+	"\tmodel_ids\x18\x01 \x03(\tB\r\xbaH\n" +
+	"\x92\x01\a\"\x05r\x03\xb0\x01\x01R\bmodelIds\x12\x1e\n" +
+	"\x04name\x18\x02 \x03(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xff\x01R\x04name\"i\n" +
 	"\x12ListAgentsResponse\x12+\n" +
 	"\x06agents\x18\x01 \x03(\v2\x13.construct.v1.AgentR\x06agents\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"\xcc\x02\n" +
@@ -913,7 +923,6 @@ func file_construct_v1_agent_proto_init() {
 		return
 	}
 	file_construct_v1_agent_proto_msgTypes[9].OneofWrappers = []any{}
-	file_construct_v1_agent_proto_msgTypes[13].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
