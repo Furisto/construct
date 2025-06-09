@@ -9,8 +9,9 @@ import (
 
 func NewTaskCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "task",
-		Short: "Manage tasks",
+		Use:     "task",
+		Short:   "Manage and interact with agent tasks",
+		GroupID: "resource",
 	}
 
 	cmd.AddCommand(NewTaskCreateCmd())

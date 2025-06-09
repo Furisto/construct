@@ -1,17 +1,18 @@
 package cmd
 
-import "github.com/spf13/cobra"
+import (
+	"fmt"
 
+	"github.com/spf13/cobra"
+)
 
-
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print the version number of CLI",
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("CLI Version: 1.0.0")
-	},
-}
-
-func init() {
-	rootCmd.AddCommand(versionCmd)
+func NewUpdateCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "update",
+		Short: "Update the CLI to the latest version",
+		GroupID: "system",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Println("Updating CLI...")
+		},
+	}
 }

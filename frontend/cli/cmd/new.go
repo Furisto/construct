@@ -17,7 +17,8 @@ import (
 func NewNewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "new",
-		Short: "Start a new conversation",
+		Short: "Create a new task and begin an interactive conversation",
+		GroupID: "core",
 		Run: func(cmd *cobra.Command, args []string) {
 			tempFile, err := os.CreateTemp("", "construct-new-*")
 			if err != nil {

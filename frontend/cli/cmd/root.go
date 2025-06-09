@@ -52,6 +52,27 @@ func NewRootCmd() *cobra.Command {
 
 	cmd.PersistentFlags().BoolVarP(&globalOptions.Verbose, "verbose", "v", false, "verbose output")
 
+	cmd.AddGroup(
+		&cobra.Group{
+			ID:    "core",
+			Title: "Core Commands",
+		},
+	)
+
+	cmd.AddGroup(
+		&cobra.Group{
+			ID:    "resource",
+			Title: "Resource Management",
+		},
+	)
+
+	cmd.AddGroup(
+		&cobra.Group{
+			ID:    "system",
+			Title: "System Commands",
+		},
+	)
+
 	cmd.AddCommand(NewAgentCmd())
 	cmd.AddCommand(NewTaskCmd())
 	cmd.AddCommand(NewMessageCmd())
@@ -62,6 +83,7 @@ func NewRootCmd() *cobra.Command {
 	cmd.AddCommand(NewDaemonCmd())
 
 	cmd.AddCommand(NewVersionCmd())
+	cmd.AddCommand(NewUpdateCmd())
 	return cmd
 }
 

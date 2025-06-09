@@ -16,7 +16,8 @@ import (
 func NewModelProviderCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "modelprovider",
-		Short: "Manage model providers",
+		Short: "Configure providers like OpenAI and Anthropic",
+		GroupID: "resource",
 	}
 
 	cmd.AddCommand(NewModelProviderCreateCmd())

@@ -14,8 +14,8 @@ import (
 func NewAgentCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "agent",
-		Short: "Manage agents",
-		Long:  `Manage agents, including creation, deletion, retrieval, and listing.`,
+		Short: "Create, list, and configure reusable agents",
+		GroupID: "resource",
 	}
 
 	cmd.AddCommand(NewAgentCreateCmd())
@@ -76,12 +76,17 @@ func getAgentID(ctx context.Context, client *api.Client, idOrName string) (strin
 	return agentResp.Msg.Agents[0].Id, nil
 }
 
-func getModelID(ctx context.Context, client *api.Client, modelName string) (string, error) {
+func getModelID(ctx context.Context, client *api.Client, idOrName string) (string, error) {
+	_, err := uuid.Parse(idOrName)
+	if err == nil {
+		return idOrName, nil
+	}
+
 	// todo: consider using fuzzy matching
 	modelResp, err := client.Model().ListModels(ctx, &connect.Request[v1.ListModelsRequest]{
 		Msg: &v1.ListModelsRequest{
 			Filter: &v1.ListModelsRequest_Filter{
-				Name: api.Ptr(modelName),
+				Name: api.Ptr(idOrName),
 			},
 		},
 	})
@@ -91,11 +96,11 @@ func getModelID(ctx context.Context, client *api.Client, modelName string) (stri
 	}
 
 	if len(modelResp.Msg.Models) == 0 {
-		return "", fmt.Errorf("model %s not found", modelName)
+		return "", fmt.Errorf("model %s not found", idOrName)
 	}
 
 	if len(modelResp.Msg.Models) > 1 {
-		return "", fmt.Errorf("multiple models found for %s", modelName)
+		return "", fmt.Errorf("multiple models found for %s", idOrName)
 	}
 
 	return modelResp.Msg.Models[0].Id, nil

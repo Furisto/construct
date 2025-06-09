@@ -9,8 +9,9 @@ import (
 
 func NewMessageCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "message",
-		Short: "Manage messages",
+		Use:     "message",
+		Short:   "Manage messages",
+		GroupID: "resource",
 	}
 
 	cmd.AddCommand(NewMessageCreateCmd())

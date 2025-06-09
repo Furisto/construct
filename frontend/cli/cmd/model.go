@@ -7,8 +7,9 @@ import (
 
 func NewModelCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "model",
-		Short: "Manage models",
+		Use:     "model",
+		Short:   "Manage the AI models available to agents",
+		GroupID: "resource",
 	}
 
 	cmd.AddCommand(NewModelCreateCmd())
