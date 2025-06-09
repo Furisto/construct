@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"connectrpc.com/connect"
 	v1 "github.com/furisto/construct/api/go/v1"
 	"github.com/spf13/cobra"
@@ -8,49 +10,51 @@ import (
 
 func NewModelProviderDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "delete <model-provider-id>",
-		Short: "Delete a model provider",
-		Args:  cobra.ExactArgs(1),
+		Use:   "delete <id-or-name>...",
+		Short: "Delete one or more model providers by their IDs or names",
+		Args:  cobra.MinimumNArgs(1),
+		Example: `  # Delete multiple model providers
+  construct modelprovider delete anthropic-dev openai-prod
+
+  # Delete model provider by ID
+  construct modelprovider delete 01974c1d-0be8-70e1-88b4-ad9462fff25e`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client := getAPIClient(cmd.Context())
 
-			for _, id := range args {
-				resp, err := client.ModelProvider().GetModelProvider(cmd.Context(), &connect.Request[v1.GetModelProviderRequest]{
-					Msg: &v1.GetModelProviderRequest{Id: id},
-				})
-
+			var modelProviderIDs = make(map[string]string)
+			for _, idOrName := range args {
+				modelProviderID, err := getModelProviderID(cmd.Context(), client, idOrName)
 				if err != nil {
-					return err
+					return fmt.Errorf("failed to resolve model provider %s: %w", idOrName, err)
 				}
+				modelProviderIDs[idOrName] = modelProviderID
+			}
 
+			for idOrName, modelProviderID := range modelProviderIDs {
 				models, err := client.Model().ListModels(cmd.Context(), &connect.Request[v1.ListModelsRequest]{
 					Msg: &v1.ListModelsRequest{
 						Filter: &v1.ListModelsRequest_Filter{
-							ModelProviderId: &resp.Msg.ModelProvider.Id,
+							ModelProviderId: &modelProviderID,
 						},
 					},
 				})
-
 				if err != nil {
-					return err
+					return fmt.Errorf("failed to list models for model provider %s: %w", idOrName, err)
 				}
 
 				for _, model := range models.Msg.Models {
 					_, err = client.Model().DeleteModel(cmd.Context(), &connect.Request[v1.DeleteModelRequest]{
 						Msg: &v1.DeleteModelRequest{Id: model.Id},
 					})
-
 					if err != nil {
-						return err
+						return fmt.Errorf("failed to delete model %s for model provider %s: %w", model.Name, idOrName, err)
 					}
 				}
-
 				_, err = client.ModelProvider().DeleteModelProvider(cmd.Context(), &connect.Request[v1.DeleteModelProviderRequest]{
-					Msg: &v1.DeleteModelProviderRequest{Id: id},
+					Msg: &v1.DeleteModelProviderRequest{Id: modelProviderID},
 				})
-
 				if err != nil {
-					return err
+					return fmt.Errorf("failed to delete model provider %s: %w", idOrName, err)
 				}
 			}
 

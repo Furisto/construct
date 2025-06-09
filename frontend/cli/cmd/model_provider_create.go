@@ -2,15 +2,18 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"strings"
+	"syscall"
 
 	"connectrpc.com/connect"
+	"golang.org/x/term"
 
 	v1 "github.com/furisto/construct/api/go/v1"
 	"github.com/spf13/cobra"
 )
 
 type modelProviderCreateOptions struct {
-	Name   string
 	ApiKey string
 	Type   ModelProviderType
 }
@@ -19,9 +22,26 @@ func NewModelProviderCreateCmd() *cobra.Command {
 	var options modelProviderCreateOptions
 
 	cmd := &cobra.Command{
-		Use:   "create",
+		Use:   "create <name> --type <provider-type>",
 		Short: "Create a new model provider",
+		Args:  cobra.ExactArgs(1),
+		Example: `  # Create OpenAI provider with API key prompt
+  construct model-provider create "openai-dev" --type openai
+
+  # Create provider with API key from environment variable
+  export OPENAI_API_KEY="sk-..."
+  construct model-provider create "openai-prod" --type openai
+
+  # Create Anthropic provider with API key from flag  
+  construct model-provider create "anthropic-prod" --type anthropic --api-key "sk-ant-..."`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			name := args[0]
+
+			apiKey, err := getAPIKey(&options, options.Type, name)
+			if err != nil {
+				return err
+			}
+
 			client := getAPIClient(cmd.Context())
 
 			providerType, err := options.Type.ToAPI()
@@ -31,14 +51,14 @@ func NewModelProviderCreateCmd() *cobra.Command {
 
 			resp, err := client.ModelProvider().CreateModelProvider(cmd.Context(), &connect.Request[v1.CreateModelProviderRequest]{
 				Msg: &v1.CreateModelProviderRequest{
-					Name:           options.Name,
+					Name:           name,
 					ProviderType:   providerType,
-					Authentication: &v1.CreateModelProviderRequest_ApiKey{ApiKey: options.ApiKey},
+					Authentication: &v1.CreateModelProviderRequest_ApiKey{ApiKey: apiKey},
 				},
 			})
 
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to create model provider: %w", err)
 			}
 
 			fmt.Fprintln(cmd.OutOrStdout(), resp.Msg.ModelProvider.Id)
@@ -46,9 +66,81 @@ func NewModelProviderCreateCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&options.Name, "name", "n", "", "The name of the model provider")
-	cmd.Flags().StringVarP(&options.ApiKey, "api-key", "k", "", "The API key for the model provider")
-	cmd.Flags().VarP(&options.Type, "type", "t", "The type of the model provider")
+	cmd.Flags().StringVarP(&options.ApiKey, "api-key", "k", "", "The API key for the model provider (can also be set via environment variable)")
+	cmd.Flags().VarP(&options.Type, "type", "t", "The type of the model provider (anthropic, openai)")
+
+	cmd.MarkFlagRequired("type")
 
 	return cmd
+}
+
+func getAPIKey(options *modelProviderCreateOptions, providerType ModelProviderType, name string) (string, error) {
+	// Check command line flag
+	if options.ApiKey != "" {
+		return options.ApiKey, nil
+	}
+
+	// Check environment variable
+	envVar, err := APIKeyEnvVar(providerType)
+	if err != nil {
+		return "", err
+	}
+
+	if envKey := os.Getenv(envVar); envKey != "" {
+		return envKey, nil
+	}
+
+	// Prompt for API key
+	displayName, err := getProviderDisplayName(providerType)
+	if err != nil {
+		return "", err
+	}
+
+	fmt.Printf("Enter %s API key for %s: ", displayName, name)
+	apiKey, err := readPasswordSecurely()
+	if err != nil {
+		return "", fmt.Errorf("failed to read API key: %w", err)
+	}
+
+	if strings.TrimSpace(apiKey) == "" {
+		return "", fmt.Errorf("API key cannot be empty\n\nTip: You can also set the %s environment variable or use the --api-key flag", envVar)
+	}
+
+	return apiKey, nil
+}
+
+func readPasswordSecurely() (string, error) {
+	if !term.IsTerminal(int(syscall.Stdin)) {
+		return "", fmt.Errorf("cannot prompt for API key in non-interactive terminal\n\nPlease use --api-key flag or set environment variable")
+	}
+
+	bytePassword, err := term.ReadPassword(int(syscall.Stdin))
+	if err != nil {
+		return "", err
+	}
+	fmt.Println()
+
+	return string(bytePassword), nil
+}
+
+func APIKeyEnvVar(providerType ModelProviderType) (string, error) {
+	switch providerType {
+	case ModelProviderTypeOpenAI:
+		return "OPENAI_API_KEY", nil
+	case ModelProviderTypeAnthropic:
+		return "ANTHROPIC_API_KEY", nil
+	default:
+		return "", fmt.Errorf("unknown provider type: %s", providerType)
+	}
+}
+
+func getProviderDisplayName(providerType ModelProviderType) (string, error) {
+	switch providerType {
+	case ModelProviderTypeOpenAI:
+		return "OpenAI", nil
+	case ModelProviderTypeAnthropic:
+		return "Anthropic", nil
+	default:
+		return "", fmt.Errorf("unknown provider type: %s", providerType)
+	}
 }

@@ -1,9 +1,15 @@
 package cmd
 
 import (
+	"context"
 	"errors"
+	"fmt"
+	"strings"
 
+	"connectrpc.com/connect"
+	api "github.com/furisto/construct/api/go/client"
 	v1 "github.com/furisto/construct/api/go/v1"
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 )
 
@@ -35,17 +41,62 @@ func (e *ModelProviderType) String() string {
 }
 
 func (e *ModelProviderType) Set(v string) error {
-	switch v {
-	case "openai", "anthropic":
-		*e = ModelProviderType(v)
-		return nil
-	default:
-		return errors.New(`must be one of "openai" or "anthropic"`)
+	modelProviderType, err := ToModelProviderType(v)
+	if err != nil {
+		return err
 	}
+	*e = modelProviderType
+	return nil
 }
 
 func (e *ModelProviderType) Type() string {
 	return "modelprovider"
+}
+
+type ModelProviderTypes []ModelProviderType
+
+func (e *ModelProviderTypes) String() string {
+	var s []string
+	for _, v := range *e {
+		s = append(s, v.String())
+	}
+	return strings.Join(s, ",")
+}
+
+func (e *ModelProviderTypes) Set(v string) error {
+	if strings.Contains(v, ",") {
+		for _, v := range strings.Split(v, ",") {
+			v = strings.TrimSpace(v)
+			modelProviderType, err := ToModelProviderType(v)
+			if err != nil {
+				return err
+			}
+			*e = append(*e, modelProviderType)
+		}
+	} else {
+		modelProviderType, err := ToModelProviderType(v)
+		if err != nil {
+			return err
+		}
+		*e = append(*e, modelProviderType)
+	}
+	return nil
+}
+
+func (e *ModelProviderTypes) Type() string {
+	return "modelproviders"
+}
+
+func ToModelProviderType(v string) (ModelProviderType, error) {
+	v = strings.ToLower(strings.TrimSpace(v))
+	switch v {
+	case "openai":
+		return ModelProviderTypeOpenAI, nil
+	case "anthropic":
+		return ModelProviderTypeAnthropic, nil
+	default:
+		return ModelProviderTypeUnknown, errors.New(`must be one of "openai" or "anthropic"`)
+	}
 }
 
 func (e *ModelProviderType) ToAPI() (v1.ModelProviderType, error) {
@@ -84,4 +135,36 @@ func ConvertModelProviderToDisplay(modelProvider *v1.ModelProvider) *ModelProvid
 		ProviderType: ConvertModelProviderTypeToDisplay(modelProvider.ProviderType),
 		Enabled:      modelProvider.Enabled,
 	}
+}
+
+// getModelProviderID resolves a model provider ID or name to an ID
+func getModelProviderID(ctx context.Context, client *api.Client, idOrName string) (string, error) {
+	_, err := uuid.Parse(idOrName)
+	if err == nil {
+		return idOrName, nil
+	}
+
+	resp, err := client.ModelProvider().ListModelProviders(ctx, &connect.Request[v1.ListModelProvidersRequest]{
+		Msg: &v1.ListModelProvidersRequest{},
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to list model providers: %w", err)
+	}
+
+	var matches []*v1.ModelProvider
+	for _, mp := range resp.Msg.ModelProviders {
+		if mp.Name == idOrName {
+			matches = append(matches, mp)
+		}
+	}
+
+	if len(matches) == 0 {
+		return "", fmt.Errorf("model provider %s not found", idOrName)
+	}
+
+	if len(matches) > 1 {
+		return "", fmt.Errorf("multiple model providers found for %s", idOrName)
+	}
+
+	return matches[0].Id, nil
 }
