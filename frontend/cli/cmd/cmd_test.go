@@ -32,6 +32,7 @@ type TestScenario struct {
 	Stdin           string
 	SetupMocks      func(mockClient *api_client.MockClient)
 	SetupFileSystem func(fs *afero.Afero)
+	SetupEnv        map[string]string
 	Expected        TestExpectation
 }
 
@@ -60,6 +61,10 @@ func (s *TestSetup) RunTests(t *testing.T, scenarios []TestScenario) {
 			fs := &afero.Afero{Fs: afero.NewMemMapFs()}
 			if scenario.SetupFileSystem != nil {
 				scenario.SetupFileSystem(fs)
+			}
+
+			for key, value := range scenario.SetupEnv {
+				t.Setenv(key, value)
 			}
 
 			testCmd := NewRootCmd()
