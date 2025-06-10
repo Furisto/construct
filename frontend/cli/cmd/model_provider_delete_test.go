@@ -20,8 +20,8 @@ func TestModelProviderDelete(t *testing.T) {
 
 	setup.RunTests(t, []TestScenario{
 		{
-			Name:    "success - delete single model provider by name",
-			Command: []string{"modelprovider", "delete", "anthropic-dev"},
+			Name:    "success - delete single model provider by name with force flag",
+			Command: []string{"modelprovider", "delete", "--force", "anthropic-dev"},
 			SetupMocks: func(mockClient *api_client.MockClient) {
 				setupModelProviderLookupForDeleteMock(mockClient, "anthropic-dev", modelProviderID1)
 				setupModelListForDeleteMock(mockClient, modelProviderID1, []*v1.Model{
@@ -33,8 +33,8 @@ func TestModelProviderDelete(t *testing.T) {
 			Expected: TestExpectation{},
 		},
 		{
-			Name:    "success - delete single model provider by ID",
-			Command: []string{"modelprovider", "delete", modelProviderID1},
+			Name:    "success - delete single model provider by ID with force flag",
+			Command: []string{"modelprovider", "delete", "--force", modelProviderID1},
 			SetupMocks: func(mockClient *api_client.MockClient) {
 				setupModelListForDeleteMock(mockClient, modelProviderID1, []*v1.Model{
 					{Id: modelID1, Name: "gpt-4"},
@@ -47,11 +47,35 @@ func TestModelProviderDelete(t *testing.T) {
 			Expected: TestExpectation{},
 		},
 		{
-			Name:    "success - delete multiple model providers",
-			Command: []string{"modelprovider", "delete", "anthropic-dev", "openai-prod"},
+			Name:    "success - delete multiple model providers with force flag",
+			Command: []string{"modelprovider", "delete", "--force", "anthropic-dev", "openai-prod"},
 			SetupMocks: func(mockClient *api_client.MockClient) {
+				// Setup lookup for both providers in a single call
+				mockClient.ModelProvider.EXPECT().ListModelProviders(
+					gomock.Any(),
+					&connect.Request[v1.ListModelProvidersRequest]{
+						Msg: &v1.ListModelProvidersRequest{},
+					},
+				).Return(&connect.Response[v1.ListModelProvidersResponse]{
+					Msg: &v1.ListModelProvidersResponse{
+						ModelProviders: []*v1.ModelProvider{
+							{
+								Id:           modelProviderID1,
+								Name:         "anthropic-dev",
+								ProviderType: v1.ModelProviderType_MODEL_PROVIDER_TYPE_ANTHROPIC,
+								Enabled:      true,
+							},
+							{
+								Id:           modelProviderID2,
+								Name:         "openai-prod",
+								ProviderType: v1.ModelProviderType_MODEL_PROVIDER_TYPE_OPENAI,
+								Enabled:      true,
+							},
+						},
+					},
+				}, nil).Times(2) // Called once for each provider name lookup
+
 				// Setup for first provider (anthropic-dev)
-				setupModelProviderLookupForDeleteMock(mockClient, "anthropic-dev", modelProviderID1)
 				setupModelListForDeleteMock(mockClient, modelProviderID1, []*v1.Model{
 					{Id: modelID1, Name: "claude-3-5-sonnet"},
 				})
@@ -59,7 +83,6 @@ func TestModelProviderDelete(t *testing.T) {
 				setupModelProviderDeleteMock(mockClient, modelProviderID1)
 
 				// Setup for second provider (openai-prod)
-				setupModelProviderLookupForDeleteMock(mockClient, "openai-prod", modelProviderID2)
 				setupModelListForDeleteMock(mockClient, modelProviderID2, []*v1.Model{
 					{Id: modelID2, Name: "gpt-4"},
 				})
@@ -69,8 +92,8 @@ func TestModelProviderDelete(t *testing.T) {
 			Expected: TestExpectation{},
 		},
 		{
-			Name:    "success - delete model provider with no models",
-			Command: []string{"modelprovider", "delete", "empty-provider"},
+			Name:    "success - delete model provider with no models with force flag",
+			Command: []string{"modelprovider", "delete", "--force", "empty-provider"},
 			SetupMocks: func(mockClient *api_client.MockClient) {
 				setupModelProviderLookupForDeleteMock(mockClient, "empty-provider", modelProviderID1)
 				setupModelListForDeleteMock(mockClient, modelProviderID1, []*v1.Model{})
@@ -79,8 +102,84 @@ func TestModelProviderDelete(t *testing.T) {
 			Expected: TestExpectation{},
 		},
 		{
-			Name:    "error - model provider not found by name",
-			Command: []string{"modelprovider", "delete", "nonexistent"},
+			Name:    "success - delete model provider with user confirmation",
+			Command: []string{"modelprovider", "delete", "anthropic-dev"},
+			Stdin:   "y\n",
+			SetupMocks: func(mockClient *api_client.MockClient) {
+				setupModelProviderLookupForDeleteMock(mockClient, "anthropic-dev", modelProviderID1)
+				setupModelListForDeleteMock(mockClient, modelProviderID1, []*v1.Model{
+					{Id: modelID1, Name: "claude-3-5-sonnet"},
+				})
+				setupModelDeleteMock(mockClient, modelID1)
+				setupModelProviderDeleteMock(mockClient, modelProviderID1)
+			},
+			Expected: TestExpectation{
+				Stdout: "Are you sure you want to delete model-provider anthropic-dev? (y/n): ",
+			},
+		},
+		{
+			Name:    "success - cancel deletion when user denies confirmation",
+			Command: []string{"modelprovider", "delete", "anthropic-dev"},
+			Stdin:   "n\n",
+			SetupMocks: func(mockClient *api_client.MockClient) {
+				setupModelProviderLookupForDeleteMock(mockClient, "anthropic-dev", modelProviderID1)
+				// No delete mocks needed since operation should be cancelled
+			},
+			Expected: TestExpectation{
+				Stdout: "Are you sure you want to delete model-provider anthropic-dev? (y/n): ",
+			},
+		},
+		{
+			Name:    "success - delete multiple model providers with user confirmation",
+			Command: []string{"modelprovider", "delete", "anthropic-dev", "openai-prod"},
+			Stdin:   "y\n",
+			SetupMocks: func(mockClient *api_client.MockClient) {
+				// Setup lookup for both providers in a single call
+				mockClient.ModelProvider.EXPECT().ListModelProviders(
+					gomock.Any(),
+					&connect.Request[v1.ListModelProvidersRequest]{
+						Msg: &v1.ListModelProvidersRequest{},
+					},
+				).Return(&connect.Response[v1.ListModelProvidersResponse]{
+					Msg: &v1.ListModelProvidersResponse{
+						ModelProviders: []*v1.ModelProvider{
+							{
+								Id:           modelProviderID1,
+								Name:         "anthropic-dev",
+								ProviderType: v1.ModelProviderType_MODEL_PROVIDER_TYPE_ANTHROPIC,
+								Enabled:      true,
+							},
+							{
+								Id:           modelProviderID2,
+								Name:         "openai-prod",
+								ProviderType: v1.ModelProviderType_MODEL_PROVIDER_TYPE_OPENAI,
+								Enabled:      true,
+							},
+						},
+					},
+				}, nil).Times(2) // Called once for each provider name lookup
+
+				// Setup for first provider (anthropic-dev)
+				setupModelListForDeleteMock(mockClient, modelProviderID1, []*v1.Model{
+					{Id: modelID1, Name: "claude-3-5-sonnet"},
+				})
+				setupModelDeleteMock(mockClient, modelID1)
+				setupModelProviderDeleteMock(mockClient, modelProviderID1)
+
+				// Setup for second provider (openai-prod)
+				setupModelListForDeleteMock(mockClient, modelProviderID2, []*v1.Model{
+					{Id: modelID2, Name: "gpt-4"},
+				})
+				setupModelDeleteMock(mockClient, modelID2)
+				setupModelProviderDeleteMock(mockClient, modelProviderID2)
+			},
+			Expected: TestExpectation{
+				Stdout: "Are you sure you want to delete model-providers anthropic-dev openai-prod? (y/n): ",
+			},
+		},
+		{
+			Name:    "error - model provider not found by name with force flag",
+			Command: []string{"modelprovider", "delete", "--force", "nonexistent"},
 			SetupMocks: func(mockClient *api_client.MockClient) {
 				mockClient.ModelProvider.EXPECT().ListModelProviders(
 					gomock.Any(),
@@ -98,8 +197,8 @@ func TestModelProviderDelete(t *testing.T) {
 			},
 		},
 		{
-			Name:    "error - model deletion API failure",
-			Command: []string{"modelprovider", "delete", "anthropic-dev"},
+			Name:    "error - model deletion API failure with force flag",
+			Command: []string{"modelprovider", "delete", "--force", "anthropic-dev"},
 			SetupMocks: func(mockClient *api_client.MockClient) {
 				setupModelProviderLookupForDeleteMock(mockClient, "anthropic-dev", modelProviderID1)
 				setupModelListForDeleteMock(mockClient, modelProviderID1, []*v1.Model{
@@ -117,8 +216,8 @@ func TestModelProviderDelete(t *testing.T) {
 			},
 		},
 		{
-			Name:    "error - model provider deletion API failure",
-			Command: []string{"modelprovider", "delete", "anthropic-dev"},
+			Name:    "error - model provider deletion API failure with force flag",
+			Command: []string{"modelprovider", "delete", "--force", "anthropic-dev"},
 			SetupMocks: func(mockClient *api_client.MockClient) {
 				setupModelProviderLookupForDeleteMock(mockClient, "anthropic-dev", modelProviderID1)
 				setupModelListForDeleteMock(mockClient, modelProviderID1, []*v1.Model{

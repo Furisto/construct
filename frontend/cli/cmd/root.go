@@ -3,6 +3,9 @@ package cmd
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io"
+	"strings"
 
 	"log/slog"
 	"os"
@@ -206,4 +209,17 @@ func getFormatter(ctx context.Context) ResourceFormatter {
 	}
 
 	return &DefaultResourceFormatter{}
+}
+
+func confirmDeletion(stdin io.Reader, stdout io.Writer, kind string, idOrNames []string) bool {
+	if len(idOrNames) > 1 {
+		kind = kind + "s"
+	}
+	fmt.Fprintf(stdout, "Are you sure you want to delete %s %s? (y/n): ", kind, strings.Join(idOrNames, " "))
+	var confirm string
+	_, err := fmt.Fscan(stdin, &confirm)
+	if err != nil {
+		return false
+	}
+	return confirm == "y"
 }

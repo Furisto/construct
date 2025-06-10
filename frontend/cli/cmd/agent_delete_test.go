@@ -19,8 +19,8 @@ func TestAgentDelete(t *testing.T) {
 
 	setup.RunTests(t, []TestScenario{
 		{
-			Name:    "success - delete by agent name",
-			Command: []string{"agent", "delete", "coder"},
+			Name:    "success - delete by agent name with force flag",
+			Command: []string{"agent", "delete", "--force", "coder"},
 			SetupMocks: func(mockClient *api_client.MockClient) {
 				setupAgentListMock(mockClient, "coder", agentID1)
 				setupAgentDeletionMock(mockClient, agentID1)
@@ -28,16 +28,16 @@ func TestAgentDelete(t *testing.T) {
 			Expected: TestExpectation{},
 		},
 		{
-			Name:    "success - delete by agent ID",
-			Command: []string{"agent", "delete", agentID1},
+			Name:    "success - delete by agent ID with force flag",
+			Command: []string{"agent", "delete", "--force", agentID1},
 			SetupMocks: func(mockClient *api_client.MockClient) {
 				setupAgentDeletionMock(mockClient, agentID1)
 			},
 			Expected: TestExpectation{},
 		},
 		{
-			Name:    "success - delete multiple agents by name",
-			Command: []string{"agent", "delete", "coder", "architect"},
+			Name:    "success - delete multiple agents by name with force flag",
+			Command: []string{"agent", "delete", "--force", "coder", "architect"},
 			SetupMocks: func(mockClient *api_client.MockClient) {
 				setupAgentListMock(mockClient, "coder", agentID1)
 				setupAgentListMock(mockClient, "architect", agentID2)
@@ -47,8 +47,8 @@ func TestAgentDelete(t *testing.T) {
 			Expected: TestExpectation{},
 		},
 		{
-			Name:    "success - delete multiple agents by ID",
-			Command: []string{"agent", "delete", agentID1, agentID2},
+			Name:    "success - delete multiple agents by ID with force flag",
+			Command: []string{"agent", "delete", "--force", agentID1, agentID2},
 			SetupMocks: func(mockClient *api_client.MockClient) {
 				setupAgentDeletionMock(mockClient, agentID1)
 				setupAgentDeletionMock(mockClient, agentID2)
@@ -56,8 +56,8 @@ func TestAgentDelete(t *testing.T) {
 			Expected: TestExpectation{},
 		},
 		{
-			Name:    "success - delete mixed IDs and names",
-			Command: []string{"agent", "delete", agentID1, "architect", agentID3},
+			Name:    "success - delete mixed IDs and names with force flag",
+			Command: []string{"agent", "delete", "--force", agentID1, "architect", agentID3},
 			SetupMocks: func(mockClient *api_client.MockClient) {
 				setupAgentListMock(mockClient, "architect", agentID2)
 				setupAgentDeletionMock(mockClient, agentID1)
@@ -67,8 +67,46 @@ func TestAgentDelete(t *testing.T) {
 			Expected: TestExpectation{},
 		},
 		{
-			Name:    "error - agent not found by name",
-			Command: []string{"agent", "delete", "nonexistent"},
+			Name:    "success - delete by agent name with user confirmation",
+			Command: []string{"agent", "delete", "coder"},
+			Stdin:   "y\n",
+			SetupMocks: func(mockClient *api_client.MockClient) {
+				setupAgentListMock(mockClient, "coder", agentID1)
+				setupAgentDeletionMock(mockClient, agentID1)
+			},
+			Expected: TestExpectation{
+				Stdout: "Are you sure you want to delete agent coder? (y/n): ",
+			},
+		},
+		{
+			Name:    "success - cancel deletion when user denies confirmation",
+			Command: []string{"agent", "delete", "coder"},
+			Stdin:   "n\n",
+			SetupMocks: func(mockClient *api_client.MockClient) {
+				setupAgentListMock(mockClient, "coder", agentID1)
+				// No deletion mocks needed since operation should be cancelled
+			},
+			Expected: TestExpectation{
+				Stdout: "Are you sure you want to delete agent coder? (y/n): ",
+			},
+		},
+		{
+			Name:    "success - delete multiple agents with user confirmation",
+			Command: []string{"agent", "delete", "coder", "architect"},
+			Stdin:   "y\n",
+			SetupMocks: func(mockClient *api_client.MockClient) {
+				setupAgentListMock(mockClient, "coder", agentID1)
+				setupAgentListMock(mockClient, "architect", agentID2)
+				setupAgentDeletionMock(mockClient, agentID1)
+				setupAgentDeletionMock(mockClient, agentID2)
+			},
+			Expected: TestExpectation{
+				Stdout: "Are you sure you want to delete agents coder architect? (y/n): ",
+			},
+		},
+		{
+			Name:    "error - agent not found by name with force flag",
+			Command: []string{"agent", "delete", "--force", "nonexistent"},
 			SetupMocks: func(mockClient *api_client.MockClient) {
 				mockClient.Agent.EXPECT().ListAgents(
 					gomock.Any(),
@@ -91,8 +129,8 @@ func TestAgentDelete(t *testing.T) {
 		},
 		{
 			// if one agent does not exist, the others should not be deleted
-			Name:    "error - first agent succeeds, second fails lookup",
-			Command: []string{"agent", "delete", "coder", "nonexistent"},
+			Name:    "error - first agent succeeds, second fails lookup with force flag",
+			Command: []string{"agent", "delete", "--force", "coder", "nonexistent"},
 			SetupMocks: func(mockClient *api_client.MockClient) {
 				setupAgentListMock(mockClient, "coder", agentID1)
 				mockClient.Agent.EXPECT().ListAgents(

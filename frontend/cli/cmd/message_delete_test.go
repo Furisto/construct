@@ -18,8 +18,8 @@ func TestMessageDelete(t *testing.T) {
 
 	setup.RunTests(t, []TestScenario{
 		{
-			Name:    "success - delete single message",
-			Command: []string{"message", "delete", messageID1},
+			Name:    "success - delete single message with force flag",
+			Command: []string{"message", "delete", "--force", messageID1},
 			SetupMocks: func(mockClient *api_client.MockClient) {
 				setupMessageDeleteMock(mockClient, messageID1)
 			},
@@ -28,8 +28,8 @@ func TestMessageDelete(t *testing.T) {
 			},
 		},
 		{
-			Name:    "success - delete multiple messages",
-			Command: []string{"message", "delete", messageID1, messageID2},
+			Name:    "success - delete multiple messages with force flag",
+			Command: []string{"message", "delete", "--force", messageID1, messageID2},
 			SetupMocks: func(mockClient *api_client.MockClient) {
 				setupMessageDeleteMock(mockClient, messageID1)
 				setupMessageDeleteMock(mockClient, messageID2)
@@ -39,8 +39,42 @@ func TestMessageDelete(t *testing.T) {
 			},
 		},
 		{
-			Name:    "error - delete message API failure on first message",
+			Name:    "success - delete single message with user confirmation",
+			Command: []string{"message", "delete", messageID1},
+			Stdin:   "y\n",
+			SetupMocks: func(mockClient *api_client.MockClient) {
+				setupMessageDeleteMock(mockClient, messageID1)
+			},
+			Expected: TestExpectation{
+				Stdout: "Are you sure you want to delete message " + messageID1 + "? (y/n): ",
+			},
+		},
+		{
+			Name:    "success - cancel deletion when user denies confirmation",
+			Command: []string{"message", "delete", messageID1},
+			Stdin:   "n\n",
+			SetupMocks: func(mockClient *api_client.MockClient) {
+				// No delete mocks needed since operation should be cancelled
+			},
+			Expected: TestExpectation{
+				Stdout: "Are you sure you want to delete message " + messageID1 + "? (y/n): ",
+			},
+		},
+		{
+			Name:    "success - delete multiple messages with user confirmation",
 			Command: []string{"message", "delete", messageID1, messageID2},
+			Stdin:   "y\n",
+			SetupMocks: func(mockClient *api_client.MockClient) {
+				setupMessageDeleteMock(mockClient, messageID1)
+				setupMessageDeleteMock(mockClient, messageID2)
+			},
+			Expected: TestExpectation{
+				Stdout: "Are you sure you want to delete messages " + messageID1 + " " + messageID2 + "? (y/n): ",
+			},
+		},
+		{
+			Name:    "error - delete message API failure on first message with force flag",
+			Command: []string{"message", "delete", "--force", messageID1, messageID2},
 			SetupMocks: func(mockClient *api_client.MockClient) {
 				mockClient.Message.EXPECT().DeleteMessage(
 					gomock.Any(),

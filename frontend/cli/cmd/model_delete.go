@@ -8,7 +8,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+type modelDeleteOptions struct {
+	Force bool
+}
+
 func NewModelDeleteCmd() *cobra.Command {
+	options := new(modelDeleteOptions)
 	cmd := &cobra.Command{
 		Use:   "delete <model-id-or-name>...",
 		Short: "Delete one or more models by ID or name",
@@ -32,6 +37,10 @@ func NewModelDeleteCmd() *cobra.Command {
 				modelIDs[i] = modelID
 			}
 
+			if !options.Force && !confirmDeletion(cmd.InOrStdin(), cmd.OutOrStdout(), "model", args) {
+				return nil
+			}
+
 			for i, modelID := range modelIDs {
 				_, err := client.Model().DeleteModel(cmd.Context(), &connect.Request[v1.DeleteModelRequest]{
 					Msg: &v1.DeleteModelRequest{Id: modelID},
@@ -45,6 +54,8 @@ func NewModelDeleteCmd() *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().BoolVarP(&options.Force, "force", "f", false, "force deletion without confirmation")
 
 	return cmd
 }

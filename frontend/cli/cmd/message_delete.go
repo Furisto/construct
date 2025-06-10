@@ -8,7 +8,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+type messageDeleteOptions struct {
+	Force bool
+}
+
 func NewMessageDeleteCmd() *cobra.Command {
+	options := new(messageDeleteOptions)
 	cmd := &cobra.Command{
 		Use:   "delete <message-id>...",
 		Short: "Delete one or more messages by ID",
@@ -18,6 +23,10 @@ func NewMessageDeleteCmd() *cobra.Command {
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client := getAPIClient(cmd.Context())
+
+			if !options.Force && !confirmDeletion(cmd.InOrStdin(), cmd.OutOrStdout(), "message", args) {
+				return nil
+			}
 
 			for _, messageID := range args {
 				_, err := client.Message().DeleteMessage(cmd.Context(), &connect.Request[v1.DeleteMessageRequest]{
@@ -32,6 +41,8 @@ func NewMessageDeleteCmd() *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().BoolVarP(&options.Force, "force", "f", false, "force deletion without confirmation")
 
 	return cmd
 }

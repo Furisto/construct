@@ -18,8 +18,8 @@ func TestModelDelete(t *testing.T) {
 
 	setup.RunTests(t, []TestScenario{
 		{
-			Name:    "success - delete model by name",
-			Command: []string{"model", "delete", "gpt-4"},
+			Name:    "success - delete model by name with force flag",
+			Command: []string{"model", "delete", "--force", "gpt-4"},
 			SetupMocks: func(mockClient *api_client.MockClient) {
 				setupModelLookupForDeleteMock(mockClient, "gpt-4", modelID1)
 				setupModelDeleteMock(mockClient, modelID1)
@@ -27,16 +27,16 @@ func TestModelDelete(t *testing.T) {
 			Expected: TestExpectation{},
 		},
 		{
-			Name:    "success - delete model by ID",
-			Command: []string{"model", "delete", modelID1},
+			Name:    "success - delete model by ID with force flag",
+			Command: []string{"model", "delete", "--force", modelID1},
 			SetupMocks: func(mockClient *api_client.MockClient) {
 				setupModelDeleteMock(mockClient, modelID1)
 			},
 			Expected: TestExpectation{},
 		},
 		{
-			Name:    "success - delete multiple models",
-			Command: []string{"model", "delete", "gpt-4", "claude-3-5-sonnet"},
+			Name:    "success - delete multiple models with force flag",
+			Command: []string{"model", "delete", "--force", "gpt-4", "claude-3-5-sonnet"},
 			SetupMocks: func(mockClient *api_client.MockClient) {
 				setupModelLookupForDeleteMock(mockClient, "gpt-4", modelID1)
 				setupModelLookupForDeleteMock(mockClient, "claude-3-5-sonnet", modelID2)
@@ -46,8 +46,8 @@ func TestModelDelete(t *testing.T) {
 			Expected: TestExpectation{},
 		},
 		{
-			Name:    "success - delete multiple models by ID and name",
-			Command: []string{"model", "delete", modelID1, "llama-3.1-8b"},
+			Name:    "success - delete multiple models by ID and name with force flag",
+			Command: []string{"model", "delete", "--force", modelID1, "llama-3.1-8b"},
 			SetupMocks: func(mockClient *api_client.MockClient) {
 				setupModelLookupForDeleteMock(mockClient, "llama-3.1-8b", modelID2)
 				setupModelDeleteMock(mockClient, modelID1)
@@ -56,8 +56,46 @@ func TestModelDelete(t *testing.T) {
 			Expected: TestExpectation{},
 		},
 		{
-			Name:    "error - model not found by name",
-			Command: []string{"model", "delete", "nonexistent"},
+			Name:    "success - delete model by name with user confirmation",
+			Command: []string{"model", "delete", "gpt-4"},
+			Stdin:   "y\n",
+			SetupMocks: func(mockClient *api_client.MockClient) {
+				setupModelLookupForDeleteMock(mockClient, "gpt-4", modelID1)
+				setupModelDeleteMock(mockClient, modelID1)
+			},
+			Expected: TestExpectation{
+				Stdout: "Are you sure you want to delete model gpt-4? (y/n): ",
+			},
+		},
+		{
+			Name:    "success - cancel deletion when user denies confirmation",
+			Command: []string{"model", "delete", "gpt-4"},
+			Stdin:   "n\n",
+			SetupMocks: func(mockClient *api_client.MockClient) {
+				setupModelLookupForDeleteMock(mockClient, "gpt-4", modelID1)
+				// No delete mocks needed since operation should be cancelled
+			},
+			Expected: TestExpectation{
+				Stdout: "Are you sure you want to delete model gpt-4? (y/n): ",
+			},
+		},
+		{
+			Name:    "success - delete multiple models with user confirmation",
+			Command: []string{"model", "delete", "gpt-4", "claude-3-5-sonnet"},
+			Stdin:   "y\n",
+			SetupMocks: func(mockClient *api_client.MockClient) {
+				setupModelLookupForDeleteMock(mockClient, "gpt-4", modelID1)
+				setupModelLookupForDeleteMock(mockClient, "claude-3-5-sonnet", modelID2)
+				setupModelDeleteMock(mockClient, modelID1)
+				setupModelDeleteMock(mockClient, modelID2)
+			},
+			Expected: TestExpectation{
+				Stdout: "Are you sure you want to delete models gpt-4 claude-3-5-sonnet? (y/n): ",
+			},
+		},
+		{
+			Name:    "error - model not found by name with force flag",
+			Command: []string{"model", "delete", "--force", "nonexistent"},
 			SetupMocks: func(mockClient *api_client.MockClient) {
 				mockClient.Model.EXPECT().ListModels(
 					gomock.Any(),
@@ -79,8 +117,8 @@ func TestModelDelete(t *testing.T) {
 			},
 		},
 		{
-			Name:    "error - delete model API failure",
-			Command: []string{"model", "delete", modelID1},
+			Name:    "error - delete model API failure with force flag",
+			Command: []string{"model", "delete", "--force", modelID1},
 			SetupMocks: func(mockClient *api_client.MockClient) {
 				mockClient.Model.EXPECT().DeleteModel(
 					gomock.Any(),
@@ -94,8 +132,8 @@ func TestModelDelete(t *testing.T) {
 			},
 		},
 		{
-			Name:    "error - delete multiple models with one failure",
-			Command: []string{"model", "delete", "gpt-4", "claude-3-5-sonnet"},
+			Name:    "error - delete multiple models with one failure with force flag",
+			Command: []string{"model", "delete", "--force", "gpt-4", "claude-3-5-sonnet"},
 			SetupMocks: func(mockClient *api_client.MockClient) {
 				setupModelLookupForDeleteMock(mockClient, "gpt-4", modelID1)
 				setupModelLookupForDeleteMock(mockClient, "claude-3-5-sonnet", modelID2)
@@ -112,8 +150,8 @@ func TestModelDelete(t *testing.T) {
 			},
 		},
 		{
-			Name:    "error - model lookup API failure",
-			Command: []string{"model", "delete", "gpt-4"},
+			Name:    "error - model lookup API failure with force flag",
+			Command: []string{"model", "delete", "--force", "gpt-4"},
 			SetupMocks: func(mockClient *api_client.MockClient) {
 				mockClient.Model.EXPECT().ListModels(
 					gomock.Any(),

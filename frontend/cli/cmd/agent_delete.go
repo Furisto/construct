@@ -8,7 +8,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+type agentDeleteOptions struct {
+	Force bool
+}
+
 func NewAgentDeleteCmd() *cobra.Command {
+	options := new(agentDeleteOptions)
 	cmd := &cobra.Command{
 		Use:   "delete <id-or-name>...",
 		Short: "Delete one or more agents by their IDs or names",
@@ -31,6 +36,10 @@ func NewAgentDeleteCmd() *cobra.Command {
 				agentIDs[idOrName] = agentID
 			}
 
+			if !options.Force && !confirmDeletion(cmd.InOrStdin(), cmd.OutOrStdout(), "agent", args) {
+				return nil
+			}
+
 			for idOrName, agentID := range agentIDs {
 				_, err := client.Agent().DeleteAgent(cmd.Context(), &connect.Request[v1.DeleteAgentRequest]{
 					Msg: &v1.DeleteAgentRequest{Id: agentID},
@@ -43,6 +52,8 @@ func NewAgentDeleteCmd() *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().BoolVarP(&options.Force, "force", "f", false, "force deletion without confirmation")
 
 	return cmd
 }

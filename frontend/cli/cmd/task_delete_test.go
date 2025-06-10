@@ -18,16 +18,16 @@ func TestTaskDelete(t *testing.T) {
 
 	setup.RunTests(t, []TestScenario{
 		{
-			Name:    "success - delete single task",
-			Command: []string{"task", "delete", taskID1},
+			Name:    "success - delete single task with force flag",
+			Command: []string{"task", "delete", "--force", taskID1},
 			SetupMocks: func(mockClient *api_client.MockClient) {
 				setupTaskDeleteMock(mockClient, taskID1)
 			},
 			Expected: TestExpectation{},
 		},
 		{
-			Name:    "success - delete multiple tasks",
-			Command: []string{"task", "delete", taskID1, taskID2},
+			Name:    "success - delete multiple tasks with force flag",
+			Command: []string{"task", "delete", "--force", taskID1, taskID2},
 			SetupMocks: func(mockClient *api_client.MockClient) {
 				setupTaskDeleteMock(mockClient, taskID1)
 				setupTaskDeleteMock(mockClient, taskID2)
@@ -35,8 +35,42 @@ func TestTaskDelete(t *testing.T) {
 			Expected: TestExpectation{},
 		},
 		{
-			Name:    "error - delete task API failure",
+			Name:    "success - delete single task with user confirmation",
 			Command: []string{"task", "delete", taskID1},
+			Stdin:   "y\n",
+			SetupMocks: func(mockClient *api_client.MockClient) {
+				setupTaskDeleteMock(mockClient, taskID1)
+			},
+			Expected: TestExpectation{
+				Stdout: "Are you sure you want to delete task " + taskID1 + "? (y/n): ",
+			},
+		},
+		{
+			Name:    "success - cancel deletion when user denies confirmation",
+			Command: []string{"task", "delete", taskID1},
+			Stdin:   "n\n",
+			SetupMocks: func(mockClient *api_client.MockClient) {
+				// No delete mocks needed since operation should be cancelled
+			},
+			Expected: TestExpectation{
+				Stdout: "Are you sure you want to delete task " + taskID1 + "? (y/n): ",
+			},
+		},
+		{
+			Name:    "success - delete multiple tasks with user confirmation",
+			Command: []string{"task", "delete", taskID1, taskID2},
+			Stdin:   "y\n",
+			SetupMocks: func(mockClient *api_client.MockClient) {
+				setupTaskDeleteMock(mockClient, taskID1)
+				setupTaskDeleteMock(mockClient, taskID2)
+			},
+			Expected: TestExpectation{
+				Stdout: "Are you sure you want to delete tasks " + taskID1 + " " + taskID2 + "? (y/n): ",
+			},
+		},
+		{
+			Name:    "error - delete task API failure with force flag",
+			Command: []string{"task", "delete", "--force", taskID1},
 			SetupMocks: func(mockClient *api_client.MockClient) {
 				mockClient.Task.EXPECT().DeleteTask(
 					gomock.Any(),
@@ -50,8 +84,8 @@ func TestTaskDelete(t *testing.T) {
 			},
 		},
 		{
-			Name:    "error - delete multiple tasks with one failure",
-			Command: []string{"task", "delete", taskID1, taskID2},
+			Name:    "error - delete multiple tasks with one failure with force flag",
+			Command: []string{"task", "delete", "--force", taskID1, taskID2},
 			SetupMocks: func(mockClient *api_client.MockClient) {
 				setupTaskDeleteMock(mockClient, taskID1)
 				mockClient.Task.EXPECT().DeleteTask(

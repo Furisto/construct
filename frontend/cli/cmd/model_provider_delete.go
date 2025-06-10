@@ -8,7 +8,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+type modelProviderDeleteOptions struct {
+	Force bool
+}
+
 func NewModelProviderDeleteCmd() *cobra.Command {
+	options := new(modelProviderDeleteOptions)
 	cmd := &cobra.Command{
 		Use:   "delete <id-or-name>...",
 		Short: "Delete one or more model providers by their IDs or names",
@@ -28,6 +33,10 @@ func NewModelProviderDeleteCmd() *cobra.Command {
 					return fmt.Errorf("failed to resolve model provider %s: %w", idOrName, err)
 				}
 				modelProviderIDs[idOrName] = modelProviderID
+			}
+
+			if !options.Force && !confirmDeletion(cmd.InOrStdin(), cmd.OutOrStdout(), "model-provider", args) {
+				return nil
 			}
 
 			for idOrName, modelProviderID := range modelProviderIDs {
@@ -61,6 +70,8 @@ func NewModelProviderDeleteCmd() *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().BoolVarP(&options.Force, "force", "f", false, "force deletion without confirmation")
 
 	return cmd
 }
