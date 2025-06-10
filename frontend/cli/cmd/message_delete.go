@@ -15,12 +15,13 @@ type messageDeleteOptions struct {
 func NewMessageDeleteCmd() *cobra.Command {
 	options := new(messageDeleteOptions)
 	cmd := &cobra.Command{
-		Use:   "delete <message-id>...",
-		Short: "Delete one or more messages by ID",
-		Long:  `Delete messages by specifying their IDs.`,
+		Use:     "delete <message-id>...",
+		Short:   "Delete one or more messages by ID",
+		Long:    `Delete messages by specifying their IDs.`,
+		Aliases: []string{"rm"},
+		Args:    cobra.MinimumNArgs(1),
 		Example: `  # Delete a single message
   construct message delete "123e4567-e89b-12d3-a456-426614174000"`,
-		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client := getAPIClient(cmd.Context())
 

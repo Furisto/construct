@@ -16,9 +16,9 @@ func NewTaskDeleteCmd() *cobra.Command {
 	options := &taskDeleteOptions{}
 	cmd := &cobra.Command{
 		Use:     "delete <task-id>...",
-		Aliases: []string{"rm"},
 		Short:   "Delete one or more tasks by their IDs",
 		Args:    cobra.MinimumNArgs(1),
+		Aliases: []string{"rm"},
 		Example: `  # Delete a single task
   construct task delete 01974c1d-0be8-70e1-88b4-ad9462fff25e
 

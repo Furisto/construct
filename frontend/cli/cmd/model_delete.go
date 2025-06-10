@@ -15,16 +15,16 @@ type modelDeleteOptions struct {
 func NewModelDeleteCmd() *cobra.Command {
 	options := new(modelDeleteOptions)
 	cmd := &cobra.Command{
-		Use:   "delete <model-id-or-name>...",
-		Short: "Delete one or more models by ID or name",
-		Long:  `Delete models by specifying their IDs or names.`,
+		Use:     "delete <model-id-or-name>...",
+		Short:   "Delete one or more models by ID or name",
+		Long:    `Delete models by specifying their IDs or names.`,
+		Aliases: []string{"rm"},
+		Args:    cobra.MinimumNArgs(1),
 		Example: `  # Delete model by name
   construct model delete "gpt-4"
 
   # Delete multiple models
   construct model delete "claude-3-5-sonnet" "llama-3.1-8b" "gpt-4"`,
-		Args:    cobra.MinimumNArgs(1),
-		Aliases: []string{"rm"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client := getAPIClient(cmd.Context())
 
