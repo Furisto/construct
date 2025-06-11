@@ -9,7 +9,7 @@ import (
 )
 
 type modelGetOptions struct {
-	FormatOptions FormatOptions
+	RenderOptions RenderOptions
 }
 
 func NewModelGetCmd() *cobra.Command {
@@ -28,7 +28,6 @@ func NewModelGetCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client := getAPIClient(cmd.Context())
 
-			// Resolve model name or ID to ID
 			modelID, err := getModelID(cmd.Context(), client, args[0])
 			if err != nil {
 				return fmt.Errorf("failed to resolve model %s: %w", args[0], err)
@@ -44,10 +43,10 @@ func NewModelGetCmd() *cobra.Command {
 			}
 
 			displayModel := ConvertModelToDisplay(resp.Msg.Model)
-			return getFormatter(cmd.Context()).Display(displayModel, options.FormatOptions.Output)
+			return getRenderer(cmd.Context()).Render(displayModel, &options.RenderOptions)
 		},
 	}
 
-	addFormatOptions(cmd, &options.FormatOptions)
+	addRenderOptions(cmd, WithCardFormat(&options.RenderOptions))
 	return cmd
 }

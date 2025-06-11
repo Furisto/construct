@@ -9,7 +9,7 @@ import (
 )
 
 type modelProviderGetOptions struct {
-	FormatOptions FormatOptions
+	RenderOptions RenderOptions
 }
 
 func NewModelProviderGetCmd() *cobra.Command {
@@ -43,10 +43,10 @@ func NewModelProviderGetCmd() *cobra.Command {
 			}
 
 			displayModelProvider := ConvertModelProviderToDisplay(resp.Msg.ModelProvider)
-			return getFormatter(cmd.Context()).Display(displayModelProvider, options.FormatOptions.Output)
+			return getRenderer(cmd.Context()).Render(displayModelProvider, &options.RenderOptions)
 		},
 	}
 
-	addFormatOptions(cmd, &options.FormatOptions)
+	addRenderOptions(cmd, WithCardFormat(&options.RenderOptions))
 	return cmd
 }

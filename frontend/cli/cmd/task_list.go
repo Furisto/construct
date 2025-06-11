@@ -11,7 +11,7 @@ import (
 
 type taskListOptions struct {
 	Agent         string
-	FormatOptions FormatOptions
+	RenderOptions RenderOptions
 }
 
 func NewTaskListCmd() *cobra.Command {
@@ -63,11 +63,11 @@ func NewTaskListCmd() *cobra.Command {
 				displayTasks[i] = ConvertTaskToDisplay(task)
 			}
 
-			return getFormatter(cmd.Context()).Display(displayTasks, options.FormatOptions.Output)
+			return getRenderer(cmd.Context()).Render(displayTasks, &options.RenderOptions)
 		},
 	}
 
 	cmd.Flags().StringVarP(&options.Agent, "agent", "a", "", "Filter by agent (name or ID)")
-	addFormatOptions(cmd, &options.FormatOptions)
+	addRenderOptions(cmd, &options.RenderOptions)
 	return cmd
 }

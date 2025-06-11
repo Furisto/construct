@@ -33,8 +33,8 @@ func TestMessageGet(t *testing.T) {
 				DisplayedObjects: &DisplayMessage{
 					Id:        messageID1,
 					TaskId:    taskID1,
-					AgentId:   agentID1,
-					ModelId:   modelID1,
+					Agent:     agentID1,
+					Model:     modelID1,
 					Role:      "user",
 					Content:   "Test message content",
 					CreatedAt: createdAt,
@@ -60,8 +60,8 @@ func TestMessageGet(t *testing.T) {
 				DisplayedObjects: &DisplayMessage{
 					Id:        messageID1,
 					TaskId:    taskID1,
-					AgentId:   agentID1,
-					ModelId:   modelID1,
+					Agent:     agentID1,
+					Model:     modelID1,
 					Role:      "assistant",
 					Content:   "Assistant response",
 					CreatedAt: createdAt,
@@ -87,8 +87,8 @@ func TestMessageGet(t *testing.T) {
 				DisplayedObjects: &DisplayMessage{
 					Id:        messageID1,
 					TaskId:    taskID1,
-					AgentId:   agentID1,
-					ModelId:   modelID1,
+					Agent:     agentID1,
+					Model:     modelID1,
 					Role:      "user",
 					Content:   "YAML test message",
 					CreatedAt: createdAt,

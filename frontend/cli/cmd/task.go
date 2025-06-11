@@ -11,6 +11,7 @@ func NewTaskCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "task",
 		Short:   "Manage and interact with agent tasks",
+		Aliases: []string{"tasks"},
 		GroupID: "resource",
 	}
 
@@ -23,8 +24,9 @@ func NewTaskCmd() *cobra.Command {
 }
 
 type DisplayTask struct {
-	Id        string           `json:"id" yaml:"id"`
-	AgentId   string           `json:"agent_id" yaml:"agent_id"`
+	Id        string           `json:"id" yaml:"id" detail:"default"`
+	AgentId   string           `json:"agent_id" yaml:"agent_id" detail:"default"`
+	Workspace string           `json:"workspace" yaml:"workspace" detail:"default"`
 	CreatedAt time.Time        `json:"created_at" yaml:"created_at"`
 	UpdatedAt time.Time        `json:"updated_at" yaml:"updated_at"`
 	Usage     DisplayTaskUsage `json:"usage" yaml:"usage"`

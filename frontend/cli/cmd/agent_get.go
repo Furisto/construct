@@ -9,7 +9,7 @@ import (
 )
 
 type agentGetOptions struct {
-	FormatOptions FormatOptions
+	RenderOptions RenderOptions
 }
 
 func NewAgentGetCmd() *cobra.Command {
@@ -43,17 +43,27 @@ func NewAgentGetCmd() *cobra.Command {
 				Msg: &v1.GetAgentRequest{Id: agentID},
 			}
 
-			resp, err := client.Agent().GetAgent(cmd.Context(), req)
+			agentResp, err := client.Agent().GetAgent(cmd.Context(), req)
 			if err != nil {
 				return fmt.Errorf("failed to get agent %s: %w", idOrName, err)
 			}
 
-			displayAgent := ConvertAgentToDisplay(resp.Msg.Agent)
+			modelResp, err := client.Model().GetModel(cmd.Context(), &connect.Request[v1.GetModelRequest]{
+				Msg: &v1.GetModelRequest{
+					Id: agentResp.Msg.Agent.Spec.ModelId,
+				},
+			})
 
-			return getFormatter(cmd.Context()).Display(displayAgent, options.FormatOptions.Output)
+			if err != nil {
+				return fmt.Errorf("failed to get model %s: %w", agentResp.Msg.Agent.Spec.ModelId, err)
+			}
+
+			displayAgent := ConvertAgentToDisplay(agentResp.Msg.Agent, modelResp.Msg.Model)
+
+			return getRenderer(cmd.Context()).Render(displayAgent, &options.RenderOptions)
 		},
 	}
 
-	addFormatOptions(cmd, &options.FormatOptions)
+	addRenderOptions(cmd, WithCardFormat(&options.RenderOptions))
 	return cmd
 }

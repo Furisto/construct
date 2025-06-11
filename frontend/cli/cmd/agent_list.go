@@ -16,7 +16,7 @@ type agentListOptions struct {
 	Limit         int32
 	Enabled       bool
 	Columns       []string
-	FormatOptions FormatOptions
+	RenderOptions RenderOptions
 }
 
 func NewAgentListCmd() *cobra.Command {
@@ -94,7 +94,17 @@ func NewAgentListCmd() *cobra.Command {
 
 			displayAgents := make([]*AgentDisplay, len(resp.Msg.Agents))
 			for i, agent := range resp.Msg.Agents {
-				displayAgents[i] = ConvertAgentToDisplay(agent)
+				model, err := client.Model().GetModel(cmd.Context(), &connect.Request[v1.GetModelRequest]{
+					Msg: &v1.GetModelRequest{
+						Id: agent.Spec.ModelId,
+					},
+				})
+
+				if err != nil {
+					return fmt.Errorf("failed to get model %s: %w", agent.Spec.ModelId, err)
+				}
+
+				displayAgents[i] = ConvertAgentToDisplay(agent, model.Msg.Model)
 			}
 
 			// Handle columns filtering if specified
@@ -104,7 +114,7 @@ func NewAgentListCmd() *cobra.Command {
 				// This is placeholder logic - actual implementation depends on the formatter
 			}
 
-			return getFormatter(cmd.Context()).Display(displayAgents, options.FormatOptions.Output)
+			return getRenderer(cmd.Context()).Render(displayAgents, &options.RenderOptions)
 		},
 	}
 
@@ -113,7 +123,7 @@ func NewAgentListCmd() *cobra.Command {
 	cmd.Flags().Int32VarP(&options.Limit, "limit", "l", 0, "Limit number of results")
 	cmd.Flags().BoolVar(&options.Enabled, "enabled", true, "Show only enabled agents")
 	cmd.Flags().StringArrayVar(&options.Columns, "columns", []string{}, "Specify which columns to display")
-	addFormatOptions(cmd, &options.FormatOptions)
+	addRenderOptions(cmd, &options.RenderOptions)
 
 	return cmd
 }

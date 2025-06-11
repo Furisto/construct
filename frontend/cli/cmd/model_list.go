@@ -12,7 +12,7 @@ import (
 type modelListOptions struct {
 	ModelProvider string
 	ShowDisabled  bool
-	FormatOptions FormatOptions
+	RenderOptions RenderOptions
 }
 
 func NewModelListCmd() *cobra.Command {
@@ -65,12 +65,12 @@ func NewModelListCmd() *cobra.Command {
 				displayModels[i] = ConvertModelToDisplay(model)
 			}
 
-			return getFormatter(cmd.Context()).Display(displayModels, options.FormatOptions.Output)
+			return getRenderer(cmd.Context()).Render(displayModels, &options.RenderOptions)
 		},
 	}
 
 	cmd.Flags().StringVarP(&options.ModelProvider, "model-provider", "p", "", "Filter by model provider name or ID")
 	cmd.Flags().BoolVarP(&options.ShowDisabled, "show-disabled", "d", false, "Show disabled models")
-	addFormatOptions(cmd, &options.FormatOptions)
+	addRenderOptions(cmd, &options.RenderOptions)
 	return cmd
 }

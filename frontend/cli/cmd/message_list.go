@@ -12,7 +12,7 @@ type messageListOptions struct {
 	Task          string
 	Agent         string
 	Role          string
-	FormatOptions FormatOptions
+	RenderOptions RenderOptions
 }
 
 func NewMessageListCmd() *cobra.Command {
@@ -80,14 +80,14 @@ func NewMessageListCmd() *cobra.Command {
 				displayMessages[i] = ConvertMessageToDisplay(message)
 			}
 
-			return getFormatter(cmd.Context()).Display(displayMessages, options.FormatOptions.Output)
+			return getRenderer(cmd.Context()).Render(displayMessages, &options.RenderOptions)
 		},
 	}
 
 	cmd.Flags().StringVarP(&options.Task, "task", "t", "", "Filter by task ID")
 	cmd.Flags().StringVarP(&options.Agent, "agent", "a", "", "Filter by agent name or ID")
 	cmd.Flags().StringVarP(&options.Role, "role", "r", "", "Filter by role (user or assistant)")
-	addFormatOptions(cmd, &options.FormatOptions)
-	
+	addRenderOptions(cmd, &options.RenderOptions)
+
 	return cmd
 }

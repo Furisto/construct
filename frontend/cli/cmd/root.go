@@ -204,13 +204,13 @@ func getEncryptionClient() (*secret.Client, error) {
 	return secret.NewClient(keyHandle)
 }
 
-func getFormatter(ctx context.Context) ResourceFormatter {
+func getRenderer(ctx context.Context) OutputRenderer {
 	printer := ctx.Value(ContextKeyFormatter)
 	if printer != nil {
-		return printer.(ResourceFormatter)
+		return printer.(OutputRenderer)
 	}
 
-	return &DefaultResourceFormatter{}
+	return &DefaultRenderer{}
 }
 
 func confirmDeletion(stdin io.Reader, stdout io.Writer, kind string, idOrNames []string) bool {

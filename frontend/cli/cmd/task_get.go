@@ -9,7 +9,7 @@ import (
 )
 
 type taskGetOptions struct {
-	FormatOptions FormatOptions
+	RenderOptions RenderOptions
 }
 
 func NewTaskGetCmd() *cobra.Command {
@@ -38,10 +38,10 @@ func NewTaskGetCmd() *cobra.Command {
 			}
 
 			displayTask := ConvertTaskToDisplay(resp.Msg.Task)
-			return getFormatter(cmd.Context()).Display(displayTask, options.FormatOptions.Output)
+			return getRenderer(cmd.Context()).Render(displayTask, &options.RenderOptions)
 		},
 	}
 
-	addFormatOptions(cmd, &options.FormatOptions)
+	addRenderOptions(cmd, WithCardFormat(&options.RenderOptions))
 	return cmd
 }

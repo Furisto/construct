@@ -15,8 +15,9 @@ import (
 
 func NewModelProviderCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "modelprovider",
-		Short: "Configure providers like OpenAI and Anthropic",
+		Use:     "modelprovider",
+		Short:   "Configure providers like OpenAI and Anthropic",
+		Aliases: []string{"modelproviders", "mp"},
 		GroupID: "resource",
 	}
 
@@ -123,10 +124,10 @@ func ConvertModelProviderTypeToDisplay(modelProviderType v1.ModelProviderType) M
 }
 
 type ModelProviderDisplay struct {
-	Id           string            `json:"id"`
-	Name         string            `json:"name"`
-	ProviderType ModelProviderType `json:"provider_type"`
-	Enabled      bool              `json:"enabled"`
+	Id           string            `json:"id" detail:"default"`
+	Name         string            `json:"name" detail:"default"`
+	ProviderType ModelProviderType `json:"provider_type" detail:"default"`
+	Enabled      bool              `json:"enabled" detail:"full"`
 }
 
 func ConvertModelProviderToDisplay(modelProvider *v1.ModelProvider) *ModelProviderDisplay {

@@ -9,7 +9,7 @@ import (
 )
 
 type messageGetOptions struct {
-	FormatOptions FormatOptions
+	RenderOptions RenderOptions
 }
 
 func NewMessageGetCmd() *cobra.Command {
@@ -34,10 +34,10 @@ func NewMessageGetCmd() *cobra.Command {
 			}
 
 			displayMessage := ConvertMessageToDisplay(resp.Msg.Message)
-			return getFormatter(cmd.Context()).Display(displayMessage, options.FormatOptions.Output)
+			return getRenderer(cmd.Context()).Render(displayMessage, &options.RenderOptions)
 		},
 	}
 
-	addFormatOptions(cmd, &options.FormatOptions)
+	addRenderOptions(cmd, WithCardFormat(&options.RenderOptions))
 	return cmd
 }

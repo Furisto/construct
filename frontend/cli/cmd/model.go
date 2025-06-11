@@ -9,6 +9,7 @@ func NewModelCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "model",
 		Short:   "Manage the AI models available to agents",
+		Aliases: []string{"models"},
 		GroupID: "resource",
 	}
 
@@ -21,12 +22,12 @@ func NewModelCmd() *cobra.Command {
 }
 
 type ModelDisplay struct {
-	Id              string   `json:"id"`
-	Name            string   `json:"name"`
-	ModelProviderID string   `json:"model_provider_id"`
-	ContextWindow   int64    `json:"context_window"`
-	Enabled         bool     `json:"enabled"`
-	Capabilities    []string `json:"capabilities"`
+	Id            string   `json:"id" detail:"default"`
+	Name          string   `json:"name" detail:"default"`
+	ModelProvider string   `json:"model_provider" detail:"default"`
+	ContextWindow int64    `json:"context_window" detail:"default"`
+	Enabled       bool     `json:"enabled" detail:"full"`
+	Capabilities  []string `json:"capabilities" detail:"full"`
 }
 
 func ConvertModelToDisplay(model *v1.Model) *ModelDisplay {
@@ -35,11 +36,11 @@ func ConvertModelToDisplay(model *v1.Model) *ModelDisplay {
 		capabilities[i] = cap.String()
 	}
 	return &ModelDisplay{
-		Id:              model.Id,
-		Name:            model.Name,
-		ModelProviderID: model.ModelProviderId,
-		ContextWindow:   model.ContextWindow,
-		Enabled:         model.Enabled,
-		Capabilities:    capabilities,
+		Id:            model.Id,
+		Name:          model.Name,
+		ModelProvider: model.ModelProviderId,
+		ContextWindow: model.ContextWindow,
+		Enabled:       model.Enabled,
+		Capabilities:  capabilities,
 	}
 }

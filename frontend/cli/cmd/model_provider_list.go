@@ -11,7 +11,7 @@ import (
 type modelProviderListOptions struct {
 	ProviderTypes ModelProviderTypes
 	Enabled       bool
-	FormatOptions FormatOptions
+	RenderOptions RenderOptions
 }
 
 func NewModelProviderListCmd() *cobra.Command {
@@ -59,12 +59,12 @@ func NewModelProviderListCmd() *cobra.Command {
 				displayModelProviders[i] = ConvertModelProviderToDisplay(modelProvider)
 			}
 
-			return getFormatter(cmd.Context()).Display(displayModelProviders, options.FormatOptions.Output)
+			return getRenderer(cmd.Context()).Render(displayModelProviders, &options.RenderOptions)
 		},
 	}
 
 	cmd.Flags().VarP(&options.ProviderTypes, "provider-type", "t", "Filter by provider type (anthropic, openai)")
 	cmd.Flags().BoolVar(&options.Enabled, "enabled", true, "Show only enabled model providers")
-	addFormatOptions(cmd, &options.FormatOptions)
+	addRenderOptions(cmd, &options.RenderOptions)
 	return cmd
 }

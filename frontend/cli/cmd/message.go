@@ -11,6 +11,7 @@ func NewMessageCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "message",
 		Short:   "Manage messages",
+		Aliases: []string{"messages"},
 		GroupID: "resource",
 	}
 
@@ -23,14 +24,14 @@ func NewMessageCmd() *cobra.Command {
 }
 
 type DisplayMessage struct {
-	Id        string              `json:"id" yaml:"id"`
-	TaskId    string              `json:"task_id" yaml:"task_id"`
-	AgentId   string              `json:"agent_id" yaml:"agent_id"`
-	ModelId   string              `json:"model_id" yaml:"model_id"`
-	Role      string              `json:"role" yaml:"role"`
+	Id        string              `json:"id" yaml:"id" detail:"default"`
+	TaskId    string              `json:"task_id" yaml:"task_id" detail:"default"`
+	Agent     string              `json:"agent" yaml:"agent" detail:"default"`
+	Model     string              `json:"model" yaml:"model" detail:"default"`
+	Role      string              `json:"role" yaml:"role" detail:"default"`
 	Content   string              `json:"content" yaml:"content"`
-	CreatedAt time.Time           `json:"created_at" yaml:"created_at"`
-	UpdatedAt time.Time           `json:"updated_at" yaml:"updated_at"`
+	CreatedAt time.Time           `json:"created_at" yaml:"created_at" detail:"full"`
+	UpdatedAt time.Time           `json:"updated_at" yaml:"updated_at" detail:"full"`
 	Usage     DisplayMessageUsage `json:"usage" yaml:"usage"`
 }
 
@@ -46,8 +47,8 @@ func ConvertMessageToDisplay(message *v1.Message) *DisplayMessage {
 	return &DisplayMessage{
 		Id:        message.Id,
 		TaskId:    message.Metadata.TaskId,
-		AgentId:   PtrToString(message.Metadata.AgentId),
-		ModelId:   PtrToString(message.Metadata.ModelId),
+		Agent:     PtrToString(message.Metadata.AgentId),
+		Model:     PtrToString(message.Metadata.ModelId),
 		Role:      ConvertMessageRoleToString(message.Metadata.Role),
 		Content:   message.Content.GetText(),
 		CreatedAt: message.Metadata.CreatedAt.AsTime(),

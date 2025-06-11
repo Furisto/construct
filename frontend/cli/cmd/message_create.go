@@ -9,7 +9,7 @@ import (
 )
 
 type messageCreateOptions struct {
-	FormatOptions FormatOptions
+	RenderOptions RenderOptions
 }
 
 func NewMessageCreateCmd() *cobra.Command {
@@ -41,6 +41,6 @@ func NewMessageCreateCmd() *cobra.Command {
 		},
 	}
 
-	addFormatOptions(cmd, &options.FormatOptions)
+	addRenderOptions(cmd, &options.RenderOptions)
 	return cmd
 }

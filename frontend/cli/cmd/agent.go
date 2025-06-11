@@ -13,8 +13,9 @@ import (
 
 func NewAgentCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "agent",
-		Short: "Create, list, and configure reusable agents",
+		Use:     "agent",
+		Short:   "Create, list, and configure reusable agents",
+		Aliases: []string{"agents"},
 		GroupID: "resource",
 	}
 
@@ -27,14 +28,15 @@ func NewAgentCmd() *cobra.Command {
 }
 
 type AgentDisplay struct {
-	ID           string `json:"id" yaml:"id"`
-	Name         string `json:"name" yaml:"name"`
-	Description  string `json:"description,omitempty" yaml:"description,omitempty"`
+	ID           string `json:"id" yaml:"id" detail:"default"`
+	Name         string `json:"name" yaml:"name" detail:"default"`
+	Description  string `json:"description,omitempty" yaml:"description,omitempty" detail:"default"`
 	Instructions string `json:"instructions" yaml:"instructions"`
-	Model        string `json:"model" yaml:"model"`
+	Model        string `json:"model" yaml:"model" detail:"default"`
+	CreatedAt    string `json:"created_at" yaml:"created_at" detail:"full"`
 }
 
-func ConvertAgentToDisplay(agent *v1.Agent) *AgentDisplay {
+func ConvertAgentToDisplay(agent *v1.Agent, model *v1.Model) *AgentDisplay {
 	if agent == nil || agent.Metadata == nil || agent.Spec == nil {
 		return nil
 	}
@@ -43,7 +45,7 @@ func ConvertAgentToDisplay(agent *v1.Agent) *AgentDisplay {
 		Name:         agent.Metadata.Name,
 		Description:  agent.Metadata.Description,
 		Instructions: agent.Spec.Instructions,
-		Model:        agent.Spec.ModelId,
+		Model:        model.Name,
 	}
 }
 
