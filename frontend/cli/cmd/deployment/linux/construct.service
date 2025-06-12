@@ -1,0 +1,10 @@
+# myservice-http.service
+[Unit]
+Description=My Service (HTTP)
+Requires=myservice-http.socket
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/myservice --http=:0
+StandardOutput=journal
+StandardError=journal

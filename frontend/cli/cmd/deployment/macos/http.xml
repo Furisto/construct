@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+    <dict>
+        <key>Label</key>
+        <string>sh.construct.daemon</string>
+
+        <key>ProgramArguments</key>
+        <array>
+            <string>{{EXEC_PATH}}</string>
+        </array>
+        <key>Sockets</key>
+        <dict>
+            <key>Listeners</key>
+            <dict>
+                <key>SockServiceName</key>
+                <string>8080</string>
+                <key>SockType</key>
+                <string>stream</string>
+                <key>SockFamily</key>
+                <string>IPv4</string>
+            </dict>
+        </dict>
+
+        <key>KeepAlive</key>
+        <false />
+
+        <key>ExitTimeOut</key>
+        <integer>60</integer>
+
+        <key>StandardOutPath</key>
+        <string>/var/log/construct-http.out</string>
+        <key>StandardErrorPath</key>
+        <string>/var/log/construct-http.err</string>
+    </dict>
+</plist>
