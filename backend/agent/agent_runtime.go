@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"runtime"
@@ -35,14 +36,12 @@ const DefaultServerPort = 29333
 type RuntimeOptions struct {
 	Tools       []codeact.Tool
 	Concurrency int
-	ServerPort  int
 }
 
 func DefaultRuntimeOptions() *RuntimeOptions {
 	return &RuntimeOptions{
 		Tools:       []codeact.Tool{},
 		Concurrency: 5,
-		ServerPort:  DefaultServerPort,
 	}
 }
 
@@ -60,12 +59,6 @@ func WithConcurrency(concurrency int) RuntimeOption {
 	}
 }
 
-func WithServerPort(port int) RuntimeOption {
-	return func(o *RuntimeOptions) {
-		o.ServerPort = port
-	}
-}
-
 type Runtime struct {
 	api         *api.Server
 	memory      *memory.Client
@@ -77,7 +70,7 @@ type Runtime struct {
 	interpreter *codeact.Interpreter
 }
 
-func NewRuntime(memory *memory.Client, encryption *secret.Client, opts ...RuntimeOption) (*Runtime, error) {
+func NewRuntime(memory *memory.Client, encryption *secret.Client, listener net.Listener, opts ...RuntimeOption) (*Runtime, error) {
 	options := DefaultRuntimeOptions()
 	for _, opt := range opts {
 		opt(options)
@@ -102,7 +95,7 @@ func NewRuntime(memory *memory.Client, encryption *secret.Client, opts ...Runtim
 		interpreter: codeact.NewInterpreter(options.Tools...),
 	}
 
-	api := api.NewServer(runtime, options.ServerPort)
+	api := api.NewServer(runtime, listener)
 	runtime.api = api
 
 	return runtime, nil

@@ -12,12 +12,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"entgo.io/ent/dialect"
 	"github.com/common-nighthawk/go-figure"
-	"github.com/furisto/construct/backend/agent"
-	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/secret"
-	"github.com/furisto/construct/backend/tool"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
@@ -100,49 +96,6 @@ func Execute() {
 	if err := rootCmd.ExecuteContext(ctx); err != nil {
 		os.Exit(1)
 	}
-}
-
-func RunAgent(ctx context.Context) error {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return err
-	}
-
-	client, err := memory.Open(dialect.SQLite, "file:"+homeDir+"/.construct/construct.db?_fk=1&_journal=WAL&_busy_timeout=5000")
-	if err != nil {
-		return err
-	}
-	defer client.Close()
-
-	if err := client.Schema.Create(ctx); err != nil {
-		return err
-	}
-
-	encryption, err := getEncryptionClient()
-	if err != nil {
-		return err
-	}
-
-	runtime, err := agent.NewRuntime(
-		client,
-		encryption,
-		agent.WithServerPort(29333),
-		agent.WithCodeActTools(
-			tool.NewCreateFileTool(),
-			tool.NewReadFileTool(),
-			tool.NewEditFileTool(),
-			tool.NewListFilesTool(),
-			tool.NewGrepTool(),
-			tool.NewExecuteCommandTool(),
-			tool.NewPrintTool(),
-		),
-	)
-
-	if err != nil {
-		return err
-	}
-
-	return runtime.Run(ctx)
 }
 
 type ContextKey string
