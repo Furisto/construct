@@ -83,9 +83,9 @@ func (s *TestSetup) RunTests(t *testing.T, scenarios []TestScenario) {
 
 			mockFormatter := &MockFormatter{}
 			ctx := context.Background()
-			ctx = context.WithValue(ctx, ContextKeyAPI, mockClient.Client())
+			ctx = context.WithValue(ctx, ContextKeyAPIClient, mockClient.Client())
 			ctx = context.WithValue(ctx, ContextKeyFileSystem, fs)
-			ctx = context.WithValue(ctx, ContextKeyFormatter, mockFormatter)
+			ctx = context.WithValue(ctx, ContextKeyOutputRenderer, mockFormatter)
 
 			var actual TestExpectation
 			err := testCmd.ExecuteContext(ctx)
