@@ -3,11 +3,11 @@
 <plist version="1.0">
     <dict>
         <key>Label</key>
-        <string>sh.construct.daemon</string>
+        <string>sh.construct.daemon.{{ .Name }}</string>
 
         <key>ProgramArguments</key>
         <array>
-            <string>{{EXEC_PATH}}</string>
+            <string>{{ .ExecPath }}</string>
         </array>
 
         <key>Sockets</key>
@@ -15,21 +15,21 @@
             <key>Listeners</key>
             <dict>
                 <key>SockPathName</key>
-                <string>/tmp/construct.sock</string>
+                <string>/tmp/construct-{{ .Name }}.sock</string>
                 <key>SockType</key>
                 <string>stream</string>
             </dict>
         </dict>
 
         <key>KeepAlive</key>
-        <false />
+        <{{ .KeepAlive }} />
 
         <key>ExitTimeOut</key>
         <integer>60</integer>
 
         <key>StandardOutPath</key>
-        <string>/var/log/construct-unix.out</string>
+        <string>/var/log/construct-{{ .Name }}.out</string>
         <key>StandardErrorPath</key>
-        <string>/var/log/construct-unix.err</string>
+        <string>/var/log/construct-{{ .Name }}.err</string>
     </dict>
 </plist>
