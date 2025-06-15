@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -15,13 +14,12 @@ import (
 	"syscall"
 
 	"github.com/common-nighthawk/go-figure"
-	"github.com/furisto/construct/backend/secret"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
-	"github.com/tink-crypto/tink-go/keyset"
 	"gopkg.in/yaml.v3"
 
+	"github.com/furisto/construct/api/go/client"
 	api "github.com/furisto/construct/api/go/client"
 )
 
@@ -39,10 +37,12 @@ func NewRootCmd() *cobra.Command {
 				Level: slog.LevelDebug,
 			})))
 
-			err := setAPIClient(cmd)
-			if err != nil {
-				slog.Error("failed to set API client", "error", err)
-				return err
+			if requiresContext(cmd) {
+				err := setAPIClient(cmd)
+				if err != nil {
+					slog.Error("failed to set API client", "error", err)
+					return err
+				}
 			}
 
 			return nil
@@ -98,25 +98,11 @@ func Execute() {
 	}
 }
 
-type EndpointContexts struct {
-	Current  string                     `yaml:"current"`
-	Contexts map[string]EndpointContext `yaml:"contexts"`
-}
-
-type EndpointContext struct {
-	Address string `yaml:"address"`
-	Type    string `yaml:"type"`
-}
-
 type Config struct {
-	EndpointContexts EndpointContexts `json:"endpoint_contexts"`
+	EndpointContexts client.EndpointContexts `json:"endpoint_contexts"`
 }
 
 func setAPIClient(cmd *cobra.Command) error {
-	if !requiresContext(cmd) {
-		return nil
-	}
-
 	endpointContext, err := loadContext(cmd)
 	if err != nil {
 		return err
@@ -126,7 +112,7 @@ func setAPIClient(cmd *cobra.Command) error {
 		return fmt.Errorf("no current context found. please run `construct context set` to set a current context")
 	}
 
-	apiClient := api.NewClient(endpointContext.Contexts[endpointContext.Current].Address)
+	apiClient := api.NewClient(endpointContext.Contexts[endpointContext.Current])
 	cmd.SetContext(context.WithValue(cmd.Context(), ContextKeyAPIClient, apiClient))
 
 	return nil
@@ -149,16 +135,10 @@ func requiresContext(cmd *cobra.Command) bool {
 	return true
 }
 
-func loadContext(cmd *cobra.Command) (*EndpointContexts, error) {
+func loadContext(cmd *cobra.Command) (*client.EndpointContexts, error) {
 	fs := getFileSystem(cmd.Context())
 
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, err
-	}
-
-	constructDir := filepath.Join(homeDir, ".construct")
-	err = fs.MkdirAll(constructDir, 0755)
+	constructDir, err := ConstructUserDir()
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +158,7 @@ func loadContext(cmd *cobra.Command) (*EndpointContexts, error) {
 		return nil, err
 	}
 
-	var endpointContexts EndpointContexts
+	var endpointContexts client.EndpointContexts
 	err = yaml.Unmarshal(content, &endpointContexts)
 	if err != nil {
 		return nil, err
@@ -234,39 +214,6 @@ func getCommandRunner(ctx context.Context) CommandRunner {
 	}
 
 	return &DefaultCommandRunner{}
-}
-
-func getEncryptionClient() (*secret.Client, error) {
-	var keyHandle *keyset.Handle
-	keyHandleJson, err := secret.GetSecret[string](secret.ModelProviderEncryptionKey())
-	if err != nil {
-		if !errors.Is(err, &secret.ErrSecretNotFound{}) {
-			return nil, err
-		}
-
-		slog.Debug("generating new encryption key")
-		keyHandle, err = secret.GenerateKeyset()
-		if err != nil {
-			return nil, err
-		}
-		keysetJson, err := secret.KeysetToJSON(keyHandle)
-		if err != nil {
-			return nil, err
-		}
-
-		err = secret.SetSecret(secret.ModelProviderEncryptionKey(), &keysetJson)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		slog.Debug("loading encryption key")
-		keyHandle, err = secret.KeysetFromJSON(*keyHandleJson)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return secret.NewClient(keyHandle)
 }
 
 func getRenderer(ctx context.Context) OutputRenderer {

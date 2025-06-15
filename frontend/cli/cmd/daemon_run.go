@@ -1,15 +1,19 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 
 	"entgo.io/ent/dialect"
 	"github.com/furisto/construct/backend/agent"
 	"github.com/furisto/construct/backend/memory"
+	"github.com/furisto/construct/backend/secret"
 	"github.com/furisto/construct/backend/tool"
 	"github.com/furisto/construct/shared/listener"
 	"github.com/spf13/cobra"
+	"github.com/tink-crypto/tink-go/keyset"
 )
 
 type daemonRunOptions struct {
@@ -82,6 +86,7 @@ func NewDaemonRunCmd() *cobra.Command {
 				return err
 			}
 
+			fmt.Fprintf(cmd.OutOrStdout(), "🤖 Starting Agent Runtime...\n")
 			return runtime.Run(cmd.Context())
 		},
 	}
@@ -90,4 +95,37 @@ func NewDaemonRunCmd() *cobra.Command {
 	cmd.Flags().StringVar(&options.UnixSocket, "listen-unix", "", "The path to listen on for Unix socket requests")
 
 	return cmd
+}
+
+func getEncryptionClient() (*secret.Client, error) {
+	var keyHandle *keyset.Handle
+	keyHandleJson, err := secret.GetSecret[string](secret.ModelProviderEncryptionKey())
+	if err != nil {
+		if !errors.Is(err, &secret.ErrSecretNotFound{}) {
+			return nil, err
+		}
+
+		slog.Debug("generating new encryption key")
+		keyHandle, err = secret.GenerateKeyset()
+		if err != nil {
+			return nil, err
+		}
+		keysetJson, err := secret.KeysetToJSON(keyHandle)
+		if err != nil {
+			return nil, err
+		}
+
+		err = secret.SetSecret(secret.ModelProviderEncryptionKey(), &keysetJson)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		slog.Debug("loading encryption key")
+		keyHandle, err = secret.KeysetFromJSON(*keyHandleJson)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return secret.NewClient(keyHandle)
 }
