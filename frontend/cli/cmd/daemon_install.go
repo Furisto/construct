@@ -10,12 +10,15 @@ import (
 	"runtime"
 	"strings"
 	"text/template"
+	"time"
 
 	_ "embed"
 
 	"connectrpc.com/connect"
+	"github.com/furisto/construct/api/go/client"
 	api "github.com/furisto/construct/api/go/client"
 	v1 "github.com/furisto/construct/api/go/v1"
+	"github.com/furisto/construct/frontend/cli/pkg/fail"
 	"github.com/furisto/construct/frontend/cli/pkg/terminal"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -37,212 +40,6 @@ var linuxUnixSocketTemplate string
 
 //go:embed deployment/linux/construct.service
 var linuxServiceTemplate string
-
-type InstallError struct {
-	Operation   string
-	Cause       error
-	UserMessage string
-	Solutions   []string
-	TechDetails string
-	HelpURLs    []string
-}
-
-func (e *InstallError) Error() string {
-	var msg strings.Builder
-
-	msg.WriteString(fmt.Sprintf("✗ %s\n\n", e.UserMessage))
-
-	if len(e.Solutions) > 0 {
-		msg.WriteString("Try these solutions:\n")
-		for i, solution := range e.Solutions {
-			msg.WriteString(fmt.Sprintf("  %d. %s\n", i+1, solution))
-		}
-		msg.WriteString("\n")
-	}
-
-	if globalOptions.Verbose && e.TechDetails != "" {
-		msg.WriteString(fmt.Sprintf("Technical details: %s\n\n", e.TechDetails))
-	}
-
-	if len(e.HelpURLs) > 0 {
-		for _, url := range e.HelpURLs {
-			msg.WriteString(fmt.Sprintf("→ %s\n", url))
-		}
-	}
-
-	return msg.String()
-}
-
-func (e *InstallError) Unwrap() error {
-	return e.Cause
-}
-
-func newPermissionError(operation, path string, err error) *InstallError {
-	return &InstallError{
-		Operation:   operation,
-		Cause:       err,
-		UserMessage: fmt.Sprintf("Permission denied accessing %s", path),
-		Solutions: []string{
-			"Check file permissions and ownership",
-			"Ensure you have write access to the directory",
-			"Try running with appropriate privileges if needed",
-			"Verify the path exists and is accessible",
-		},
-		TechDetails: fmt.Sprintf("Failed to access %s: %v", path, err),
-		HelpURLs: []string{
-			"https://docs.construct.sh/daemon/troubleshooting#permission-errors",
-			"https://github.com/furisto/construct/issues/new",
-		},
-	}
-}
-
-func newAlreadyInstalledError(path string) *InstallError {
-	return &InstallError{
-		Operation:   "check_existing_installation",
-		Cause:       nil,
-		UserMessage: "Construct daemon is already installed on this system",
-		Solutions: []string{
-			"Use '--force' flag to overwrite: construct daemon install --force",
-			"Uninstall first: construct daemon uninstall && construct daemon install",
-			"Use '--name' flag to create a separate daemon instance (advanced)",
-		},
-		TechDetails: fmt.Sprintf("Service file exists at: %s", path),
-		HelpURLs: []string{
-			"https://docs.construct.sh/daemon/troubleshooting#already-installed",
-			"https://github.com/furisto/construct/issues/new",
-		},
-	}
-}
-
-func newSystemCommandError(command string, err error, output string) *InstallError {
-	return &InstallError{
-		Operation:   "system_command",
-		Cause:       err,
-		UserMessage: fmt.Sprintf("System command failed: %s", command),
-		Solutions: []string{
-			"Check if the required system service is running",
-			"Verify you have permission to manage system services",
-			"Check system logs for more details",
-			"Try running the command manually to diagnose the issue",
-		},
-		TechDetails: fmt.Sprintf("Command '%s' failed: %v\nOutput: %s", command, err, output),
-		HelpURLs: []string{
-			"https://docs.construct.sh/daemon/troubleshooting#system-command-failed",
-			"https://github.com/furisto/construct/issues/new",
-		},
-	}
-}
-
-func newConnectionError(address string, err error) *InstallError {
-	var solutions []string
-
-	if strings.Contains(err.Error(), "connection refused") {
-		solutions = []string{
-			"Wait a few seconds for the daemon to start, then try again",
-			"Check if the daemon process is running",
-			"Restart the daemon service",
-			"Verify the address is correct and accessible",
-		}
-	} else if strings.Contains(err.Error(), "no such file") {
-		solutions = []string{
-			"Check if the socket file exists and has correct permissions",
-			"Restart the daemon to recreate the socket",
-			"Verify the socket path is correct",
-		}
-	} else {
-		solutions = []string{
-			"Check daemon logs for startup errors",
-			"Verify the daemon binary is working",
-			"Try reinstalling the daemon",
-		}
-	}
-
-	return &InstallError{
-		Operation:   "connection_check",
-		Cause:       err,
-		UserMessage: "Installation completed but cannot connect to the daemon",
-		Solutions:   solutions,
-		TechDetails: fmt.Sprintf("Connection failed to %s: %v", address, err),
-		HelpURLs: []string{
-			"https://docs.construct.sh/daemon/troubleshooting#connection-failed",
-			"https://github.com/furisto/construct/issues/new",
-		},
-	}
-}
-
-func enhanceError(err error, operation string, context map[string]interface{}) error {
-	if err == nil {
-		return nil
-	}
-
-	if _, ok := err.(*InstallError); ok {
-		return err
-	}
-
-	errStr := err.Error()
-
-	if os.IsPermission(err) {
-		if path, ok := context["path"].(string); ok {
-			return newPermissionError(operation, path, err)
-		}
-	}
-
-	if strings.Contains(errStr, "no such file or directory") {
-		return &InstallError{
-			Operation:   operation,
-			Cause:       err,
-			UserMessage: "Required file or directory not found",
-			Solutions: []string{
-				"Verify the path exists and is accessible",
-				"Check if the parent directory exists",
-				"Ensure the construct binary is properly installed",
-			},
-			TechDetails: errStr,
-			HelpURLs: []string{
-				"https://docs.construct.sh/daemon/troubleshooting#file-not-found",
-				"https://github.com/furisto/construct/issues/new",
-			},
-		}
-	}
-
-	if strings.Contains(errStr, "address already in use") {
-		return &InstallError{
-			Operation:   operation,
-			Cause:       err,
-			UserMessage: "The network address is already in use by another process",
-			Solutions: []string{
-				"Choose a different port number",
-				"Stop the process using this port",
-				"Use Unix socket instead: construct daemon install",
-			},
-			TechDetails: errStr,
-			HelpURLs: []string{
-				"https://docs.construct.sh/daemon/troubleshooting#address-in-use",
-				"https://github.com/furisto/construct/issues/new",
-			},
-		}
-	}
-
-	if strings.Contains(errStr, "operation not permitted") {
-		return &InstallError{
-			Operation:   operation,
-			Cause:       err,
-			UserMessage: "Operation not permitted - insufficient privileges",
-			Solutions: []string{
-				"Check if you have the necessary permissions",
-				"Try running with appropriate privileges if needed",
-				"Verify you can manage system services",
-			},
-			TechDetails: errStr,
-			HelpURLs: []string{
-				"https://docs.construct.sh/daemon/troubleshooting#operation-not-permitted",
-				"https://github.com/furisto/construct/issues/new",
-			},
-		}
-	}
-
-	return err
-}
 
 type daemonInstallOptions struct {
 	Force         bool
@@ -287,13 +84,14 @@ func NewDaemonInstallCmd() *cobra.Command {
 				return err
 			}
 
-			nextSteps, err := checkConnectionAndShowNextSteps(cmd.Context(), out, endpointContext)
+			nextSteps, err := checkConnectionAndShowNextSteps(cmd.Context(), out, *endpointContext)
 			if err != nil {
 				troubleshootingMsg := buildTroubleshootingMessage(endpointContext)
-				return fmt.Errorf("connection to daemon failed: %w\n\n%s", err, troubleshootingMsg)
+				return fail.NewUserFacingError(fmt.Sprintf("Connection to daemon failed: %s", err), err, []string{troubleshootingMsg}, "",
+					[]string{"https://docs.construct.sh/daemon/troubleshooting"})
 			}
 
-			fmt.Fprintf(out, "✓ Daemon installed successfully\n")
+			fmt.Fprintf(out, "%s Daemon installed successfully\n", terminal.SuccessSymbol)
 			fmt.Fprintf(out, "%s\n", nextSteps)
 
 			return nil
@@ -309,7 +107,7 @@ func NewDaemonInstallCmd() *cobra.Command {
 	return cmd
 }
 
-func installDaemon(ctx context.Context, out io.Writer, socketType string, options daemonInstallOptions) (*EndpointContext, error) {
+func installDaemon(ctx context.Context, out io.Writer, socketType string, options daemonInstallOptions) (*client.EndpointContext, error) {
 	execPath, err := executableInfo()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get executable info: %w", err)
@@ -333,17 +131,249 @@ func installDaemon(ctx context.Context, out io.Writer, socketType string, option
 		return nil, fmt.Errorf("failed to create context: %w", err)
 	}
 
-	return &endpointContext, nil
+	return endpointContext, nil
 }
 
-func checkConnectionAndShowNextSteps(ctx context.Context, out io.Writer, endpointContext *EndpointContext) (nextSteps string, err error) {
+type serviceTemplateData struct {
+	ExecPath    string
+	Name        string
+	HTTPAddress string
+	KeepAlive   bool
+}
+
+func installLaunchdService(ctx context.Context, out io.Writer, socketType, execPath string, options daemonInstallOptions) error {
+	fs := getFileSystem(ctx)
+	command := getCommandRunner(ctx)
+
+	var macosTemplate string
+
+	switch socketType {
+	case "http":
+		macosTemplate = macosHTTPTemplate
+	case "unix":
+		macosTemplate = macosUnixTemplate
+	default:
+		return fmt.Errorf("invalid socket type: %s", socketType)
+	}
+	filename := fmt.Sprintf("construct-%s.plist", options.Name)
+
+	tmpl, err := template.New("daemon-install").Parse(macosTemplate)
+	if err != nil {
+		return fail.EnhanceError(err, nil)
+	}
+
+	var content bytes.Buffer
+	err = tmpl.Execute(&content, serviceTemplateData{
+		ExecPath:    execPath,
+		Name:        options.Name,
+		HTTPAddress: options.HTTPAddress,
+		KeepAlive:   options.AlwaysRunning,
+	})
+	if err != nil {
+		return fail.EnhanceError(err, nil)
+	}
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fail.EnhanceError(err, nil)
+	}
+
+	launchAgentsDir := filepath.Join(homeDir, "Library", "LaunchAgents")
+	if err := fs.MkdirAll(launchAgentsDir, 0755); err != nil {
+		if os.IsPermission(err) {
+			return fail.NewPermissionError(launchAgentsDir, err)
+		}
+		return fmt.Errorf("failed to create LaunchAgents directory %s: %w", launchAgentsDir, err)
+	}
+
+	plistPath := filepath.Join(launchAgentsDir, filename)
+	if !options.Force {
+		if exists, _ := fs.Exists(plistPath); exists {
+			return fail.NewAlreadyInstalledError(plistPath)
+		}
+	}
+
+	if err := fs.WriteFile(plistPath, content.Bytes(), 0644); err != nil {
+		if os.IsPermission(err) {
+			return fail.NewPermissionError(plistPath, err)
+		}
+		return fmt.Errorf("failed to write plist file to %s: %w", plistPath, err)
+	}
+	fmt.Fprintf(out, "%s Service file written to %s\n", terminal.SuccessSymbol, plistPath)
+
+	if output, err := command.Run(ctx, "launchctl", "bootstrap", "gui/"+getUserID(), plistPath); err != nil {
+		return fail.NewCommandError("launchctl bootstrap", err, output, "gui/"+getUserID(), plistPath)
+	}
+
+	fmt.Fprintf(out, "%s Launchd service loaded\n", terminal.SuccessSymbol)
+	return nil
+}
+
+func installSystemdService(ctx context.Context, out io.Writer, socketType, execPath string, options daemonInstallOptions) error {
+	fs := getFileSystem(ctx)
+	command := getCommandRunner(ctx)
+
+	var socketTemplate string
+
+	switch socketType {
+	case "http":
+		socketTemplate = linuxHTTPSocketTemplate
+	case "unix":
+		socketTemplate = linuxUnixSocketTemplate
+	default:
+		return fmt.Errorf("invalid socket type: %s", socketType)
+	}
+
+	serviceContent := strings.ReplaceAll(linuxServiceTemplate, "{{EXEC_PATH}}", execPath)
+
+	socketPath := "/etc/systemd/system/construct.socket"
+	servicePath := "/etc/systemd/system/construct.service"
+
+	if !options.Force {
+		if exists, _ := fs.Exists(socketPath); exists {
+			return fail.NewAlreadyInstalledError(socketPath)
+		}
+
+		if exists, _ := fs.Exists(servicePath); exists {
+			return fail.NewAlreadyInstalledError(servicePath)
+		}
+	}
+
+	if err := fs.WriteFile(socketPath, []byte(socketTemplate), 0644); err != nil {
+		if os.IsPermission(err) {
+			return fail.NewPermissionError(socketPath, err)
+		}
+		return fmt.Errorf("failed to write socket file: %w", err)
+	}
+	fmt.Fprintf(out, "%s Socket file written to %s\n", terminal.SuccessSymbol, socketPath)
+
+	if err := fs.WriteFile(servicePath, []byte(serviceContent), 0644); err != nil {
+		if os.IsPermission(err) {
+			return fail.NewPermissionError(servicePath, err)
+		}
+		return fmt.Errorf("failed to write service file: %w", err)
+	}
+	fmt.Fprintf(out, "%s Service file written to %s\n", terminal.SuccessSymbol, servicePath)
+
+	if output, err := command.Run(ctx, "systemctl", "daemon-reload"); err != nil {
+		return fail.NewCommandError("systemctl daemon-reload", err, output)
+	}
+	fmt.Fprintf(out, "%s Systemd daemon reloaded\n", terminal.SuccessSymbol)
+
+	if output, err := command.Run(ctx, "systemctl", "enable", "construct.socket"); err != nil {
+		return fail.NewCommandError("systemctl enable construct.socket", err, output)
+	}
+	fmt.Fprintf(out, "%s Socket enabled\n", terminal.SuccessSymbol)
+
+	return nil
+}
+
+func executableInfo() (execPath string, err error) {
+	execPath, err = os.Executable()
+	if err != nil {
+		return "", fail.EnhanceError(err, nil)
+	}
+
+	realPath, err := filepath.EvalSymlinks(execPath)
+	if err != nil {
+		// If symlink resolution fails, use original path
+		realPath = execPath
+	}
+
+	return realPath, nil
+}
+
+func createOrUpdateContext(ctx context.Context, out io.Writer, socketType string, options daemonInstallOptions) (*client.EndpointContext, error) {
+	fs := getFileSystem(ctx)
+
+	constructDir, err := ConstructUserDir()
+	if err != nil {
+		return nil, fail.EnhanceError(err, nil)
+	}
+
+	err = fs.MkdirAll(constructDir, 0755)
+	if err != nil {
+		return nil, fail.EnhanceError(err, map[string]interface{}{
+			"path": constructDir,
+		})
+	}
+	contextFile := filepath.Join(constructDir, "context.yaml")
+
+	var address string
+	switch socketType {
+	case "http":
+		address = options.HTTPAddress
+	case "unix":
+		address = fmt.Sprintf("unix:///tmp/construct-%s.sock", options.Name)
+	default:
+		return nil, fmt.Errorf("invalid socket type: %s", socketType)
+	}
+
+	var endpointContexts client.EndpointContexts
+	exists, err := fs.Exists(contextFile)
+	if err != nil {
+		return nil, fail.EnhanceError(err, map[string]interface{}{
+			"path": contextFile,
+		})
+	}
+
+	if exists {
+		content, err := fs.ReadFile(contextFile)
+		if err != nil {
+			return nil, fail.EnhanceError(err, map[string]interface{}{
+				"path": contextFile,
+			})
+		}
+		err = yaml.Unmarshal(content, &endpointContexts)
+		if err != nil {
+			return nil, fail.EnhanceError(err, map[string]interface{}{
+				"path": contextFile,
+			})
+		}
+	}
+
+	contextName := options.Name
+	if endpointContexts.Contexts == nil {
+		endpointContexts.Contexts = make(map[string]client.EndpointContext)
+	}
+
+	endpointContexts.Contexts[contextName] = client.EndpointContext{
+		Address: address,
+		Type:    socketType,
+	}
+
+	endpointContexts.Current = contextName
+
+	content, err := yaml.Marshal(&endpointContexts)
+	if err != nil {
+		return nil, fail.EnhanceError(err, nil)
+	}
+
+	err = fs.WriteFile(contextFile, content, 0644)
+	if err != nil {
+		return nil, fail.EnhanceError(err, map[string]interface{}{
+			"path": contextFile,
+		})
+	}
+
+	if exists {
+		fmt.Fprintf(out, "%s Context '%s' updated\n", terminal.SuccessSymbol, contextName)
+	} else {
+		fmt.Fprintf(out, "%s Context '%s' created\n", terminal.SuccessSymbol, contextName)
+	}
+
+	return client.Ptr(endpointContexts.Contexts[contextName]), nil
+}
+
+func checkConnectionAndShowNextSteps(ctx context.Context, out io.Writer, endpoint client.EndpointContext) (nextSteps string, err error) {
 	err = terminal.SpinnerFuncWithCustomCompletion(
 		out,
 		"Checking connection to daemon",
-		"✓ Connection to daemon successful",
-		"✗ Connection to daemon failed",
+		fmt.Sprintf("%s Checking connection to daemon", terminal.SuccessSymbol),
+		fmt.Sprintf("%s Checking connection to daemon", terminal.SmallErrorSymbol),
 		func() error {
-			client := api.NewClient(endpointContext.Address)
+			client := api.NewClient(endpoint)
+			time.Sleep(5 * time.Second)
 
 			resp, err := client.ModelProvider().ListModelProviders(ctx, &connect.Request[v1.ListModelProvidersRequest]{
 				Msg: &v1.ListModelProvidersRequest{},
@@ -354,9 +384,9 @@ func checkConnectionAndShowNextSteps(ctx context.Context, out io.Writer, endpoin
 			}
 
 			if len(resp.Msg.ModelProviders) == 0 {
-				nextSteps = "→ Next: Create a model provider with 'construct modelprovider create'"
+				nextSteps = fmt.Sprintf("%s Next: Create a model provider with 'construct modelprovider create'", terminal.InfoSymbol)
 			} else {
-				nextSteps = "→ Ready to use! Try 'construct new' to start a conversation"
+				nextSteps = fmt.Sprintf("%s Ready to use! Try 'construct new' to start a conversation", terminal.ActionSymbol)
 			}
 
 			return nil
@@ -365,7 +395,7 @@ func checkConnectionAndShowNextSteps(ctx context.Context, out io.Writer, endpoin
 	return nextSteps, err
 }
 
-func buildTroubleshootingMessage(endpointContext *EndpointContext) string {
+func buildTroubleshootingMessage(endpointContext *client.EndpointContext) string {
 	var msg strings.Builder
 
 	msg.WriteString("Troubleshooting steps:\n")
@@ -443,237 +473,7 @@ func buildTroubleshootingMessage(endpointContext *EndpointContext) string {
 	msg.WriteString("   - Check if the construct binary is accessible and executable\n")
 	msg.WriteString("   - Verify system resources (disk space, memory)\n")
 	msg.WriteString("   - Run 'construct daemon run' manually to see direct error output")
+	msg.WriteString("\n")
 
 	return msg.String()
-}
-
-type serviceTemplateData struct {
-	ExecPath    string
-	Name        string
-	HTTPAddress string
-	KeepAlive   bool
-}
-
-func installLaunchdService(ctx context.Context, out io.Writer, socketType, execPath string, options daemonInstallOptions) error {
-	fs := getFileSystem(ctx)
-	command := getCommandRunner(ctx)
-
-	var macosTemplate string
-
-	switch socketType {
-	case "http":
-		macosTemplate = macosHTTPTemplate
-	case "unix":
-		macosTemplate = macosUnixTemplate
-	default:
-		return fmt.Errorf("invalid socket type: %s", socketType)
-	}
-	filename := fmt.Sprintf("construct-%s.plist", options.Name)
-
-	tmpl, err := template.New("daemon-install").Parse(macosTemplate)
-	if err != nil {
-		return enhanceError(err, "parse_service_template", nil)
-	}
-
-	var content bytes.Buffer
-	err = tmpl.Execute(&content, serviceTemplateData{
-		ExecPath:    execPath,
-		Name:        options.Name,
-		HTTPAddress: options.HTTPAddress,
-		KeepAlive:   options.AlwaysRunning,
-	})
-	if err != nil {
-		return enhanceError(err, "execute_service_template", nil)
-	}
-
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return enhanceError(err, "get_home_directory", nil)
-	}
-
-	launchAgentsDir := filepath.Join(homeDir, "Library", "LaunchAgents")
-	if err := fs.MkdirAll(launchAgentsDir, 0755); err != nil {
-		if os.IsPermission(err) {
-			return newPermissionError("create_directory", launchAgentsDir, err)
-		}
-		return fmt.Errorf("failed to create LaunchAgents directory %s: %w", launchAgentsDir, err)
-	}
-
-	plistPath := filepath.Join(launchAgentsDir, filename)
-	if !options.Force {
-		if exists, _ := fs.Exists(plistPath); exists {
-			return newAlreadyInstalledError(plistPath)
-		}
-	}
-
-	if err := fs.WriteFile(plistPath, content.Bytes(), 0644); err != nil {
-		if os.IsPermission(err) {
-			return newPermissionError("write_file", plistPath, err)
-		}
-		return fmt.Errorf("failed to write plist file to %s: %w", plistPath, err)
-	}
-	fmt.Fprintf(out, "✓ Service file written to %s\n", plistPath)
-
-	if output, err := command.Run(ctx, "launchctl", "bootstrap", "gui/"+getUserID(), plistPath); err != nil {
-		return newSystemCommandError("launchctl bootstrap", err, output)
-	}
-
-	fmt.Fprintf(out, "✓ Launchd service loaded\n")
-	return nil
-}
-
-func installSystemdService(ctx context.Context, out io.Writer, socketType, execPath string, options daemonInstallOptions) error {
-	fs := getFileSystem(ctx)
-	command := getCommandRunner(ctx)
-
-	var socketTemplate string
-
-	switch socketType {
-	case "http":
-		socketTemplate = linuxHTTPSocketTemplate
-	case "unix":
-		socketTemplate = linuxUnixSocketTemplate
-	default:
-		return fmt.Errorf("invalid socket type: %s", socketType)
-	}
-
-	serviceContent := strings.ReplaceAll(linuxServiceTemplate, "{{EXEC_PATH}}", execPath)
-
-	socketPath := "/etc/systemd/system/construct.socket"
-	servicePath := "/etc/systemd/system/construct.service"
-
-	if !options.Force {
-		if _, err := fs.Stat(socketPath); err == nil {
-			return newAlreadyInstalledError(socketPath)
-		}
-
-		if _, err := fs.Stat(servicePath); err == nil {
-			return newAlreadyInstalledError(servicePath)
-		}
-	}
-
-	if err := fs.WriteFile(socketPath, []byte(socketTemplate), 0644); err != nil {
-		if os.IsPermission(err) {
-			return newPermissionError("write_file", socketPath, err)
-		}
-		return fmt.Errorf("failed to write socket file: %w", err)
-	}
-	fmt.Fprintf(out, "✓ Socket file written to %s\n", socketPath)
-
-	if err := fs.WriteFile(servicePath, []byte(serviceContent), 0644); err != nil {
-		if os.IsPermission(err) {
-			return newPermissionError("write_file", servicePath, err)
-		}
-		return fmt.Errorf("failed to write service file: %w", err)
-	}
-	fmt.Fprintf(out, "✓ Service file written to %s\n", servicePath)
-
-	if output, err := command.Run(ctx, "systemctl", "daemon-reload"); err != nil {
-		return newSystemCommandError("systemctl daemon-reload", err, output)
-	}
-	fmt.Fprintf(out, "✓ Systemd daemon reloaded\n")
-
-	if output, err := command.Run(ctx, "systemctl", "enable", "construct.socket"); err != nil {
-		return newSystemCommandError("systemctl enable construct.socket", err, output)
-	}
-	fmt.Fprintf(out, "✓ Socket enabled\n")
-
-	return nil
-}
-
-func executableInfo() (execPath string, err error) {
-	execPath, err = os.Executable()
-	if err != nil {
-		return "", enhanceError(err, "get_executable_path", nil)
-	}
-
-	realPath, err := filepath.EvalSymlinks(execPath)
-	if err != nil {
-		// If symlink resolution fails, use original path
-		realPath = execPath
-	}
-
-	return realPath, nil
-}
-
-func createOrUpdateContext(ctx context.Context, out io.Writer, socketType string, options daemonInstallOptions) (EndpointContext, error) {
-	fs := getFileSystem(ctx)
-
-	constructDir, err := ConstructUserDir()
-	if err != nil {
-		return EndpointContext{}, enhanceError(err, "get_construct_user_directory", nil)
-	}
-
-	err = fs.MkdirAll(constructDir, 0755)
-	if err != nil {
-		return EndpointContext{}, enhanceError(err, "create_construct_directory", map[string]interface{}{
-			"path": constructDir,
-		})
-	}
-	contextFile := filepath.Join(constructDir, "context.yaml")
-
-	var address string
-	switch socketType {
-	case "http":
-		address = options.HTTPAddress
-	case "unix":
-		address = "unix:///tmp/construct.sock"
-	default:
-		return EndpointContext{}, fmt.Errorf("invalid socket type: %s", socketType)
-	}
-
-	var endpointContexts EndpointContexts
-	exists, err := fs.Exists(contextFile)
-	if err != nil {
-		return EndpointContext{}, enhanceError(err, "check_context_file", map[string]interface{}{
-			"path": contextFile,
-		})
-	}
-
-	if exists {
-		content, err := fs.ReadFile(contextFile)
-		if err != nil {
-			return EndpointContext{}, enhanceError(err, "read_context_file", map[string]interface{}{
-				"path": contextFile,
-			})
-		}
-		err = yaml.Unmarshal(content, &endpointContexts)
-		if err != nil {
-			return EndpointContext{}, enhanceError(err, "parse_context_file", map[string]interface{}{
-				"path": contextFile,
-			})
-		}
-	}
-
-	contextName := options.Name
-	if endpointContexts.Contexts == nil {
-		endpointContexts.Contexts = make(map[string]EndpointContext)
-	}
-
-	endpointContexts.Contexts[contextName] = EndpointContext{
-		Address: address,
-		Type:    socketType,
-	}
-
-	endpointContexts.Current = contextName
-
-	content, err := yaml.Marshal(&endpointContexts)
-	if err != nil {
-		return EndpointContext{}, enhanceError(err, "marshal_context_data", nil)
-	}
-
-	err = fs.WriteFile(contextFile, content, 0644)
-	if err != nil {
-		return EndpointContext{}, enhanceError(err, "write_context_file", map[string]interface{}{
-			"path": contextFile,
-		})
-	}
-
-	if exists {
-		fmt.Fprintf(out, "✓ Context '%s' updated\n", contextName)
-	} else {
-		fmt.Fprintf(out, "✓ Context '%s' created\n", contextName)
-	}
-
-	return endpointContexts.Contexts[contextName], nil
 }
