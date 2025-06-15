@@ -11,6 +11,11 @@ var (
 	errorSymbolStyle = lipgloss.NewStyle().
 				SetString("❌")
 
+	smallErrorSymbolStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("196")).
+				Bold(true).
+				SetString("✗")
+
 	warningSymbolStyle = lipgloss.NewStyle().
 				SetString("⚠️")
 
@@ -54,6 +59,9 @@ var (
 
 	// ErrorSymbol (❌)
 	ErrorSymbol = errorSymbolStyle.String()
+
+	// SmallErrorSymbol (✗)
+	SmallErrorSymbol = smallErrorSymbolStyle.String()
 
 	// SuccessSymbol (✔)
 	SuccessSymbol = successSymbolStyle.String()
