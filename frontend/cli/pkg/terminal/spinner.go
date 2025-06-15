@@ -100,32 +100,44 @@ func (s *Spinner) spin() {
 	}
 }
 
-func SpinnerFunc(writer io.Writer, message string, fn func() error) error {
-	spinner := NewSpinner(writer, message)
-	spinner.Start()
-
-	err := fn()
-
-	if err != nil {
-		spinner.Stop(fmt.Sprintf("✗ %s", message))
-	} else {
-		spinner.Stop(fmt.Sprintf("✓ %s", message))
-	}
-
-	return err
+type SpinnerOptions struct {
+	SuccessMsg string
+	ErrorMsg   string
 }
 
-func SpinnerFuncWithCustomCompletion(writer io.Writer, message string, successMsg, errorMsg string, fn func() error) error {
+type SpinnerOption func(*SpinnerOptions)
+
+func WithSuccessMsg(msg string) SpinnerOption {
+	return func(o *SpinnerOptions) {
+		o.SuccessMsg = msg
+	}
+}
+
+func WithErrorMsg(msg string) SpinnerOption {
+	return func(o *SpinnerOptions) {
+		o.ErrorMsg = msg
+	}
+}
+
+func SpinnerFunc[T any](writer io.Writer, message string, fn func() (T, error), options ...SpinnerOption) (T, error) {
 	spinner := NewSpinner(writer, message)
 	spinner.Start()
 
-	err := fn()
-
-	if err != nil {
-		spinner.Stop(errorMsg)
-	} else {
-		spinner.Stop(successMsg)
+	opts := &SpinnerOptions{
+		SuccessMsg: message,
+		ErrorMsg:   message,
+	}
+	for _, option := range options {
+		option(opts)
 	}
 
-	return err
+	result, err := fn()
+
+	if err != nil {
+		spinner.Stop(fmt.Sprintf("%s %s", ErrorSymbol, opts.ErrorMsg))
+	} else {
+		spinner.Stop(fmt.Sprintf("%s %s", SuccessSymbol, opts.SuccessMsg))
+	}
+
+	return result, err
 }
