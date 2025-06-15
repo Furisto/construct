@@ -6,10 +6,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-
 var (
-
-	appStyle = lipgloss.NewStyle().Margin(1,2)
+	appStyle = lipgloss.NewStyle().Margin(1, 2)
 
 	inputStyle = lipgloss.NewStyle().
 			BorderStyle(lipgloss.RoundedBorder()).
@@ -70,4 +68,17 @@ var (
 	separatorStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("240")).
 			SetString(strings.Repeat("─", 80))
+
+
+	boldStyle = lipgloss.NewStyle().
+			Bold(true)
+
 )
+
+func Bold(s string) string {
+	return boldStyle.Render(s)
+}
+
+
+
+
