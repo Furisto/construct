@@ -11,7 +11,7 @@ func NewMessageCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "message",
 		Short:   "Manage messages",
-		Aliases: []string{"messages"},
+		Aliases: []string{"messages", "msg"},
 		GroupID: "resource",
 	}
 
