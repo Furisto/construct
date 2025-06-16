@@ -1,6 +1,8 @@
 package client
 
 import (
+	"context"
+	"net"
 	"net/http"
 
 	"github.com/furisto/construct/api/go/client/mocks"
@@ -16,13 +18,32 @@ type Client struct {
 	message       v1connect.MessageServiceClient
 }
 
-func NewClient(url string) *Client {
+type ClientOptions struct {
+	HTTPClient *http.Client
+}
+
+func NewClient(endpointContext EndpointContext) *Client {
+	httpClient := &http.Client{}
+
+	var baseURL string
+	if endpointContext.Type == "unix" {
+		httpClient.Transport = &http.Transport{
+			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				return net.Dial("unix", endpointContext.Address)
+			},
+		}
+
+		baseURL = "http://localhost/api" // Include /api prefix for unix sockets
+	} else {
+		// For HTTP connections, ensure proper scheme and /api prefix
+		baseURL = "http://" + endpointContext.Address + "/api"
+	}
 	return &Client{
-		modelProvider: v1connect.NewModelProviderServiceClient(http.DefaultClient, url),
-		model:         v1connect.NewModelServiceClient(http.DefaultClient, url),
-		agent:         v1connect.NewAgentServiceClient(http.DefaultClient, url),
-		task:          v1connect.NewTaskServiceClient(http.DefaultClient, url),
-		message:       v1connect.NewMessageServiceClient(http.DefaultClient, url),
+		modelProvider: v1connect.NewModelProviderServiceClient(httpClient, baseURL),
+		model:         v1connect.NewModelServiceClient(httpClient, baseURL),
+		agent:         v1connect.NewAgentServiceClient(httpClient, baseURL),
+		task:          v1connect.NewTaskServiceClient(httpClient, baseURL),
+		message:       v1connect.NewMessageServiceClient(httpClient, baseURL),
 	}
 }
 
@@ -72,6 +93,16 @@ func (c *MockClient) Client() *Client {
 		task:          c.Task,
 		message:       c.Message,
 	}
+}
+
+type EndpointContexts struct {
+	Current  string                     `yaml:"current"`
+	Contexts map[string]EndpointContext `yaml:"contexts"`
+}
+
+type EndpointContext struct {
+	Address string `yaml:"address"`
+	Type    string `yaml:"type"`
 }
 
 func Ptr[T any](v T) *T {
