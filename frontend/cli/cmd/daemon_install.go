@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"text/template"
 	"time"
@@ -84,15 +83,20 @@ func NewDaemonInstallCmd() *cobra.Command {
 				return err
 			}
 
-			nextSteps, err := checkConnectionAndShowNextSteps(cmd.Context(), out, *endpointContext)
+			setupComplete, err := checkConnectionAndSetupStatus(cmd.Context(), out, *endpointContext)
 			if err != nil {
-				troubleshootingMsg := buildTroubleshootingMessage(endpointContext)
-				return fail.NewUserFacingError(fmt.Sprintf("Connection to daemon failed: %s", err), err, []string{troubleshootingMsg}, "",
+				troubleshooting := buildTroubleshootingMessage(cmd.Context(), endpointContext)
+				return fail.NewUserFacingError(fmt.Sprintf("Connection to daemon failed: %s", err), err, troubleshooting, "",
 					[]string{"https://docs.construct.sh/daemon/troubleshooting"})
 			}
 
 			fmt.Fprintf(out, "%s Daemon installed successfully\n", terminal.SuccessSymbol)
-			fmt.Fprintf(out, "%s\n", nextSteps)
+
+			if setupComplete {
+				cmd.Printf("%s Ready to use! Try 'construct new' to start a conversation\n", terminal.ContinueSymbol)
+			} else {
+				cmd.Printf("%s Next: Create a model provider with 'construct modelprovider create'\n", terminal.ContinueSymbol)
+			}
 
 			return nil
 		},
@@ -113,13 +117,14 @@ func installDaemon(ctx context.Context, out io.Writer, socketType string, option
 		return nil, fmt.Errorf("failed to get executable info: %w", err)
 	}
 
-	switch runtime.GOOS {
+	runtimeInfo := getRuntimeInfo(ctx)
+	switch runtimeInfo.GOOS() {
 	case "darwin":
 		err = installLaunchdService(ctx, out, socketType, execPath, options)
 	case "linux":
 		err = installSystemdService(ctx, out, socketType, execPath, options)
 	default:
-		return nil, fmt.Errorf("unsupported operating system: %s", runtime.GOOS)
+		return nil, fmt.Errorf("unsupported operating system: %s", runtimeInfo.GOOS())
 	}
 
 	if err != nil {
@@ -145,35 +150,8 @@ func installLaunchdService(ctx context.Context, out io.Writer, socketType, execP
 	fs := getFileSystem(ctx)
 	command := getCommandRunner(ctx)
 
-	var macosTemplate string
-
-	switch socketType {
-	case "http":
-		macosTemplate = macosHTTPTemplate
-	case "unix":
-		macosTemplate = macosUnixTemplate
-	default:
-		return fmt.Errorf("invalid socket type: %s", socketType)
-	}
-	filename := fmt.Sprintf("construct-%s.plist", options.Name)
-
-	tmpl, err := template.New("daemon-install").Parse(macosTemplate)
-	if err != nil {
-		return fail.EnhanceError(err, nil)
-	}
-
-	var content bytes.Buffer
-	err = tmpl.Execute(&content, serviceTemplateData{
-		ExecPath:    execPath,
-		Name:        options.Name,
-		HTTPAddress: options.HTTPAddress,
-		KeepAlive:   options.AlwaysRunning,
-	})
-	if err != nil {
-		return fail.EnhanceError(err, nil)
-	}
-
-	homeDir, err := os.UserHomeDir()
+	userInfo := getUserInfo(ctx)
+	homeDir, err := userInfo.HomeDir()
 	if err != nil {
 		return fail.EnhanceError(err, nil)
 	}
@@ -186,6 +164,22 @@ func installLaunchdService(ctx context.Context, out io.Writer, socketType, execP
 		return fmt.Errorf("failed to create LaunchAgents directory %s: %w", launchAgentsDir, err)
 	}
 
+	var macosTemplate string
+	switch socketType {
+	case "http":
+		macosTemplate = macosHTTPTemplate
+	case "unix":
+		macosTemplate = macosUnixTemplate
+	default:
+		return fmt.Errorf("invalid socket type: %s", socketType)
+	}
+	filename := fmt.Sprintf("construct-%s.plist", options.Name)
+
+	content, err := parseServiceTemplate(ctx, options, execPath, macosTemplate)
+	if err != nil {
+		return fail.EnhanceError(err, nil)
+	}
+
 	plistPath := filepath.Join(launchAgentsDir, filename)
 	if !options.Force {
 		if exists, _ := fs.Exists(plistPath); exists {
@@ -193,19 +187,20 @@ func installLaunchdService(ctx context.Context, out io.Writer, socketType, execP
 		}
 	}
 
-	if err := fs.WriteFile(plistPath, content.Bytes(), 0644); err != nil {
+	if err := fs.WriteFile(plistPath, content, 0644); err != nil {
 		if os.IsPermission(err) {
 			return fail.NewPermissionError(plistPath, err)
 		}
 		return fmt.Errorf("failed to write plist file to %s: %w", plistPath, err)
 	}
-	fmt.Fprintf(out, "%s Service file written to %s\n", terminal.SuccessSymbol, plistPath)
+	fmt.Fprintf(out, " %s Service file written to %s\n", terminal.SuccessSymbol, plistPath)
 
-	if output, err := command.Run(ctx, "launchctl", "bootstrap", "gui/"+getUserID(), plistPath); err != nil {
-		return fail.NewCommandError("launchctl bootstrap", err, output, "gui/"+getUserID(), plistPath)
+	userID := userInfo.UserID()
+	if output, err := command.Run(ctx, "launchctl", "bootstrap", "gui/"+userID, plistPath); err != nil {
+		return fail.NewCommandError("launchctl bootstrap", err, output, "gui/"+userID, plistPath)
 	}
 
-	fmt.Fprintf(out, "%s Launchd service loaded\n", terminal.SuccessSymbol)
+	fmt.Fprintf(out, " %s Launchd service loaded\n", terminal.SuccessSymbol)
 	return nil
 }
 
@@ -213,18 +208,16 @@ func installSystemdService(ctx context.Context, out io.Writer, socketType, execP
 	fs := getFileSystem(ctx)
 	command := getCommandRunner(ctx)
 
-	var socketTemplate string
+	var systemdTemplate string
 
 	switch socketType {
 	case "http":
-		socketTemplate = linuxHTTPSocketTemplate
+		systemdTemplate = linuxHTTPSocketTemplate
 	case "unix":
-		socketTemplate = linuxUnixSocketTemplate
+		systemdTemplate = linuxUnixSocketTemplate
 	default:
 		return fmt.Errorf("invalid socket type: %s", socketType)
 	}
-
-	serviceContent := strings.ReplaceAll(linuxServiceTemplate, "{{EXEC_PATH}}", execPath)
 
 	socketPath := "/etc/systemd/system/construct.socket"
 	servicePath := "/etc/systemd/system/construct.service"
@@ -239,7 +232,12 @@ func installSystemdService(ctx context.Context, out io.Writer, socketType, execP
 		}
 	}
 
-	if err := fs.WriteFile(socketPath, []byte(socketTemplate), 0644); err != nil {
+	socketContent, err := parseServiceTemplate(ctx, options, execPath, systemdTemplate)
+	if err != nil {
+		return fail.EnhanceError(err, nil)
+	}
+
+	if err := fs.WriteFile(socketPath, socketContent, 0644); err != nil {
 		if os.IsPermission(err) {
 			return fail.NewPermissionError(socketPath, err)
 		}
@@ -247,7 +245,12 @@ func installSystemdService(ctx context.Context, out io.Writer, socketType, execP
 	}
 	fmt.Fprintf(out, "%s Socket file written to %s\n", terminal.SuccessSymbol, socketPath)
 
-	if err := fs.WriteFile(servicePath, []byte(serviceContent), 0644); err != nil {
+	serviceContent, err := parseServiceTemplate(ctx, options, execPath, linuxServiceTemplate)
+	if err != nil {
+		return fail.EnhanceError(err, nil)
+	}
+
+	if err := fs.WriteFile(servicePath, serviceContent, 0644); err != nil {
 		if os.IsPermission(err) {
 			return fail.NewPermissionError(servicePath, err)
 		}
@@ -283,13 +286,35 @@ func executableInfo() (execPath string, err error) {
 	return realPath, nil
 }
 
-func createOrUpdateContext(ctx context.Context, out io.Writer, socketType string, options daemonInstallOptions) (*client.EndpointContext, error) {
-	fs := getFileSystem(ctx)
-
-	constructDir, err := ConstructUserDir()
+func parseServiceTemplate(ctx context.Context, options daemonInstallOptions, execPath string, serviceTemplate string) ([]byte, error) {
+	tmpl, err := template.New("daemon-install").Parse(serviceTemplate)
 	if err != nil {
 		return nil, fail.EnhanceError(err, nil)
 	}
+
+	var content bytes.Buffer
+	err = tmpl.Execute(&content, serviceTemplateData{
+		ExecPath:    execPath,
+		Name:        options.Name,
+		HTTPAddress: options.HTTPAddress,
+		KeepAlive:   options.AlwaysRunning,
+	})
+	if err != nil {
+		return nil, fail.EnhanceError(err, nil)
+	}
+
+	return content.Bytes(), nil
+}
+
+func createOrUpdateContext(ctx context.Context, out io.Writer, socketType string, options daemonInstallOptions) (*client.EndpointContext, error) {
+	fs := getFileSystem(ctx)
+	userInfo := getUserInfo(ctx)
+
+	homeDir, err := userInfo.HomeDir()
+	if err != nil {
+		return nil, fail.EnhanceError(err, nil)
+	}
+	constructDir := filepath.Join(homeDir, ".construct")
 
 	err = fs.MkdirAll(constructDir, 0755)
 	if err != nil {
@@ -304,7 +329,7 @@ func createOrUpdateContext(ctx context.Context, out io.Writer, socketType string
 	case "http":
 		address = options.HTTPAddress
 	case "unix":
-		address = fmt.Sprintf("unix:///tmp/construct-%s.sock", options.Name)
+		address = fmt.Sprintf("/tmp/construct-%s.sock", options.Name)
 	default:
 		return nil, fmt.Errorf("invalid socket type: %s", socketType)
 	}
@@ -357,123 +382,109 @@ func createOrUpdateContext(ctx context.Context, out io.Writer, socketType string
 	}
 
 	if exists {
-		fmt.Fprintf(out, "%s Context '%s' updated\n", terminal.SuccessSymbol, contextName)
+		fmt.Fprintf(out, " %s Context '%s' updated\n", terminal.SuccessSymbol, contextName)
 	} else {
-		fmt.Fprintf(out, "%s Context '%s' created\n", terminal.SuccessSymbol, contextName)
+		fmt.Fprintf(out, " %s Context '%s' created\n", terminal.SuccessSymbol, contextName)
 	}
 
 	return client.Ptr(endpointContexts.Contexts[contextName]), nil
 }
 
-func checkConnectionAndShowNextSteps(ctx context.Context, out io.Writer, endpoint client.EndpointContext) (nextSteps string, err error) {
-	err = terminal.SpinnerFuncWithCustomCompletion(
+func checkConnectionAndSetupStatus(ctx context.Context, out io.Writer, endpoint client.EndpointContext) (bool, error) {
+	canConnect, err := terminal.SpinnerFunc(
 		out,
 		"Checking connection to daemon",
-		fmt.Sprintf("%s Checking connection to daemon", terminal.SuccessSymbol),
-		fmt.Sprintf("%s Checking connection to daemon", terminal.SmallErrorSymbol),
-		func() error {
+		func() (bool, error) {
 			client := api.NewClient(endpoint)
-			time.Sleep(5 * time.Second)
 
+			ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			defer cancel()
 			resp, err := client.ModelProvider().ListModelProviders(ctx, &connect.Request[v1.ListModelProvidersRequest]{
 				Msg: &v1.ListModelProvidersRequest{},
 			})
 
 			if err != nil {
-				return fmt.Errorf("failed to check connection: %w", err)
+				return false, fmt.Errorf("failed to check connection: %w", err)
 			}
 
-			if len(resp.Msg.ModelProviders) == 0 {
-				nextSteps = fmt.Sprintf("%s Next: Create a model provider with 'construct modelprovider create'", terminal.InfoSymbol)
-			} else {
-				nextSteps = fmt.Sprintf("%s Ready to use! Try 'construct new' to start a conversation", terminal.ActionSymbol)
-			}
-
-			return nil
+			return len(resp.Msg.ModelProviders) != 0, nil
 		},
+		terminal.WithSuccessMsg("Daemon is responding to requests"),
+		terminal.WithErrorMsg("Failed to connect to daemon"),
 	)
-	return nextSteps, err
+	return canConnect, err
 }
 
-func buildTroubleshootingMessage(endpointContext *client.EndpointContext) string {
-	var msg strings.Builder
+func buildTroubleshootingMessage(ctx context.Context, endpointContext *client.EndpointContext) fail.Troubleshooting {
+	var solutions []string
+	runtimeInfo := getRuntimeInfo(ctx)
 
-	msg.WriteString("Troubleshooting steps:\n")
-
-	switch runtime.GOOS {
+	switch runtimeInfo.GOOS() {
 	case "darwin":
-		msg.WriteString("1. Check if the daemon service is running:\n")
-		msg.WriteString("   launchctl list | grep construct\n\n")
+		solutions = append(solutions, "Check if the daemon service is running:\n   launchctl list | grep construct")
 
-		msg.WriteString("2. Check service status and logs:\n")
-		msg.WriteString("   # List all construct services:\n")
-		msg.WriteString("   launchctl list | grep construct\n")
-		msg.WriteString("   # Check specific service (replace 'default' with your service name if different):\n")
-		msg.WriteString("   launchctl print gui/$(id -u)/construct-default\n")
-		msg.WriteString("   # View recent logs:\n")
-		msg.WriteString("   log show --predicate 'process == \"construct\"' --last 5m\n\n")
+		solutions = append(solutions, "Check service status and logs:\n   # List all construct services:\n   launchctl list | grep construct\n   # Check specific service (replace 'default' with your service name if different):\n   launchctl print gui/$(id -u)/construct-default\n   # View recent logs:\n   log show --predicate 'process == \"construct\"' --last 5m")
 
-		msg.WriteString("3. Try manually starting the service:\n")
-		msg.WriteString("   # Replace 'default' with your service name if different:\n")
-		msg.WriteString("   launchctl kickstart -k gui/$(id -u)/construct-default\n\n")
+		solutions = append(solutions, "Try manually starting the service:\n   # Replace 'default' with your service name if different:\n   launchctl kickstart -k gui/$(id -u)/construct-default")
 
 	case "linux":
-		msg.WriteString("1. Check if the daemon socket is active:\n")
-		msg.WriteString("   systemctl --user status construct.socket\n")
-		msg.WriteString("   systemctl --user status construct.service\n\n")
+		solutions = append(solutions, "Check if the daemon socket is active:\n   systemctl --user status construct.socket\n   systemctl --user status construct.service")
 
-		msg.WriteString("2. Check service logs:\n")
-		msg.WriteString("   journalctl --user -u construct.service --no-pager -n 20\n")
-		msg.WriteString("   journalctl --user -u construct.socket --no-pager -n 20\n\n")
+		solutions = append(solutions, "Check service logs:\n   journalctl --user -u construct.service --no-pager -n 20\n   journalctl --user -u construct.socket --no-pager -n 20")
 
-		msg.WriteString("3. Try manually starting the socket:\n")
-		msg.WriteString("   systemctl --user start construct.socket\n")
-		msg.WriteString("   systemctl --user start construct.service\n\n")
+		solutions = append(solutions, "Try manually starting the socket:\n   systemctl --user start construct.socket\n   systemctl --user start construct.service")
 	}
 
-	msg.WriteString("4. Verify the daemon endpoint:\n")
-	msg.WriteString(fmt.Sprintf("   Address: %s\n", endpointContext.Address))
-	msg.WriteString(fmt.Sprintf("   Type: %s\n", endpointContext.Type))
+	// Verify the daemon endpoint
+	var endpointSolution strings.Builder
+	endpointSolution.WriteString("Verify the daemon endpoint:\n")
+	endpointSolution.WriteString(fmt.Sprintf("   Address: %s\n", endpointContext.Address))
+	endpointSolution.WriteString(fmt.Sprintf("   Type: %s\n", endpointContext.Type))
 	if endpointContext.Type == "unix" {
-		msg.WriteString("   Check if socket file exists and has correct permissions:\n")
+		endpointSolution.WriteString("   Check if socket file exists and has correct permissions:\n")
 		if strings.HasPrefix(endpointContext.Address, "unix://") {
 			socketPath := strings.TrimPrefix(endpointContext.Address, "unix://")
-			msg.WriteString(fmt.Sprintf("   ls -la %s\n\n", socketPath))
+			endpointSolution.WriteString(fmt.Sprintf("   ls -la %s", socketPath))
 		} else {
-			msg.WriteString("   ls -la /tmp/construct.sock\n\n")
+			endpointSolution.WriteString("   ls -la /tmp/construct.sock")
 		}
 	} else {
-		msg.WriteString("   Check if the HTTP port is accessible and not blocked by firewall:\n")
+		endpointSolution.WriteString("   Check if the HTTP port is accessible and not blocked by firewall:\n")
 		if strings.Contains(endpointContext.Address, ":") {
-			msg.WriteString(fmt.Sprintf("   curl -v %s/health || nc -zv %s\n\n", endpointContext.Address, endpointContext.Address))
+			endpointSolution.WriteString(fmt.Sprintf("   curl -v %s/health || nc -zv %s", endpointContext.Address, endpointContext.Address))
 		} else {
-			msg.WriteString("   Check firewall settings and port availability\n\n")
+			endpointSolution.WriteString("   Check firewall settings and port availability")
 		}
 	}
+	solutions = append(solutions, endpointSolution.String())
 
-	msg.WriteString("5. Check for permission issues:\n")
-	if runtime.GOOS == "darwin" {
-		msg.WriteString("   # Check if plist files exist:\n")
-		msg.WriteString("   ls -la ~/Library/LaunchAgents/construct-*.plist\n")
-	} else if runtime.GOOS == "linux" {
-		msg.WriteString("   # Check if systemd files exist:\n")
-		msg.WriteString("   ls -la /etc/systemd/system/construct.*\n")
+	// Check for permission issues
+	var permissionSolution strings.Builder
+	permissionSolution.WriteString("Check for permission issues:\n")
+	if runtimeInfo.GOOS() == "darwin" {
+		permissionSolution.WriteString("   # Check if plist files exist:\n")
+		permissionSolution.WriteString("   ls -la ~/Library/LaunchAgents/construct-*.plist")
+	} else if runtimeInfo.GOOS() == "linux" {
+		permissionSolution.WriteString("   # Check if systemd files exist:\n")
+		permissionSolution.WriteString("   ls -la /etc/systemd/system/construct.*")
 	}
-	msg.WriteString("\n")
+	solutions = append(solutions, permissionSolution.String())
 
-	msg.WriteString("6. Try reinstalling the daemon:\n")
-	msg.WriteString("   construct daemon uninstall\n")
-	msg.WriteString("   construct daemon install")
+	// Try reinstalling the daemon
+	var reinstallSolution strings.Builder
+	reinstallSolution.WriteString("Try reinstalling the daemon:\n")
+	reinstallSolution.WriteString("   construct daemon uninstall\n")
+	reinstallSolution.WriteString("   construct daemon install")
 	if endpointContext.Type == "http" {
-		msg.WriteString(" --listen-http " + endpointContext.Address)
+		reinstallSolution.WriteString(" --listen-http " + endpointContext.Address)
 	}
-	msg.WriteString("\n\n")
+	solutions = append(solutions, reinstallSolution.String())
 
-	msg.WriteString("7. For additional help:\n")
-	msg.WriteString("   - Check if the construct binary is accessible and executable\n")
-	msg.WriteString("   - Verify system resources (disk space, memory)\n")
-	msg.WriteString("   - Run 'construct daemon run' manually to see direct error output")
-	msg.WriteString("\n")
+	// For additional help
+	solutions = append(solutions, "For additional help:\n   - Check if the construct binary is accessible and executable\n   - Verify system resources (disk space, memory)\n   - Run 'construct daemon run' manually to see direct error output")
 
-	return msg.String()
+	return fail.Troubleshooting{
+		Format:    fail.UserFacingSolutionFormatMultiline,
+		Solutions: solutions,
+	}
 }
