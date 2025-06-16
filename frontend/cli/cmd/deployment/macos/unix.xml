@@ -8,6 +8,8 @@
         <key>ProgramArguments</key>
         <array>
             <string>{{ .ExecPath }}</string>
+            <string>daemon</string>
+            <string>run</string>
         </array>
 
         <key>Sockets</key>
