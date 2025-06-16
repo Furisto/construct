@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	api_client "github.com/furisto/construct/api/go/client"
+	"github.com/furisto/construct/frontend/cli/cmd/mocks"
 	"github.com/google/go-cmp/cmp"
 	"github.com/spf13/afero"
 	"go.uber.org/mock/gomock"
@@ -22,18 +23,29 @@ func (m *MockFormatter) Display(resources any, format OutputFormat) error {
 	return nil
 }
 
+type TestRuntimeInfo struct {
+	platform string
+}
+
+func (t *TestRuntimeInfo) GOOS() string {
+	return t.platform
+}
+
 type TestSetup struct {
 	CmpOptions []cmp.Option
 }
 
 type TestScenario struct {
-	Name            string
-	Command         []string
-	Stdin           string
-	SetupMocks      func(mockClient *api_client.MockClient)
-	SetupFileSystem func(fs *afero.Afero)
-	SetupEnv        map[string]string
-	Expected        TestExpectation
+	Name               string
+	Command            []string
+	Stdin              string
+	SetupMocks         func(mockClient *api_client.MockClient)
+	SetupFileSystem    func(fs *afero.Afero)
+	SetupEnv           map[string]string
+	SetupCommandRunner func(commandRunner *mocks.MockCommandRunner)
+	SetupUserInfo      func(userInfo *mocks.MockUserInfo)
+	Platform           string
+	Expected           TestExpectation
 }
 
 type TestExpectation struct {
@@ -58,6 +70,16 @@ func (s *TestSetup) RunTests(t *testing.T, scenarios []TestScenario) {
 				scenario.SetupMocks(mockClient)
 			}
 
+			commandRunner := mocks.NewMockCommandRunner(ctrl)
+			if scenario.SetupCommandRunner != nil {
+				scenario.SetupCommandRunner(commandRunner)
+			}
+
+			userInfo := mocks.NewMockUserInfo(ctrl)
+			if scenario.SetupUserInfo != nil {
+				scenario.SetupUserInfo(userInfo)
+			}
+
 			fs := &afero.Afero{Fs: afero.NewMemMapFs()}
 			if scenario.SetupFileSystem != nil {
 				scenario.SetupFileSystem(fs)
@@ -79,23 +101,34 @@ func (s *TestSetup) RunTests(t *testing.T, scenarios []TestScenario) {
 			testCmd.SetOut(&stdout)
 			testCmd.SetErr(&stdout)
 
-			testCmd.SetArgs(scenario.Command)
-
 			mockFormatter := &MockFormatter{}
 			ctx := context.Background()
 			ctx = context.WithValue(ctx, ContextKeyAPIClient, mockClient.Client())
 			ctx = context.WithValue(ctx, ContextKeyFileSystem, fs)
 			ctx = context.WithValue(ctx, ContextKeyOutputRenderer, mockFormatter)
+			ctx = context.WithValue(ctx, ContextKeyCommandRunner, commandRunner)
+			ctx = context.WithValue(ctx, ContextKeyUserInfo, userInfo)
+			
+			// Default to Linux platform, can be overridden
+			platform := "linux"
+			if scenario.Platform != "" {
+				platform = scenario.Platform
+			}
+			runtimeInfo := &TestRuntimeInfo{platform: platform}
+			ctx = context.WithValue(ctx, ContextKeyRuntimeInfo, runtimeInfo)
+			
+
+			testCmd.SetArgs(scenario.Command)
 
 			var actual TestExpectation
 			err := testCmd.ExecuteContext(ctx)
 			if err != nil {
 				actual.Error = err.Error()
-			} else {
-				actual.Stdout = stdout.String()
-				actual.DisplayedObjects = mockFormatter.DisplayedObjects
-				actual.DisplayFormat = mockFormatter.DisplayFormat
 			}
+
+			actual.DisplayedObjects = mockFormatter.DisplayedObjects
+			actual.DisplayFormat = mockFormatter.DisplayFormat
+			actual.Stdout = stdout.String()
 
 			if diff := cmp.Diff(scenario.Expected, actual, s.CmpOptions...); diff != "" {
 				t.Errorf("%s() mismatch (-want +got):\n%s", scenario.Name, diff)
