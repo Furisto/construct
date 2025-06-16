@@ -1,0 +1,8 @@
+{
+    "xml.validation.filters": [
+        {
+            "pattern": "**/*.xml",
+            "enabled": false
+        },
+    ],
+} 
