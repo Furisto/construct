@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"net"
 	"os"
-)
+	"strings"
 
-const launchdSocketFD = 3
+	launchd "github.com/bored-engineer/go-launchd"
+)
 
 type LaunchdSocketProvider struct{}
 
@@ -15,18 +16,9 @@ func NewLaunchdSocketProvider() *LaunchdSocketProvider {
 }
 
 func (p *LaunchdSocketProvider) Create() (net.Listener, error) {
-	if !isSocket(launchdSocketFD) {
-		return nil, fmt.Errorf("file descriptor %d is not a socket", launchdSocketFD)
-	}
-
-	file := os.NewFile(launchdSocketFD, "launchd-socket")
-	if file == nil {
-		return nil, fmt.Errorf("no socket passed from launchd on FD %d", launchdSocketFD)
-	}
-
-	listener, err := net.FileListener(file)
+	listener, err := launchd.Activate("Listeners")
 	if err != nil {
-		return nil, fmt.Errorf("failed to create listener from launchd socket: %w", err)
+		return nil, fmt.Errorf("failed to activate launchd socket: %w", err)
 	}
 
 	return listener, nil
@@ -41,5 +33,5 @@ func (p *LaunchdSocketProvider) ActivationType() string {
 }
 
 func IsLaunchdSocketActivation() bool {
-	return os.Getenv("LAUNCH_DAEMON_SOCKET_NAME") != ""
+	return strings.HasPrefix(os.Getenv("XPC_SERVICE_NAME"), "sh.construct.daemon.")
 }
