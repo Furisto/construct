@@ -12,16 +12,17 @@ import (
 	"runtime"
 	"strings"
 	"syscall"
+	"time"
 
 	"log/slog"
 
 	"github.com/common-nighthawk/go-figure"
+	"github.com/getsentry/sentry-go"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
-	"github.com/furisto/construct/api/go/client"
 	api "github.com/furisto/construct/api/go/client"
 )
 
@@ -49,7 +50,6 @@ func NewRootCmd() *cobra.Command {
 
 			return nil
 		},
-		SilenceErrors: true,
 	}
 
 	cmd.PersistentFlags().BoolVarP(&globalOptions.Verbose, "verbose", "v", false, "verbose output")
@@ -92,17 +92,37 @@ func NewRootCmd() *cobra.Command {
 }
 
 func Execute() {
+	defer func() {
+		if r := recover(); r != nil {
+			sentry.CurrentHub().Recover(r)
+			sentry.Flush(2 * time.Second)
+			fmt.Fprintf(os.Stderr, "Panic occurred: %v\n", r)
+			os.Exit(1)
+		}
+	}()
+
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
+	err := sentry.Init(sentry.ClientOptions{
+		Dsn: "https://03f4bdd9c27c4f234971bebd7318b4ff@o4509509926387712.ingest.de.sentry.io/4509509931434064",
+	})
+	if err != nil {
+		fmt.Printf("failed to initialize sentry: %s\n", err)
+	}
+
 	rootCmd := NewRootCmd()
 	if err := rootCmd.ExecuteContext(ctx); err != nil {
+		sentry.CaptureException(err)
+		sentry.Flush(2 * time.Second)
 		os.Exit(1)
 	}
+
+	sentry.Flush(2 * time.Second)
 }
 
 type Config struct {
-	EndpointContexts client.EndpointContexts `json:"endpoint_contexts"`
+	EndpointContexts api.EndpointContexts `json:"endpoint_contexts"`
 }
 
 func setAPIClient(cmd *cobra.Command) error {
@@ -138,7 +158,7 @@ func requiresContext(cmd *cobra.Command) bool {
 	return true
 }
 
-func loadContext(cmd *cobra.Command) (*client.EndpointContexts, error) {
+func loadContext(cmd *cobra.Command) (*api.EndpointContexts, error) {
 	fs := getFileSystem(cmd.Context())
 
 	constructDir, err := ConstructUserDir()
@@ -161,7 +181,7 @@ func loadContext(cmd *cobra.Command) (*client.EndpointContexts, error) {
 		return nil, err
 	}
 
-	var endpointContexts client.EndpointContexts
+	var endpointContexts api.EndpointContexts
 	err = yaml.Unmarshal(content, &endpointContexts)
 	if err != nil {
 		return nil, err
