@@ -4,14 +4,16 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"path/filepath"
-	"strings"
-
-	"log/slog"
 	"os"
 	"os/exec"
 	"os/signal"
+	"os/user"
+	"path/filepath"
+	"runtime"
+	"strings"
 	"syscall"
+
+	"log/slog"
 
 	"github.com/common-nighthawk/go-figure"
 	_ "github.com/mattn/go-sqlite3"
@@ -47,6 +49,7 @@ func NewRootCmd() *cobra.Command {
 
 			return nil
 		},
+		SilenceErrors: true,
 	}
 
 	cmd.PersistentFlags().BoolVarP(&globalOptions.Verbose, "verbose", "v", false, "verbose output")
@@ -175,6 +178,8 @@ const (
 	ContextKeyOutputRenderer  ContextKey = "output_renderer"
 	ContextKeyCommandRunner   ContextKey = "command_runner"
 	ContextKeyEndpointContext ContextKey = "endpoint_context"
+	ContextKeyRuntimeInfo     ContextKey = "runtime_info"
+	ContextKeyUserInfo        ContextKey = "user_info"
 )
 
 func getAPIClient(ctx context.Context) *api.Client {
@@ -195,8 +200,19 @@ func getFileSystem(ctx context.Context) *afero.Afero {
 	return &afero.Afero{Fs: afero.NewOsFs()}
 }
 
+//go:generate mockgen -destination=mocks/command_runner_mock.go -package=mocks . CommandRunner
 type CommandRunner interface {
 	Run(ctx context.Context, command string, args ...string) (string, error)
+}
+
+type RuntimeInfo interface {
+	GOOS() string
+}
+
+//go:generate mockgen -destination=mocks/user_info_mock.go -package=mocks . UserInfo
+type UserInfo interface {
+	UserID() string
+	HomeDir() (string, error)
 }
 
 type DefaultCommandRunner struct{}
@@ -207,6 +223,26 @@ func (r *DefaultCommandRunner) Run(ctx context.Context, command string, args ...
 	return string(output), err
 }
 
+type DefaultRuntimeInfo struct{}
+
+func (r *DefaultRuntimeInfo) GOOS() string {
+	return runtime.GOOS
+}
+
+type DefaultUserInfo struct{}
+
+func (r *DefaultUserInfo) UserID() string {
+	user, err := user.Current()
+	if err != nil {
+		return ""
+	}
+	return user.Uid
+}
+
+func (r *DefaultUserInfo) HomeDir() (string, error) {
+	return os.UserHomeDir()
+}
+
 func getCommandRunner(ctx context.Context) CommandRunner {
 	runner := ctx.Value(ContextKeyCommandRunner)
 	if runner != nil {
@@ -214,6 +250,24 @@ func getCommandRunner(ctx context.Context) CommandRunner {
 	}
 
 	return &DefaultCommandRunner{}
+}
+
+func getRuntimeInfo(ctx context.Context) RuntimeInfo {
+	runtimeInfo := ctx.Value(ContextKeyRuntimeInfo)
+	if runtimeInfo != nil {
+		return runtimeInfo.(RuntimeInfo)
+	}
+
+	return &DefaultRuntimeInfo{}
+}
+
+func getUserInfo(ctx context.Context) UserInfo {
+	userInfo := ctx.Value(ContextKeyUserInfo)
+	if userInfo != nil {
+		return userInfo.(UserInfo)
+	}
+
+	return &DefaultUserInfo{}
 }
 
 func getRenderer(ctx context.Context) OutputRenderer {
