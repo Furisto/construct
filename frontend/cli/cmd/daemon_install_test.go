@@ -1,252 +1,265 @@
 package cmd
 
 import (
-	"os"
-	"path/filepath"
-	"runtime"
+	"fmt"
 	"testing"
 
+	"connectrpc.com/connect"
+	api_client "github.com/furisto/construct/api/go/client"
+	v1 "github.com/furisto/construct/api/go/v1"
+	"github.com/furisto/construct/frontend/cli/cmd/mocks"
+	"github.com/google/uuid"
 	"github.com/spf13/afero"
+	"go.uber.org/mock/gomock"
 )
 
 func TestDaemonInstall(t *testing.T) {
 	setup := &TestSetup{}
 
-	// Skip these tests on unsupported platforms in CI
-	if runtime.GOOS != "darwin" && runtime.GOOS != "linux" {
-		t.Skip("daemon install tests only run on darwin and linux")
-	}
-
 	setup.RunTests(t, []TestScenario{
 		{
-			Name:    "success install http socket",
-			Command: []string{"daemon", "install", "http"},
+			Name:     "success - basic unix socket install on Linux",
+			Command:  []string{"daemon", "install"},
+			Platform: "linux",
+			SetupMocks: func(mockClient *api_client.MockClient) {
+				setupConnectionCheckMock(mockClient, true)
+			},
+			SetupCommandRunner: func(commandRunner *mocks.MockCommandRunner) {
+				commandRunner.EXPECT().Run(gomock.Any(), "systemctl", "daemon-reload").Return("", nil)
+				commandRunner.EXPECT().Run(gomock.Any(), "systemctl", "enable", "construct.socket").Return("", nil)
+			},
+			SetupUserInfo: func(userInfo *mocks.MockUserInfo) {
+				userInfo.EXPECT().HomeDir().Return("/home/user", nil)
+			},
 			SetupFileSystem: func(fs *afero.Afero) {
-				setupMockFileSystem(fs)
+				// Simulate executable path
+				fs.WriteFile("/usr/local/bin/construct", []byte("binary"), 0755)
+			},
+			Expected: TestExpectation{
+				Stdout: " ✓ Socket file written to /etc/systemd/system/construct.socket\n ✓ Service file written to /etc/systemd/system/construct.service\n ✓ Systemd daemon reloaded\n ✓ Socket enabled\n ✓ Context 'default' created\n✓ Daemon installed successfully\n→ Next: Create a model provider with 'construct modelprovider create'\n",
+			},
+		},
+		{
+			Name:     "success - basic unix socket install on macOS",
+			Command:  []string{"daemon", "install"},
+			Platform: "darwin",
+			SetupMocks: func(mockClient *api_client.MockClient) {
+				setupConnectionCheckMock(mockClient, true)
+			},
+			SetupCommandRunner: func(commandRunner *mocks.MockCommandRunner) {
+				commandRunner.EXPECT().Run(gomock.Any(), "launchctl", "bootstrap", "gui/501", gomock.Any()).Return("", nil)
+			},
+			SetupUserInfo: func(userInfo *mocks.MockUserInfo) {
+				userInfo.EXPECT().HomeDir().Return("/Users/testuser", nil)
+				userInfo.EXPECT().UserID().Return("501")
+			},
+			SetupFileSystem: func(fs *afero.Afero) {
+				// Simulate executable path
+				fs.WriteFile("/usr/local/bin/construct", []byte("binary"), 0755)
+			},
+			Expected: TestExpectation{
+				Stdout: " ✓ Service file written to /Users/testuser/Library/LaunchAgents/construct-default.plist\n ✓ Launchd service loaded\n ✓ Context 'default' created\n✓ Daemon installed successfully\n→ Next: Create a model provider with 'construct modelprovider create'\n",
+			},
+		},
+		{
+			Name:     "success - HTTP socket install",
+			Command:  []string{"daemon", "install", "--listen-http", "127.0.0.1:8080"},
+			Platform: "linux",
+			SetupMocks: func(mockClient *api_client.MockClient) {
+				setupConnectionCheckMock(mockClient, true)
+			},
+			SetupCommandRunner: func(commandRunner *mocks.MockCommandRunner) {
+				commandRunner.EXPECT().Run(gomock.Any(), "systemctl", "daemon-reload").Return("", nil)
+				commandRunner.EXPECT().Run(gomock.Any(), "systemctl", "enable", "construct.socket").Return("", nil)
+			},
+			SetupUserInfo: func(userInfo *mocks.MockUserInfo) {
+				userInfo.EXPECT().HomeDir().Return("/home/user", nil)
+			},
+			SetupFileSystem: func(fs *afero.Afero) {
+				fs.WriteFile("/usr/local/bin/construct", []byte("binary"), 0755)
+			},
+			Expected: TestExpectation{
+				Stdout: " ✓ Socket file written to /etc/systemd/system/construct.socket\n ✓ Service file written to /etc/systemd/system/construct.service\n ✓ Systemd daemon reloaded\n ✓ Socket enabled\n ✓ Context 'default' created\n✓ Daemon installed successfully\n→ Next: Create a model provider with 'construct modelprovider create'\n",
+			},
+		},
+		{
+			Name:     "success - custom name install",
+			Command:  []string{"daemon", "install", "--name", "production"},
+			Platform: "linux",
+			SetupMocks: func(mockClient *api_client.MockClient) {
+				setupConnectionCheckMock(mockClient, true)
+			},
+			SetupCommandRunner: func(commandRunner *mocks.MockCommandRunner) {
+				commandRunner.EXPECT().Run(gomock.Any(), "systemctl", "daemon-reload").Return("", nil)
+				commandRunner.EXPECT().Run(gomock.Any(), "systemctl", "enable", "construct.socket").Return("", nil)
+			},
+			SetupUserInfo: func(userInfo *mocks.MockUserInfo) {
+				userInfo.EXPECT().HomeDir().Return("/home/user", nil)
+			},
+			SetupFileSystem: func(fs *afero.Afero) {
+				fs.WriteFile("/usr/local/bin/construct", []byte("binary"), 0755)
+			},
+			Expected: TestExpectation{
+				Stdout: " ✓ Socket file written to /etc/systemd/system/construct.socket\n ✓ Service file written to /etc/systemd/system/construct.service\n ✓ Systemd daemon reloaded\n ✓ Socket enabled\n ✓ Context 'production' created\n✓ Daemon installed successfully\n→ Next: Create a model provider with 'construct modelprovider create'\n",
+			},
+		},
+		{
+			Name:     "success - force reinstall",
+			Command:  []string{"daemon", "install", "--force"},
+			Platform: "linux",
+			SetupMocks: func(mockClient *api_client.MockClient) {
+				setupConnectionCheckMock(mockClient, true)
+			},
+			SetupCommandRunner: func(commandRunner *mocks.MockCommandRunner) {
+				commandRunner.EXPECT().Run(gomock.Any(), "systemctl", "daemon-reload").Return("", nil)
+				commandRunner.EXPECT().Run(gomock.Any(), "systemctl", "enable", "construct.socket").Return("", nil)
+			},
+			SetupUserInfo: func(userInfo *mocks.MockUserInfo) {
+				userInfo.EXPECT().HomeDir().Return("/home/user", nil)
+			},
+			SetupFileSystem: func(fs *afero.Afero) {
+				fs.WriteFile("/usr/local/bin/construct", []byte("binary"), 0755)
+				// Simulate existing installation
+				fs.WriteFile("/etc/systemd/system/construct.socket", []byte("existing"), 0644)
+				fs.WriteFile("/etc/systemd/system/construct.service", []byte("existing"), 0644)
+			},
+			Expected: TestExpectation{
+				Stdout: " ✓ Socket file written to /etc/systemd/system/construct.socket\n ✓ Service file written to /etc/systemd/system/construct.service\n ✓ Systemd daemon reloaded\n ✓ Socket enabled\n ✓ Context 'default' created\n✓ Daemon installed successfully\n→ Next: Create a model provider with 'construct modelprovider create'\n",
+			},
+		},
+		{
+			Name:     "success - quiet mode",
+			Command:  []string{"daemon", "install", "--quiet"},
+			Platform: "linux",
+			SetupMocks: func(mockClient *api_client.MockClient) {
+				setupConnectionCheckMock(mockClient, true)
+			},
+			SetupCommandRunner: func(commandRunner *mocks.MockCommandRunner) {
+				commandRunner.EXPECT().Run(gomock.Any(), "systemctl", "daemon-reload").Return("", nil)
+				commandRunner.EXPECT().Run(gomock.Any(), "systemctl", "enable", "construct.socket").Return("", nil)
+			},
+			SetupUserInfo: func(userInfo *mocks.MockUserInfo) {
+				userInfo.EXPECT().HomeDir().Return("/home/user", nil)
+			},
+			SetupFileSystem: func(fs *afero.Afero) {
+				fs.WriteFile("/usr/local/bin/construct", []byte("binary"), 0755)
 			},
 			Expected: TestExpectation{
 				Stdout: "",
 			},
 		},
 		{
-			Name:    "success install unix socket",
-			Command: []string{"daemon", "install", "unix"},
+			Name:     "error - already installed without force",
+			Command:  []string{"daemon", "install"},
+			Platform: "linux",
+			SetupUserInfo: func(userInfo *mocks.MockUserInfo) {
+				userInfo.EXPECT().HomeDir().Return("/home/user", nil)
+			},
 			SetupFileSystem: func(fs *afero.Afero) {
-				setupMockFileSystem(fs)
+				fs.WriteFile("/usr/local/bin/construct", []byte("binary"), 0755)
+				// Simulate existing installation
+				fs.WriteFile("/etc/systemd/system/construct.socket", []byte("existing"), 0644)
 			},
 			Expected: TestExpectation{
-				Stdout: "",
+				Error: "Construct daemon is already installed on this system",
 			},
 		},
 		{
-			Name:    "success install with force flag",
-			Command: []string{"daemon", "install", "http", "--force"},
+			Name:     "error - permission denied",
+			Command:  []string{"daemon", "install"},
+			Platform: "linux",
+			SetupUserInfo: func(userInfo *mocks.MockUserInfo) {
+				userInfo.EXPECT().HomeDir().Return("/home/user", nil)
+			},
 			SetupFileSystem: func(fs *afero.Afero) {
-				setupMockFileSystemWithExisting(fs)
+				fs.WriteFile("/usr/local/bin/construct", []byte("binary"), 0755)
+				// Make /etc read-only to simulate permission error
+				fs.Chmod("/etc", 0444)
 			},
 			Expected: TestExpectation{
-				Stdout: "",
-			},
-		},
-		{
-			Name:    "error - invalid socket type",
-			Command: []string{"daemon", "install", "invalid"},
-			Expected: TestExpectation{
-				Error: "invalid argument \"invalid\" for \"install\"",
+				Error: "Permission denied accessing /etc/systemd/system/construct.socket",
 			},
 		},
 		{
-			Name:    "error - no socket type provided",
-			Command: []string{"daemon", "install"},
+			Name:     "error - command failure",
+			Command:  []string{"daemon", "install"},
+			Platform: "linux",
+			SetupCommandRunner: func(commandRunner *mocks.MockCommandRunner) {
+				commandRunner.EXPECT().Run(gomock.Any(), "systemctl", "daemon-reload").Return("Failed to reload", fmt.Errorf("systemctl error"))
+			},
+			SetupUserInfo: func(userInfo *mocks.MockUserInfo) {
+				userInfo.EXPECT().HomeDir().Return("/home/user", nil)
+			},
+			SetupFileSystem: func(fs *afero.Afero) {
+				fs.WriteFile("/usr/local/bin/construct", []byte("binary"), 0755)
+			},
 			Expected: TestExpectation{
-				Error: "accepts 1 arg(s), received 0",
+				Error: "Command failed: systemctl daemon-reload",
 			},
 		},
 		{
-			Name:    "error - too many arguments",
-			Command: []string{"daemon", "install", "http", "extra"},
+			Name:     "error - connection failure",
+			Command:  []string{"daemon", "install"},
+			Platform: "linux",
+			SetupMocks: func(mockClient *api_client.MockClient) {
+				setupConnectionCheckMock(mockClient, false)
+			},
+			SetupCommandRunner: func(commandRunner *mocks.MockCommandRunner) {
+				commandRunner.EXPECT().Run(gomock.Any(), "systemctl", "daemon-reload").Return("", nil)
+				commandRunner.EXPECT().Run(gomock.Any(), "systemctl", "enable", "construct.socket").Return("", nil)
+			},
+			SetupUserInfo: func(userInfo *mocks.MockUserInfo) {
+				userInfo.EXPECT().HomeDir().Return("/home/user", nil)
+			},
+			SetupFileSystem: func(fs *afero.Afero) {
+				fs.WriteFile("/usr/local/bin/construct", []byte("binary"), 0755)
+			},
 			Expected: TestExpectation{
-				Error: "accepts 1 arg(s), received 2",
+				Error: "Connection to daemon failed: failed to check connection: connection failed",
+			},
+		},
+		{
+			Name:     "error - unsupported OS",
+			Command:  []string{"daemon", "install"},
+			Platform: "windows",
+			SetupUserInfo: func(userInfo *mocks.MockUserInfo) {
+				userInfo.EXPECT().HomeDir().Return("/home/user", nil)
+			},
+			SetupFileSystem: func(fs *afero.Afero) {
+				fs.WriteFile("/usr/local/bin/construct", []byte("binary"), 0755)
+			},
+			Expected: TestExpectation{
+				Error: "unsupported operating system: windows",
 			},
 		},
 	})
 }
 
-func TestGetExecutableInfo(t *testing.T) {
-	execPath, execDir, err := getExecutableInfo()
-	if err != nil {
-		t.Fatalf("GetExecutableInfo() failed: %v", err)
-	}
-
-	if execPath == "" {
-		t.Error("execPath should not be empty")
-	}
-
-	if execDir == "" {
-		t.Error("execDir should not be empty")
-	}
-
-	if !filepath.IsAbs(execPath) {
-		t.Error("execPath should be absolute")
-	}
-
-	if !filepath.IsAbs(execDir) {
-		t.Error("execDir should be absolute")
-	}
-
-	expectedDir := filepath.Dir(execPath)
-	if execDir != expectedDir {
-		t.Errorf("execDir = %q, want %q", execDir, expectedDir)
-	}
-}
-
-func TestDaemonInstallTemplates(t *testing.T) {
-	tests := []struct {
-		name         string
-		template     string
-		expectedKeys []string
-	}{
-		{
-			name:     "macOS HTTP template",
-			template: macosHTTPTemplate,
-			expectedKeys: []string{
-				"sh.construct",
-				"/usr/local/bin/construct",
-				"daemon",
-				"run",
-				"HTTPSocket",
-				"8080",
+func setupConnectionCheckMock(mockClient *api_client.MockClient, success bool) {
+	if success {
+		mockClient.ModelProvider.EXPECT().ListModelProviders(
+			gomock.Any(),
+			&connect.Request[v1.ListModelProvidersRequest]{
+				Msg: &v1.ListModelProvidersRequest{},
 			},
-		},
-		{
-			name:     "macOS Unix template",
-			template: macosUnixTemplate,
-			expectedKeys: []string{
-				"sh.construct",
-				"/usr/local/bin/construct",
-				"daemon",
-				"run",
-				"ConstructSocket",
-				"/tmp/construct.sock",
+		).Return(&connect.Response[v1.ListModelProvidersResponse]{
+			Msg: &v1.ListModelProvidersResponse{
+				ModelProviders: []*v1.ModelProvider{
+					{
+						Id:           uuid.New().String(),
+						Name:         "openai",
+						ProviderType: v1.ModelProviderType_MODEL_PROVIDER_TYPE_OPENAI,
+						Enabled:      true,
+					},
+				},
 			},
-		},
-		{
-			name:     "Linux HTTP socket template",
-			template: linuxHTTPSocketTemplate,
-			expectedKeys: []string{
-				"construct.socket",
-				"Construct HTTP Socket",
-				"ListenStream=8080",
-				"sockets.target",
+		}, nil)
+	} else {
+		mockClient.ModelProvider.EXPECT().ListModelProviders(
+			gomock.Any(),
+			&connect.Request[v1.ListModelProvidersRequest]{
+				Msg: &v1.ListModelProvidersRequest{},
 			},
-		},
-		{
-			name:     "Linux Unix socket template",
-			template: linuxUnixSocketTemplate,
-			expectedKeys: []string{
-				"construct.socket",
-				"Construct Unix Socket",
-				"ListenStream=/tmp/construct.sock",
-				"sockets.target",
-			},
-		},
-		{
-			name:     "Linux service template",
-			template: linuxServiceTemplate,
-			expectedKeys: []string{
-				"construct.service",
-				"Construct Service",
-				"construct.socket",
-				"/usr/local/bin/construct daemon run",
-			},
-		},
+		).Return(nil, fmt.Errorf("connection failed"))
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			for _, key := range tt.expectedKeys {
-				if !contains(tt.template, key) {
-					t.Errorf("template %s missing expected key: %s", tt.name, key)
-				}
-			}
-		})
-	}
-}
-
-func TestDaemonInstallValidArgs(t *testing.T) {
-	cmd := NewDaemonInstallCmd()
-
-	validArgs := cmd.ValidArgs
-	expectedArgs := []string{"http", "unix"}
-
-	if len(validArgs) != len(expectedArgs) {
-		t.Errorf("ValidArgs length = %d, want %d", len(validArgs), len(expectedArgs))
-	}
-
-	for i, arg := range expectedArgs {
-		if i >= len(validArgs) || validArgs[i] != arg {
-			t.Errorf("ValidArgs[%d] = %q, want %q", i, validArgs[i], arg)
-		}
-	}
-}
-
-func TestDaemonInstallFlags(t *testing.T) {
-	cmd := NewDaemonInstallCmd()
-
-	forceFlag := cmd.Flags().Lookup("force")
-	if forceFlag == nil {
-		t.Error("force flag should exist")
-	}
-
-	if forceFlag.Shorthand != "f" {
-		t.Errorf("force flag shorthand = %q, want %q", forceFlag.Shorthand, "f")
-	}
-
-	if forceFlag.DefValue != "false" {
-		t.Errorf("force flag default = %q, want %q", forceFlag.DefValue, "false")
-	}
-}
-
-// Helper functions
-
-func setupMockFileSystem(fs *afero.Afero) {
-	// Create directories that would be needed
-	if runtime.GOOS == "darwin" {
-		homeDir := "/home/testuser"
-		os.Setenv("HOME", homeDir)
-		launchAgentsDir := filepath.Join(homeDir, "Library", "LaunchAgents")
-		fs.MkdirAll(launchAgentsDir, 0755)
-	} else if runtime.GOOS == "linux" {
-		fs.MkdirAll("/etc/systemd/system", 0755)
-	}
-}
-
-func setupMockFileSystemWithExisting(fs *afero.Afero) {
-	setupMockFileSystem(fs)
-
-	// Create existing files to test force behavior
-	if runtime.GOOS == "darwin" {
-		homeDir := "/home/testuser"
-		launchAgentsDir := filepath.Join(homeDir, "Library", "LaunchAgents")
-		fs.WriteFile(filepath.Join(launchAgentsDir, "construct-http.plist"), []byte("existing"), 0644)
-		fs.WriteFile(filepath.Join(launchAgentsDir, "construct-unix.plist"), []byte("existing"), 0644)
-	} else if runtime.GOOS == "linux" {
-		fs.WriteFile("/etc/systemd/system/construct.socket", []byte("existing"), 0644)
-		fs.WriteFile("/etc/systemd/system/construct.service", []byte("existing"), 0644)
-	}
-}
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) &&
-		(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr ||
-			containsSubstring(s, substr)))
-}
-
-func containsSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }
