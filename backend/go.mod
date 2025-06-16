@@ -20,6 +20,7 @@ require (
 	github.com/spf13/afero v1.14.0
 	github.com/tink-crypto/tink-go v0.0.0-20230613075026-d6de17e3f164
 	github.com/zalando/go-keyring v0.2.6
+	golang.org/x/net v0.35.0
 	google.golang.org/genproto v0.0.0-20240311173647-c811ad7063a7
 	google.golang.org/protobuf v1.36.6
 	k8s.io/client-go v0.32.3
@@ -34,6 +35,7 @@ require (
 	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/bmatcuk/doublestar v1.3.4 // indirect
+	github.com/bored-engineer/go-launchd v0.0.0-20241220214420-b514778f4f80 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/danieljoos/wincred v1.2.2 // indirect
 	github.com/dlclark/regexp2 v1.11.4 // indirect

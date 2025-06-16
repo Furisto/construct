@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+    <dict>
+        <key>Label</key>
+        <string>sh.construct.daemon.{{ .Name }}</string>
+
+        <key>ProgramArguments</key>
+        <array>
+            <string>{{ .ExecPath }}</string>
+            <string>daemon</string>
+            <string>run</string>
+        </array>
+
+        <key>Sockets</key>
+        <dict>
+            <key>Listeners</key>
+            <dict>
+                <key>SockServiceName</key>
+                <string>{{ .HTTPAddress }}</string>
+                <key>SockType</key>
+                <string>stream</string>
+                <key>SockFamily</key>
+                <string>IPv4</string>
+            </dict>
+        </dict>
+
+        <key>KeepAlive</key>
+        <{{ .KeepAlive }} />
+
+        <key>ExitTimeOut</key>
+        <integer>60</integer>
+
+        <key>StandardOutPath</key>
+        <string>/var/log/construct-{{ .Name }}.out</string>
+        <key>StandardErrorPath</key>
+        <string>/var/log/construct-{{ .Name }}.err</string>
+    </dict>
+</plist>

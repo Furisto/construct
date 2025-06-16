@@ -1,0 +1,11 @@
+# myservice-http.socket
+[Unit]
+Description=My Service HTTP Socket
+
+[Socket]
+ListenStream=8080
+BindIPv6Only=both
+ReusePort=true
+
+[Install]
+WantedBy=sockets.target

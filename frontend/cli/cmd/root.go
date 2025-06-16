@@ -2,27 +2,26 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
-	"strings"
-
-	"log/slog"
 	"os"
+	"os/exec"
 	"os/signal"
+	"os/user"
+	"path/filepath"
+	"runtime"
+	"strings"
 	"syscall"
 
-	"entgo.io/ent/dialect"
+	"log/slog"
+
 	"github.com/common-nighthawk/go-figure"
-	"github.com/furisto/construct/backend/agent"
-	"github.com/furisto/construct/backend/memory"
-	"github.com/furisto/construct/backend/secret"
-	"github.com/furisto/construct/backend/tool"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
-	"github.com/tink-crypto/tink-go/keyset"
+	"gopkg.in/yaml.v3"
 
+	"github.com/furisto/construct/api/go/client"
 	api "github.com/furisto/construct/api/go/client"
 )
 
@@ -30,27 +29,27 @@ var globalOptions struct {
 	Verbose bool
 }
 
-var rootCmd = &cobra.Command{
-	Use:   "construct",
-	Short: "Construct: Build intelligent agents.",
-	Long:  figure.NewColorFigure("construct", "standard", "blue", true).String(),
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-			Level: slog.LevelDebug,
-		})))
-	},
-}
-
 func NewRootCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "construct",
 		Short: "Construct: Build intelligent agents.",
 		Long:  figure.NewColorFigure("construct", "standard", "blue", true).String(),
-		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 				Level: slog.LevelDebug,
 			})))
+
+			if requiresContext(cmd) {
+				err := setAPIClient(cmd)
+				if err != nil {
+					slog.Error("failed to set API client", "error", err)
+					return err
+				}
+			}
+
+			return nil
 		},
+		SilenceErrors: true,
 	}
 
 	cmd.PersistentFlags().BoolVarP(&globalOptions.Verbose, "verbose", "v", false, "verbose output")
@@ -102,64 +101,94 @@ func Execute() {
 	}
 }
 
-func RunAgent(ctx context.Context) error {
-	homeDir, err := os.UserHomeDir()
+type Config struct {
+	EndpointContexts client.EndpointContexts `json:"endpoint_contexts"`
+}
+
+func setAPIClient(cmd *cobra.Command) error {
+	endpointContext, err := loadContext(cmd)
 	if err != nil {
 		return err
 	}
 
-	client, err := memory.Open(dialect.SQLite, "file:"+homeDir+"/.construct/construct.db?_fk=1&_journal=WAL&_busy_timeout=5000")
+	if endpointContext.Current == "" {
+		return fmt.Errorf("no current context found. please run `construct context set` to set a current context")
+	}
+
+	apiClient := api.NewClient(endpointContext.Contexts[endpointContext.Current])
+	cmd.SetContext(context.WithValue(cmd.Context(), ContextKeyAPIClient, apiClient))
+
+	return nil
+}
+
+func requiresContext(cmd *cobra.Command) bool {
+	skipCommands := []string{"version", "help", "update", "daemon.", "config."}
+	for _, skipCmd := range skipCommands {
+		cmdName := cmd.Name()
+		parentCmd := cmd.Parent()
+		if parentCmd != nil {
+			cmdName = parentCmd.Name() + "." + cmdName
+		}
+
+		if strings.HasPrefix(cmdName, skipCmd) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func loadContext(cmd *cobra.Command) (*client.EndpointContexts, error) {
+	fs := getFileSystem(cmd.Context())
+
+	constructDir, err := ConstructUserDir()
 	if err != nil {
-		return err
-	}
-	defer client.Close()
-
-	if err := client.Schema.Create(ctx); err != nil {
-		return err
+		return nil, err
 	}
 
-	encryption, err := getEncryptionClient()
+	endpointContextsFile := filepath.Join(constructDir, "context.yaml")
+	exists, err := fs.Exists(endpointContextsFile)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	runtime, err := agent.NewRuntime(
-		client,
-		encryption,
-		agent.WithServerPort(29333),
-		agent.WithCodeActTools(
-			tool.NewCreateFileTool(),
-			tool.NewReadFileTool(),
-			tool.NewEditFileTool(),
-			tool.NewListFilesTool(),
-			tool.NewGrepTool(),
-			tool.NewExecuteCommandTool(),
-			tool.NewPrintTool(),
-		),
-	)
+	if !exists {
+		return nil, fmt.Errorf("construct context not found. please run `construct daemon install` to create a new context")
+	}
 
+	content, err := fs.ReadFile(endpointContextsFile)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return runtime.Run(ctx)
+	var endpointContexts client.EndpointContexts
+	err = yaml.Unmarshal(content, &endpointContexts)
+	if err != nil {
+		return nil, err
+	}
+
+	return &endpointContexts, nil
 }
 
 type ContextKey string
 
 const (
-	ContextKeyAPI        ContextKey = "api"
-	ContextKeyFileSystem ContextKey = "filesystem"
-	ContextKeyFormatter  ContextKey = "formatter"
+	ContextKeyAPIClient       ContextKey = "api_client"
+	ContextKeyFileSystem      ContextKey = "filesystem"
+	ContextKeyOutputRenderer  ContextKey = "output_renderer"
+	ContextKeyCommandRunner   ContextKey = "command_runner"
+	ContextKeyEndpointContext ContextKey = "endpoint_context"
+	ContextKeyRuntimeInfo     ContextKey = "runtime_info"
+	ContextKeyUserInfo        ContextKey = "user_info"
 )
 
 func getAPIClient(ctx context.Context) *api.Client {
-	apiTestClient := ctx.Value(ContextKeyAPI)
-	if apiTestClient != nil {
-		return apiTestClient.(*api.Client)
+	apiClient := ctx.Value(ContextKeyAPIClient)
+	if apiClient != nil {
+		return apiClient.(*api.Client)
 	}
 
-	return api.NewClient("http://localhost:29333/api")
+	return nil
 }
 
 func getFileSystem(ctx context.Context) *afero.Afero {
@@ -171,41 +200,78 @@ func getFileSystem(ctx context.Context) *afero.Afero {
 	return &afero.Afero{Fs: afero.NewOsFs()}
 }
 
-func getEncryptionClient() (*secret.Client, error) {
-	var keyHandle *keyset.Handle
-	keyHandleJson, err := secret.GetSecret[string](secret.ModelProviderEncryptionKey())
+//go:generate mockgen -destination=mocks/command_runner_mock.go -package=mocks . CommandRunner
+type CommandRunner interface {
+	Run(ctx context.Context, command string, args ...string) (string, error)
+}
+
+type RuntimeInfo interface {
+	GOOS() string
+}
+
+//go:generate mockgen -destination=mocks/user_info_mock.go -package=mocks . UserInfo
+type UserInfo interface {
+	UserID() string
+	HomeDir() (string, error)
+}
+
+type DefaultCommandRunner struct{}
+
+func (r *DefaultCommandRunner) Run(ctx context.Context, command string, args ...string) (string, error) {
+	cmd := exec.CommandContext(ctx, command, args...)
+	output, err := cmd.CombinedOutput()
+	return string(output), err
+}
+
+type DefaultRuntimeInfo struct{}
+
+func (r *DefaultRuntimeInfo) GOOS() string {
+	return runtime.GOOS
+}
+
+type DefaultUserInfo struct{}
+
+func (r *DefaultUserInfo) UserID() string {
+	user, err := user.Current()
 	if err != nil {
-		if !errors.Is(err, &secret.ErrSecretNotFound{}) {
-			return nil, err
-		}
+		return ""
+	}
+	return user.Uid
+}
 
-		slog.Debug("generating new encryption key")
-		keyHandle, err = secret.GenerateKeyset()
-		if err != nil {
-			return nil, err
-		}
-		keysetJson, err := secret.KeysetToJSON(keyHandle)
-		if err != nil {
-			return nil, err
-		}
+func (r *DefaultUserInfo) HomeDir() (string, error) {
+	return os.UserHomeDir()
+}
 
-		err = secret.SetSecret(secret.ModelProviderEncryptionKey(), &keysetJson)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		slog.Debug("loading encryption key")
-		keyHandle, err = secret.KeysetFromJSON(*keyHandleJson)
-		if err != nil {
-			return nil, err
-		}
+func getCommandRunner(ctx context.Context) CommandRunner {
+	runner := ctx.Value(ContextKeyCommandRunner)
+	if runner != nil {
+		return runner.(CommandRunner)
 	}
 
-	return secret.NewClient(keyHandle)
+	return &DefaultCommandRunner{}
+}
+
+func getRuntimeInfo(ctx context.Context) RuntimeInfo {
+	runtimeInfo := ctx.Value(ContextKeyRuntimeInfo)
+	if runtimeInfo != nil {
+		return runtimeInfo.(RuntimeInfo)
+	}
+
+	return &DefaultRuntimeInfo{}
+}
+
+func getUserInfo(ctx context.Context) UserInfo {
+	userInfo := ctx.Value(ContextKeyUserInfo)
+	if userInfo != nil {
+		return userInfo.(UserInfo)
+	}
+
+	return &DefaultUserInfo{}
 }
 
 func getRenderer(ctx context.Context) OutputRenderer {
-	printer := ctx.Value(ContextKeyFormatter)
+	printer := ctx.Value(ContextKeyOutputRenderer)
 	if printer != nil {
 		return printer.(OutputRenderer)
 	}
@@ -214,14 +280,35 @@ func getRenderer(ctx context.Context) OutputRenderer {
 }
 
 func confirmDeletion(stdin io.Reader, stdout io.Writer, kind string, idOrNames []string) bool {
+	if len(idOrNames) == 0 {
+		return false
+	}
+
 	if len(idOrNames) > 1 {
 		kind = kind + "s"
 	}
-	fmt.Fprintf(stdout, "Are you sure you want to delete %s %s? (y/n): ", kind, strings.Join(idOrNames, " "))
+
+	message := fmt.Sprintf("Are you sure you want to delete %s %s?", kind, strings.Join(idOrNames, " "))
+	return confirm(stdin, stdout, message)
+}
+
+func confirm(stdin io.Reader, stdout io.Writer, message string) bool {
+	fmt.Fprintf(stdout, "%s (y/n): ", message)
 	var confirm string
 	_, err := fmt.Fscan(stdin, &confirm)
 	if err != nil {
 		return false
 	}
-	return confirm == "y"
+
+	confirm = strings.TrimSpace(strings.ToLower(confirm))
+	return confirm == "y" || confirm == "yes"
+}
+
+func ConstructUserDir() (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get home directory: %w", err)
+	}
+
+	return filepath.Join(homeDir, ".construct"), nil
 }
