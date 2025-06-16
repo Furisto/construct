@@ -31,8 +31,10 @@ var (
 				SetString("❓")
 
 	actionSymbolStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("39")).
-				SetString("▶")
+				SetString("🚀")
+
+	continueSymbolStyle = lipgloss.NewStyle().
+				SetString("➡️")
 
 	linkSymbolStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("75")).
@@ -72,8 +74,11 @@ var (
 	// QuestionSymbol (❓)
 	QuestionSymbol = questionSymbolStyle.String()
 
-	// ActionSymbol (▶)
+	// ActionSymbol (🚀)
 	ActionSymbol = actionSymbolStyle.String()
+
+	// ContinueSymbol (➡️)
+	ContinueSymbol = continueSymbolStyle.String()
 
 	// LinkSymbol (→)
 	LinkSymbol = linkSymbolStyle.String()
