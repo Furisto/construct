@@ -23,6 +23,8 @@ func NewAgentCmd() *cobra.Command {
 	cmd.AddCommand(NewAgentGetCmd())
 	cmd.AddCommand(NewAgentListCmd())
 	cmd.AddCommand(NewAgentDeleteCmd())
+	cmd.AddCommand(NewAgentEditCmd())
+	cmd.AddCommand(NewAgentApplyCmd())
 
 	return cmd
 }
@@ -36,16 +38,21 @@ type AgentDisplay struct {
 	CreatedAt    string `json:"created_at" yaml:"created_at" detail:"full"`
 }
 
-func ConvertAgentToDisplay(agent *v1.Agent, model *v1.Model) *AgentDisplay {
+func ConvertAgentToDisplay(agent *v1.Agent, modelName string) *AgentDisplay {
 	if agent == nil || agent.Metadata == nil || agent.Spec == nil {
 		return nil
 	}
+
+	if modelName == "" {
+		modelName = "none"
+	}
+
 	return &AgentDisplay{
 		ID:           agent.Id,
 		Name:         agent.Metadata.Name,
 		Description:  agent.Metadata.Description,
 		Instructions: agent.Spec.Instructions,
-		Model:        model.Name,
+		Model:        modelName,
 	}
 }
 

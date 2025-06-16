@@ -48,18 +48,22 @@ func NewAgentGetCmd() *cobra.Command {
 				return fmt.Errorf("failed to get agent %s: %w", idOrName, err)
 			}
 
-			modelResp, err := client.Model().GetModel(cmd.Context(), &connect.Request[v1.GetModelRequest]{
-				Msg: &v1.GetModelRequest{
-					Id: agentResp.Msg.Agent.Spec.ModelId,
-				},
-			})
+			var modelName string
+			if agentResp.Msg.Agent.Spec.ModelId != "" {
+				modelResp, err := client.Model().GetModel(cmd.Context(), &connect.Request[v1.GetModelRequest]{
+					Msg: &v1.GetModelRequest{
+						Id: agentResp.Msg.Agent.Spec.ModelId,
+					},
+				})
+	
+				if err != nil {
+					return fmt.Errorf("failed to get model %s: %w", agentResp.Msg.Agent.Spec.ModelId, err)
+				}
 
-			if err != nil {
-				return fmt.Errorf("failed to get model %s: %w", agentResp.Msg.Agent.Spec.ModelId, err)
+				modelName = modelResp.Msg.Model.Name
 			}
 
-			displayAgent := ConvertAgentToDisplay(agentResp.Msg.Agent, modelResp.Msg.Model)
-
+			displayAgent := ConvertAgentToDisplay(agentResp.Msg.Agent, modelName)
 			return getRenderer(cmd.Context()).Render(displayAgent, &options.RenderOptions)
 		},
 	}

@@ -104,7 +104,7 @@ func NewAgentListCmd() *cobra.Command {
 					return fmt.Errorf("failed to get model %s: %w", agent.Spec.ModelId, err)
 				}
 
-				displayAgents[i] = ConvertAgentToDisplay(agent, model.Msg.Model)
+				displayAgents[i] = ConvertAgentToDisplay(agent, model.Msg.Model.Name)
 			}
 
 			// Handle columns filtering if specified
