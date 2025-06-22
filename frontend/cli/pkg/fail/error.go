@@ -2,10 +2,10 @@ package fail
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/furisto/construct/frontend/cli/pkg/terminal"
+	"github.com/getsentry/sentry-go"
 )
 
 type UserFacingSolutionFormat string
@@ -186,7 +186,16 @@ func NewConnectionError(address string, err error) *UserFacingError {
 	}
 }
 
-func EnhanceError(err error, context map[string]interface{}) error {
+func HandleError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	sentry.CaptureException(err)
+	return TransformError(err)
+}
+
+func TransformError(err error) error {
 	if err == nil {
 		return nil
 	}
@@ -196,13 +205,6 @@ func EnhanceError(err error, context map[string]interface{}) error {
 	}
 
 	errStr := err.Error()
-
-	if os.IsPermission(err) {
-		if path, ok := context["path"].(string); ok {
-			return NewPermissionError(path, err)
-		}
-	}
-
 	if strings.Contains(errStr, "no such file or directory") {
 		return &UserFacingError{
 			Cause:       err,

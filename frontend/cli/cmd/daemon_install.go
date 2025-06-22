@@ -14,7 +14,6 @@ import (
 	_ "embed"
 
 	"connectrpc.com/connect"
-	"github.com/furisto/construct/api/go/client"
 	api "github.com/furisto/construct/api/go/client"
 	v1 "github.com/furisto/construct/api/go/v1"
 	"github.com/furisto/construct/frontend/cli/pkg/fail"
@@ -111,7 +110,7 @@ func NewDaemonInstallCmd() *cobra.Command {
 	return cmd
 }
 
-func installDaemon(ctx context.Context, out io.Writer, socketType string, options daemonInstallOptions) (*client.EndpointContext, error) {
+func installDaemon(ctx context.Context, out io.Writer, socketType string, options daemonInstallOptions) (*api.EndpointContext, error) {
 	execPath, err := executableInfo()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get executable info: %w", err)
@@ -153,7 +152,7 @@ func installLaunchdService(ctx context.Context, out io.Writer, socketType, execP
 	userInfo := getUserInfo(ctx)
 	homeDir, err := userInfo.HomeDir()
 	if err != nil {
-		return fail.EnhanceError(err, nil)
+		return fail.HandleError(err)
 	}
 
 	launchAgentsDir := filepath.Join(homeDir, "Library", "LaunchAgents")
@@ -177,7 +176,7 @@ func installLaunchdService(ctx context.Context, out io.Writer, socketType, execP
 
 	content, err := parseServiceTemplate(ctx, options, execPath, macosTemplate)
 	if err != nil {
-		return fail.EnhanceError(err, nil)
+		return fail.HandleError(err)
 	}
 
 	plistPath := filepath.Join(launchAgentsDir, filename)
@@ -234,7 +233,7 @@ func installSystemdService(ctx context.Context, out io.Writer, socketType, execP
 
 	socketContent, err := parseServiceTemplate(ctx, options, execPath, systemdTemplate)
 	if err != nil {
-		return fail.EnhanceError(err, nil)
+		return fail.HandleError(err)
 	}
 
 	if err := fs.WriteFile(socketPath, socketContent, 0644); err != nil {
@@ -247,7 +246,7 @@ func installSystemdService(ctx context.Context, out io.Writer, socketType, execP
 
 	serviceContent, err := parseServiceTemplate(ctx, options, execPath, linuxServiceTemplate)
 	if err != nil {
-		return fail.EnhanceError(err, nil)
+		return fail.HandleError(err)
 	}
 
 	if err := fs.WriteFile(servicePath, serviceContent, 0644); err != nil {
@@ -274,7 +273,7 @@ func installSystemdService(ctx context.Context, out io.Writer, socketType, execP
 func executableInfo() (execPath string, err error) {
 	execPath, err = os.Executable()
 	if err != nil {
-		return "", fail.EnhanceError(err, nil)
+		return "", fail.HandleError(err)
 	}
 
 	realPath, err := filepath.EvalSymlinks(execPath)
@@ -289,7 +288,7 @@ func executableInfo() (execPath string, err error) {
 func parseServiceTemplate(ctx context.Context, options daemonInstallOptions, execPath string, serviceTemplate string) ([]byte, error) {
 	tmpl, err := template.New("daemon-install").Parse(serviceTemplate)
 	if err != nil {
-		return nil, fail.EnhanceError(err, nil)
+		return nil, fail.HandleError(err)
 	}
 
 	var content bytes.Buffer
@@ -300,27 +299,25 @@ func parseServiceTemplate(ctx context.Context, options daemonInstallOptions, exe
 		KeepAlive:   options.AlwaysRunning,
 	})
 	if err != nil {
-		return nil, fail.EnhanceError(err, nil)
+		return nil, fail.HandleError(err)
 	}
 
 	return content.Bytes(), nil
 }
 
-func createOrUpdateContext(ctx context.Context, out io.Writer, socketType string, options daemonInstallOptions) (*client.EndpointContext, error) {
+func createOrUpdateContext(ctx context.Context, out io.Writer, socketType string, options daemonInstallOptions) (*api.EndpointContext, error) {
 	fs := getFileSystem(ctx)
 	userInfo := getUserInfo(ctx)
 
 	homeDir, err := userInfo.HomeDir()
 	if err != nil {
-		return nil, fail.EnhanceError(err, nil)
+		return nil, fail.HandleError(err)
 	}
 	constructDir := filepath.Join(homeDir, ".construct")
 
 	err = fs.MkdirAll(constructDir, 0755)
 	if err != nil {
-		return nil, fail.EnhanceError(err, map[string]interface{}{
-			"path": constructDir,
-		})
+		return nil, fail.HandleError(err)
 	}
 	contextFile := filepath.Join(constructDir, "context.yaml")
 
@@ -334,35 +331,29 @@ func createOrUpdateContext(ctx context.Context, out io.Writer, socketType string
 		return nil, fmt.Errorf("invalid socket type: %s", socketType)
 	}
 
-	var endpointContexts client.EndpointContexts
+	var endpointContexts api.EndpointContexts
 	exists, err := fs.Exists(contextFile)
 	if err != nil {
-		return nil, fail.EnhanceError(err, map[string]interface{}{
-			"path": contextFile,
-		})
+		return nil, fail.HandleError(err)
 	}
 
 	if exists {
 		content, err := fs.ReadFile(contextFile)
 		if err != nil {
-			return nil, fail.EnhanceError(err, map[string]interface{}{
-				"path": contextFile,
-			})
+			return nil, fail.HandleError(err)
 		}
 		err = yaml.Unmarshal(content, &endpointContexts)
 		if err != nil {
-			return nil, fail.EnhanceError(err, map[string]interface{}{
-				"path": contextFile,
-			})
+			return nil, fail.HandleError(err)
 		}
 	}
 
 	contextName := options.Name
 	if endpointContexts.Contexts == nil {
-		endpointContexts.Contexts = make(map[string]client.EndpointContext)
+		endpointContexts.Contexts = make(map[string]api.EndpointContext)
 	}
 
-	endpointContexts.Contexts[contextName] = client.EndpointContext{
+	endpointContexts.Contexts[contextName] = api.EndpointContext{
 		Address: address,
 		Type:    socketType,
 	}
@@ -371,14 +362,12 @@ func createOrUpdateContext(ctx context.Context, out io.Writer, socketType string
 
 	content, err := yaml.Marshal(&endpointContexts)
 	if err != nil {
-		return nil, fail.EnhanceError(err, nil)
+		return nil, fail.HandleError(err)
 	}
 
 	err = fs.WriteFile(contextFile, content, 0644)
 	if err != nil {
-		return nil, fail.EnhanceError(err, map[string]interface{}{
-			"path": contextFile,
-		})
+		return nil, fail.HandleError(err)
 	}
 
 	if exists {
@@ -387,10 +376,10 @@ func createOrUpdateContext(ctx context.Context, out io.Writer, socketType string
 		fmt.Fprintf(out, " %s Context '%s' created\n", terminal.SuccessSymbol, contextName)
 	}
 
-	return client.Ptr(endpointContexts.Contexts[contextName]), nil
+	return api.Ptr(endpointContexts.Contexts[contextName]), nil
 }
 
-func checkConnectionAndSetupStatus(ctx context.Context, out io.Writer, endpoint client.EndpointContext) (bool, error) {
+func checkConnectionAndSetupStatus(ctx context.Context, out io.Writer, endpoint api.EndpointContext) (bool, error) {
 	canConnect, err := terminal.SpinnerFunc(
 		out,
 		"Checking connection to daemon",
@@ -415,7 +404,7 @@ func checkConnectionAndSetupStatus(ctx context.Context, out io.Writer, endpoint 
 	return canConnect, err
 }
 
-func buildTroubleshootingMessage(ctx context.Context, endpointContext *client.EndpointContext) fail.Troubleshooting {
+func buildTroubleshootingMessage(ctx context.Context, endpointContext *api.EndpointContext) fail.Troubleshooting {
 	var solutions []string
 	runtimeInfo := getRuntimeInfo(ctx)
 
