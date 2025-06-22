@@ -15,20 +15,24 @@ func ConvertMemoryMessageToProto(m *memory.Message) (*v1.Message, error) {
 	}
 
 	return &v1.Message{
-		Id: m.ID.String(),
 		Metadata: &v1.MessageMetadata{
+			Id:        m.ID.String(),
 			CreatedAt: timestamppb.New(m.CreateTime),
 			UpdatedAt: timestamppb.New(m.UpdateTime),
 			TaskId:    m.TaskID.String(),
 			AgentId:   ConvertUUIDPtrToStringPtr(m.AgentID),
 			ModelId:   ConvertUUIDPtrToStringPtr(m.ModelID),
 			Role:      convertRole(m.Source),
-			Usage:     convertUsage(m.Usage),
 		},
-		Content: &v1.MessageContent{
-			Content: &v1.MessageContent_Text{
-				Text: convertContent(m.Content),
+		Spec: &v1.MessageSpec{
+			Content: &v1.MessageContent{
+				Content: &v1.MessageContent_Text{
+					Text: convertContent(m.Content),
+				},
 			},
+		},
+		Status: &v1.MessageStatus{
+			Usage: convertUsage(m.Usage),
 		},
 	}, nil
 }

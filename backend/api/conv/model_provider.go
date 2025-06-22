@@ -20,12 +20,16 @@ func ConvertModelProviderIntoProto(mp *memory.ModelProvider) (*v1.ModelProvider,
 	}
 
 	return &v1.ModelProvider{
-		Id:           mp.ID.String(),
-		Name:         mp.Name,
-		ProviderType: protoType,
-		Enabled:      mp.Enabled,
-		CreatedAt:    timestamppb.New(mp.CreateTime),
-		UpdatedAt:    timestamppb.New(mp.UpdateTime),
+		Metadata: &v1.ModelProviderMetadata{
+			Id:           mp.ID.String(),
+			CreatedAt:    timestamppb.New(mp.CreateTime),
+			UpdatedAt:    timestamppb.New(mp.UpdateTime),
+			ProviderType: protoType,
+		},
+		Spec: &v1.ModelProviderSpec{
+			Name:    mp.Name,
+			Enabled: mp.Enabled,
+		},
 	}, nil
 }
 

@@ -124,31 +124,26 @@ func ConvertMemoryMessageToProto(m *memory.Message) (*v1.Message, error) {
 		}
 	}
 
-	metadata := &v1.MessageMetadata{
-		TaskId:    m.TaskID.String(),
-		Role:      role,
-		Usage:     messageUsage,
-		CreatedAt: timestamppb.New(m.CreateTime),
-		UpdatedAt: timestamppb.New(m.UpdateTime),
-	}
-
-	if m.AgentID != uuid.Nil {
-		agentIDStr := m.AgentID.String()
-		metadata.AgentId = &agentIDStr
-	}
-
-	if m.ModelID != uuid.Nil {
-		modelIDStr := m.ModelID.String()
-		metadata.ModelId = &modelIDStr
-	}
 
 	return &v1.Message{
-		Id:       m.ID.String(),
-		Metadata: metadata,
-		Content: &v1.MessageContent{
-			Content: &v1.MessageContent_Text{
-				Text: text,
+		Metadata: &v1.MessageMetadata{
+			Id:        m.ID.String(),
+			CreatedAt: timestamppb.New(m.CreateTime),
+			UpdatedAt: timestamppb.New(m.UpdateTime),
+			TaskId:    m.TaskID.String(),
+			AgentId:   func() *string { if m.AgentID != uuid.Nil { s := m.AgentID.String(); return &s }; return nil }(),
+			ModelId:   func() *string { if m.ModelID != uuid.Nil { s := m.ModelID.String(); return &s }; return nil }(),
+			Role:      role,
+		},
+		Spec: &v1.MessageSpec{
+			Content: &v1.MessageContent{
+				Content: &v1.MessageContent_Text{
+					Text: text,
+				},
 			},
+		},
+		Status: &v1.MessageStatus{
+			Usage: messageUsage,
 		},
 	}, nil
 }

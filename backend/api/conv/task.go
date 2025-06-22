@@ -12,7 +12,6 @@ func ConvertTaskToProto(t *memory.Task) (*v1.Task, error) {
 	}
 
 	return &v1.Task{
-		Id:       t.ID.String(),
 		Metadata: ConvertTaskMetadataToProto(t),
 		Spec:     spec,
 		Status:   ConvertTaskStatusToProto(t),
@@ -21,6 +20,7 @@ func ConvertTaskToProto(t *memory.Task) (*v1.Task, error) {
 
 func ConvertTaskMetadataToProto(t *memory.Task) *v1.TaskMetadata {
 	return &v1.TaskMetadata{
+		Id:        t.ID.String(),
 		CreatedAt: ConvertTimeToTimestamp(t.CreateTime),
 		UpdatedAt: ConvertTimeToTimestamp(t.UpdateTime),
 	}
@@ -30,6 +30,7 @@ func ConvertTaskSpecToProto(t *memory.Task) (*v1.TaskSpec, error) {
 	return &v1.TaskSpec{
 		AgentId:          strPtr(t.AgentID.String()),
 		ProjectDirectory: t.ProjectDirectory,
+		DesiredPhase:     v1.TaskPhase_TASK_PHASE_IDLE, // Default to idle phase
 	}, nil
 }
 
@@ -39,9 +40,11 @@ func ConvertTaskStatusToProto(t *memory.Task) *v1.TaskStatus {
 		OutputTokens:     t.OutputTokens,
 		CacheWriteTokens: t.CacheWriteTokens,
 		CacheReadTokens:  t.CacheReadTokens,
+		Cost:             float64(t.Cost),
 	}
 
 	return &v1.TaskStatus{
 		Usage: usage,
+		Phase: v1.TaskPhase_TASK_PHASE_IDLE, // Default to idle phase
 	}
 }

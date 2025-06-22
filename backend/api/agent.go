@@ -10,7 +10,6 @@ import (
 	"github.com/furisto/construct/backend/api/conv"
 	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/memory/agent"
-	"github.com/furisto/construct/backend/memory/model"
 	"github.com/google/uuid"
 )
 
@@ -33,15 +32,6 @@ func (h *AgentHandler) CreateAgent(ctx context.Context, req *connect.Request[v1.
 		return nil, apiError(connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid model ID format: %w", err)))
 	}
 
-	delegateIDs := make([]uuid.UUID, 0, len(req.Msg.DelegateIds))
-	for _, delegateIDStr := range req.Msg.DelegateIds {
-		delegateID, err := uuid.Parse(delegateIDStr)
-		if err != nil {
-			return nil, apiError(connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid delegate ID format: %w", err)))
-		}
-		delegateIDs = append(delegateIDs, delegateID)
-	}
-
 	created, err := memory.Transaction(ctx, h.db, func(tx *memory.Client) (*memory.Agent, error) {
 		create := tx.Agent.Create().
 			SetName(req.Msg.Name).
@@ -62,17 +52,6 @@ func (h *AgentHandler) CreateAgent(ctx context.Context, req *connect.Request[v1.
 
 		create = create.SetModel(model)
 
-		if len(delegateIDs) > 0 {
-			delegates, err := tx.Agent.Query().Where(agent.IDIn(delegateIDs...)).All(ctx)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get delegates: %w", err)
-			}
-			if len(delegates) != len(delegateIDs) {
-				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("one or more delegate IDs are invalid"))
-			}
-			create = create.AddDelegates(delegates...)
-		}
-
 		return create.Save(ctx)
 	})
 
@@ -80,7 +59,7 @@ func (h *AgentHandler) CreateAgent(ctx context.Context, req *connect.Request[v1.
 		return nil, apiError(err)
 	}
 
-	agent, err := h.db.Agent.Query().Where(agent.ID(created.ID)).WithModel().WithDelegates().First(ctx)
+	agent, err := h.db.Agent.Query().Where(agent.ID(created.ID)).WithModel().First(ctx)
 	if err != nil {
 		return nil, apiError(err)
 	}
@@ -104,7 +83,6 @@ func (h *AgentHandler) GetAgent(ctx context.Context, req *connect.Request[v1.Get
 	agent, err := h.db.Agent.Query().
 		Where(agent.ID(id)).
 		WithModel().
-		WithDelegates().
 		First(ctx)
 	if err != nil {
 		return nil, apiError(err)
@@ -121,17 +99,10 @@ func (h *AgentHandler) GetAgent(ctx context.Context, req *connect.Request[v1.Get
 }
 
 func (h *AgentHandler) ListAgents(ctx context.Context, req *connect.Request[v1.ListAgentsRequest]) (*connect.Response[v1.ListAgentsResponse], error) {
-	query := h.db.Agent.Query().WithModel().WithDelegates()
+	query := h.db.Agent.Query().WithModel()
 
-	if req.Msg.Filter != nil && req.Msg.Filter.ModelIds != nil {
-		// TODO: support multiple models
-		for _, modelID := range req.Msg.Filter.ModelIds {
-			modelID, err := uuid.Parse(modelID)
-			if err != nil {
-				return nil, apiError(connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid model ID format: %w", err)))
-			}
-			query = query.Where(agent.HasModelWith(model.ID(modelID)))
-		}
+	if req.Msg.Filter != nil && len(req.Msg.Filter.Names) > 0 {
+		query = query.Where(agent.NameIn(req.Msg.Filter.Names...))
 	}
 
 	agents, err := query.All(ctx)
@@ -185,27 +156,6 @@ func (h *AgentHandler) UpdateAgent(ctx context.Context, req *connect.Request[v1.
 		update = update.SetModel(model)
 	}
 
-	if len(req.Msg.DelegateIds) > 0 {
-		delegateIDs := make([]uuid.UUID, 0, len(req.Msg.DelegateIds))
-		for _, delegateIDStr := range req.Msg.DelegateIds {
-			delegateID, err := uuid.Parse(delegateIDStr)
-			if err != nil {
-				return nil, apiError(connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid delegate ID format: %w", err)))
-			}
-			delegateIDs = append(delegateIDs, delegateID)
-		}
-
-		delegates, err := h.db.Agent.Query().Where(agent.IDIn(delegateIDs...)).All(ctx)
-		if err != nil {
-			return nil, apiError(fmt.Errorf("failed to get delegates: %w", err))
-		}
-		if len(delegates) != len(delegateIDs) {
-			return nil, apiError(connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("one or more delegate IDs are invalid")))
-		}
-
-		update = update.ClearDelegates().AddDelegates(delegates...)
-	}
-
 	updatedAgent, err := update.Save(ctx)
 	if err != nil {
 		return nil, apiError(err)
@@ -214,7 +164,6 @@ func (h *AgentHandler) UpdateAgent(ctx context.Context, req *connect.Request[v1.
 	updatedAgent, err = h.db.Agent.Query().
 		Where(agent.ID(updatedAgent.ID)).
 		WithModel().
-		WithDelegates().
 		First(ctx)
 	if err != nil {
 		return nil, apiError(err)

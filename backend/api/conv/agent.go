@@ -12,7 +12,6 @@ func ConvertAgentToProto(a *memory.Agent) (*v1.Agent, error) {
 	}
 
 	return &v1.Agent{
-		Id:       a.ID.String(),
 		Metadata: ConvertAgentMetadataToProto(a),
 		Spec:     spec,
 	}, nil
@@ -20,10 +19,9 @@ func ConvertAgentToProto(a *memory.Agent) (*v1.Agent, error) {
 
 func ConvertAgentMetadataToProto(a *memory.Agent) *v1.AgentMetadata {
 	return &v1.AgentMetadata{
-		Name:        a.Name,
-		Description: a.Description,
-		CreatedAt:   ConvertTimeToTimestamp(a.CreateTime),
-		UpdatedAt:   ConvertTimeToTimestamp(a.UpdateTime),
+		Id:        a.ID.String(),
+		CreatedAt: ConvertTimeToTimestamp(a.CreateTime),
+		UpdatedAt: ConvertTimeToTimestamp(a.UpdateTime),
 	}
 }
 
@@ -32,6 +30,8 @@ func ConvertAgentSpecToProto(a *memory.Agent) (*v1.AgentSpec, error) {
 		return nil, &MissingRelatedEntityError{Entity: "model"}
 	}
 	return &v1.AgentSpec{
+		Name:         a.Name,
+		Description:  a.Description,
 		Instructions: a.Instructions,
 		ModelId:      ConvertUUIDToString(a.Edges.Model.ID),
 	}, nil

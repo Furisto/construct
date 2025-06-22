@@ -23,9 +23,9 @@ func TestCreateModelProvider(t *testing.T) {
 			return client.ModelProvider().CreateModelProvider(ctx, req)
 		},
 		CmpOptions: []cmp.Option{
-			cmpopts.IgnoreUnexported(v1.CreateModelProviderResponse{}, v1.ModelProvider{}),
+			cmpopts.IgnoreUnexported(v1.CreateModelProviderResponse{}, v1.ModelProvider{}, v1.ModelProviderMetadata{}, v1.ModelProviderSpec{}),
 			protocmp.Transform(),
-			protocmp.IgnoreFields(&v1.ModelProvider{}, "id", "created_at", "updated_at"),
+			protocmp.IgnoreFields(&v1.ModelProviderMetadata{}, "id", "created_at", "updated_at"),
 		},
 	}
 
@@ -52,9 +52,13 @@ func TestCreateModelProvider(t *testing.T) {
 			Expected: ServiceTestExpectation[v1.CreateModelProviderResponse]{
 				Response: v1.CreateModelProviderResponse{
 					ModelProvider: &v1.ModelProvider{
-						Name:         "anthropic",
-						ProviderType: v1.ModelProviderType_MODEL_PROVIDER_TYPE_ANTHROPIC,
-						Enabled:      true,
+						Metadata: &v1.ModelProviderMetadata{
+							ProviderType: v1.ModelProviderType_MODEL_PROVIDER_TYPE_ANTHROPIC,
+						},
+						Spec: &v1.ModelProviderSpec{
+							Name:    "anthropic",
+							Enabled: true,
+						},
 					},
 				},
 			},
@@ -68,9 +72,9 @@ func TestGetModelProvider(t *testing.T) {
 			return client.ModelProvider().GetModelProvider(ctx, req)
 		},
 		CmpOptions: []cmp.Option{
-			cmpopts.IgnoreUnexported(v1.GetModelProviderResponse{}, v1.ModelProvider{}),
+			cmpopts.IgnoreUnexported(v1.GetModelProviderResponse{}, v1.ModelProvider{}, v1.ModelProviderMetadata{}, v1.ModelProviderSpec{}),
 			protocmp.Transform(),
-			protocmp.IgnoreFields(&v1.ModelProvider{}, "created_at", "updated_at"),
+			protocmp.IgnoreFields(&v1.ModelProviderMetadata{}, "created_at", "updated_at"),
 		},
 	}
 
@@ -107,10 +111,14 @@ func TestGetModelProvider(t *testing.T) {
 			Expected: ServiceTestExpectation[v1.GetModelProviderResponse]{
 				Response: v1.GetModelProviderResponse{
 					ModelProvider: &v1.ModelProvider{
-						Id:           modelProviderID.String(),
-						Name:         "anthropic",
-						ProviderType: v1.ModelProviderType_MODEL_PROVIDER_TYPE_ANTHROPIC,
-						Enabled:      true,
+						Metadata: &v1.ModelProviderMetadata{
+							Id:           modelProviderID.String(),
+							ProviderType: v1.ModelProviderType_MODEL_PROVIDER_TYPE_ANTHROPIC,
+						},
+						Spec: &v1.ModelProviderSpec{
+							Name:    "anthropic",
+							Enabled: true,
+						},
 					},
 				},
 			},
@@ -124,9 +132,9 @@ func TestListModelProviders(t *testing.T) {
 			return client.ModelProvider().ListModelProviders(ctx, req)
 		},
 		CmpOptions: []cmp.Option{
-			cmpopts.IgnoreUnexported(v1.ListModelProvidersResponse{}, v1.ModelProvider{}),
+			cmpopts.IgnoreUnexported(v1.ListModelProvidersResponse{}, v1.ModelProvider{}, v1.ModelProviderMetadata{}, v1.ModelProviderSpec{}),
 			protocmp.Transform(),
-			protocmp.IgnoreFields(&v1.ModelProvider{}, "created_at", "updated_at"),
+			protocmp.IgnoreFields(&v1.ModelProviderMetadata{}, "created_at", "updated_at"),
 		},
 	}
 
@@ -169,10 +177,14 @@ func TestListModelProviders(t *testing.T) {
 				Response: v1.ListModelProvidersResponse{
 					ModelProviders: []*v1.ModelProvider{
 						{
-							Id:           anthropicID.String(),
-							Name:         "anthropic",
-							ProviderType: v1.ModelProviderType_MODEL_PROVIDER_TYPE_ANTHROPIC,
-							Enabled:      true,
+							Metadata: &v1.ModelProviderMetadata{
+								Id:           anthropicID.String(),
+								ProviderType: v1.ModelProviderType_MODEL_PROVIDER_TYPE_ANTHROPIC,
+							},
+							Spec: &v1.ModelProviderSpec{
+								Name:    "anthropic",
+								Enabled: true,
+							},
 						},
 					},
 				},
@@ -204,10 +216,14 @@ func TestListModelProviders(t *testing.T) {
 				Response: v1.ListModelProvidersResponse{
 					ModelProviders: []*v1.ModelProvider{
 						{
-							Id:           openaiID.String(),
-							Name:         "openai",
-							ProviderType: v1.ModelProviderType_MODEL_PROVIDER_TYPE_OPENAI,
-							Enabled:      true,
+							Metadata: &v1.ModelProviderMetadata{
+								Id:           openaiID.String(),
+								ProviderType: v1.ModelProviderType_MODEL_PROVIDER_TYPE_OPENAI,
+							},
+							Spec: &v1.ModelProviderSpec{
+								Name:    "openai",
+								Enabled: true,
+							},
 						},
 					},
 				},
@@ -235,16 +251,24 @@ func TestListModelProviders(t *testing.T) {
 				Response: v1.ListModelProvidersResponse{
 					ModelProviders: []*v1.ModelProvider{
 						{
-							Id:           anthropicID.String(),
-							Name:         "anthropic",
-							ProviderType: v1.ModelProviderType_MODEL_PROVIDER_TYPE_ANTHROPIC,
-							Enabled:      true,
+							Metadata: &v1.ModelProviderMetadata{
+								Id:           anthropicID.String(),
+								ProviderType: v1.ModelProviderType_MODEL_PROVIDER_TYPE_ANTHROPIC,
+							},
+							Spec: &v1.ModelProviderSpec{
+								Name:    "anthropic",
+								Enabled: true,
+							},
 						},
 						{
-							Id:           openaiID.String(),
-							Name:         "openai",
-							ProviderType: v1.ModelProviderType_MODEL_PROVIDER_TYPE_OPENAI,
-							Enabled:      true,
+							Metadata: &v1.ModelProviderMetadata{
+								Id:           openaiID.String(),
+								ProviderType: v1.ModelProviderType_MODEL_PROVIDER_TYPE_OPENAI,
+							},
+							Spec: &v1.ModelProviderSpec{
+								Name:    "openai",
+								Enabled: true,
+							},
 						},
 					},
 				},

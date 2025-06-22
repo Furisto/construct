@@ -112,6 +112,10 @@ func (h *ModelHandler) ListModels(ctx context.Context, req *connect.Request[v1.L
 	query := h.db.Model.Query()
 
 	if req.Msg.Filter != nil {
+		if len(req.Msg.Filter.Names) > 0 {
+			query = query.Where(model.NameIn(req.Msg.Filter.Names...))
+		}
+
 		if req.Msg.Filter.ModelProviderId != nil {
 			modelProviderID, err := uuid.Parse(*req.Msg.Filter.ModelProviderId)
 			if err != nil {

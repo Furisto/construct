@@ -23,10 +23,9 @@ func TestCreateMessage(t *testing.T) {
 			return client.Message().CreateMessage(ctx, req)
 		},
 		CmpOptions: []cmp.Option{
-			cmpopts.IgnoreUnexported(v1.CreateMessageResponse{}, v1.Message{}, v1.MessageMetadata{}, v1.MessageUsage{}),
+			cmpopts.IgnoreUnexported(v1.CreateMessageResponse{}, v1.Message{}, v1.MessageMetadata{}, v1.MessageSpec{}, v1.MessageStatus{}, v1.MessageUsage{}, v1.MessageContent{}),
 			protocmp.Transform(),
-			protocmp.IgnoreFields(&v1.Message{}, "id"),
-			protocmp.IgnoreFields(&v1.MessageMetadata{}, "created_at", "updated_at"),
+			protocmp.IgnoreFields(&v1.MessageMetadata{}, "id", "created_at", "updated_at"),
 		},
 	}
 
@@ -74,11 +73,14 @@ func TestCreateMessage(t *testing.T) {
 							TaskId: taskID.String(),
 							Role:   v1.MessageRole_MESSAGE_ROLE_USER,
 						},
-						Content: &v1.MessageContent{
-							Content: &v1.MessageContent_Text{
-								Text: "Test message content",
+						Spec: &v1.MessageSpec{
+							Content: &v1.MessageContent{
+								Content: &v1.MessageContent_Text{
+									Text: "Test message content",
+								},
 							},
 						},
+						Status: &v1.MessageStatus{},
 					},
 				},
 			},
@@ -92,7 +94,7 @@ func TestGetMessage(t *testing.T) {
 			return client.Message().GetMessage(ctx, req)
 		},
 		CmpOptions: []cmp.Option{
-			cmpopts.IgnoreUnexported(v1.GetMessageResponse{}, v1.Message{}, v1.MessageMetadata{}, v1.MessageUsage{}),
+			cmpopts.IgnoreUnexported(v1.GetMessageResponse{}, v1.Message{}, v1.MessageMetadata{}, v1.MessageSpec{}, v1.MessageStatus{}, v1.MessageUsage{}, v1.MessageContent{}),
 			protocmp.Transform(),
 			protocmp.IgnoreFields(&v1.MessageMetadata{}, "created_at", "updated_at"),
 		},
@@ -149,18 +151,21 @@ func TestGetMessage(t *testing.T) {
 			Expected: ServiceTestExpectation[v1.GetMessageResponse]{
 				Response: v1.GetMessageResponse{
 					Message: &v1.Message{
-						Id: messageID.String(),
 						Metadata: &v1.MessageMetadata{
+							Id:      messageID.String(),
 							TaskId:  taskID.String(),
 							AgentId: strPtr(agentID.String()),
 							ModelId: strPtr(modelID.String()),
 							Role:    v1.MessageRole_MESSAGE_ROLE_ASSISTANT,
 						},
-						Content: &v1.MessageContent{
-							Content: &v1.MessageContent_Text{
-								Text: "Test message content",
+						Spec: &v1.MessageSpec{
+							Content: &v1.MessageContent{
+								Content: &v1.MessageContent_Text{
+									Text: "Test message content",
+								},
 							},
 						},
+						Status: &v1.MessageStatus{},
 					},
 				},
 			},
@@ -174,7 +179,7 @@ func TestListMessages(t *testing.T) {
 			return client.Message().ListMessages(ctx, req)
 		},
 		CmpOptions: []cmp.Option{
-			cmpopts.IgnoreUnexported(v1.ListMessagesResponse{}, v1.Message{}, v1.MessageMetadata{}, v1.MessageUsage{}, v1.ListMessagesRequest_Filter{}),
+			cmpopts.IgnoreUnexported(v1.ListMessagesResponse{}, v1.Message{}, v1.MessageMetadata{}, v1.MessageSpec{}, v1.MessageStatus{}, v1.MessageUsage{}, v1.MessageContent{}, v1.ListMessagesRequest_Filter{}),
 			protocmp.Transform(),
 			protocmp.IgnoreFields(&v1.MessageMetadata{}, "created_at", "updated_at"),
 		},
@@ -202,7 +207,7 @@ func TestListMessages(t *testing.T) {
 			Name: "filter by task ID - invalid format",
 			Request: &v1.ListMessagesRequest{
 				Filter: &v1.ListMessagesRequest_Filter{
-					TaskId: strPtr("not-a-valid-uuid"),
+					TaskIds: strPtr("not-a-valid-uuid"),
 				},
 			},
 			Expected: ServiceTestExpectation[v1.ListMessagesResponse]{
@@ -213,7 +218,7 @@ func TestListMessages(t *testing.T) {
 			Name: "filter by agent ID - invalid format",
 			Request: &v1.ListMessagesRequest{
 				Filter: &v1.ListMessagesRequest_Filter{
-					AgentId: strPtr("not-a-valid-uuid"),
+					AgentIds: strPtr("not-a-valid-uuid"),
 				},
 			},
 			Expected: ServiceTestExpectation[v1.ListMessagesResponse]{
@@ -245,25 +250,28 @@ func TestListMessages(t *testing.T) {
 			},
 			Request: &v1.ListMessagesRequest{
 				Filter: &v1.ListMessagesRequest_Filter{
-					TaskId: strPtr(taskID2.String()),
+					TaskIds: strPtr(taskID2.String()),
 				},
 			},
 			Expected: ServiceTestExpectation[v1.ListMessagesResponse]{
 				Response: v1.ListMessagesResponse{
 					Messages: []*v1.Message{
 						{
-							Id: messageID2.String(),
 							Metadata: &v1.MessageMetadata{
+								Id:      messageID2.String(),
 								TaskId:  taskID2.String(),
 								AgentId: strPtr(agentID1.String()),
 								ModelId: strPtr(modelID.String()),
 								Role:    v1.MessageRole_MESSAGE_ROLE_ASSISTANT,
 							},
-							Content: &v1.MessageContent{
-								Content: &v1.MessageContent_Text{
-									Text: "Message 2 content",
+							Spec: &v1.MessageSpec{
+								Content: &v1.MessageContent{
+									Content: &v1.MessageContent_Text{
+										Text: "Message 2 content",
+									},
 								},
 							},
+							Status: &v1.MessageStatus{},
 						},
 					},
 				},
@@ -306,25 +314,28 @@ func TestListMessages(t *testing.T) {
 			},
 			Request: &v1.ListMessagesRequest{
 				Filter: &v1.ListMessagesRequest_Filter{
-					AgentId: strPtr(agentID2.String()),
+					AgentIds: strPtr(agentID2.String()),
 				},
 			},
 			Expected: ServiceTestExpectation[v1.ListMessagesResponse]{
 				Response: v1.ListMessagesResponse{
 					Messages: []*v1.Message{
 						{
-							Id: messageID2.String(),
 							Metadata: &v1.MessageMetadata{
+								Id:      messageID2.String(),
 								TaskId:  taskID1.String(),
 								AgentId: strPtr(agentID2.String()),
 								ModelId: strPtr(modelID.String()),
 								Role:    v1.MessageRole_MESSAGE_ROLE_ASSISTANT,
 							},
-							Content: &v1.MessageContent{
-								Content: &v1.MessageContent_Text{
-									Text: "Message 2 content",
+							Spec: &v1.MessageSpec{
+								Content: &v1.MessageContent{
+									Content: &v1.MessageContent_Text{
+										Text: "Message 2 content",
+									},
 								},
 							},
+							Status: &v1.MessageStatus{},
 						},
 					},
 				},
@@ -365,25 +376,28 @@ func TestListMessages(t *testing.T) {
 			},
 			Request: &v1.ListMessagesRequest{
 				Filter: &v1.ListMessagesRequest_Filter{
-					Role: rolePtr(v1.MessageRole_MESSAGE_ROLE_ASSISTANT),
+					Roles: rolePtr(v1.MessageRole_MESSAGE_ROLE_ASSISTANT),
 				},
 			},
 			Expected: ServiceTestExpectation[v1.ListMessagesResponse]{
 				Response: v1.ListMessagesResponse{
 					Messages: []*v1.Message{
 						{
-							Id: messageID2.String(),
 							Metadata: &v1.MessageMetadata{
+								Id:      messageID2.String(),
 								TaskId:  taskID1.String(),
 								AgentId: strPtr(agentID1.String()),
 								ModelId: strPtr(modelID.String()),
 								Role:    v1.MessageRole_MESSAGE_ROLE_ASSISTANT,
 							},
-							Content: &v1.MessageContent{
-								Content: &v1.MessageContent_Text{
-									Text: "Message 2 content",
+							Spec: &v1.MessageSpec{
+								Content: &v1.MessageContent{
+									Content: &v1.MessageContent_Text{
+										Text: "Message 2 content",
+									},
 								},
 							},
+							Status: &v1.MessageStatus{},
 						},
 					},
 				},
@@ -428,30 +442,36 @@ func TestListMessages(t *testing.T) {
 				Response: v1.ListMessagesResponse{
 					Messages: []*v1.Message{
 						{
-							Id: messageID1.String(),
 							Metadata: &v1.MessageMetadata{
+								Id:     messageID1.String(),
 								TaskId: taskID1.String(),
 								Role:   v1.MessageRole_MESSAGE_ROLE_USER,
 							},
-							Content: &v1.MessageContent{
-								Content: &v1.MessageContent_Text{
-									Text: "Message 1 content",
+							Spec: &v1.MessageSpec{
+								Content: &v1.MessageContent{
+									Content: &v1.MessageContent_Text{
+										Text: "Message 1 content",
+									},
 								},
 							},
+							Status: &v1.MessageStatus{},
 						},
 						{
-							Id: messageID2.String(),
 							Metadata: &v1.MessageMetadata{
+								Id:      messageID2.String(),
 								TaskId:  taskID2.String(),
 								AgentId: strPtr(agentID1.String()),
 								ModelId: strPtr(modelID.String()),
 								Role:    v1.MessageRole_MESSAGE_ROLE_ASSISTANT,
 							},
-							Content: &v1.MessageContent{
-								Content: &v1.MessageContent_Text{
-									Text: "Message 2 content",
+							Spec: &v1.MessageSpec{
+								Content: &v1.MessageContent{
+									Content: &v1.MessageContent_Text{
+										Text: "Message 2 content",
+									},
 								},
 							},
+							Status: &v1.MessageStatus{},
 						},
 					},
 				},
@@ -466,7 +486,7 @@ func TestUpdateMessage(t *testing.T) {
 			return client.Message().UpdateMessage(ctx, req)
 		},
 		CmpOptions: []cmp.Option{
-			cmpopts.IgnoreUnexported(v1.UpdateMessageResponse{}, v1.Message{}, v1.MessageMetadata{}, v1.MessageUsage{}),
+			cmpopts.IgnoreUnexported(v1.UpdateMessageResponse{}, v1.Message{}, v1.MessageMetadata{}, v1.MessageSpec{}, v1.MessageStatus{}, v1.MessageUsage{}, v1.MessageContent{}),
 			protocmp.Transform(),
 			protocmp.IgnoreFields(&v1.MessageMetadata{}, "created_at", "updated_at"),
 		},
@@ -524,16 +544,19 @@ func TestUpdateMessage(t *testing.T) {
 			Expected: ServiceTestExpectation[v1.UpdateMessageResponse]{
 				Response: v1.UpdateMessageResponse{
 					Message: &v1.Message{
-						Id: messageID.String(),
 						Metadata: &v1.MessageMetadata{
+							Id:     messageID.String(),
 							TaskId: taskID.String(),
 							Role:   v1.MessageRole_MESSAGE_ROLE_USER,
 						},
-						Content: &v1.MessageContent{
-							Content: &v1.MessageContent_Text{
-								Text: "Updated content",
+						Spec: &v1.MessageSpec{
+							Content: &v1.MessageContent{
+								Content: &v1.MessageContent_Text{
+									Text: "Updated content",
+								},
 							},
 						},
+						Status: &v1.MessageStatus{},
 					},
 				},
 			},

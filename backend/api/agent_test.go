@@ -24,8 +24,7 @@ func TestCreateAgent(t *testing.T) {
 		CmpOptions: []cmp.Option{
 			cmpopts.IgnoreUnexported(v1.CreateAgentResponse{}, v1.Agent{}, v1.AgentMetadata{}, v1.AgentSpec{}),
 			protocmp.Transform(),
-			protocmp.IgnoreFields(&v1.Agent{}, "id"),
-			protocmp.IgnoreFields(&v1.AgentMetadata{}, "created_at", "updated_at"),
+			protocmp.IgnoreFields(&v1.AgentMetadata{}, "id", "created_at", "updated_at"),
 		},
 	}
 
@@ -90,14 +89,12 @@ func TestCreateAgent(t *testing.T) {
 			Expected: ServiceTestExpectation[v1.CreateAgentResponse]{
 				Response: v1.CreateAgentResponse{
 					Agent: &v1.Agent{
-						Metadata: &v1.AgentMetadata{
-							Name:        "architect-agent",
-							Description: "Architect agent",
-						},
+						Metadata: &v1.AgentMetadata{},
 						Spec: &v1.AgentSpec{
+							Name:         "architect-agent",
+							Description:  "Architect agent",
 							Instructions: "Instructions for architect agent",
 							ModelId:      modelID.String(),
-							DelegateIds:  []string{},
 						},
 					},
 				},
@@ -159,15 +156,14 @@ func TestGetAgent(t *testing.T) {
 			Expected: ServiceTestExpectation[v1.GetAgentResponse]{
 				Response: v1.GetAgentResponse{
 					Agent: &v1.Agent{
-						Id: agentID.String(),
 						Metadata: &v1.AgentMetadata{
-							Name:        "architect-agent",
-							Description: "Architect agent description",
+							Id: agentID.String(),
 						},
 						Spec: &v1.AgentSpec{
+							Name:         "architect-agent",
+							Description:  "Architect agent description",
 							Instructions: "Architect agent instructions",
 							ModelId:      modelID.String(),
-							DelegateIds:  []string{},
 						},
 					},
 				},
@@ -204,7 +200,7 @@ func TestListAgents(t *testing.T) {
 			},
 		},
 		{
-			Name: "filter by model ID",
+			Name: "filter by name",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
 				modelProvider := test.NewModelProviderBuilder(t, uuid.New(), db).Build(ctx)
 
@@ -228,22 +224,21 @@ func TestListAgents(t *testing.T) {
 			},
 			Request: &v1.ListAgentsRequest{
 				Filter: &v1.ListAgentsRequest_Filter{
-					ModelIds: []string{model1ID.String()},
+					Names: []string{"architect-agent-1"},
 				},
 			},
 			Expected: ServiceTestExpectation[v1.ListAgentsResponse]{
 				Response: v1.ListAgentsResponse{
 					Agents: []*v1.Agent{
 						{
-							Id: agent1ID.String(),
 							Metadata: &v1.AgentMetadata{
-								Name:        "architect-agent-1",
-								Description: "Architect agent 1 description",
+								Id: agent1ID.String(),
 							},
 							Spec: &v1.AgentSpec{
+								Name:         "architect-agent-1",
+								Description:  "Architect agent 1 description",
 								Instructions: "Architect agent 1 instructions",
 								ModelId:      model1ID.String(),
-								DelegateIds:  []string{},
 							},
 						},
 					},
@@ -275,27 +270,25 @@ func TestListAgents(t *testing.T) {
 				Response: v1.ListAgentsResponse{
 					Agents: []*v1.Agent{
 						{
-							Id: agent1ID.String(),
 							Metadata: &v1.AgentMetadata{
-								Name:        "architect-agent-1",
-								Description: "Architect agent 1 description",
+								Id: agent1ID.String(),
 							},
 							Spec: &v1.AgentSpec{
+								Name:         "architect-agent-1",
+								Description:  "Architect agent 1 description",
 								Instructions: "Architect agent 1 instructions",
 								ModelId:      model1ID.String(),
-								DelegateIds:  []string{},
 							},
 						},
 						{
-							Id: agent2ID.String(),
 							Metadata: &v1.AgentMetadata{
-								Name:        "architect-agent-2",
-								Description: "Architect agent 2 description",
+								Id: agent2ID.String(),
 							},
 							Spec: &v1.AgentSpec{
+								Name:         "architect-agent-2",
+								Description:  "Architect agent 2 description",
 								Instructions: "Architect agent 2 instructions",
 								ModelId:      model1ID.String(),
-								DelegateIds:  []string{},
 							},
 						},
 					},
@@ -406,15 +399,14 @@ func TestUpdateAgent(t *testing.T) {
 			Expected: ServiceTestExpectation[v1.UpdateAgentResponse]{
 				Response: v1.UpdateAgentResponse{
 					Agent: &v1.Agent{
-						Id: agentID.String(),
 						Metadata: &v1.AgentMetadata{
-							Name:        "updated-agent",
-							Description: "Updated description",
+							Id: agentID.String(),
 						},
 						Spec: &v1.AgentSpec{
+							Name:         "updated-agent",
+							Description:  "Updated description",
 							Instructions: "Updated instructions",
 							ModelId:      modelID.String(),
-							DelegateIds:  []string{},
 						},
 					},
 				},
@@ -445,15 +437,14 @@ func TestUpdateAgent(t *testing.T) {
 			Expected: ServiceTestExpectation[v1.UpdateAgentResponse]{
 				Response: v1.UpdateAgentResponse{
 					Agent: &v1.Agent{
-						Id: agentID.String(),
 						Metadata: &v1.AgentMetadata{
-							Name:        "architect-agent",
-							Description: "Architect agent description",
+							Id: agentID.String(),
 						},
 						Spec: &v1.AgentSpec{
+							Name:         "architect-agent",
+							Description:  "Architect agent description",
 							Instructions: "Architect agent instructions",
 							ModelId:      newModelID.String(),
-							DelegateIds:  []string{},
 						},
 					},
 				},

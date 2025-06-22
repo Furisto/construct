@@ -166,3 +166,8 @@ func (h *TaskHandler) DeleteTask(ctx context.Context, req *connect.Request[v1.De
 
 	return connect.NewResponse(&v1.DeleteTaskResponse{}), nil
 }
+
+func (h *TaskHandler) Subscribe(ctx context.Context, req *connect.Request[v1.SubscribeRequest], stream *connect.ServerStream[v1.SubscribeResponse]) error {
+	// TODO: Implement task event subscription
+	return connect.NewError(connect.CodeUnimplemented, fmt.Errorf("subscribe not implemented"))
+}

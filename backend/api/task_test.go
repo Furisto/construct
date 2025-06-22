@@ -72,8 +72,12 @@ func TestCreateTask(t *testing.T) {
 						Spec: &v1.TaskSpec{
 							AgentId:          strPtr(agentID.String()),
 							ProjectDirectory: "/tmp/test",
+							DesiredPhase:     v1.TaskPhase_TASK_PHASE_IDLE,
 						},
-						Status: &v1.TaskStatus{Usage: &v1.TaskUsage{}},
+						Status: &v1.TaskStatus{
+							Usage: &v1.TaskUsage{},
+							Phase: v1.TaskPhase_TASK_PHASE_IDLE,
+						},
 					},
 				},
 			},
@@ -131,13 +135,16 @@ func TestGetTask(t *testing.T) {
 			Expected: ServiceTestExpectation[v1.GetTaskResponse]{
 				Response: v1.GetTaskResponse{
 					Task: &v1.Task{
-						Id:       taskID.String(),
-						Metadata: &v1.TaskMetadata{},
+						Metadata: &v1.TaskMetadata{
+							Id: taskID.String(),
+						},
 						Spec: &v1.TaskSpec{
-							AgentId: strPtr(agentID.String()),
+							AgentId:      strPtr(agentID.String()),
+							DesiredPhase: v1.TaskPhase_TASK_PHASE_IDLE,
 						},
 						Status: &v1.TaskStatus{
 							Usage: &v1.TaskUsage{},
+							Phase: v1.TaskPhase_TASK_PHASE_IDLE,
 						},
 					},
 				},
@@ -194,13 +201,16 @@ func TestListTasks(t *testing.T) {
 				Response: v1.ListTasksResponse{
 					Tasks: []*v1.Task{
 						{
-							Id:       taskID1.String(),
-							Metadata: &v1.TaskMetadata{},
+							Metadata: &v1.TaskMetadata{
+								Id: taskID1.String(),
+							},
 							Spec: &v1.TaskSpec{
-								AgentId: strPtr(agentID.String()),
+								AgentId:      strPtr(agentID.String()),
+								DesiredPhase: v1.TaskPhase_TASK_PHASE_IDLE,
 							},
 							Status: &v1.TaskStatus{
 								Usage: &v1.TaskUsage{},
+								Phase: v1.TaskPhase_TASK_PHASE_IDLE,
 							},
 						},
 					},
@@ -234,23 +244,29 @@ func TestListTasks(t *testing.T) {
 				Response: v1.ListTasksResponse{
 					Tasks: []*v1.Task{
 						{
-							Id:       taskID1.String(),
-							Metadata: &v1.TaskMetadata{},
+							Metadata: &v1.TaskMetadata{
+								Id: taskID1.String(),
+							},
 							Spec: &v1.TaskSpec{
-								AgentId: strPtr(agentID.String()),
+								AgentId:      strPtr(agentID.String()),
+								DesiredPhase: v1.TaskPhase_TASK_PHASE_IDLE,
 							},
 							Status: &v1.TaskStatus{
 								Usage: &v1.TaskUsage{},
+								Phase: v1.TaskPhase_TASK_PHASE_IDLE,
 							},
 						},
 						{
-							Id:       taskID2.String(),
-							Metadata: &v1.TaskMetadata{},
+							Metadata: &v1.TaskMetadata{
+								Id: taskID2.String(),
+							},
 							Spec: &v1.TaskSpec{
-								AgentId: strPtr(agentID.String()),
+								AgentId:      strPtr(agentID.String()),
+								DesiredPhase: v1.TaskPhase_TASK_PHASE_IDLE,
 							},
 							Status: &v1.TaskStatus{
 								Usage: &v1.TaskUsage{},
+								Phase: v1.TaskPhase_TASK_PHASE_IDLE,
 							},
 						},
 					},
@@ -349,13 +365,16 @@ func TestUpdateTask(t *testing.T) {
 			Expected: ServiceTestExpectation[v1.UpdateTaskResponse]{
 				Response: v1.UpdateTaskResponse{
 					Task: &v1.Task{
-						Id:       taskID.String(),
-						Metadata: &v1.TaskMetadata{},
+						Metadata: &v1.TaskMetadata{
+							Id: taskID.String(),
+						},
 						Spec: &v1.TaskSpec{
-							AgentId: strPtr(agentID2.String()),
+							AgentId:      strPtr(agentID2.String()),
+							DesiredPhase: v1.TaskPhase_TASK_PHASE_IDLE,
 						},
 						Status: &v1.TaskStatus{
 							Usage: &v1.TaskUsage{},
+							Phase: v1.TaskPhase_TASK_PHASE_IDLE,
 						},
 					},
 				},

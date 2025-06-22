@@ -3,14 +3,13 @@ package api
 import (
 	"context"
 	"errors"
-	"fmt"
+	"net"
 	"net/http"
 	"strings"
 
 	"connectrpc.com/connect"
 
 	"github.com/furisto/construct/api/go/v1/v1connect"
-	"github.com/furisto/construct/backend/api/socket"
 	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/secret"
 	"github.com/furisto/construct/backend/stream"
@@ -25,46 +24,12 @@ type AgentRuntime interface {
 }
 
 type Server struct {
-	mux              *http.ServeMux
-	server           *http.Server
-	options          ServerOptions
-	listenerProvider socket.ListenerProvider
+	mux      *http.ServeMux
+	server   *http.Server
+	listener net.Listener
 }
 
-type ConnectionOption string
-
-const (
-	ConnectionOptionTCP  ConnectionOption = "tcp"
-	ConnectionOptionUnix ConnectionOption = "unix"
-)
-
-type ServerOptions struct {
-	Port       int
-	Connection ConnectionOption
-	SocketPath string
-}
-
-type ServerOption func(*ServerOptions)
-
-func WithPort(port int) ServerOption {
-	return func(opts *ServerOptions) {
-		opts.Port = port
-	}
-}
-
-func WithConnection(conn ConnectionOption) ServerOption {
-	return func(opts *ServerOptions) {
-		opts.Connection = conn
-	}
-}
-
-func WithSocketPath(path string) ServerOption {
-	return func(opts *ServerOptions) {
-		opts.SocketPath = path
-	}
-}
-
-func NewServer(runtime AgentRuntime, opts ...ServerOption) *Server {
+func NewServer(runtime AgentRuntime, listener net.Listener) *Server {
 	apiHandler := NewHandler(
 		HandlerOptions{
 			DB:           runtime.Memory(),
@@ -77,47 +42,21 @@ func NewServer(runtime AgentRuntime, opts ...ServerOption) *Server {
 	mux := http.NewServeMux()
 	mux.Handle("/api/", http.StripPrefix("/api", apiHandler))
 
-	serverOptions := ServerOptions{
-		Port:       29333,
-		Connection: ConnectionOptionTCP,
-		SocketPath: "",
-	}
-
-	for _, opt := range opts {
-		opt(&serverOptions)
-	}
-
 	return &Server{
-		mux:     mux,
-		options: serverOptions,
+		mux:      mux,
+		listener: listener,
 	}
 }
 
 func (s *Server) ListenAndServe() error {
-	listener, err := s.listenerProvider.Listener()
-	if err != nil {
-		return fmt.Errorf("failed to listen via listener provider: %w", err)
-	}
-
 	s.server = &http.Server{
 		Handler: s.mux,
 	}
 
-	return s.server.Serve(listener)
-
-	// // Fallback to TCP
-	// s.server = &http.Server{
-	// 	Addr:    fmt.Sprintf(":%d", s.options.Port),
-	// 	Handler: s.mux,
-	// }
-
-	// return s.server.ListenAndServe()
+	return s.server.Serve(s.listener)
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {
-	if s.listenerProvider != nil {
-		defer s.listenerProvider.Close()
-	}
 	return s.server.Shutdown(ctx)
 }
 

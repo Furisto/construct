@@ -59,7 +59,10 @@ func (s *ServiceTestSetup[Request, Response]) RunServiceTests(t *testing.T, scen
 	server.Start(ctx)
 	defer server.Close()
 
-	apiClient := api_client.NewClient(server.API.URL)
+	apiClient := api_client.NewClient(api_client.EndpointContext{
+		Address: server.API.URL,
+		Type:    "http",
+	})
 
 	if s.Debug {
 		server.DebugSchema(ctx, t)

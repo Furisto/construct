@@ -24,7 +24,7 @@ func NewMessageHandler(db *memory.Client, runtime AgentRuntime, messageHub *stre
 		runtime:    runtime,
 		messageHub: messageHub,
 	}
-}
+} 
 
 type MessageHandler struct {
 	db         *memory.Client
@@ -105,25 +105,25 @@ func (h *MessageHandler) ListMessages(ctx context.Context, req *connect.Request[
 	query := h.db.Message.Query().WithTask()
 
 	if req.Msg.Filter != nil {
-		if req.Msg.Filter.TaskId != nil {
-			taskID, err := uuid.Parse(*req.Msg.Filter.TaskId)
+		if req.Msg.Filter.TaskIds != nil {
+			taskID, err := uuid.Parse(*req.Msg.Filter.TaskIds)
 			if err != nil {
 				return nil, apiError(connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid task ID format: %w", err)))
 			}
 			query = query.Where(message.HasTaskWith(task.IDEQ(taskID)))
 		}
 
-		if req.Msg.Filter.AgentId != nil {
-			agentID, err := uuid.Parse(*req.Msg.Filter.AgentId)
+		if req.Msg.Filter.AgentIds != nil {
+			agentID, err := uuid.Parse(*req.Msg.Filter.AgentIds)
 			if err != nil {
 				return nil, apiError(connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid agent ID format: %w", err)))
 			}
 			query = query.Where(message.AgentIDEQ(agentID))
 		}
 
-		if req.Msg.Filter.Role != nil {
+		if req.Msg.Filter.Roles != nil {
 			var role types.MessageSource
-			switch *req.Msg.Filter.Role {
+			switch *req.Msg.Filter.Roles {
 			case v1.MessageRole_MESSAGE_ROLE_USER:
 				role = types.MessageSourceUser
 			case v1.MessageRole_MESSAGE_ROLE_ASSISTANT:
@@ -198,20 +198,3 @@ func (h *MessageHandler) DeleteMessage(ctx context.Context, req *connect.Request
 	return connect.NewResponse(&v1.DeleteMessageResponse{}), nil
 }
 
-func (h *MessageHandler) Subscribe(ctx context.Context, req *connect.Request[v1.SubscribeRequest], stream *connect.ServerStream[v1.SubscribeResponse]) error {
-	taskID, err := uuid.Parse(req.Msg.TaskId)
-	if err != nil {
-		return apiError(connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid task ID format: %w", err)))
-	}
-
-	for r, err := range h.messageHub.Subscribe(ctx, taskID) {
-		if err != nil {
-			return apiError(err)
-		}
-
-		stream.Send(r)
-	}
-
-	return nil
-
-}

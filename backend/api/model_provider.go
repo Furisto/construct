@@ -240,6 +240,10 @@ func marshalAuthToJson(config any) ([]byte, error) {
 		return json.Marshal(map[string]interface{}{
 			"apiKey": config.ApiKey,
 		})
+	case *v1.UpdateModelProviderRequest_ApiKey:
+		return json.Marshal(map[string]interface{}{
+			"apiKey": config.ApiKey,
+		})
 	default:
 		return nil, fmt.Errorf("unsupported authentication config type: %T", config)
 	}

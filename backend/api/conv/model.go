@@ -25,19 +25,23 @@ func MemoryModelToProto(m *memory.Model) (*v1.Model, error) {
 	}
 
 	metadata := &v1.ModelMetadata{
-		CreatedAt: timestamppb.New(m.CreateTime),
-		UpdatedAt: timestamppb.New(m.UpdateTime),
+		Id:              m.ID.String(),
+		CreatedAt:       timestamppb.New(m.CreateTime),
+		UpdatedAt:       timestamppb.New(m.UpdateTime),
+		ModelProviderId: m.ModelProviderID.String(),
+	}
+
+	spec := &v1.ModelSpec{
+		Name:          m.Name,
+		Capabilities:  capabilities,
+		Pricing:       pricing,
+		ContextWindow: m.ContextWindow,
+		Enabled:       m.Enabled,
 	}
 
 	return &v1.Model{
-		Id:              m.ID.String(),
-		Metadata:        metadata,
-		Name:            m.Name,
-		ModelProviderId: m.ModelProviderID.String(),
-		Capabilities:    capabilities,
-		Pricing:         pricing,
-		ContextWindow:   m.ContextWindow,
-		Enabled:         m.Enabled,
+		Metadata: metadata,
+		Spec:     spec,
 	}, nil
 }
 

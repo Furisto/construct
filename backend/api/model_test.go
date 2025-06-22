@@ -23,10 +23,9 @@ func TestCreateModel(t *testing.T) {
 			return client.Model().CreateModel(ctx, req)
 		},
 		CmpOptions: []cmp.Option{
-			cmpopts.IgnoreUnexported(v1.CreateModelResponse{}, v1.Model{}, v1.ModelMetadata{}, v1.ModelPricing{}),
+			cmpopts.IgnoreUnexported(v1.CreateModelResponse{}, v1.Model{}, v1.ModelMetadata{}, v1.ModelSpec{}, v1.ModelPricing{}),
 			protocmp.Transform(),
-			protocmp.IgnoreFields(&v1.Model{}, "id", "metadata"),
-			protocmp.IgnoreFields(&v1.ModelMetadata{}, "created_at", "updated_at"),
+			protocmp.IgnoreFields(&v1.ModelMetadata{}, "id", "created_at", "updated_at", "model_provider_id"),
 		},
 	}
 
@@ -78,18 +77,19 @@ func TestCreateModel(t *testing.T) {
 			Expected: ServiceTestExpectation[v1.CreateModelResponse]{
 				Response: v1.CreateModelResponse{
 					Model: &v1.Model{
-						Name:            "test-model",
-						ModelProviderId: modelProviderID.String(),
-						ContextWindow:   4096,
-						Enabled:         true,
-						Pricing: &v1.ModelPricing{
-							InputCost:      adapters.Float64ToProtoDecimal(0.0001),
-							OutputCost:     adapters.Float64ToProtoDecimal(0.0002),
-							CacheWriteCost: adapters.Float64ToProtoDecimal(0.00005),
-							CacheReadCost:  adapters.Float64ToProtoDecimal(0.00001),
-						},
-						Capabilities: []v1.ModelCapability{
-							v1.ModelCapability_MODEL_CAPABILITY_IMAGE,
+						Spec: &v1.ModelSpec{
+							Name:          "test-model",
+							ContextWindow: 4096,
+							Enabled:       true,
+							Pricing: &v1.ModelPricing{
+								InputCost:      adapters.Float64ToProtoDecimal(0.0001),
+								OutputCost:     adapters.Float64ToProtoDecimal(0.0002),
+								CacheWriteCost: adapters.Float64ToProtoDecimal(0.00005),
+								CacheReadCost:  adapters.Float64ToProtoDecimal(0.00001),
+							},
+							Capabilities: []v1.ModelCapability{
+								v1.ModelCapability_MODEL_CAPABILITY_IMAGE,
+							},
 						},
 					},
 				},
@@ -104,10 +104,9 @@ func TestGetModel(t *testing.T) {
 			return client.Model().GetModel(ctx, req)
 		},
 		CmpOptions: []cmp.Option{
-			cmpopts.IgnoreUnexported(v1.GetModelResponse{}, v1.Model{}, v1.ModelMetadata{}, v1.ModelPricing{}),
+			cmpopts.IgnoreUnexported(v1.GetModelResponse{}, v1.Model{}, v1.ModelMetadata{}, v1.ModelSpec{}, v1.ModelPricing{}),
 			protocmp.Transform(),
-			protocmp.IgnoreFields(&v1.Model{}, "id", "metadata"),
-			protocmp.IgnoreFields(&v1.ModelMetadata{}, "created_at", "updated_at"),
+			protocmp.IgnoreFields(&v1.ModelMetadata{}, "id", "created_at", "updated_at", "model_provider_id"),
 		},
 	}
 
@@ -148,20 +147,20 @@ func TestGetModel(t *testing.T) {
 			Expected: ServiceTestExpectation[v1.GetModelResponse]{
 				Response: v1.GetModelResponse{
 					Model: &v1.Model{
-						Id:              modelID.String(),
-						Name:            "claude-3-7-sonnet-20250219",
-						ModelProviderId: modelProviderID.String(),
-						ContextWindow:   200_000,
-						Pricing: &v1.ModelPricing{
-							InputCost:      adapters.Float64ToProtoDecimal(3),
-							OutputCost:     adapters.Float64ToProtoDecimal(15),
-							CacheWriteCost: adapters.Float64ToProtoDecimal(3.75),
-							CacheReadCost:  adapters.Float64ToProtoDecimal(0.3),
+						Spec: &v1.ModelSpec{
+							Name:          "claude-3-7-sonnet-20250219",
+							ContextWindow: 200_000,
+							Pricing: &v1.ModelPricing{
+								InputCost:      adapters.Float64ToProtoDecimal(3),
+								OutputCost:     adapters.Float64ToProtoDecimal(15),
+								CacheWriteCost: adapters.Float64ToProtoDecimal(3.75),
+								CacheReadCost:  adapters.Float64ToProtoDecimal(0.3),
+							},
+							Capabilities: []v1.ModelCapability{
+								v1.ModelCapability_MODEL_CAPABILITY_PROMPT_CACHE,
+							},
+							Enabled: true,
 						},
-						Capabilities: []v1.ModelCapability{
-							v1.ModelCapability_MODEL_CAPABILITY_PROMPT_CACHE,
-						},
-						Enabled: true,
 					},
 				},
 			},
@@ -175,10 +174,9 @@ func TestListModels(t *testing.T) {
 			return client.Model().ListModels(ctx, req)
 		},
 		CmpOptions: []cmp.Option{
-			cmpopts.IgnoreUnexported(v1.ListModelsResponse{}, v1.Model{}, v1.ModelMetadata{}, v1.ModelPricing{}),
+			cmpopts.IgnoreUnexported(v1.ListModelsResponse{}, v1.Model{}, v1.ModelMetadata{}, v1.ModelSpec{}, v1.ModelPricing{}),
 			protocmp.Transform(),
-			protocmp.IgnoreFields(&v1.Model{}, "id", "metadata"),
-			protocmp.IgnoreFields(&v1.ModelMetadata{}, "created_at", "updated_at"),
+			protocmp.IgnoreFields(&v1.ModelMetadata{}, "id", "created_at", "updated_at", "model_provider_id"),
 		},
 	}
 
@@ -233,17 +231,21 @@ func TestListModels(t *testing.T) {
 				Response: v1.ListModelsResponse{
 					Models: []*v1.Model{
 						{
-							Id:              modelID.String(),
-							Name:            "claude-3-7-sonnet-20250219",
-							ModelProviderId: modelProviderID.String(),
-							ContextWindow:   200_000,
-							Enabled:         true,
-							Capabilities:    []v1.ModelCapability{v1.ModelCapability_MODEL_CAPABILITY_PROMPT_CACHE},
-							Pricing: &v1.ModelPricing{
-								InputCost:      adapters.Float64ToProtoDecimal(3),
-								OutputCost:     adapters.Float64ToProtoDecimal(15),
-								CacheWriteCost: adapters.Float64ToProtoDecimal(3.75),
-								CacheReadCost:  adapters.Float64ToProtoDecimal(0.3),
+							Metadata: &v1.ModelMetadata{
+								Id:              modelID.String(),
+								ModelProviderId: modelProviderID.String(),
+							},
+							Spec: &v1.ModelSpec{
+								Name:         "claude-3-7-sonnet-20250219",
+								ContextWindow: 200_000,
+								Enabled:      true,
+								Capabilities: []v1.ModelCapability{v1.ModelCapability_MODEL_CAPABILITY_PROMPT_CACHE},
+								Pricing: &v1.ModelPricing{
+									InputCost:      adapters.Float64ToProtoDecimal(3),
+									OutputCost:     adapters.Float64ToProtoDecimal(15),
+									CacheWriteCost: adapters.Float64ToProtoDecimal(3.75),
+									CacheReadCost:  adapters.Float64ToProtoDecimal(0.3),
+								},
 							},
 						},
 					},
@@ -273,17 +275,21 @@ func TestListModels(t *testing.T) {
 				Response: v1.ListModelsResponse{
 					Models: []*v1.Model{
 						{
-							Id:              modelID.String(),
-							Name:            "claude-3-7-sonnet-20250219",
-							ModelProviderId: modelProviderID.String(),
-							ContextWindow:   200_000,
-							Enabled:         true,
-							Capabilities:    []v1.ModelCapability{v1.ModelCapability_MODEL_CAPABILITY_PROMPT_CACHE},
-							Pricing: &v1.ModelPricing{
-								InputCost:      adapters.Float64ToProtoDecimal(3),
-								OutputCost:     adapters.Float64ToProtoDecimal(15),
-								CacheWriteCost: adapters.Float64ToProtoDecimal(3.75),
-								CacheReadCost:  adapters.Float64ToProtoDecimal(0.3),
+							Metadata: &v1.ModelMetadata{
+								Id:              modelID.String(),
+								ModelProviderId: modelProviderID.String(),
+							},
+							Spec: &v1.ModelSpec{
+								Name:         "claude-3-7-sonnet-20250219",
+								ContextWindow: 200_000,
+								Enabled:      true,
+								Capabilities: []v1.ModelCapability{v1.ModelCapability_MODEL_CAPABILITY_PROMPT_CACHE},
+								Pricing: &v1.ModelPricing{
+									InputCost:      adapters.Float64ToProtoDecimal(3),
+									OutputCost:     adapters.Float64ToProtoDecimal(15),
+									CacheWriteCost: adapters.Float64ToProtoDecimal(3.75),
+									CacheReadCost:  adapters.Float64ToProtoDecimal(0.3),
+								},
 							},
 						},
 					},
@@ -308,31 +314,39 @@ func TestListModels(t *testing.T) {
 				Response: v1.ListModelsResponse{
 					Models: []*v1.Model{
 						{
-							Id:              modelID.String(),
-							Name:            "claude-3-7-sonnet-20250219",
-							ModelProviderId: modelProviderID.String(),
-							ContextWindow:   200_000,
-							Enabled:         true,
-							Capabilities:    []v1.ModelCapability{v1.ModelCapability_MODEL_CAPABILITY_PROMPT_CACHE},
-							Pricing: &v1.ModelPricing{
-								InputCost:      adapters.Float64ToProtoDecimal(3),
-								OutputCost:     adapters.Float64ToProtoDecimal(15),
-								CacheWriteCost: adapters.Float64ToProtoDecimal(3.75),
-								CacheReadCost:  adapters.Float64ToProtoDecimal(0.3),
+							Metadata: &v1.ModelMetadata{
+								Id:              modelID.String(),
+								ModelProviderId: modelProviderID.String(),
+							},
+							Spec: &v1.ModelSpec{
+								Name:         "claude-3-7-sonnet-20250219",
+								ContextWindow: 200_000,
+								Enabled:      true,
+								Capabilities: []v1.ModelCapability{v1.ModelCapability_MODEL_CAPABILITY_PROMPT_CACHE},
+								Pricing: &v1.ModelPricing{
+									InputCost:      adapters.Float64ToProtoDecimal(3),
+									OutputCost:     adapters.Float64ToProtoDecimal(15),
+									CacheWriteCost: adapters.Float64ToProtoDecimal(3.75),
+									CacheReadCost:  adapters.Float64ToProtoDecimal(0.3),
+								},
 							},
 						},
 						{
-							Id:              modelID2.String(),
-							Name:            "o1-preview",
-							ModelProviderId: modelProviderID.String(),
-							ContextWindow:   200_000,
-							Enabled:         true,
-							Capabilities:    []v1.ModelCapability{v1.ModelCapability_MODEL_CAPABILITY_PROMPT_CACHE},
-							Pricing: &v1.ModelPricing{
-								InputCost:      adapters.Float64ToProtoDecimal(3),
-								OutputCost:     adapters.Float64ToProtoDecimal(15),
-								CacheWriteCost: adapters.Float64ToProtoDecimal(3.75),
-								CacheReadCost:  adapters.Float64ToProtoDecimal(0.3),
+							Metadata: &v1.ModelMetadata{
+								Id:              modelID2.String(),
+								ModelProviderId: modelProviderID.String(),
+							},
+							Spec: &v1.ModelSpec{
+								Name:         "o1-preview",
+								ContextWindow: 200_000,
+								Enabled:      true,
+								Capabilities: []v1.ModelCapability{v1.ModelCapability_MODEL_CAPABILITY_PROMPT_CACHE},
+								Pricing: &v1.ModelPricing{
+									InputCost:      adapters.Float64ToProtoDecimal(3),
+									OutputCost:     adapters.Float64ToProtoDecimal(15),
+									CacheWriteCost: adapters.Float64ToProtoDecimal(3.75),
+									CacheReadCost:  adapters.Float64ToProtoDecimal(0.3),
+								},
 							},
 						},
 					},
@@ -348,9 +362,8 @@ func TestUpdateModel(t *testing.T) {
 			return client.Model().UpdateModel(ctx, req)
 		},
 		CmpOptions: []cmp.Option{
-			cmpopts.IgnoreUnexported(v1.UpdateModelResponse{}, v1.Model{}, v1.ModelMetadata{}, v1.ModelPricing{}),
+			cmpopts.IgnoreUnexported(v1.UpdateModelResponse{}, v1.Model{}, v1.ModelMetadata{}, v1.ModelSpec{}, v1.ModelPricing{}),
 			protocmp.Transform(),
-			protocmp.IgnoreFields(&v1.Model{}, "id", "metadata"),
 			protocmp.IgnoreFields(&v1.ModelMetadata{}, "created_at", "updated_at"),
 		},
 	}
@@ -400,19 +413,23 @@ func TestUpdateModel(t *testing.T) {
 			Expected: ServiceTestExpectation[v1.UpdateModelResponse]{
 				Response: v1.UpdateModelResponse{
 					Model: &v1.Model{
-						Id:              modelID.String(),
-						Name:            "updated-model",
-						ModelProviderId: modelProviderID.String(),
-						ContextWindow:   500_000,
-						Enabled:         false,
-						Capabilities: []v1.ModelCapability{
-							v1.ModelCapability_MODEL_CAPABILITY_THINKING,
+						Metadata: &v1.ModelMetadata{
+							Id:              modelID.String(),
+							ModelProviderId: modelProviderID.String(),
 						},
-						Pricing: &v1.ModelPricing{
-							InputCost:      adapters.Float64ToProtoDecimal(3),
-							OutputCost:     adapters.Float64ToProtoDecimal(15),
-							CacheWriteCost: adapters.Float64ToProtoDecimal(3.75),
-							CacheReadCost:  adapters.Float64ToProtoDecimal(0.3),
+						Spec: &v1.ModelSpec{
+							Name:         "updated-model",
+							ContextWindow: 500_000,
+							Enabled:      false,
+							Capabilities: []v1.ModelCapability{
+								v1.ModelCapability_MODEL_CAPABILITY_THINKING,
+							},
+							Pricing: &v1.ModelPricing{
+								InputCost:      adapters.Float64ToProtoDecimal(3),
+								OutputCost:     adapters.Float64ToProtoDecimal(15),
+								CacheWriteCost: adapters.Float64ToProtoDecimal(3.75),
+								CacheReadCost:  adapters.Float64ToProtoDecimal(0.3),
+							},
 						},
 					},
 				},
@@ -434,17 +451,21 @@ func TestUpdateModel(t *testing.T) {
 			Expected: ServiceTestExpectation[v1.UpdateModelResponse]{
 				Response: v1.UpdateModelResponse{
 					Model: &v1.Model{
-						Id:              modelID.String(),
-						Name:            "claude-3-7-sonnet-20250219",
-						ModelProviderId: modelProviderID.String(),
-						ContextWindow:   200_000,
-						Enabled:         true,
-						Capabilities:    []v1.ModelCapability{v1.ModelCapability_MODEL_CAPABILITY_PROMPT_CACHE},
-						Pricing: &v1.ModelPricing{
-							InputCost:      adapters.Float64ToProtoDecimal(3),
-							OutputCost:     adapters.Float64ToProtoDecimal(15),
-							CacheWriteCost: adapters.Float64ToProtoDecimal(3.75),
-							CacheReadCost:  adapters.Float64ToProtoDecimal(0.3),
+						Metadata: &v1.ModelMetadata{
+							Id:              modelID.String(),
+							ModelProviderId: modelProviderID.String(),
+						},
+						Spec: &v1.ModelSpec{
+							Name:         "claude-3-7-sonnet-20250219",
+							ContextWindow: 200_000,
+							Enabled:      true,
+							Capabilities: []v1.ModelCapability{v1.ModelCapability_MODEL_CAPABILITY_PROMPT_CACHE},
+							Pricing: &v1.ModelPricing{
+								InputCost:      adapters.Float64ToProtoDecimal(3),
+								OutputCost:     adapters.Float64ToProtoDecimal(15),
+								CacheWriteCost: adapters.Float64ToProtoDecimal(3.75),
+								CacheReadCost:  adapters.Float64ToProtoDecimal(0.3),
+							},
 						},
 					},
 				},
@@ -471,17 +492,21 @@ func TestUpdateModel(t *testing.T) {
 			Expected: ServiceTestExpectation[v1.UpdateModelResponse]{
 				Response: v1.UpdateModelResponse{
 					Model: &v1.Model{
-						Id:              modelID.String(),
-						Name:            "claude-3-7-sonnet-20250219",
-						ModelProviderId: modelProviderID.String(),
-						ContextWindow:   200_000,
-						Enabled:         true,
-						Capabilities:    []v1.ModelCapability{v1.ModelCapability_MODEL_CAPABILITY_PROMPT_CACHE},
-						Pricing: &v1.ModelPricing{
-							InputCost:      adapters.Float64ToProtoDecimal(0.0001),
-							OutputCost:     adapters.Float64ToProtoDecimal(0.0002),
-							CacheWriteCost: adapters.Float64ToProtoDecimal(0.00005),
-							CacheReadCost:  adapters.Float64ToProtoDecimal(0.00001),
+						Metadata: &v1.ModelMetadata{
+							Id:              modelID.String(),
+							ModelProviderId: modelProviderID.String(),
+						},
+						Spec: &v1.ModelSpec{
+							Name:         "claude-3-7-sonnet-20250219",
+							ContextWindow: 200_000,
+							Enabled:      true,
+							Capabilities: []v1.ModelCapability{v1.ModelCapability_MODEL_CAPABILITY_PROMPT_CACHE},
+							Pricing: &v1.ModelPricing{
+								InputCost:      adapters.Float64ToProtoDecimal(0.0001),
+								OutputCost:     adapters.Float64ToProtoDecimal(0.0002),
+								CacheWriteCost: adapters.Float64ToProtoDecimal(0.00005),
+								CacheReadCost:  adapters.Float64ToProtoDecimal(0.00001),
+							},
 						},
 					},
 				},
