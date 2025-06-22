@@ -77,6 +77,7 @@ func NewRootCmd() *cobra.Command {
 
 	cmd.AddCommand(NewNewCmd())
 	cmd.AddCommand(NewResumeCmd())
+	cmd.AddCommand(NewAskCmd())
 
 	cmd.AddCommand(NewAgentCmd())
 	cmd.AddCommand(NewTaskCmd())
@@ -121,10 +122,6 @@ func Execute() {
 	sentry.Flush(2 * time.Second)
 }
 
-type Config struct {
-	EndpointContexts api.EndpointContexts `json:"endpoint_contexts"`
-}
-
 func setAPIClient(cmd *cobra.Command) error {
 	endpointContext, err := loadContext(cmd)
 	if err != nil {
@@ -161,7 +158,7 @@ func requiresContext(cmd *cobra.Command) bool {
 func loadContext(cmd *cobra.Command) (*api.EndpointContexts, error) {
 	fs := getFileSystem(cmd.Context())
 
-	constructDir, err := ConstructUserDir()
+	constructDir, err := getUserInfo(cmd.Context()).ConstructDir()
 	if err != nil {
 		return nil, err
 	}
@@ -233,6 +230,7 @@ type RuntimeInfo interface {
 type UserInfo interface {
 	UserID() string
 	HomeDir() (string, error)
+	ConstructDir() (string, error)
 }
 
 type DefaultCommandRunner struct{}
@@ -249,9 +247,15 @@ func (r *DefaultRuntimeInfo) GOOS() string {
 	return runtime.GOOS
 }
 
-type DefaultUserInfo struct{}
+type DefaultUserInfo struct {
+	fs *afero.Afero
+}
 
-func (r *DefaultUserInfo) UserID() string {
+func NewDefaultUserInfo(fs *afero.Afero) *DefaultUserInfo {
+	return &DefaultUserInfo{fs: fs}
+}
+
+func (u *DefaultUserInfo) UserID() string {
 	user, err := user.Current()
 	if err != nil {
 		return ""
@@ -259,8 +263,22 @@ func (r *DefaultUserInfo) UserID() string {
 	return user.Uid
 }
 
-func (r *DefaultUserInfo) HomeDir() (string, error) {
+func (u *DefaultUserInfo) HomeDir() (string, error) {
 	return os.UserHomeDir()
+}
+
+func (u *DefaultUserInfo) ConstructDir() (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get home directory: %w", err)
+	}
+
+	constructDir := filepath.Join(homeDir, ".construct")
+	if err := u.fs.MkdirAll(constructDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create construct directory: %w", err)
+	}
+
+	return constructDir, nil
 }
 
 func getCommandRunner(ctx context.Context) CommandRunner {
@@ -287,7 +305,7 @@ func getUserInfo(ctx context.Context) UserInfo {
 		return userInfo.(UserInfo)
 	}
 
-	return &DefaultUserInfo{}
+	return NewDefaultUserInfo(getFileSystem(ctx))
 }
 
 func getRenderer(ctx context.Context) OutputRenderer {
@@ -322,13 +340,4 @@ func confirm(stdin io.Reader, stdout io.Writer, message string) bool {
 
 	confirm = strings.TrimSpace(strings.ToLower(confirm))
 	return confirm == "y" || confirm == "yes"
-}
-
-func ConstructUserDir() (string, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("failed to get home directory: %w", err)
-	}
-
-	return filepath.Join(homeDir, ".construct"), nil
 }
