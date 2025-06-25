@@ -218,4 +218,4 @@ Top Level Project Structure:
 # Tool Instructions
 {{ .ToolInstructions }}
 
-{{ .Toolss }}
+{{ .Tools }}
