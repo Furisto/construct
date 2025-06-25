@@ -86,6 +86,15 @@ type ExecuteCommandResult struct {
 	Command  string `json:"command"`
 }
 
+type ExecuteCommandInput struct {
+	Command string
+}
+
+func (e *ExecuteCommandInput) Validate() error {
+	
+	return nil
+}
+
 func NewExecuteCommandTool() codeact.Tool {
 	return codeact.NewOnDemandTool(
 		"execute_command",
@@ -98,27 +107,41 @@ func executeCommandHandler(session *codeact.Session) func(call sobek.FunctionCal
 	return func(call sobek.FunctionCall) sobek.Value {
 		command := call.Argument(0).String()
 
-		script := fmt.Sprintf(`#!/bin/sh
-			set -euo pipefail
-			%s
-			`,
-			command,
-		)
-
-		cmd := exec.Command("/bin/sh", "-c", script)
-		output, err := cmd.CombinedOutput()
+		input := &ExecuteCommandInput{Command: command}
+		result, err := executeCommand(input)
 		if err != nil {
-			session.Throw(codeact.NewCustomError("error executing command", []string{
-				"Check if the command is valid and executable.",
-				"Ensure the command is properly formatted for the target operating system.",
-			}, "command", command, "error", err))
+			session.Throw(err)
 		}
 
-		return session.VM.ToValue(ExecuteCommandResult{
-			Command:  command,
-			Stdout:   string(output),
-			Stderr:   "",
-			ExitCode: cmd.ProcessState.ExitCode(),
-		})
+		return session.VM.ToValue(result)
 	}
+}
+
+func executeCommand(input *ExecuteCommandInput) (*ExecuteCommandResult, error) {
+	if input.Command == "" {
+		return nil, codeact.NewError(codeact.InvalidArgument, "command", "command is required")
+	}
+
+	script := fmt.Sprintf(`#!/bin/sh
+		set -euo pipefail
+		%s
+		`,
+		input.Command,
+	)
+
+	cmd := exec.Command("/bin/sh", "-c", script)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, codeact.NewCustomError("error executing command", []string{
+			"Check if the command is valid and executable.",
+			"Ensure the command is properly formatted for the target operating system.",
+		}, "command", input.Command, "error", err)
+	}
+
+	return &ExecuteCommandResult{
+		Command:  input.Command,
+		Stdout:   string(output),
+		Stderr:   "",
+		ExitCode: cmd.ProcessState.ExitCode(),
+	}, nil
 }

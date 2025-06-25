@@ -134,7 +134,7 @@ func SpinnerFunc[T any](writer io.Writer, message string, fn func() (T, error), 
 	result, err := fn()
 
 	if err != nil {
-		spinner.Stop(fmt.Sprintf("%s %s", ErrorSymbol, opts.ErrorMsg))
+		spinner.Stop(fmt.Sprintf("%s %s", SmallErrorSymbol, opts.ErrorMsg))
 	} else {
 		spinner.Stop(fmt.Sprintf("%s %s", SuccessSymbol, opts.SuccessMsg))
 	}

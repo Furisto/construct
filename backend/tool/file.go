@@ -30,10 +30,6 @@ type GrepInput struct {
 	Path    string `json:"path"`
 }
 
-type ListFilesInput struct {
-	Directory string `json:"directory"`
-}
-
 func FilesystemTools() []NativeTool {
 	return []NativeTool{
 		// NewTool("read_file", "Read a file", FilesystemToolCategory, func(ctx context.Context, input ReadFileInput) (string, error) {
@@ -141,24 +137,24 @@ func FilesystemTools() []NativeTool {
 
 			return strings.Join(results, "\n"), nil
 		}),
-		NewTool("list_files", "List all files in the directory", FilesystemToolCategory, func(ctx context.Context, input ListFilesInput) (string, error) {
-			directory := input.Directory
-			if directory == "" {
-				directory = "."
-			}
+		// NewTool("list_files", "List all files in the directory", FilesystemToolCategory, func(ctx context.Context, input ListFilesInput) (string, error) {
+		// 	directory := input.Directory
+		// 	if directory == "" {
+		// 		directory = "."
+		// 	}
 
-			entries, err := os.ReadDir(directory)
-			if err != nil {
-				return "", err
-			}
+		// 	entries, err := os.ReadDir(directory)
+		// 	if err != nil {
+		// 		return "", err
+		// 	}
 
-			var results []string
-			for _, entry := range entries {
-				results = append(results, entry.Name())
-			}
+		// 	var results []string
+		// 	for _, entry := range entries {
+		// 		results = append(results, entry.Name())
+		// 	}
 
-			return strings.Join(results, "\n"), nil
-		}),
+		// 	return strings.Join(results, "\n"), nil
+		// }),
 	}
 }
 
