@@ -13,5 +13,7 @@ func NewDaemonCmd() *cobra.Command {
 
 	cmd.AddCommand(NewDaemonRunCmd())
 	cmd.AddCommand(NewDaemonInstallCmd())
+	cmd.AddCommand(NewDaemonUninstallCmd())
+	cmd.AddCommand(NewDaemonStopCmd())
 	return cmd
 }
