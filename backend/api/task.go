@@ -11,19 +11,22 @@ import (
 	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/memory/agent"
 	"github.com/furisto/construct/backend/memory/task"
+	"github.com/furisto/construct/backend/stream"
 	"github.com/google/uuid"
 )
 
 var _ v1connect.TaskServiceHandler = (*TaskHandler)(nil)
 
-func NewTaskHandler(db *memory.Client) *TaskHandler {
+func NewTaskHandler(db *memory.Client, eventHub *stream.EventHub) *TaskHandler {
 	return &TaskHandler{
-		db: db,
+		db:       db,
+		eventHub: eventHub,
 	}
 }
 
 type TaskHandler struct {
-	db *memory.Client
+	db       *memory.Client
+	eventHub *stream.EventHub
 	v1connect.UnimplementedTaskServiceHandler
 }
 
@@ -168,6 +171,25 @@ func (h *TaskHandler) DeleteTask(ctx context.Context, req *connect.Request[v1.De
 }
 
 func (h *TaskHandler) Subscribe(ctx context.Context, req *connect.Request[v1.SubscribeRequest], stream *connect.ServerStream[v1.SubscribeResponse]) error {
-	// TODO: Implement task event subscription
-	return connect.NewError(connect.CodeUnimplemented, fmt.Errorf("subscribe not implemented"))
+	taskID, err := uuid.Parse(req.Msg.TaskId)
+	if err != nil {
+		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid task ID format: %w", err))
+	}
+
+	_, err = h.db.Task.Get(ctx, taskID)
+	if err != nil {
+		return apiError(err)
+	}
+
+	for response, err := range h.eventHub.Subscribe(ctx, taskID) {
+		if err != nil {
+			return apiError(err)
+		}
+
+		if err := stream.Send(response); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
