@@ -70,7 +70,7 @@ func NewAgentCreateCmd() *cobra.Command {
 				return fmt.Errorf("failed to create agent: %w", err)
 			}
 
-			fmt.Fprintln(cmd.OutOrStdout(), agentResp.Msg.Agent.Metadata.Id)
+			cmd.Println(agentResp.Msg.Agent.Metadata.Id)
 			return nil
 		},
 	}

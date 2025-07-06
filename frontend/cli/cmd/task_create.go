@@ -72,7 +72,7 @@ func NewTaskCreateCmd() *cobra.Command {
 				return fmt.Errorf("failed to create task: %w", err)
 			}
 
-			fmt.Fprintln(cmd.OutOrStdout(), resp.Msg.Task.Metadata.Id)
+			cmd.Println(resp.Msg.Task.Metadata.Id)
 			return nil
 		},
 	}

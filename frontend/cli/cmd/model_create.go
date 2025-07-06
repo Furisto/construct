@@ -47,7 +47,7 @@ func NewModelCreateCmd() *cobra.Command {
 				return fmt.Errorf("failed to create model: %w", err)
 			}
 
-			fmt.Fprintln(cmd.OutOrStdout(), resp.Msg.Model.Metadata.Id)
+			cmd.Println(resp.Msg.Model.Metadata.Id)
 			return nil
 		},
 	}

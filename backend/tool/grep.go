@@ -13,7 +13,7 @@ import (
 
 var grepDescription = `
 ## Description
-The regex_search tool performs fast text-based regex searches to find exact pattern matches within files or directories. It leverages efficient searching algorithms to quickly scan through your codebase and locate specific patterns.
+The grep tool performs fast text-based regex searches to find exact pattern matches within files or directories. It leverages efficient searching algorithms to quickly scan through your codebase and locate specific patterns.
 
 ## Parameters
 - **query** (*string*, required): The regex pattern to search for. Must be a valid regex pattern; special characters must be escaped appropriately.
@@ -50,7 +50,7 @@ Returns an object containing the search results:
 - **Precise Pattern Specification**: Your regex pattern must be properly escaped for accurate matching.
   %[1]s
   // To search for "user.login()", escape special characters:
-  regex_search({
+  grep({
     query: "user\\.login\\(\\)",
     path: "/workspace/src"
   })
@@ -59,7 +59,7 @@ Returns an object containing the search results:
 - **Scope Management**: Use include/exclude patterns to control search scope and improve performance:
   %[1]s
   // Only search JavaScript files, exclude tests
-  regex_search({
+  grep({
     query: "function init",
     path: "/workspace/project",
     include_pattern: "*.js",
@@ -73,13 +73,13 @@ Returns an object containing the search results:
 - **Complex Pattern Handling**: For complex patterns, test iteratively:
   %[1]s
   // First search broadly
-  regex_search({
+  grep({
     query: "api\\.connect",
     path: "/workspace/src"
   })
   
   // Then refine with more specific pattern
-  regex_search({
+  grep({
     query: "api\\.connect\\(['\"]production['\"]\\)",
     path: "/workspace/src/services"
   })
@@ -97,7 +97,7 @@ Returns an object containing the search results:
 
 ### Finding Function Definitions
 %[1]s
-regex_search({
+grep({
   query: "function\\s+getUserData\\s*\\(",
   path: "/workspace/src",
   include_pattern: "*.js",

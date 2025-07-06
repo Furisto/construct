@@ -44,7 +44,7 @@ func NewMessageCreateCmd() *cobra.Command {
 				return fmt.Errorf("failed to create message: %w", err)
 			}
 
-			fmt.Fprintln(cmd.OutOrStdout(), resp.Msg.Message.Metadata.Id)
+			cmd.Println(resp.Msg.Message.Metadata.Id)
 			return nil
 		},
 	}

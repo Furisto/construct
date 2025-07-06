@@ -92,7 +92,7 @@ will be used.`,
 			}
 
 			if reflect.DeepEqual(originalSpec, *editedSpec) {
-				fmt.Fprintln(cmd.OutOrStdout(), "No changes made.")
+				cmd.Println("No changes made.")
 				return nil
 			}
 

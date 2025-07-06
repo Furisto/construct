@@ -61,7 +61,7 @@ func NewModelProviderCreateCmd() *cobra.Command {
 				return fmt.Errorf("failed to create model provider: %w", err)
 			}
 
-			fmt.Fprintln(cmd.OutOrStdout(), resp.Msg.ModelProvider.Metadata.Id)
+			cmd.Println(resp.Msg.ModelProvider.Metadata.Id)
 			return nil
 		},
 	}

@@ -277,7 +277,7 @@ func (rt *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 
 func (rt *Runtime) saveToolResults(ctx context.Context, taskID uuid.UUID, toolResults []ToolResult) (*memory.Message, error) {
 	if len(toolResults) > 0 {
-		jsonResults, err := json.Marshal(toolResults)
+		jsonResults, err := json.MarshalIndent(toolResults, "", "  ")
 		if err == nil {
 			os.WriteFile("/tmp/tool_results.json", jsonResults, 0644)
 		}
