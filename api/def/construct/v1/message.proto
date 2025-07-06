@@ -81,6 +81,9 @@ message MessageSpec {
 message MessageStatus {
   // usage tracks resource consumption and costs associated with generating this message.
   MessageUsage usage = 1;
+
+  // completed indicates whether the message is the last message in the task.
+  bool completed = 2;
 }
 
 // MessageRole indicates the source/author of a message in the conversation.

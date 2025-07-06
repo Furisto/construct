@@ -33,8 +33,8 @@ type TaskPhase int32
 const (
 	// TASK_PHASE_UNSPECIFIED indicates an unknown or unset phase.
 	TaskPhase_TASK_PHASE_UNSPECIFIED TaskPhase = 0
-	// TASK_PHASE_IDLE indicates the task is available but not currently executing tasks.
-	TaskPhase_TASK_PHASE_IDLE TaskPhase = 1
+	// TASK_PHASE_AWAITING indicates the task is available but not currently executing a task.
+	TaskPhase_TASK_PHASE_AWAITING TaskPhase = 1
 	// TASK_PHASE_RUNNING indicates the task is actively executing a task.
 	TaskPhase_TASK_PHASE_RUNNING TaskPhase = 2
 	// TASK_PHASE_SUSPENDED indicates the task has been temporarily suspended.
@@ -45,13 +45,13 @@ const (
 var (
 	TaskPhase_name = map[int32]string{
 		0: "TASK_PHASE_UNSPECIFIED",
-		1: "TASK_PHASE_IDLE",
+		1: "TASK_PHASE_AWAITING",
 		2: "TASK_PHASE_RUNNING",
 		3: "TASK_PHASE_SUSPENDED",
 	}
 	TaskPhase_value = map[string]int32{
 		"TASK_PHASE_UNSPECIFIED": 0,
-		"TASK_PHASE_IDLE":        1,
+		"TASK_PHASE_AWAITING":    1,
 		"TASK_PHASE_RUNNING":     2,
 		"TASK_PHASE_SUSPENDED":   3,
 	}
@@ -291,7 +291,9 @@ type TaskStatus struct {
 	// usage tracks resource consumption and costs associated with the task.
 	Usage *TaskUsage `protobuf:"bytes,1,opt,name=usage,proto3" json:"usage,omitempty"`
 	// phase is the current operational state of the task.
-	Phase         TaskPhase `protobuf:"varint,2,opt,name=phase,proto3,enum=construct.v1.TaskPhase" json:"phase,omitempty"`
+	Phase TaskPhase `protobuf:"varint,2,opt,name=phase,proto3,enum=construct.v1.TaskPhase" json:"phase,omitempty"`
+	// turn is the current turn of the task.
+	Turn          int64 `protobuf:"varint,3,opt,name=turn,proto3" json:"turn,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -338,6 +340,13 @@ func (x *TaskStatus) GetPhase() TaskPhase {
 		return x.Phase
 	}
 	return TaskPhase_TASK_PHASE_UNSPECIFIED
+}
+
+func (x *TaskStatus) GetTurn() int64 {
+	if x != nil {
+		return x.Turn
+	}
+	return 0
 }
 
 // TaskUsage tracks resource consumption and associated costs for a task.
@@ -1099,11 +1108,12 @@ const file_construct_v1_task_proto_rawDesc = "" +
 	"\tworkspace\x18\x02 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\tworkspace\x12F\n" +
 	"\rdesired_phase\x18\x03 \x01(\x0e2\x17.construct.v1.TaskPhaseB\b\xbaH\x05\x82\x01\x02\x10\x01R\fdesiredPhase\x12*\n" +
 	"\vdescription\x18\x04 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x10R\vdescriptionB\v\n" +
-	"\t_agent_id\"t\n" +
+	"\t_agent_id\"\x88\x01\n" +
 	"\n" +
 	"TaskStatus\x12-\n" +
 	"\x05usage\x18\x01 \x01(\v2\x17.construct.v1.TaskUsageR\x05usage\x127\n" +
-	"\x05phase\x18\x02 \x01(\x0e2\x17.construct.v1.TaskPhaseB\b\xbaH\x05\x82\x01\x02\x10\x01R\x05phase\"\xc1\x01\n" +
+	"\x05phase\x18\x02 \x01(\x0e2\x17.construct.v1.TaskPhaseB\b\xbaH\x05\x82\x01\x02\x10\x01R\x05phase\x12\x12\n" +
+	"\x04turn\x18\x03 \x01(\x03R\x04turn\"\xc1\x01\n" +
 	"\tTaskUsage\x12!\n" +
 	"\finput_tokens\x18\x01 \x01(\x03R\vinputTokens\x12#\n" +
 	"\routput_tokens\x18\x02 \x01(\x03R\foutputTokens\x12,\n" +
@@ -1151,10 +1161,10 @@ const file_construct_v1_task_proto_rawDesc = "" +
 	"\x10SubscribeRequest\x12!\n" +
 	"\atask_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x06taskId\"D\n" +
 	"\x11SubscribeResponse\x12/\n" +
-	"\amessage\x18\x01 \x01(\v2\x15.construct.v1.MessageR\amessage*n\n" +
+	"\amessage\x18\x01 \x01(\v2\x15.construct.v1.MessageR\amessage*r\n" +
 	"\tTaskPhase\x12\x1a\n" +
-	"\x16TASK_PHASE_UNSPECIFIED\x10\x00\x12\x13\n" +
-	"\x0fTASK_PHASE_IDLE\x10\x01\x12\x16\n" +
+	"\x16TASK_PHASE_UNSPECIFIED\x10\x00\x12\x17\n" +
+	"\x13TASK_PHASE_AWAITING\x10\x01\x12\x16\n" +
 	"\x12TASK_PHASE_RUNNING\x10\x02\x12\x18\n" +
 	"\x14TASK_PHASE_SUSPENDED\x10\x032\xf8\x03\n" +
 	"\vTaskService\x12Q\n" +

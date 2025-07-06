@@ -294,7 +294,9 @@ func (x *MessageSpec) GetContent() []*MessagePart {
 type MessageStatus struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// usage tracks resource consumption and costs associated with generating this message.
-	Usage         *MessageUsage `protobuf:"bytes,1,opt,name=usage,proto3" json:"usage,omitempty"`
+	Usage *MessageUsage `protobuf:"bytes,1,opt,name=usage,proto3" json:"usage,omitempty"`
+	// completed indicates whether the message is the last message in the task.
+	Completed     bool `protobuf:"varint,2,opt,name=completed,proto3" json:"completed,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -334,6 +336,13 @@ func (x *MessageStatus) GetUsage() *MessageUsage {
 		return x.Usage
 	}
 	return nil
+}
+
+func (x *MessageStatus) GetCompleted() bool {
+	if x != nil {
+		return x.Completed
+	}
+	return false
 }
 
 // MessagePart contains the actual content of a message, supporting different content types.
@@ -1302,9 +1311,10 @@ const file_construct_v1_message_proto_rawDesc = "" +
 	"\t_agent_idB\v\n" +
 	"\t_model_id\"B\n" +
 	"\vMessageSpec\x123\n" +
-	"\acontent\x18\x01 \x03(\v2\x19.construct.v1.MessagePartR\acontent\"A\n" +
+	"\acontent\x18\x01 \x03(\v2\x19.construct.v1.MessagePartR\acontent\"_\n" +
 	"\rMessageStatus\x120\n" +
-	"\x05usage\x18\x01 \x01(\v2\x1a.construct.v1.MessageUsageR\x05usage\"\xa9\x05\n" +
+	"\x05usage\x18\x01 \x01(\v2\x1a.construct.v1.MessageUsageR\x05usage\x12\x1c\n" +
+	"\tcompleted\x18\x02 \x01(\bR\tcompleted\"\xa9\x05\n" +
 	"\vMessagePart\x124\n" +
 	"\x04text\x18\x01 \x01(\v2\x1e.construct.v1.MessagePart.TextH\x00R\x04text\x12G\n" +
 	"\vtool_result\x18\x02 \x01(\v2$.construct.v1.MessagePart.ToolResultH\x00R\n" +

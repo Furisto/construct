@@ -21,6 +21,7 @@ func (Task) Fields() []ent.Field {
 		field.Int64("cache_write_tokens").Optional(),
 		field.Int64("cache_read_tokens").Optional(),
 		field.Float("cost").Optional(),
+		field.Int64("turns").Default(0),
 
 		field.UUID("agent_id", uuid.UUID{}).Optional(),
 	}

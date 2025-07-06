@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -11,11 +10,12 @@ import (
 	"strings"
 
 	"connectrpc.com/connect"
+	"github.com/furisto/construct/api/go/client"
 	v1 "github.com/furisto/construct/api/go/v1"
 	"github.com/furisto/construct/frontend/cli/pkg/fail"
+	"github.com/furisto/construct/shared/conv"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
-	"google.golang.org/protobuf/encoding/protojson"
 	"gopkg.in/yaml.v3"
 )
 
@@ -52,7 +52,7 @@ type askOptions struct {
 	Agent     string
 	Workspace string
 	MaxTurns  int
-	Continue  bool
+	Continue  string
 	Files     []string
 	Format    askOutputFormat
 }
@@ -83,7 +83,10 @@ func NewAskCmd() *cobra.Command {
   construct ask "Debug why the build is failing" --max-turns 10
 
   # Get JSON output for scripting
-  construct ask "List all Go files" --output json`,
+  construct ask "List all Go files" --output json
+  
+  # Continue the previous task
+  construct ask "Continue refactoring the code" --continue`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var question string
 			if len(args) > 0 {
@@ -93,135 +96,47 @@ func NewAskCmd() *cobra.Command {
 		},
 	}
 
+	setupFlags(cmd, &options)
+	return cmd
+}
+
+func setupFlags(cmd *cobra.Command, options *askOptions) {
 	cmd.Flags().StringVarP(&options.Agent, "agent", "a", "", "The agent to use (name or ID)")
 	cmd.Flags().StringVarP(&options.Workspace, "workspace", "w", "", "The workspace directory")
 	cmd.Flags().IntVar(&options.MaxTurns, "max-turns", 5, "Maximum number of turns for the conversation")
 	cmd.Flags().StringSliceVarP(&options.Files, "file", "f", []string{}, "Files to include as context (can be used multiple times)")
-	cmd.Flags().BoolVarP(&options.Continue, "continue", "c", false, "Continue the previous task")
+	cmd.Flags().StringVarP(&options.Continue, "continue", "c", "", "Continue the previous task")
 	cmd.Flags().VarP(&options.Format, "output", "o", "The format to output the result in")
-
-	return cmd
+	cmd.Flags().Lookup("continue").NoOptDefVal = "last"
 }
 
 func ask(ctx context.Context, cmd *cobra.Command, options askOptions, question string) error {
 	client := getAPIClient(ctx)
 
-	question, err := getQuestion(question, cmd.InOrStdin())
+	question, err := prepareQuestion(question, options.Files, cmd.InOrStdin(), getFileSystem(ctx))
 	if err != nil {
 		return err
 	}
 
-	message, err := buildMessage(question, options.Files, getFileSystem(ctx))
+	task, err := setupTask(ctx, cmd, client, options)
 	if err != nil {
 		return err
 	}
 
-	workspace := options.Workspace
-	if workspace == "" {
-		workspace, err = os.Getwd()
-		if err != nil {
-			return err
-		}
-	}
-
-	agentID, err := getAgentID(ctx, client, options.Agent)
-	if err != nil {
+	if err := sendMessage(ctx, client, task.Metadata.Id, question); err != nil {
 		return err
 	}
 
-	var task *v1.Task
-	if options.Continue {
-		// tasks, err := client.Task().ListTasks(ctx, &connect.Request[v1.ListTasksRequest]{
-		// 	Msg: &v1.ListTasksRequest_Filter{
-		// 		AgentId: 	conv.Ptr(agentID),
-		// 	},
-		// })
-	} else {
-		taskResp, err := client.Task().CreateTask(ctx, &connect.Request[v1.CreateTaskRequest]{
-			Msg: &v1.CreateTaskRequest{
-				AgentId:          agentID,
-				ProjectDirectory: workspace,
-			},
-		})
-		if err != nil {
-			return fmt.Errorf("failed to create task: %w", err)
-		}
-		task = taskResp.Msg.Task
-	}
+	return handleResponseStream(ctx, cmd, client, task.Metadata.Id, options.Format)
+}
 
-	_, err = client.Message().CreateMessage(ctx, &connect.Request[v1.CreateMessageRequest]{
-		Msg: &v1.CreateMessageRequest{
-			TaskId: task.Metadata.Id,
-			Content: []*v1.MessagePart{
-				{
-					Data: &v1.MessagePart_Text_{
-						Text: &v1.MessagePart_Text{
-							Content: message,
-						},
-					},
-				},
-			},
-		},
-	})
+func prepareQuestion(question string, files []string, stdin io.Reader, fs afero.Fs) (string, error) {
+	question, err := getQuestion(question, stdin)
 	if err != nil {
-		return fmt.Errorf("failed to send message: %w", err)
+		return "", err
 	}
 
-	stream, err := client.Task().Subscribe(ctx, &connect.Request[v1.SubscribeRequest]{
-		Msg: &v1.SubscribeRequest{
-			TaskId: task.Metadata.Id,
-		},
-	})
-
-	if err != nil {
-		return fmt.Errorf("failed to subscribe to task: %w", err)
-	}
-
-	for stream.Receive() {
-		message := stream.Msg().Message
-		switch options.Format {
-		case askOutputFormatText:
-			for _, part := range message.Spec.Content {
-				switch partData := part.Data.(type) {
-				case *v1.MessagePart_Text_:
-					fmt.Fprintln(cmd.OutOrStdout(), partData.Text.Content)
-				case *v1.MessagePart_ToolResult_:
-					fmt.Fprintln(cmd.OutOrStdout(), partData.ToolResult.Result)
-				}
-			}
-		case askOutputFormatJSON:
-			jsonBytes, err := toJSON(message)
-			if err != nil {
-				return fmt.Errorf("failed to marshal to JSON: %w", err)
-			}
-
-			var buf bytes.Buffer
-			json.Indent(&buf, jsonBytes, "", "  ")
-			fmt.Fprintln(cmd.OutOrStdout(), buf.String())
-		case askOutputFormatYAML:
-			jsonBytes, err := toJSON(message)
-			if err != nil {
-				return fmt.Errorf("failed to marshal to JSON: %w", err)
-			}
-
-			var jsonData interface{}
-			if err := json.Unmarshal(jsonBytes, &jsonData); err != nil {
-				return fmt.Errorf("failed to unmarshal JSON: %w", err)
-			}
-
-			if err := yaml.NewEncoder(cmd.OutOrStdout()).Encode(jsonData); err != nil {
-				return fmt.Errorf("failed to marshal to YAML: %w", err)
-			}
-		default:
-			return fmt.Errorf("unsupported format: %s", options.Format)
-		}
-	}
-
-	if err := stream.Err(); err != nil {
-		return fmt.Errorf("stream error: %w", err)
-	}
-
-	return nil
+	return buildMessage(question, files, fs)
 }
 
 func getQuestion(question string, stdin io.Reader) (string, error) {
@@ -279,13 +194,229 @@ func buildMessage(question string, files []string, fs afero.Fs) (string, error) 
 	return builder.String(), nil
 }
 
-func toJSON(message *v1.Message) ([]byte, error) {
-	marshaler := protojson.MarshalOptions{
-		Multiline:       true,
-		Indent:          "  ",
-		UseProtoNames:   false,
-		EmitUnpopulated: false,
+func setupTask(ctx context.Context, cmd *cobra.Command, client *client.Client, options askOptions) (task *v1.Task, err error) {
+	workspace := options.Workspace
+	if workspace == "" {
+		workspace, err = os.Getwd()
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return marshaler.Marshal(message)
+	agentID, err := getAgentID(ctx, client, options.Agent)
+	if err != nil {
+		return nil, err
+	}
+
+	if cmd.Flags().Changed("continue") {
+		return continueTask(ctx, options, client)
+	}
+
+	return createTask(ctx, client, agentID, workspace)
+}
+
+func continueTask(ctx context.Context, options askOptions, client *client.Client) (*v1.Task, error) {
+	if options.Continue == "last" {
+		tasks, err := client.Task().ListTasks(ctx, &connect.Request[v1.ListTasksRequest]{
+			Msg: &v1.ListTasksRequest{
+				SortField: conv.Ptr(v1.SortField_SORT_FIELD_UPDATED_AT),
+				SortOrder: conv.Ptr(v1.SortOrder_SORT_ORDER_DESC),
+			},
+		})
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to list tasks: %w", err)
+		}
+
+		if len(tasks.Msg.Tasks) > 0 {
+			return tasks.Msg.Tasks[0], nil
+		} else {
+			return nil, fmt.Errorf("no tasks found")
+		}
+	} else {
+		resp, err := client.Task().GetTask(ctx, &connect.Request[v1.GetTaskRequest]{
+			Msg: &v1.GetTaskRequest{
+				Id: options.Continue,
+			},
+		})
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to get task: %w", err)
+		}
+		return resp.Msg.Task, nil
+	}
+}
+
+func createTask(ctx context.Context, client *client.Client, agentID, workspace string) (*v1.Task, error) {
+	taskResp, err := client.Task().CreateTask(ctx, &connect.Request[v1.CreateTaskRequest]{
+		Msg: &v1.CreateTaskRequest{
+			AgentId:          agentID,
+			ProjectDirectory: workspace,
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create task: %w", err)
+	}
+	return taskResp.Msg.Task, nil
+}
+
+func sendMessage(ctx context.Context, client *client.Client, taskID, message string) error {
+	_, err := client.Message().CreateMessage(ctx, &connect.Request[v1.CreateMessageRequest]{
+		Msg: &v1.CreateMessageRequest{
+			TaskId: taskID,
+			Content: []*v1.MessagePart{
+				{
+					Data: &v1.MessagePart_Text_{
+						Text: &v1.MessagePart_Text{
+							Content: message,
+						},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to send message: %w", err)
+	}
+	return nil
+}
+
+func handleResponseStream(ctx context.Context, cmd *cobra.Command, client *client.Client, taskID string, format askOutputFormat) error {
+	streamCtx, streamCancel := context.WithCancel(ctx)
+	defer streamCancel()
+
+	stream, err := client.Task().Subscribe(streamCtx, &connect.Request[v1.SubscribeRequest]{
+		Msg: &v1.SubscribeRequest{
+			TaskId: taskID,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to subscribe to task: %w", err)
+	}
+
+	for stream.Receive() {
+		message := stream.Msg().Message
+
+		task, err := client.Task().GetTask(ctx, &connect.Request[v1.GetTaskRequest]{
+			Msg: &v1.GetTaskRequest{
+				Id: taskID,
+			},
+		})
+		if err != nil {
+			return fmt.Errorf("failed to get task: %w", err)
+		}
+		if err := formatMessage(task.Msg.Task, message, format, cmd); err != nil {
+			return err
+		}
+
+		if message.Status != nil && message.Status.Completed {
+			streamCancel()
+			break
+		}
+	}
+
+	if err := stream.Err(); err != nil {
+		return fmt.Errorf("stream error: %w", err)
+	}
+
+	return nil
+}
+
+func formatMessage(task *v1.Task, message *v1.Message, format askOutputFormat, cmd *cobra.Command) error {
+	switch format {
+	case askOutputFormatText:
+		return formatTextMessage(message, cmd)
+	case askOutputFormatJSON:
+		jsonBytes, err := formatJSONMessage(task, message)
+		if err != nil {
+			return err
+		}
+		cmd.Println(string(jsonBytes))
+	case askOutputFormatYAML:
+		yamlBytes, err := formatYAMLMessage(task, message)
+		if err != nil {
+			return err
+		}
+		cmd.Println(string(yamlBytes))
+	default:
+		return fmt.Errorf("unsupported format: %s", format)
+	}
+
+	return nil
+}
+
+func formatTextMessage(message *v1.Message, cmd *cobra.Command) error {
+	for _, part := range message.Spec.Content {
+		switch partData := part.Data.(type) {
+		case *v1.MessagePart_Text_:
+			cmd.Println(partData.Text.Content)
+		case *v1.MessagePart_ToolResult_:
+			cmd.Println(partData.ToolResult.Result)
+		case *v1.MessagePart_SubmitReport_:
+			cmd.Println(partData.SubmitReport.Summary)
+			cmd.Println(partData.SubmitReport.Deliverables)
+			cmd.Println(partData.SubmitReport.NextSteps)
+		}
+	}
+	return nil
+}
+
+func formatJSONMessage(task *v1.Task, message *v1.Message) ([]byte, error) {
+	answer := ConvertToDisplayAnswer(task, message)
+
+	jsonBytes, err := json.Marshal(answer)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal to JSON: %w", err)
+	}
+
+	return jsonBytes, nil
+}
+
+func formatYAMLMessage(task *v1.Task, message *v1.Message) ([]byte, error) {
+	answer := ConvertToDisplayAnswer(task, message)
+
+	yamlBytes, err := yaml.Marshal(answer)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal to YAML: %w", err)
+	}
+
+	return yamlBytes, nil
+}
+
+// func toJSON(message *v1.Message) ([]byte, error) {
+// 	marshaler := protojson.MarshalOptions{
+// 		Multiline:       true,
+// 		Indent:          "  ",
+// 		UseProtoNames:   false,
+// 		EmitUnpopulated: false,
+// 	}
+
+// 	return marshaler.Marshal(message)
+// }
+
+type DisplayAnswer struct {
+	TaskID string           `json:"task_id" yaml:"task_id"`
+	Agent  string           `json:"agent" yaml:"agent"`
+	Model  string           `json:"model" yaml:"model"`
+	Turn   int64            `json:"turn" yaml:"turn"`
+	Result string           `json:"result" yaml:"result"`
+	Usage  DisplayTaskUsage `json:"usage" yaml:"usage"`
+}
+
+func ConvertToDisplayAnswer(task *v1.Task, message *v1.Message) *DisplayAnswer {
+	answer := DisplayAnswer{
+		TaskID: task.Metadata.Id,
+		Agent:  *task.Spec.AgentId,
+		Turn:   task.Status.Turn,
+		Usage:  ConvertTaskUsageToDisplay(task.Status.Usage),
+	}
+
+	for _, part := range message.Spec.Content {
+		switch partData := part.Data.(type) {
+		case *v1.MessagePart_Text_:
+			answer.Result = partData.Text.Content
+		}
+	}
+
+	return &answer
 }

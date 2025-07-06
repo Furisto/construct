@@ -96,6 +96,11 @@ func Cost(v float64) predicate.Task {
 	return predicate.Task(sql.FieldEQ(FieldCost, v))
 }
 
+// Turns applies equality check predicate on the "turns" field. It's identical to TurnsEQ.
+func Turns(v int64) predicate.Task {
+	return predicate.Task(sql.FieldEQ(FieldTurns, v))
+}
+
 // AgentID applies equality check predicate on the "agent_id" field. It's identical to AgentIDEQ.
 func AgentID(v uuid.UUID) predicate.Task {
 	return predicate.Task(sql.FieldEQ(FieldAgentID, v))
@@ -504,6 +509,46 @@ func CostIsNil() predicate.Task {
 // CostNotNil applies the NotNil predicate on the "cost" field.
 func CostNotNil() predicate.Task {
 	return predicate.Task(sql.FieldNotNull(FieldCost))
+}
+
+// TurnsEQ applies the EQ predicate on the "turns" field.
+func TurnsEQ(v int64) predicate.Task {
+	return predicate.Task(sql.FieldEQ(FieldTurns, v))
+}
+
+// TurnsNEQ applies the NEQ predicate on the "turns" field.
+func TurnsNEQ(v int64) predicate.Task {
+	return predicate.Task(sql.FieldNEQ(FieldTurns, v))
+}
+
+// TurnsIn applies the In predicate on the "turns" field.
+func TurnsIn(vs ...int64) predicate.Task {
+	return predicate.Task(sql.FieldIn(FieldTurns, vs...))
+}
+
+// TurnsNotIn applies the NotIn predicate on the "turns" field.
+func TurnsNotIn(vs ...int64) predicate.Task {
+	return predicate.Task(sql.FieldNotIn(FieldTurns, vs...))
+}
+
+// TurnsGT applies the GT predicate on the "turns" field.
+func TurnsGT(v int64) predicate.Task {
+	return predicate.Task(sql.FieldGT(FieldTurns, v))
+}
+
+// TurnsGTE applies the GTE predicate on the "turns" field.
+func TurnsGTE(v int64) predicate.Task {
+	return predicate.Task(sql.FieldGTE(FieldTurns, v))
+}
+
+// TurnsLT applies the LT predicate on the "turns" field.
+func TurnsLT(v int64) predicate.Task {
+	return predicate.Task(sql.FieldLT(FieldTurns, v))
+}
+
+// TurnsLTE applies the LTE predicate on the "turns" field.
+func TurnsLTE(v int64) predicate.Task {
+	return predicate.Task(sql.FieldLTE(FieldTurns, v))
 }
 
 // AgentIDEQ applies the EQ predicate on the "agent_id" field.

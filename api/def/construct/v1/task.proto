@@ -85,6 +85,9 @@ message TaskStatus {
 
   // phase is the current operational state of the task.
   TaskPhase phase = 2 [(buf.validate.field).enum.defined_only = true];
+
+  // turn is the current turn of the task.
+  int64 turn = 3;
 }
 
 // TaskPhase represents the current operational state of an task.
@@ -92,8 +95,8 @@ enum TaskPhase {
   // TASK_PHASE_UNSPECIFIED indicates an unknown or unset phase.
   TASK_PHASE_UNSPECIFIED = 0;
 
-  // TASK_PHASE_IDLE indicates the task is available but not currently executing tasks.
-  TASK_PHASE_IDLE = 1;
+  // TASK_PHASE_AWAITING indicates the task is available but not currently executing a task.
+  TASK_PHASE_AWAITING = 1;
 
   // TASK_PHASE_RUNNING indicates the task is actively executing a task.
   TASK_PHASE_RUNNING = 2;

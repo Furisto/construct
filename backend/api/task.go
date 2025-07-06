@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"connectrpc.com/connect"
+	"entgo.io/ent/dialect/sql"
 	v1 "github.com/furisto/construct/api/go/v1"
 	"github.com/furisto/construct/api/go/v1/v1connect"
 	"github.com/furisto/construct/backend/api/conv"
@@ -92,6 +93,31 @@ func (h *TaskHandler) ListTasks(ctx context.Context, req *connect.Request[v1.Lis
 			return nil, apiError(connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid agent ID format: %w", err)))
 		}
 		query = query.Where(task.HasAgentWith(agent.ID(agentID)))
+	}
+
+	sortField := v1.SortField_SORT_FIELD_CREATED_AT
+	if req.Msg.SortField != nil {
+		sortField = *req.Msg.SortField
+	}
+
+	sortOrder := v1.SortOrder_SORT_ORDER_DESC
+	if req.Msg.SortOrder != nil {
+		sortOrder = *req.Msg.SortOrder
+	}
+
+	switch sortField {
+	case v1.SortField_SORT_FIELD_CREATED_AT:
+		if sortOrder == v1.SortOrder_SORT_ORDER_ASC {
+			query = query.Order(task.ByCreateTime(sql.OrderAsc()))
+		} else {
+			query = query.Order(task.ByCreateTime(sql.OrderDesc()))
+		}
+	case v1.SortField_SORT_FIELD_UPDATED_AT:
+		if sortOrder == v1.SortOrder_SORT_ORDER_ASC {
+			query = query.Order(task.ByUpdateTime(sql.OrderAsc()))
+		} else {
+			query = query.Order(task.ByUpdateTime(sql.OrderDesc()))
+		}
 	}
 
 	tasks, err := query.WithAgent().All(ctx)

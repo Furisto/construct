@@ -278,7 +278,7 @@ func convertFunctionCallsToProto(functionCalls []codeact.FunctionCall) ([]*v1.Me
 	for _, call := range functionCalls {
 		switch call.ToolName {
 		case tool.ToolNameSubmitReport:
-			submitReport, ok := call.Output.(tool.SubmitReportResult)
+			submitReport, ok := call.Output.(*tool.SubmitReportResult)
 			if !ok {
 				return nil, fmt.Errorf("%s has invalid tool result type: %T", call.ToolName, call.Output)
 			}

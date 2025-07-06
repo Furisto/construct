@@ -71,11 +71,11 @@ func TestCreateTask(t *testing.T) {
 						Spec: &v1.TaskSpec{
 							AgentId:      strPtr(agentID.String()),
 							Workspace:    "/tmp/test",
-							DesiredPhase: v1.TaskPhase_TASK_PHASE_IDLE,
+							DesiredPhase: v1.TaskPhase_TASK_PHASE_AWAITING,
 						},
 						Status: &v1.TaskStatus{
 							Usage: &v1.TaskUsage{},
-							Phase: v1.TaskPhase_TASK_PHASE_IDLE,
+							Phase: v1.TaskPhase_TASK_PHASE_AWAITING,
 						},
 					},
 				},
@@ -139,11 +139,11 @@ func TestGetTask(t *testing.T) {
 						},
 						Spec: &v1.TaskSpec{
 							AgentId:      strPtr(agentID.String()),
-							DesiredPhase: v1.TaskPhase_TASK_PHASE_IDLE,
+							DesiredPhase: v1.TaskPhase_TASK_PHASE_AWAITING,
 						},
 						Status: &v1.TaskStatus{
 							Usage: &v1.TaskUsage{},
-							Phase: v1.TaskPhase_TASK_PHASE_IDLE,
+							Phase: v1.TaskPhase_TASK_PHASE_AWAITING,
 						},
 					},
 				},
@@ -205,11 +205,11 @@ func TestListTasks(t *testing.T) {
 							},
 							Spec: &v1.TaskSpec{
 								AgentId:      strPtr(agentID.String()),
-								DesiredPhase: v1.TaskPhase_TASK_PHASE_IDLE,
+								DesiredPhase: v1.TaskPhase_TASK_PHASE_AWAITING,
 							},
 							Status: &v1.TaskStatus{
 								Usage: &v1.TaskUsage{},
-								Phase: v1.TaskPhase_TASK_PHASE_IDLE,
+								Phase: v1.TaskPhase_TASK_PHASE_AWAITING,
 							},
 						},
 					},
@@ -248,11 +248,11 @@ func TestListTasks(t *testing.T) {
 							},
 							Spec: &v1.TaskSpec{
 								AgentId:      strPtr(agentID.String()),
-								DesiredPhase: v1.TaskPhase_TASK_PHASE_IDLE,
+								DesiredPhase: v1.TaskPhase_TASK_PHASE_AWAITING,
 							},
 							Status: &v1.TaskStatus{
 								Usage: &v1.TaskUsage{},
-								Phase: v1.TaskPhase_TASK_PHASE_IDLE,
+								Phase: v1.TaskPhase_TASK_PHASE_AWAITING,
 							},
 						},
 						{
@@ -261,11 +261,11 @@ func TestListTasks(t *testing.T) {
 							},
 							Spec: &v1.TaskSpec{
 								AgentId:      strPtr(agentID.String()),
-								DesiredPhase: v1.TaskPhase_TASK_PHASE_IDLE,
+								DesiredPhase: v1.TaskPhase_TASK_PHASE_AWAITING,
 							},
 							Status: &v1.TaskStatus{
 								Usage: &v1.TaskUsage{},
-								Phase: v1.TaskPhase_TASK_PHASE_IDLE,
+								Phase: v1.TaskPhase_TASK_PHASE_AWAITING,
 							},
 						},
 					},
@@ -369,11 +369,11 @@ func TestUpdateTask(t *testing.T) {
 						},
 						Spec: &v1.TaskSpec{
 							AgentId:      strPtr(agentID2.String()),
-							DesiredPhase: v1.TaskPhase_TASK_PHASE_IDLE,
+							DesiredPhase: v1.TaskPhase_TASK_PHASE_AWAITING,
 						},
 						Status: &v1.TaskStatus{
 							Usage: &v1.TaskUsage{},
-							Phase: v1.TaskPhase_TASK_PHASE_IDLE,
+							Phase: v1.TaskPhase_TASK_PHASE_AWAITING,
 						},
 					},
 				},

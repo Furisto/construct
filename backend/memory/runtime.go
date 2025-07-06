@@ -153,6 +153,10 @@ func init() {
 	task.DefaultUpdateTime = taskDescUpdateTime.Default.(func() time.Time)
 	// task.UpdateDefaultUpdateTime holds the default value on update for the update_time field.
 	task.UpdateDefaultUpdateTime = taskDescUpdateTime.UpdateDefault.(func() time.Time)
+	// taskDescTurns is the schema descriptor for turns field.
+	taskDescTurns := taskFields[7].Descriptor()
+	// task.DefaultTurns holds the default value on creation for the turns field.
+	task.DefaultTurns = taskDescTurns.Default.(int64)
 	// taskDescID is the schema descriptor for id field.
 	taskDescID := taskFields[0].Descriptor()
 	// task.DefaultID holds the default value on creation for the id field.

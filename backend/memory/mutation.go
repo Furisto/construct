@@ -4142,6 +4142,8 @@ type TaskMutation struct {
 	addcache_read_tokens  *int64
 	cost                  *float64
 	addcost               *float64
+	turns                 *int64
+	addturns              *int64
 	clearedFields         map[string]struct{}
 	messages              map[uuid.UUID]struct{}
 	removedmessages       map[uuid.UUID]struct{}
@@ -4728,6 +4730,62 @@ func (m *TaskMutation) ResetCost() {
 	delete(m.clearedFields, task.FieldCost)
 }
 
+// SetTurns sets the "turns" field.
+func (m *TaskMutation) SetTurns(i int64) {
+	m.turns = &i
+	m.addturns = nil
+}
+
+// Turns returns the value of the "turns" field in the mutation.
+func (m *TaskMutation) Turns() (r int64, exists bool) {
+	v := m.turns
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTurns returns the old "turns" field's value of the Task entity.
+// If the Task object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TaskMutation) OldTurns(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTurns is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTurns requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTurns: %w", err)
+	}
+	return oldValue.Turns, nil
+}
+
+// AddTurns adds i to the "turns" field.
+func (m *TaskMutation) AddTurns(i int64) {
+	if m.addturns != nil {
+		*m.addturns += i
+	} else {
+		m.addturns = &i
+	}
+}
+
+// AddedTurns returns the value that was added to the "turns" field in this mutation.
+func (m *TaskMutation) AddedTurns() (r int64, exists bool) {
+	v := m.addturns
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetTurns resets all changes to the "turns" field.
+func (m *TaskMutation) ResetTurns() {
+	m.turns = nil
+	m.addturns = nil
+}
+
 // SetAgentID sets the "agent_id" field.
 func (m *TaskMutation) SetAgentID(u uuid.UUID) {
 	m.agent = &u
@@ -4892,7 +4950,7 @@ func (m *TaskMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *TaskMutation) Fields() []string {
-	fields := make([]string, 0, 9)
+	fields := make([]string, 0, 10)
 	if m.create_time != nil {
 		fields = append(fields, task.FieldCreateTime)
 	}
@@ -4916,6 +4974,9 @@ func (m *TaskMutation) Fields() []string {
 	}
 	if m.cost != nil {
 		fields = append(fields, task.FieldCost)
+	}
+	if m.turns != nil {
+		fields = append(fields, task.FieldTurns)
 	}
 	if m.agent != nil {
 		fields = append(fields, task.FieldAgentID)
@@ -4944,6 +5005,8 @@ func (m *TaskMutation) Field(name string) (ent.Value, bool) {
 		return m.CacheReadTokens()
 	case task.FieldCost:
 		return m.Cost()
+	case task.FieldTurns:
+		return m.Turns()
 	case task.FieldAgentID:
 		return m.AgentID()
 	}
@@ -4971,6 +5034,8 @@ func (m *TaskMutation) OldField(ctx context.Context, name string) (ent.Value, er
 		return m.OldCacheReadTokens(ctx)
 	case task.FieldCost:
 		return m.OldCost(ctx)
+	case task.FieldTurns:
+		return m.OldTurns(ctx)
 	case task.FieldAgentID:
 		return m.OldAgentID(ctx)
 	}
@@ -5038,6 +5103,13 @@ func (m *TaskMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetCost(v)
 		return nil
+	case task.FieldTurns:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTurns(v)
+		return nil
 	case task.FieldAgentID:
 		v, ok := value.(uuid.UUID)
 		if !ok {
@@ -5068,6 +5140,9 @@ func (m *TaskMutation) AddedFields() []string {
 	if m.addcost != nil {
 		fields = append(fields, task.FieldCost)
 	}
+	if m.addturns != nil {
+		fields = append(fields, task.FieldTurns)
+	}
 	return fields
 }
 
@@ -5086,6 +5161,8 @@ func (m *TaskMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedCacheReadTokens()
 	case task.FieldCost:
 		return m.AddedCost()
+	case task.FieldTurns:
+		return m.AddedTurns()
 	}
 	return nil, false
 }
@@ -5129,6 +5206,13 @@ func (m *TaskMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddCost(v)
+		return nil
+	case task.FieldTurns:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddTurns(v)
 		return nil
 	}
 	return fmt.Errorf("unknown Task numeric field %s", name)
@@ -5225,6 +5309,9 @@ func (m *TaskMutation) ResetField(name string) error {
 		return nil
 	case task.FieldCost:
 		m.ResetCost()
+		return nil
+	case task.FieldTurns:
+		m.ResetTurns()
 		return nil
 	case task.FieldAgentID:
 		m.ResetAgentID()

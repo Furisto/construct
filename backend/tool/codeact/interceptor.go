@@ -43,14 +43,16 @@ func FunctionCallLogInterceptor(session *Session, tool Tool, inner func(sobek.Fu
 		}
 
 		result := inner(call)
-		functionResult.Output = result.Export()
-
-		executions, ok := GetValue[[]FunctionCall](session, "executions")
-		if !ok {
-			executions = []FunctionCall{}
+		if tool.Name() != "print" {
+			functionResult.Output = result.Export()
+			executions, ok := GetValue[[]FunctionCall](session, "executions")
+			if !ok {
+				executions = []FunctionCall{}
+			}
+			executions = append(executions, functionResult)
+			SetValue(session, "executions", executions)
 		}
-		executions = append(executions, functionResult)
-		SetValue(session, "executions", executions)
+
 		return result
 	}
 }

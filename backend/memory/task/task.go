@@ -31,6 +31,8 @@ const (
 	FieldCacheReadTokens = "cache_read_tokens"
 	// FieldCost holds the string denoting the cost field in the database.
 	FieldCost = "cost"
+	// FieldTurns holds the string denoting the turns field in the database.
+	FieldTurns = "turns"
 	// FieldAgentID holds the string denoting the agent_id field in the database.
 	FieldAgentID = "agent_id"
 	// EdgeMessages holds the string denoting the messages edge name in mutations.
@@ -66,6 +68,7 @@ var Columns = []string{
 	FieldCacheWriteTokens,
 	FieldCacheReadTokens,
 	FieldCost,
+	FieldTurns,
 	FieldAgentID,
 }
 
@@ -86,6 +89,8 @@ var (
 	DefaultUpdateTime func() time.Time
 	// UpdateDefaultUpdateTime holds the default value on update for the "update_time" field.
 	UpdateDefaultUpdateTime func() time.Time
+	// DefaultTurns holds the default value on creation for the "turns" field.
+	DefaultTurns int64
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() uuid.UUID
 )
@@ -136,6 +141,11 @@ func ByCacheReadTokens(opts ...sql.OrderTermOption) OrderOption {
 // ByCost orders the results by the cost field.
 func ByCost(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCost, opts...).ToFunc()
+}
+
+// ByTurns orders the results by the turns field.
+func ByTurns(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTurns, opts...).ToFunc()
 }
 
 // ByAgentID orders the results by the agent_id field.

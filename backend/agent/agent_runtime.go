@@ -228,6 +228,7 @@ func (rt *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 	if err != nil {
 		return err
 	}
+	protoMessage.Status.Completed = !hasToolCalls(message.Content)
 
 	rt.eventHub.Publish(taskID, &v1.SubscribeResponse{
 		Message: protoMessage,
@@ -238,29 +239,36 @@ func (rt *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 		return err
 	}
 
-	toolMessage, err := rt.saveToolResults(ctx, taskID, toolResults)
+	if len(toolResults) > 0 {
+		toolMessage, err := rt.saveToolResults(ctx, taskID, toolResults)
+		if err != nil {
+			return err
+		}
+
+		protoToolResults, err := ConvertToolResultsToProto(toolResults)
+		if err != nil {
+			return err
+		}
+
+		rt.eventHub.Publish(taskID, &v1.SubscribeResponse{
+			Message: &v1.Message{
+				Metadata: &v1.MessageMetadata{
+					Id:        toolMessage.ID.String(),
+					TaskId:    taskID.String(),
+					CreatedAt: timestamppb.New(toolMessage.CreateTime),
+					UpdatedAt: timestamppb.New(toolMessage.UpdateTime),
+				},
+				Spec: &v1.MessageSpec{
+					Content: protoToolResults,
+				},
+			},
+		})
+	}
+
+	_, err = rt.memory.Task.UpdateOneID(taskID).AddTurns(1).Save(ctx)
 	if err != nil {
 		return err
 	}
-
-	protoToolResults, err := ConvertToolResultsToProto(toolResults)
-	if err != nil {
-		return err
-	}
-
-	rt.eventHub.Publish(taskID, &v1.SubscribeResponse{
-		Message: &v1.Message{
-			Metadata: &v1.MessageMetadata{
-				Id:        toolMessage.ID.String(),
-				TaskId:    taskID.String(),
-				CreatedAt: timestamppb.New(toolMessage.CreateTime),
-				UpdatedAt: timestamppb.New(toolMessage.UpdateTime),
-			},
-			Spec: &v1.MessageSpec{
-				Content: protoToolResults,
-			},
-		},
-	})
 
 	rt.TriggerReconciliation(taskID)
 
@@ -569,6 +577,16 @@ func calculateCost(usage model.Usage, model *memory.Model) float64 {
 		float64(usage.OutputTokens)*model.OutputCost +
 		float64(usage.CacheWriteTokens)*model.CacheWriteCost +
 		float64(usage.CacheReadTokens)*model.CacheReadCost
+}
+
+func hasToolCalls(content []model.ContentBlock) bool {
+	for _, block := range content {
+		if _, ok := block.(*model.ToolCallBlock); ok {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (rt *Runtime) Encryption() *secret.Client {

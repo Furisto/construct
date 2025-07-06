@@ -30,7 +30,7 @@ func ConvertTaskSpecToProto(t *memory.Task) (*v1.TaskSpec, error) {
 	return &v1.TaskSpec{
 		AgentId:      strPtr(t.AgentID.String()),
 		Workspace:    t.ProjectDirectory,
-		DesiredPhase: v1.TaskPhase_TASK_PHASE_IDLE, // Default to idle phase
+		DesiredPhase: v1.TaskPhase_TASK_PHASE_AWAITING,
 	}, nil
 }
 
@@ -45,6 +45,6 @@ func ConvertTaskStatusToProto(t *memory.Task) *v1.TaskStatus {
 
 	return &v1.TaskStatus{
 		Usage: usage,
-		Phase: v1.TaskPhase_TASK_PHASE_IDLE, // Default to idle phase
+		Phase: v1.TaskPhase_TASK_PHASE_AWAITING,
 	}
 }

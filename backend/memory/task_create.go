@@ -135,6 +135,20 @@ func (tc *TaskCreate) SetNillableCost(f *float64) *TaskCreate {
 	return tc
 }
 
+// SetTurns sets the "turns" field.
+func (tc *TaskCreate) SetTurns(i int64) *TaskCreate {
+	tc.mutation.SetTurns(i)
+	return tc
+}
+
+// SetNillableTurns sets the "turns" field if the given value is not nil.
+func (tc *TaskCreate) SetNillableTurns(i *int64) *TaskCreate {
+	if i != nil {
+		tc.SetTurns(*i)
+	}
+	return tc
+}
+
 // SetAgentID sets the "agent_id" field.
 func (tc *TaskCreate) SetAgentID(u uuid.UUID) *TaskCreate {
 	tc.mutation.SetAgentID(u)
@@ -226,6 +240,10 @@ func (tc *TaskCreate) defaults() {
 		v := task.DefaultUpdateTime()
 		tc.mutation.SetUpdateTime(v)
 	}
+	if _, ok := tc.mutation.Turns(); !ok {
+		v := task.DefaultTurns
+		tc.mutation.SetTurns(v)
+	}
 	if _, ok := tc.mutation.ID(); !ok {
 		v := task.DefaultID()
 		tc.mutation.SetID(v)
@@ -239,6 +257,9 @@ func (tc *TaskCreate) check() error {
 	}
 	if _, ok := tc.mutation.UpdateTime(); !ok {
 		return &ValidationError{Name: "update_time", err: errors.New(`memory: missing required field "Task.update_time"`)}
+	}
+	if _, ok := tc.mutation.Turns(); !ok {
+		return &ValidationError{Name: "turns", err: errors.New(`memory: missing required field "Task.turns"`)}
 	}
 	return nil
 }
@@ -306,6 +327,10 @@ func (tc *TaskCreate) createSpec() (*Task, *sqlgraph.CreateSpec) {
 	if value, ok := tc.mutation.Cost(); ok {
 		_spec.SetField(task.FieldCost, field.TypeFloat64, value)
 		_node.Cost = value
+	}
+	if value, ok := tc.mutation.Turns(); ok {
+		_spec.SetField(task.FieldTurns, field.TypeInt64, value)
+		_node.Turns = value
 	}
 	if nodes := tc.mutation.MessagesIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

@@ -192,6 +192,27 @@ func (tu *TaskUpdate) ClearCost() *TaskUpdate {
 	return tu
 }
 
+// SetTurns sets the "turns" field.
+func (tu *TaskUpdate) SetTurns(i int64) *TaskUpdate {
+	tu.mutation.ResetTurns()
+	tu.mutation.SetTurns(i)
+	return tu
+}
+
+// SetNillableTurns sets the "turns" field if the given value is not nil.
+func (tu *TaskUpdate) SetNillableTurns(i *int64) *TaskUpdate {
+	if i != nil {
+		tu.SetTurns(*i)
+	}
+	return tu
+}
+
+// AddTurns adds i to the "turns" field.
+func (tu *TaskUpdate) AddTurns(i int64) *TaskUpdate {
+	tu.mutation.AddTurns(i)
+	return tu
+}
+
 // SetAgentID sets the "agent_id" field.
 func (tu *TaskUpdate) SetAgentID(u uuid.UUID) *TaskUpdate {
 	tu.mutation.SetAgentID(u)
@@ -362,6 +383,12 @@ func (tu *TaskUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if tu.mutation.CostCleared() {
 		_spec.ClearField(task.FieldCost, field.TypeFloat64)
+	}
+	if value, ok := tu.mutation.Turns(); ok {
+		_spec.SetField(task.FieldTurns, field.TypeInt64, value)
+	}
+	if value, ok := tu.mutation.AddedTurns(); ok {
+		_spec.AddField(task.FieldTurns, field.TypeInt64, value)
 	}
 	if tu.mutation.MessagesCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -618,6 +645,27 @@ func (tuo *TaskUpdateOne) ClearCost() *TaskUpdateOne {
 	return tuo
 }
 
+// SetTurns sets the "turns" field.
+func (tuo *TaskUpdateOne) SetTurns(i int64) *TaskUpdateOne {
+	tuo.mutation.ResetTurns()
+	tuo.mutation.SetTurns(i)
+	return tuo
+}
+
+// SetNillableTurns sets the "turns" field if the given value is not nil.
+func (tuo *TaskUpdateOne) SetNillableTurns(i *int64) *TaskUpdateOne {
+	if i != nil {
+		tuo.SetTurns(*i)
+	}
+	return tuo
+}
+
+// AddTurns adds i to the "turns" field.
+func (tuo *TaskUpdateOne) AddTurns(i int64) *TaskUpdateOne {
+	tuo.mutation.AddTurns(i)
+	return tuo
+}
+
 // SetAgentID sets the "agent_id" field.
 func (tuo *TaskUpdateOne) SetAgentID(u uuid.UUID) *TaskUpdateOne {
 	tuo.mutation.SetAgentID(u)
@@ -818,6 +866,12 @@ func (tuo *TaskUpdateOne) sqlSave(ctx context.Context) (_node *Task, err error) 
 	}
 	if tuo.mutation.CostCleared() {
 		_spec.ClearField(task.FieldCost, field.TypeFloat64)
+	}
+	if value, ok := tuo.mutation.Turns(); ok {
+		_spec.SetField(task.FieldTurns, field.TypeInt64, value)
+	}
+	if value, ok := tuo.mutation.AddedTurns(); ok {
+		_spec.AddField(task.FieldTurns, field.TypeInt64, value)
 	}
 	if tuo.mutation.MessagesCleared() {
 		edge := &sqlgraph.EdgeSpec{

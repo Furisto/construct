@@ -35,6 +35,8 @@ type Task struct {
 	CacheReadTokens int64 `json:"cache_read_tokens,omitempty"`
 	// Cost holds the value of the "cost" field.
 	Cost float64 `json:"cost,omitempty"`
+	// Turns holds the value of the "turns" field.
+	Turns int64 `json:"turns,omitempty"`
 	// AgentID holds the value of the "agent_id" field.
 	AgentID uuid.UUID `json:"agent_id,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -81,7 +83,7 @@ func (*Task) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case task.FieldCost:
 			values[i] = new(sql.NullFloat64)
-		case task.FieldInputTokens, task.FieldOutputTokens, task.FieldCacheWriteTokens, task.FieldCacheReadTokens:
+		case task.FieldInputTokens, task.FieldOutputTokens, task.FieldCacheWriteTokens, task.FieldCacheReadTokens, task.FieldTurns:
 			values[i] = new(sql.NullInt64)
 		case task.FieldProjectDirectory:
 			values[i] = new(sql.NullString)
@@ -158,6 +160,12 @@ func (t *Task) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				t.Cost = value.Float64
 			}
+		case task.FieldTurns:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field turns", values[i])
+			} else if value.Valid {
+				t.Turns = value.Int64
+			}
 		case task.FieldAgentID:
 			if value, ok := values[i].(*uuid.UUID); !ok {
 				return fmt.Errorf("unexpected type %T for field agent_id", values[i])
@@ -233,6 +241,9 @@ func (t *Task) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("cost=")
 	builder.WriteString(fmt.Sprintf("%v", t.Cost))
+	builder.WriteString(", ")
+	builder.WriteString("turns=")
+	builder.WriteString(fmt.Sprintf("%v", t.Turns))
 	builder.WriteString(", ")
 	builder.WriteString("agent_id=")
 	builder.WriteString(fmt.Sprintf("%v", t.AgentID))
