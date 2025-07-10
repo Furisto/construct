@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	v1 "github.com/furisto/construct/api/go/v1"
 )
 
 func (m model) formatMessages() string {
@@ -19,26 +20,81 @@ func (m model) formatMessages() string {
 		switch msg := msg.(type) {
 		case *userMessage:
 			formatted.WriteString(userPromptStyle.String() + msg.content + "\n\n")
+			
 		case *assistantTextMessage:
 			formatted.WriteString(whiteBullet.String() +
 				formatMessageContent(msg.content, m.width-6) + "\n\n")
-			// case assistantToolMessage:
-			// 	formatted.WriteString(blueBullet.String() +
-			// 		formatMessageContent(msg.content, m.width-6, true) + "\n\n")
-			// case assistantTypingMessage:
-			// 	if containsCodeBlock(msg.content) {
-			// 		// Treat as a tool message if it contains code blocks
-			// 		formatted.WriteString(blueBullet.String() +
-			// 			formatMessageContent(msg.content, m.width-6, true) + "█\n\n")
-			// 	} else {
-			// 		// Otherwise treat as a text message
-			// 		formatted.WriteString(whiteBullet.String() +
-			// 			formatMessageContent(msg.content, m.width-6, false) + "█\n\n")
-			// 	}
+				
+		case *assistantToolMessage:
+			toolName := getToolNameString(msg.toolName)
+			formatted.WriteString(blueBullet.String() + 
+				toolCallStyle.Render(fmt.Sprintf("Tool: %s", toolName)) + "\n")
+				
+			if len(msg.arguments) > 0 {
+				formatted.WriteString("  Arguments:\n")
+				for key, value := range msg.arguments {
+					formatted.WriteString(fmt.Sprintf("    %s: %s\n", 
+						boldStyle.Render(key), 
+						toolArgsStyle.Render(value)))
+				}
+			}
+			
+			if msg.error != "" {
+				formatted.WriteString("  " + errorStyle.Render("Error: ") + msg.error + "\n")
+			}
+			formatted.WriteString("\n")
+			
+		case *submitReportMessage:
+			formatted.WriteString(reportStyle.Render("📋 Task Report") + "\n")
+			formatted.WriteString(reportContentStyle.Render("Summary: ") + msg.summary + "\n")
+			
+			if msg.completed {
+				formatted.WriteString(reportContentStyle.Render("Status: ") + "✅ Completed\n")
+			} else {
+				formatted.WriteString(reportContentStyle.Render("Status: ") + "🔄 In Progress\n")
+			}
+			
+			if len(msg.deliverables) > 0 {
+				formatted.WriteString(reportContentStyle.Render("Deliverables:\n"))
+				for _, deliverable := range msg.deliverables {
+					formatted.WriteString(fmt.Sprintf("  • %s\n", deliverable))
+				}
+			}
+			
+			if msg.nextSteps != "" {
+				formatted.WriteString(reportContentStyle.Render("Next Steps: ") + msg.nextSteps + "\n")
+			}
+			formatted.WriteString("\n")
+			
+		case *errorMessage:
+			formatted.WriteString(errorStyle.Render("❌ Error: ") + msg.content + "\n\n")
 		}
 	}
 
 	return formatted.String()
+}
+
+func getToolNameString(toolName v1.ToolName) string {
+	switch toolName {
+	case v1.ToolName_EDIT_FILE:
+		return "Edit File"
+	case v1.ToolName_CREATE_FILE:
+		return "Create File"
+	case v1.ToolName_READ_FILE:
+		return "Read File"
+	case v1.ToolName_EXECUTE_COMMAND:
+		return "Execute Command"
+	case v1.ToolName_FIND_FILE:
+		return "Find File"
+	case v1.ToolName_HANDOFF:
+		return "Handoff"
+	case v1.ToolName_LIST_FILES:
+		return "List Files"
+	case v1.ToolName_CODE_INTERPRETER:
+		return "Code Interpreter"
+	default:
+		return "Unknown Tool"
+	}
 }
 
 // formatMessageContent formats the content of a message

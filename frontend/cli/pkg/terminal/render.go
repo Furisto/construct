@@ -2,8 +2,10 @@ package terminal
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
-	"slices"
+	"strings"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/charmbracelet/bubbles/spinner"
@@ -26,29 +28,36 @@ type model struct {
 	apiClient   *api_client.Client
 	messages    []message
 	task        *v1.Task
-	activeAgent string
-	agents      []string
+	activeAgent *v1.Agent
+	agents      []*v1.Agent
 
 	eventChannel chan *v1.SubscribeResponse
 	ctx          context.Context
+
+	// UI state
+	state     appState
+	mode      uiMode
+	showHelp  bool
+	typing    bool
+	lastUsage *v1.TaskUsage
 }
 
 func NewModel(ctx context.Context, apiClient *api_client.Client, task *v1.Task, agent *v1.Agent) *model {
 	ta := textarea.New()
 	ta.Focus()
 	ta.CharLimit = 32768
-	// ti.Prompt = fmt.Sprintf("[%s] > ", agent.Metadata.Name)
 	ta.ShowLineNumbers = false
-	ta.SetHeight(1)
-	// ta.SetWidth(80)
+	ta.SetHeight(3)
 	ta.FocusedStyle.CursorLine = lipgloss.NewStyle()
 	ta.Prompt = ""
+	ta.Placeholder = "Type your message..."
 
 	vp := viewport.New(80, 20)
 	vp.SetContent("")
 
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
+	sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("39"))
 
 	return &model{
 		width:        80,
@@ -58,10 +67,16 @@ func NewModel(ctx context.Context, apiClient *api_client.Client, task *v1.Task, 
 		spinner:      sp,
 		apiClient:    apiClient,
 		messages:     []message{},
-		activeAgent:  agent.Spec.Name,
+		activeAgent:  agent,
+		agents:       []*v1.Agent{agent},
 		task:         task,
 		eventChannel: make(chan *v1.SubscribeResponse, 100),
 		ctx:          ctx,
+		state:        StateNormal,
+		mode:         ModeInput,
+		showHelp:     false,
+		typing:       false,
+		lastUsage:    task.Status.Usage,
 	}
 }
 
@@ -70,6 +85,9 @@ func (m model) Init() tea.Cmd {
 		tea.EnterAltScreen,
 		eventSubscriber(m.ctx, m.apiClient, m.eventChannel, m.task.Metadata.Id),
 		eventBridge(m.eventChannel),
+		tea.Every(time.Millisecond*100, func(t time.Time) tea.Msg {
+			return eventBridge(m.eventChannel)()
+		}),
 	)
 }
 
@@ -101,15 +119,13 @@ func eventSubscriber(ctx context.Context, client *api_client.Client, eventChanne
 
 func eventBridge(eventChannel <-chan *v1.SubscribeResponse) tea.Cmd {
 	return func() tea.Msg {
-		msg := <-eventChannel
-		switch msg.GetEvent().(type) {
-		// case *v1.SubscribeResponse_MessageEvent:
-		// 	slog.Info("received message event", "message", msg.GetMessageEvent())
-		// 	return msg.GetMessageEvent()
+		select {
+		case event := <-eventChannel:
+			if event != nil && event.Message != nil {
+				return event.Message
+			}
 		default:
-			slog.Error("unknown event", "event", msg.GetEvent())
 		}
-
 		return nil
 	}
 }
@@ -122,6 +138,14 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		if m.showHelp {
+			if msg.Type == tea.KeyEsc || msg.String() == "h" || msg.String() == "H" {
+				m.showHelp = false
+				return m, nil
+			}
+			return m, nil
+		}
+
 		switch msg.Type {
 		case tea.KeyCtrlC:
 			fallthrough
@@ -130,20 +154,28 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		default:
 			cmds = append(cmds, m.onKeyPressed(msg))
 		}
+
 	case tea.WindowSizeMsg:
 		m.onWindowResize(msg)
 
 	case *v1.Message:
 		slog.Info("processing message", "message", msg)
-		// m.messages = append(m.messages, &userMessage{content: msg.Spec.Content.GetText()})
+		m.processMessage(msg)
 		m.updateViewportContent()
 		slog.Info("updated viewport content")
+		// Continue polling for more messages
+		cmds = append(cmds, eventBridge(m.eventChannel))
 	}
 
-	m.input, cmd = m.input.Update(msg)
-	cmds = append(cmds, cmd)
+	if !m.showHelp {
+		m.input, cmd = m.input.Update(msg)
+		cmds = append(cmds, cmd)
+	}
 
 	m.viewport, cmd = m.viewport.Update(msg)
+	cmds = append(cmds, cmd)
+
+	m.spinner, cmd = m.spinner.Update(msg)
 	cmds = append(cmds, cmd)
 
 	return m, tea.Batch(cmds...)
@@ -152,16 +184,39 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *model) onKeyPressed(msg tea.KeyMsg) tea.Cmd {
 	switch msg.Type {
 	case tea.KeyTab:
-		return m.onToogleAgent()
+		return m.onToggleAgent()
 	case tea.KeyEnter:
-		return m.onTextInput(msg)
+		if m.mode == ModeInput {
+			return m.onTextInput(msg)
+		}
+	case tea.KeyCtrlH:
+		m.showHelp = !m.showHelp
+		return nil
+	case tea.KeyCtrlL:
+		m.messages = []message{}
+		m.updateViewportContent()
+		return nil
+	case tea.KeyCtrlR:
+		return m.onReconnect()
+	case tea.KeyF1:
+		m.mode = ModeInput
+		m.input.Focus()
+		return nil
+	case tea.KeyF2:
+		m.mode = ModeScroll
+		m.input.Blur()
+		return nil
 	}
 
 	switch msg.String() {
 	case "k", "up":
-		m.viewport.LineUp(1)
+		if m.mode == ModeScroll {
+			m.viewport.LineUp(1)
+		}
 	case "j", "down":
-		m.viewport.LineDown(1)
+		if m.mode == ModeScroll {
+			m.viewport.LineDown(1)
+		}
 	case "b", "pageup":
 		m.viewport.HalfViewUp()
 	case "f", "pagedown":
@@ -170,19 +225,30 @@ func (m *model) onKeyPressed(msg tea.KeyMsg) tea.Cmd {
 		m.viewport.GotoTop()
 	case "end":
 		m.viewport.GotoBottom()
+	case "h", "H":
+		m.showHelp = !m.showHelp
+		return nil
 	}
 
 	return nil
 }
 
-func (m *model) onTextInput(msg tea.KeyMsg) tea.Cmd {
+func (m *model) onTextInput(_ tea.KeyMsg) tea.Cmd {
 	if m.input.Value() != "" {
-		userInput := m.input.Value()
+		userInput := strings.TrimSpace(m.input.Value())
 		m.input.Reset()
+
+		// Add user message to display immediately
+		m.messages = append(m.messages, &userMessage{
+			content:   userInput,
+			timestamp: time.Now(),
+		})
+		m.updateViewportContent()
+		m.typing = true
 
 		_, err := m.apiClient.Message().CreateMessage(context.Background(), &connect.Request[v1.CreateMessageRequest]{
 			Msg: &v1.CreateMessageRequest{
-				TaskId:  m.task.Metadata.Id,
+				TaskId: m.task.Metadata.Id,
 				Content: []*v1.MessagePart{
 					{
 						Data: &v1.MessagePart_Text_{
@@ -195,51 +261,203 @@ func (m *model) onTextInput(msg tea.KeyMsg) tea.Cmd {
 			},
 		})
 		if err != nil {
+			slog.Error("failed to send message", "error", err)
+			m.messages = append(m.messages, &errorMessage{
+				content:   fmt.Sprintf("Error sending message: %v", err),
+				timestamp: time.Now(),
+			})
+			m.updateViewportContent()
+			m.typing = false
 		}
 	}
 
 	return nil
 }
 
-func (m *model) onToogleAgent() tea.Cmd {
-	if len(m.agents) == 0 {
+func (m *model) processMessage(msg *v1.Message) {
+	if msg.Metadata.Role == v1.MessageRole_MESSAGE_ROLE_ASSISTANT {
+		m.typing = false
+		
+		for _, part := range msg.Spec.Content {
+			switch data := part.Data.(type) {
+			case *v1.MessagePart_Text_:
+				m.messages = append(m.messages, &assistantTextMessage{
+					content:   data.Text.Content,
+					timestamp: msg.Metadata.CreatedAt.AsTime(),
+				})
+			case *v1.MessagePart_ToolResult_:
+				m.messages = append(m.messages, &assistantToolMessage{
+					toolName:  data.ToolResult.ToolName,
+					arguments: data.ToolResult.Arguments,
+					result:    data.ToolResult.Result,
+					error:     data.ToolResult.Error,
+					timestamp: msg.Metadata.CreatedAt.AsTime(),
+				})
+			case *v1.MessagePart_SubmitReport_:
+				m.messages = append(m.messages, &submitReportMessage{
+					summary:      data.SubmitReport.Summary,
+					completed:    data.SubmitReport.Completed,
+					deliverables: data.SubmitReport.Deliverables,
+					nextSteps:    data.SubmitReport.NextSteps,
+					timestamp:    msg.Metadata.CreatedAt.AsTime(),
+				})
+			}
+		}
+	}
+	
+	// Update usage info if available
+	if msg.Status != nil && msg.Status.Usage != nil {
+		// Convert MessageUsage to TaskUsage for display
+		m.lastUsage = &v1.TaskUsage{
+			InputTokens:      msg.Status.Usage.InputTokens,
+			OutputTokens:     msg.Status.Usage.OutputTokens,
+			CacheWriteTokens: msg.Status.Usage.CacheWriteTokens,
+			CacheReadTokens:  msg.Status.Usage.CacheReadTokens,
+			Cost:             msg.Status.Usage.Cost,
+		}
+	}
+}
+
+func (m *model) onToggleAgent() tea.Cmd {
+	if len(m.agents) <= 1 {
 		return nil
 	}
-	idx := slices.Index(m.agents, m.activeAgent)
-	if idx == -1 {
-		idx = 0
+	
+	currentIdx := -1
+	for i, agent := range m.agents {
+		if agent.Metadata.Id == m.activeAgent.Metadata.Id {
+			currentIdx = i
+			break
+		}
+	}
+	
+	if currentIdx == -1 {
+		currentIdx = 0
 	} else {
-		idx = (idx + 1) % len(m.agents)
+		currentIdx = (currentIdx + 1) % len(m.agents)
 	}
 
-	m.activeAgent = m.agents[idx]
+	m.activeAgent = m.agents[currentIdx]
 	return nil
+}
+
+func (m *model) onReconnect() tea.Cmd {
+	return tea.Batch(
+		eventSubscriber(m.ctx, m.apiClient, m.eventChannel, m.task.Metadata.Id),
+		eventBridge(m.eventChannel),
+	)
 }
 
 func (m *model) onWindowResize(msg tea.WindowSizeMsg) {
 	m.width = msg.Width
 	m.height = msg.Height
+	
+	// Update component sizes
+	m.input.SetWidth(m.width - 6)
+	m.viewport.Width = Max(5, m.width-6)
 }
 
 func (m *model) View() string {
+	if m.showHelp {
+		return m.renderHelp()
+	}
+
+	header := m.renderHeader()
+	footer := m.renderFooter()
+
+	// Calculate dimensions
+	headerHeight := lipgloss.Height(header)
+	footerHeight := lipgloss.Height(footer)
+	inputHeight := 4 // Fixed height for input area
+
 	m.input.SetWidth(m.width - 6)
-	if len(m.input.Value()) > m.width-6 {
-		m.input.SetHeight(2)
+	inputStyle := inputStyle
+	if m.mode == ModeInput {
+		inputStyle = inputFocusedStyle
 	}
 	textInput := inputStyle.Render(m.input.View())
 
-	footer := footerStyle.Render("\nTab: switch agent| PgUp/PgDown: scroll | Ctrl+C: quit")
-
 	m.viewport.Width = Max(5, m.width-6)
-	m.viewport.Height = Max(5, m.height-4-lipgloss.Height(m.input.View())-lipgloss.Height(footer))
+	m.viewport.Height = Max(5, m.height-headerHeight-inputHeight-footerHeight-4)
 	viewport := viewportStyle.Render(m.viewport.View())
-	slog.Info("viewport", "viewport", viewport)
 
-	return appStyle.Render(lipgloss.JoinVertical(lipgloss.Center,
+	return appStyle.Render(lipgloss.JoinVertical(lipgloss.Left,
+		header,
 		viewport,
-		textInput),
+		textInput,
 		footer,
+	))
+}
+
+func (m *model) renderHeader() string {
+	agentName := "Unknown"
+	if m.activeAgent != nil {
+		agentName = m.activeAgent.Spec.Name
+	}
+
+	taskStatus := "Unknown"
+	if m.task != nil {
+		switch m.task.Status.Phase {
+		case v1.TaskPhase_TASK_PHASE_AWAITING:
+			taskStatus = "Awaiting"
+		case v1.TaskPhase_TASK_PHASE_RUNNING:
+			taskStatus = "Running"
+		case v1.TaskPhase_TASK_PHASE_SUSPENDED:
+			taskStatus = "Suspended"
+		}
+	}
+
+	statusText := ""
+	if m.typing {
+		statusText = m.spinner.View() + " Agent is thinking..."
+	} else {
+		statusText = taskStatusStyle.Render(taskStatus)
+	}
+
+	usageText := ""
+	if m.lastUsage != nil {
+		usageText = usageStyle.Render(fmt.Sprintf("Tokens: %d/%d | Cost: $%.4f", 
+			m.lastUsage.InputTokens, m.lastUsage.OutputTokens, m.lastUsage.Cost))
+	}
+
+	left := lipgloss.JoinHorizontal(lipgloss.Left,
+		agentNameStyle.Render("Agent: "),
+		agentNameStyle.Render(agentName),
+		" | ",
+		statusText,
 	)
+
+	headerContent := lipgloss.JoinHorizontal(lipgloss.Left,
+		left,
+		strings.Repeat(" ", Max(0, m.width-lipgloss.Width(left)-lipgloss.Width(usageText)-4)),
+		usageText,
+	)
+
+	return headerStyle.Render(headerContent)
+}
+
+func (m *model) renderFooter() string {
+	shortcuts := []string{}
+	
+	if m.mode == ModeInput {
+		shortcuts = append(shortcuts, 
+			shortcutStyle.Render("Enter")+" "+shortcutDescStyle.Render("Send"),
+			shortcutStyle.Render("F2")+" "+shortcutDescStyle.Render("Scroll"),
+		)
+	} else {
+		shortcuts = append(shortcuts,
+			shortcutStyle.Render("F1")+" "+shortcutDescStyle.Render("Input"),
+			shortcutStyle.Render("↑↓")+" "+shortcutDescStyle.Render("Scroll"),
+		)
+	}
+	
+	shortcuts = append(shortcuts,
+		shortcutStyle.Render("Tab")+" "+shortcutDescStyle.Render("Switch Agent"),
+		shortcutStyle.Render("H")+" "+shortcutDescStyle.Render("Help"),
+		shortcutStyle.Render("Ctrl+C")+" "+shortcutDescStyle.Render("Quit"),
+	)
+
+	return footerStyle.Render(strings.Join(shortcuts, " | "))
 }
 
 func (m *model) updateViewportContent() {
