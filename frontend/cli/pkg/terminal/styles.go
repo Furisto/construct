@@ -11,15 +11,25 @@ var (
 
 	// Header styles
 	headerStyle = lipgloss.NewStyle().
-			BorderStyle(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("62")).
-			Background(lipgloss.Color("235")).
-			Padding(0, 1).
-			MarginBottom(1)
+		// BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("62")).
+		Padding(0, 1).
+		MarginBottom(1)
 
 	agentNameStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("39")).
+			Foreground(lipgloss.Color("255")).
 			Bold(true)
+
+	agentDiamondStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("250")).
+			Bold(true)
+
+	agentModelStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("245")).
+			Italic(true)
+
+	bulletSeparatorStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("240"))
 
 	taskStatusStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("34"))
