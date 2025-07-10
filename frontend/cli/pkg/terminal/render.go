@@ -411,8 +411,15 @@ func (m *model) renderHeader() string {
 
 	usageText := ""
 	if m.lastUsage != nil {
-		usageText = usageStyle.Render(fmt.Sprintf("Tokens: %d/%d | Cost: $%.4f",
-			m.lastUsage.InputTokens, m.lastUsage.OutputTokens, m.lastUsage.Cost))
+		// Build token display with arrows
+		tokenDisplay := fmt.Sprintf("Tokens: %d↑ %d↓", m.lastUsage.InputTokens, m.lastUsage.OutputTokens)
+		
+		// Add cache tokens if available
+		if m.lastUsage.CacheReadTokens > 0 || m.lastUsage.CacheWriteTokens > 0 {
+			tokenDisplay += fmt.Sprintf(" (Cache: %d↑ %d↓)", m.lastUsage.CacheReadTokens, m.lastUsage.CacheWriteTokens)
+		}
+		
+		usageText = usageStyle.Render(fmt.Sprintf("%s | Cost: $%.4f", tokenDisplay, m.lastUsage.Cost))
 	}
 
 	// Extract model info from agent if available
