@@ -47,7 +47,7 @@ func NewModel(ctx context.Context, apiClient *api_client.Client, task *v1.Task, 
 	ta.Focus()
 	ta.CharLimit = 32768
 	ta.ShowLineNumbers = false
-	ta.SetHeight(3)
+	ta.SetHeight(4)
 	ta.FocusedStyle.CursorLine = lipgloss.NewStyle()
 	ta.Prompt = ""
 	ta.Placeholder = "Type your message..."
@@ -365,25 +365,22 @@ func (m *model) View() string {
 	}
 
 	header := m.renderHeader()
-	footer := m.renderFooter()
 
 	// Calculate dimensions
 	headerHeight := lipgloss.Height(header)
-	footerHeight := lipgloss.Height(footer)
-	inputHeight := 4 // Fixed height for input area
+	inputHeight := 5 // Fixed height for input area (4 lines + border)
 
 	m.input.SetWidth(Max(5, Min(m.width-6, 115)))
 	textInput := m.input.View()
 
 	m.viewport.Width = Max(5, Min(m.width-6, 115))
-	m.viewport.Height = Max(5, m.height-headerHeight-inputHeight-footerHeight-4)
+	m.viewport.Height = Max(5, m.height-headerHeight-inputHeight-4)
 	viewport := viewportStyle.Render(m.viewport.View())
 
 	return appStyle.Render(lipgloss.JoinVertical(lipgloss.Left,
 		header,
 		viewport,
 		textInput,
-		footer,
 	))
 }
 
@@ -418,10 +415,34 @@ func (m *model) renderHeader() string {
 			m.lastUsage.InputTokens, m.lastUsage.OutputTokens, m.lastUsage.Cost))
 	}
 
-	left := lipgloss.JoinHorizontal(lipgloss.Left,
-		agentNameStyle.Render("Agent: "),
+	// Extract model info from agent if available
+	modelInfo := ""
+	if m.activeAgent != nil && m.activeAgent.Spec.ModelId != "" {
+		// Extract meaningful model name from model ID
+		modelName := m.extractModelName(m.activeAgent.Spec.ModelId)
+		if modelName != "" {
+			modelInfo = agentModelStyle.Render(modelName)
+		}
+	}
+
+	// Build agent section with diamond symbol
+	agentSection := lipgloss.JoinHorizontal(lipgloss.Left,
+		agentDiamondStyle.Render("» "),
 		agentNameStyle.Render(agentName),
-		" | ",
+	)
+
+	// Add model info if available
+	if modelInfo != "" {
+		agentSection = lipgloss.JoinHorizontal(lipgloss.Left,
+			agentSection,
+			bulletSeparatorStyle.Render(" • "),
+			modelInfo,
+		)
+	}
+
+	left := lipgloss.JoinHorizontal(lipgloss.Left,
+		agentSection,
+		bulletSeparatorStyle.Render(" • "),
 		statusText,
 	)
 
@@ -434,31 +455,32 @@ func (m *model) renderHeader() string {
 	return headerStyle.Render(headerContent)
 }
 
-func (m *model) renderFooter() string {
-	shortcuts := []string{}
-
-	if m.mode == ModeInput {
-		shortcuts = append(shortcuts,
-			shortcutStyle.Render("Enter")+" "+shortcutDescStyle.Render("Send"),
-			shortcutStyle.Render("F2")+" "+shortcutDescStyle.Render("Scroll"),
-		)
-	} else {
-		shortcuts = append(shortcuts,
-			shortcutStyle.Render("F1")+" "+shortcutDescStyle.Render("Input"),
-			shortcutStyle.Render("↑↓")+" "+shortcutDescStyle.Render("Scroll"),
-		)
-	}
-
-	shortcuts = append(shortcuts,
-		shortcutStyle.Render("Tab")+" "+shortcutDescStyle.Render("Switch Agent"),
-		shortcutStyle.Render("H")+" "+shortcutDescStyle.Render("Help"),
-		shortcutStyle.Render("Ctrl+C")+" "+shortcutDescStyle.Render("Quit"),
-	)
-
-	return footerStyle.Render(strings.Join(shortcuts, " | "))
-}
-
 func (m *model) updateViewportContent() {
 	m.viewport.SetContent(m.formatMessages())
 	m.viewport.GotoBottom()
+}
+
+func (m *model) extractModelName(modelId string) string {
+	// Map common model IDs to display names
+	// This is a simplified approach - could be enhanced with actual model resolution
+	switch {
+	case strings.Contains(strings.ToLower(modelId), "gpt-4"):
+		return "GPT-4"
+	case strings.Contains(strings.ToLower(modelId), "gpt-3.5"):
+		return "GPT-3.5"
+	case strings.Contains(strings.ToLower(modelId), "claude"):
+		return "Claude"
+	case strings.Contains(strings.ToLower(modelId), "sonnet"):
+		return "Claude Sonnet"
+	case strings.Contains(strings.ToLower(modelId), "haiku"):
+		return "Claude Haiku"
+	case strings.Contains(strings.ToLower(modelId), "opus"):
+		return "Claude Opus"
+	default:
+		// If no recognizable pattern, show first 8 chars of model ID
+		if len(modelId) > 8 {
+			return modelId[:8] + "..."
+		}
+		return modelId
+	}
 }
