@@ -32,15 +32,13 @@ var (
 			BorderStyle(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("240")).
 			Background(lipgloss.NoColor{}).
-			MaxWidth(120).
 			Padding(0, 1)
 
 	inputFocusedStyle = lipgloss.NewStyle().
-			BorderStyle(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("39")).
-			Background(lipgloss.NoColor{}).
-			MaxWidth(120).
-			Padding(0, 1)
+				BorderStyle(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color("39")).
+				Background(lipgloss.NoColor{}).
+				Padding(0, 1)
 
 	// Viewport styles
 	viewportStyle = lipgloss.NewStyle().
@@ -61,7 +59,7 @@ var (
 			Bold(true)
 
 	shortcutDescStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("252"))
+				Foreground(lipgloss.Color("252"))
 
 	// Message styles
 	userMsgStyle = lipgloss.NewStyle().
@@ -113,20 +111,20 @@ var (
 			Bold(true)
 
 	reportContentStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("252"))
+				Foreground(lipgloss.Color("252"))
 
 	// Status indicator styles
 	statusRunningStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("34")).
-			Bold(true)
+				Foreground(lipgloss.Color("34")).
+				Bold(true)
 
 	statusWaitingStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("214")).
-			Bold(true)
+				Foreground(lipgloss.Color("214")).
+				Bold(true)
 
 	statusErrorStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("9")).
-			Bold(true)
+				Foreground(lipgloss.Color("9")).
+				Bold(true)
 
 	// Timestamp style
 	timestampStyle = lipgloss.NewStyle().
@@ -144,17 +142,16 @@ var (
 			Foreground(lipgloss.Color("240")).
 			SetString(strings.Repeat("─", 80))
 
-
 	boldStyle = lipgloss.NewStyle().
 			Bold(true)
 
 	// Help overlay styles
 	helpOverlayStyle = lipgloss.NewStyle().
-			BorderStyle(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("39")).
-			Background(lipgloss.Color("235")).
-			Padding(1, 2).
-			Margin(1)
+				BorderStyle(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color("39")).
+				Background(lipgloss.Color("235")).
+				Padding(1, 2).
+				Margin(1)
 
 	helpTitleStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("39")).
@@ -163,13 +160,8 @@ var (
 
 	helpItemStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("252"))
-
 )
 
 func Bold(s string) string {
 	return boldStyle.Render(s)
 }
-
-
-
-

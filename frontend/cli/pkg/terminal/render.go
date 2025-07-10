@@ -277,7 +277,7 @@ func (m *model) onTextInput(_ tea.KeyMsg) tea.Cmd {
 func (m *model) processMessage(msg *v1.Message) {
 	if msg.Metadata.Role == v1.MessageRole_MESSAGE_ROLE_ASSISTANT {
 		m.typing = false
-		
+
 		for _, part := range msg.Spec.Content {
 			switch data := part.Data.(type) {
 			case *v1.MessagePart_Text_:
@@ -304,7 +304,7 @@ func (m *model) processMessage(msg *v1.Message) {
 			}
 		}
 	}
-	
+
 	// Update usage info if available
 	if msg.Status != nil && msg.Status.Usage != nil {
 		// Convert MessageUsage to TaskUsage for display
@@ -322,7 +322,7 @@ func (m *model) onToggleAgent() tea.Cmd {
 	if len(m.agents) <= 1 {
 		return nil
 	}
-	
+
 	currentIdx := -1
 	for i, agent := range m.agents {
 		if agent.Metadata.Id == m.activeAgent.Metadata.Id {
@@ -330,7 +330,7 @@ func (m *model) onToggleAgent() tea.Cmd {
 			break
 		}
 	}
-	
+
 	if currentIdx == -1 {
 		currentIdx = 0
 	} else {
@@ -351,10 +351,12 @@ func (m *model) onReconnect() tea.Cmd {
 func (m *model) onWindowResize(msg tea.WindowSizeMsg) {
 	m.width = msg.Width
 	m.height = msg.Height
-	
-	// Update component sizes
-	m.input.SetWidth(m.width - 6)
-	m.viewport.Width = Max(5, m.width-6)
+
+	// Update component sizes. Subtract 6 (2 margin, 2 border, 2 padding) so
+	// the textarea including its own border fits perfectly inside the
+	// outer appStyle margins.
+	m.input.SetWidth(Max(5, Min(m.width-6, 115)))
+	m.viewport.Width = Max(5, Min(m.width-6, 115))
 }
 
 func (m *model) View() string {
@@ -370,14 +372,10 @@ func (m *model) View() string {
 	footerHeight := lipgloss.Height(footer)
 	inputHeight := 4 // Fixed height for input area
 
-	m.input.SetWidth(m.width - 6)
-	inputStyle := inputStyle
-	if m.mode == ModeInput {
-		inputStyle = inputFocusedStyle
-	}
-	textInput := inputStyle.Render(m.input.View())
+	m.input.SetWidth(Max(5, Min(m.width-6, 115)))
+	textInput := m.input.View()
 
-	m.viewport.Width = Max(5, m.width-6)
+	m.viewport.Width = Max(5, Min(m.width-6, 115))
 	m.viewport.Height = Max(5, m.height-headerHeight-inputHeight-footerHeight-4)
 	viewport := viewportStyle.Render(m.viewport.View())
 
@@ -416,7 +414,7 @@ func (m *model) renderHeader() string {
 
 	usageText := ""
 	if m.lastUsage != nil {
-		usageText = usageStyle.Render(fmt.Sprintf("Tokens: %d/%d | Cost: $%.4f", 
+		usageText = usageStyle.Render(fmt.Sprintf("Tokens: %d/%d | Cost: $%.4f",
 			m.lastUsage.InputTokens, m.lastUsage.OutputTokens, m.lastUsage.Cost))
 	}
 
@@ -438,9 +436,9 @@ func (m *model) renderHeader() string {
 
 func (m *model) renderFooter() string {
 	shortcuts := []string{}
-	
+
 	if m.mode == ModeInput {
-		shortcuts = append(shortcuts, 
+		shortcuts = append(shortcuts,
 			shortcutStyle.Render("Enter")+" "+shortcutDescStyle.Render("Send"),
 			shortcutStyle.Render("F2")+" "+shortcutDescStyle.Render("Scroll"),
 		)
@@ -450,7 +448,7 @@ func (m *model) renderFooter() string {
 			shortcutStyle.Render("↑↓")+" "+shortcutDescStyle.Render("Scroll"),
 		)
 	}
-	
+
 	shortcuts = append(shortcuts,
 		shortcutStyle.Render("Tab")+" "+shortcutDescStyle.Render("Switch Agent"),
 		shortcutStyle.Render("H")+" "+shortcutDescStyle.Render("Help"),

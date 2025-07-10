@@ -20,52 +20,52 @@ func (m model) formatMessages() string {
 		switch msg := msg.(type) {
 		case *userMessage:
 			formatted.WriteString(userPromptStyle.String() + msg.content + "\n\n")
-			
+
 		case *assistantTextMessage:
 			formatted.WriteString(whiteBullet.String() +
 				formatMessageContent(msg.content, m.width-6) + "\n\n")
-				
+
 		case *assistantToolMessage:
 			toolName := getToolNameString(msg.toolName)
-			formatted.WriteString(blueBullet.String() + 
+			formatted.WriteString(blueBullet.String() +
 				toolCallStyle.Render(fmt.Sprintf("Tool: %s", toolName)) + "\n")
-				
+
 			if len(msg.arguments) > 0 {
 				formatted.WriteString("  Arguments:\n")
 				for key, value := range msg.arguments {
-					formatted.WriteString(fmt.Sprintf("    %s: %s\n", 
-						boldStyle.Render(key), 
+					formatted.WriteString(fmt.Sprintf("    %s: %s\n",
+						boldStyle.Render(key),
 						toolArgsStyle.Render(value)))
 				}
 			}
-			
+
 			if msg.error != "" {
 				formatted.WriteString("  " + errorStyle.Render("Error: ") + msg.error + "\n")
 			}
 			formatted.WriteString("\n")
-			
+
 		case *submitReportMessage:
 			formatted.WriteString(reportStyle.Render("📋 Task Report") + "\n")
 			formatted.WriteString(reportContentStyle.Render("Summary: ") + msg.summary + "\n")
-			
+
 			if msg.completed {
 				formatted.WriteString(reportContentStyle.Render("Status: ") + "✅ Completed\n")
 			} else {
 				formatted.WriteString(reportContentStyle.Render("Status: ") + "🔄 In Progress\n")
 			}
-			
+
 			if len(msg.deliverables) > 0 {
 				formatted.WriteString(reportContentStyle.Render("Deliverables:\n"))
 				for _, deliverable := range msg.deliverables {
 					formatted.WriteString(fmt.Sprintf("  • %s\n", deliverable))
 				}
 			}
-			
+
 			if msg.nextSteps != "" {
 				formatted.WriteString(reportContentStyle.Render("Next Steps: ") + msg.nextSteps + "\n")
 			}
 			formatted.WriteString("\n")
-			
+
 		case *errorMessage:
 			formatted.WriteString(errorStyle.Render("❌ Error: ") + msg.content + "\n\n")
 		}
@@ -163,6 +163,13 @@ func formatCodeBlocks(content string, maxWidth int) string {
 
 func Max(a, b int) int {
 	if a > b {
+		return a
+	}
+	return b
+}
+
+func Min(a, b int) int {
+	if a < b {
 		return a
 	}
 	return b
