@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/glamour"
 	v1 "github.com/furisto/construct/api/go/v1"
 )
 
@@ -22,7 +22,7 @@ func (m model) formatMessages() string {
 			formatted.WriteString(userPromptStyle.String() + msg.content + "\n\n")
 
 		case *assistantTextMessage:
-			formatted.WriteString(whiteBullet.String() +
+			formatted.WriteString(
 				formatMessageContent(msg.content, m.width-6) + "\n\n")
 
 		case *assistantToolMessage:
@@ -99,67 +99,76 @@ func getToolNameString(toolName v1.ToolName) string {
 
 // formatMessageContent formats the content of a message
 func formatMessageContent(content string, maxWidth int) string {
-	// If it's a code block, format it differently
-	if containsCodeBlock(content) {
-		return formatCodeBlocks(content, maxWidth)
-	}
+
+	md, _ := glamour.NewTermRenderer(
+		glamour.WithEnvironmentConfig(),
+		// glamour.WithWordWrap(maxWidth),
+	)
+
+	out, _ := md.Render(content)
+
+	// // If it's a code block, format it differently
+	// if containsCodeBlock(content) {
+	// 	return formatCodeBlocks(content, maxWidth)
+	// }
 
 	// Regular text formatting
-	return assistantTextStyle.Render(content)
+
+	return assistantTextStyle.Render(out)
 }
 
 func containsCodeBlock(content string) bool {
 	return strings.Contains(content, "```")
 }
 
-func formatCodeBlocks(content string, maxWidth int) string {
-	if !containsCodeBlock(content) {
-		return assistantTextStyle.Render(content)
-	}
+// func formatCodeBlocks(content string, maxWidth int) string {
+// 	if !containsCodeBlock(content) {
+// 		return assistantTextStyle.Render(content)
+// 	}
 
-	// Split the content by code block markers
-	parts := strings.Split(content, "```")
-	var formatted strings.Builder
+// 	// Split the content by code block markers
+// 	parts := strings.Split(content, "```")
+// 	var formatted strings.Builder
 
-	// Process each part
-	for i, part := range parts {
-		if i == 0 {
-			// First part is regular text (might be empty)
-			if part != "" {
-				formatted.WriteString(assistantTextStyle.Render(part))
-				formatted.WriteString("\n")
-			}
-		} else if i%2 == 1 {
-			// Odd indexed parts are code blocks
-			// Extract language if specified
-			lang := ""
-			codeContent := part
-			if idx := strings.Index(part, "\n"); idx > 0 {
-				lang = part[:idx]
-				codeContent = part[idx+1:]
-			}
+// 	// Process each part
+// 	for i, part := range parts {
+// 		if i == 0 {
+// 			// First part is regular text (might be empty)
+// 			if part != "" {
+// 				formatted.WriteString(assistantTextStyle.Render(part))
+// 				formatted.WriteString("\n")
+// 			}
+// 		} else if i%2 == 1 {
+// 			// Odd indexed parts are code blocks
+// 			// Extract language if specified
+// 			lang := ""
+// 			codeContent := part
+// 			if idx := strings.Index(part, "\n"); idx > 0 {
+// 				lang = part[:idx]
+// 				codeContent = part[idx+1:]
+// 			}
 
-			// Add language indicator if present
-			if lang != "" {
-				formatted.WriteString(lipgloss.NewStyle().
-					Foreground(lipgloss.Color("241")).
-					Render(fmt.Sprintf("(%s)\n", lang)))
-			}
+// 			// Add language indicator if present
+// 			if lang != "" {
+// 				formatted.WriteString(lipgloss.NewStyle().
+// 					Foreground(lipgloss.Color("241")).
+// 					Render(fmt.Sprintf("(%s)\n", lang)))
+// 			}
 
-			// Format the code block
-			formatted.WriteString(codeBlockStyle.Render(codeContent))
-			formatted.WriteString("\n")
-		} else {
-			// Even indexed parts (after the first) are regular text
-			if part != "" {
-				formatted.WriteString(assistantTextStyle.Render(part))
-				formatted.WriteString("\n")
-			}
-		}
-	}
+// 			// Format the code block
+// 			formatted.WriteString(codeBlockStyle.Render(codeContent))
+// 			formatted.WriteString("\n")
+// 		} else {
+// 			// Even indexed parts (after the first) are regular text
+// 			if part != "" {
+// 				formatted.WriteString(assistantTextStyle.Render(part))
+// 				formatted.WriteString("\n")
+// 			}
+// 		}
+// 	}
 
-	return formatted.String()
-}
+// 	return formatted.String()
+// }
 
 func Max(a, b int) int {
 	if a > b {

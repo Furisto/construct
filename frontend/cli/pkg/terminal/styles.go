@@ -56,36 +56,36 @@ var (
 			MarginTop(1).
 			MarginBottom(1)
 
-	// Footer styles
-	footerStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("241")).
-			BorderStyle(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("240")).
-			Padding(0, 1).
-			MarginTop(1)
+	// // Footer styles
+	// footerStyle = lipgloss.NewStyle().
+	// 		Foreground(lipgloss.Color("241")).
+	// 		BorderStyle(lipgloss.RoundedBorder()).
+	// 		BorderForeground(lipgloss.Color("240")).
+	// 		Padding(0, 1).
+	// 		MarginTop(1)
 
-	shortcutStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("39")).
-			Bold(true)
+	// shortcutStyle = lipgloss.NewStyle().
+	// 		Foreground(lipgloss.Color("39")).
+	// 		Bold(true)
 
-	shortcutDescStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("252"))
+	// shortcutDescStyle = lipgloss.NewStyle().
+	// 			Foreground(lipgloss.Color("252"))
 
-	// Message styles
-	userMsgStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("252"))
+	// // Message styles
+	// userMsgStyle = lipgloss.NewStyle().
+	// 		Foreground(lipgloss.Color("252"))
 
 	assistantTextStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("252"))
 
-	assistantToolStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("39"))
+	// assistantToolStyle = lipgloss.NewStyle().
+	// 			Foreground(lipgloss.Color("39"))
 
-	// Code block style for tool messages
-	codeBlockStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("39")).
-			Background(lipgloss.Color("236")).
-			Padding(0, 1)
+	// // Code block style for tool messages
+	// codeBlockStyle = lipgloss.NewStyle().
+	// 		Foreground(lipgloss.Color("39")).
+	// 		Background(lipgloss.Color("236")).
+	// 		Padding(0, 1)
 
 	// Bullet points
 	whiteBullet = lipgloss.NewStyle().

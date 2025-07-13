@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 	"strings"
 	"time"
 
@@ -31,15 +32,15 @@ type model struct {
 	activeAgent *v1.Agent
 	agents      []*v1.Agent
 
-	eventChannel chan *v1.SubscribeResponse
-	ctx          context.Context
+	ctx context.Context
 
-	// UI state
-	state     appState
-	mode      uiMode
-	showHelp  bool
-	typing    bool
-	lastUsage *v1.TaskUsage
+	state           appState
+	mode            uiMode
+	showHelp        bool
+	waitingForAgent bool
+	lastUsage       *v1.TaskUsage
+	workspacePath   string
+	lastCtrlC       time.Time
 }
 
 func NewModel(ctx context.Context, apiClient *api_client.Client, task *v1.Task, agent *v1.Agent) *model {
@@ -53,81 +54,56 @@ func NewModel(ctx context.Context, apiClient *api_client.Client, task *v1.Task, 
 	ta.Placeholder = "Type your message..."
 
 	vp := viewport.New(80, 20)
-	vp.SetContent("")
+
+	// Set initial welcome message
+	welcomeMessage := renderWelcomeMessage()
+	vp.SetContent(welcomeMessage)
 
 	sp := spinner.New()
-	sp.Spinner = spinner.Dot
+	sp.Spinner = spinner.Spinner{
+		Frames: []string{"※", "⁂", "⁕", "⁜"},
+		FPS:    time.Second / 10, //nolint:gomnd
+	}
 	sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("39"))
 
+	workspacePath := getWorkspacePath(task)
+
+	agents, err := apiClient.Agent().ListAgents(ctx, &connect.Request[v1.ListAgentsRequest]{})
+	if err != nil {
+		slog.Error("failed to list agents", "error", err)
+	}
+
 	return &model{
-		width:        80,
-		height:       20,
-		input:        ta,
-		viewport:     vp,
-		spinner:      sp,
-		apiClient:    apiClient,
-		messages:     []message{},
-		activeAgent:  agent,
-		agents:       []*v1.Agent{agent},
-		task:         task,
-		eventChannel: make(chan *v1.SubscribeResponse, 100),
-		ctx:          ctx,
-		state:        StateNormal,
-		mode:         ModeInput,
-		showHelp:     false,
-		typing:       false,
-		lastUsage:    task.Status.Usage,
+		width:           80,
+		height:          20,
+		input:           ta,
+		viewport:        vp,
+		spinner:         sp,
+		apiClient:       apiClient,
+		messages:        []message{},
+		activeAgent:     agent,
+		agents:          agents.Msg.Agents,
+		task:            task,
+		ctx:             ctx,
+		state:           StateNormal,
+		mode:            ModeInput,
+		showHelp:        false,
+		waitingForAgent: false,
+		lastUsage:       task.Status.Usage,
+		workspacePath:   workspacePath,
 	}
 }
 
 func (m model) Init() tea.Cmd {
+	windowTitle := "construct"
+	if m.workspacePath != "" {
+		windowTitle = fmt.Sprintf("construct (%s)", m.workspacePath)
+	}
+
 	return tea.Batch(
 		tea.EnterAltScreen,
-		eventSubscriber(m.ctx, m.apiClient, m.eventChannel, m.task.Metadata.Id),
-		eventBridge(m.eventChannel),
-		tea.Every(time.Millisecond*100, func(t time.Time) tea.Msg {
-			return eventBridge(m.eventChannel)()
-		}),
+		tea.SetWindowTitle(windowTitle),
 	)
-}
-
-func eventSubscriber(ctx context.Context, client *api_client.Client, eventChannel chan<- *v1.SubscribeResponse, taskId string) tea.Cmd {
-	return func() tea.Msg {
-		sub, err := client.Task().Subscribe(ctx, &connect.Request[v1.SubscribeRequest]{
-			Msg: &v1.SubscribeRequest{
-				TaskId: taskId,
-			},
-		})
-		slog.Info("subscribed to task", "task_id", taskId)
-		if err != nil {
-			slog.Error("failed to subscribe to task", "error", err)
-			return nil
-		}
-		slog.Info("receiving messages", "task_id", taskId)
-		for sub.Receive() {
-			slog.Info("received message", "message", sub.Msg())
-			eventChannel <- sub.Msg()
-		}
-
-		if err := sub.Err(); err != nil {
-			slog.Error("failed to receive messages", "error", err)
-		}
-
-		return nil
-	}
-}
-
-func eventBridge(eventChannel <-chan *v1.SubscribeResponse) tea.Cmd {
-	return func() tea.Msg {
-		select {
-		case event := <-eventChannel:
-			if event != nil && event.Message != nil {
-				return event.Message
-			}
-		default:
-		}
-		return nil
-	}
 }
 
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -139,7 +115,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		if m.showHelp {
-			if msg.Type == tea.KeyEsc || msg.String() == "h" || msg.String() == "H" {
+			if msg.Type == tea.KeyEsc || msg.String() == "ctrl+?" {
 				m.showHelp = false
 				return m, nil
 			}
@@ -148,7 +124,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		switch msg.Type {
 		case tea.KeyCtrlC:
-			fallthrough
+			return m, m.handleCtrlC()
 		case tea.KeyEsc:
 			return m, tea.Quit
 		default:
@@ -159,17 +135,25 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.onWindowResize(msg)
 
 	case *v1.Message:
-		slog.Info("processing message", "message", msg)
+		// slog.Info("processing message", "message", msg)
 		m.processMessage(msg)
 		m.updateViewportContent()
-		slog.Info("updated viewport content")
-		// Continue polling for more messages
-		cmds = append(cmds, eventBridge(m.eventChannel))
 	}
 
 	if !m.showHelp {
-		m.input, cmd = m.input.Update(msg)
-		cmds = append(cmds, cmd)
+		switch k := msg.(type) {
+		case tea.KeyMsg:
+			// Ignore Alt/ESC-prefixed key messages which are usually terminal
+			// responses (e.g. OSC colour queries). These have k.Alt == true.
+			// We forward only genuine user keyboard input (Alt not pressed).
+			if !k.Alt {
+				m.input, cmd = m.input.Update(msg)
+				cmds = append(cmds, cmd)
+			}
+		case tea.MouseMsg:
+			m.input, cmd = m.input.Update(msg)
+			cmds = append(cmds, cmd)
+		}
 	}
 
 	m.viewport, cmd = m.viewport.Update(msg)
@@ -182,22 +166,20 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *model) onKeyPressed(msg tea.KeyMsg) tea.Cmd {
+	// Reset Ctrl+C timer on any other key press
+	m.lastCtrlC = time.Time{}
+
 	switch msg.Type {
 	case tea.KeyTab:
 		return m.onToggleAgent()
 	case tea.KeyEnter:
 		if m.mode == ModeInput {
-			return m.onTextInput(msg)
+			return m.onMessageSend(msg)
 		}
-	case tea.KeyCtrlH:
-		m.showHelp = !m.showHelp
-		return nil
 	case tea.KeyCtrlL:
 		m.messages = []message{}
 		m.updateViewportContent()
 		return nil
-	case tea.KeyCtrlR:
-		return m.onReconnect()
 	case tea.KeyF1:
 		m.mode = ModeInput
 		m.input.Focus()
@@ -225,7 +207,7 @@ func (m *model) onKeyPressed(msg tea.KeyMsg) tea.Cmd {
 		m.viewport.GotoTop()
 	case "end":
 		m.viewport.GotoBottom()
-	case "h", "H":
+	case "ctrl+?":
 		m.showHelp = !m.showHelp
 		return nil
 	}
@@ -233,19 +215,41 @@ func (m *model) onKeyPressed(msg tea.KeyMsg) tea.Cmd {
 	return nil
 }
 
-func (m *model) onTextInput(_ tea.KeyMsg) tea.Cmd {
+func (m *model) handleCtrlC() tea.Cmd {
+	now := time.Now()
+
+	// If Ctrl+C was pressed recently (within 1 second), quit the app
+	if !m.lastCtrlC.IsZero() && now.Sub(m.lastCtrlC) < time.Second {
+		return tea.Quit
+	}
+
+	// First Ctrl+C: clear the input and record the time
+	m.input.Reset()
+	m.lastCtrlC = now
+
+	return nil
+}
+
+func (m *model) onMessageSend(_ tea.KeyMsg) tea.Cmd {
 	if m.input.Value() != "" {
 		userInput := strings.TrimSpace(m.input.Value())
 		m.input.Reset()
 
-		// Add user message to display immediately
 		m.messages = append(m.messages, &userMessage{
 			content:   userInput,
 			timestamp: time.Now(),
 		})
 		m.updateViewportContent()
-		m.typing = true
+		m.waitingForAgent = true
 
+		return m.sendMessage(userInput)
+	}
+
+	return nil
+}
+
+func (m *model) sendMessage(userInput string) tea.Cmd {
+	return func() tea.Msg {
 		_, err := m.apiClient.Message().CreateMessage(context.Background(), &connect.Request[v1.CreateMessageRequest]{
 			Msg: &v1.CreateMessageRequest{
 				TaskId: m.task.Metadata.Id,
@@ -260,23 +264,24 @@ func (m *model) onTextInput(_ tea.KeyMsg) tea.Cmd {
 				},
 			},
 		})
+
 		if err != nil {
 			slog.Error("failed to send message", "error", err)
-			m.messages = append(m.messages, &errorMessage{
+			m.updateViewportContent()
+			m.waitingForAgent = false
+
+			return &errorMessage{
 				content:   fmt.Sprintf("Error sending message: %v", err),
 				timestamp: time.Now(),
-			})
-			m.updateViewportContent()
-			m.typing = false
+			}
 		}
+		return nil
 	}
-
-	return nil
 }
 
 func (m *model) processMessage(msg *v1.Message) {
 	if msg.Metadata.Role == v1.MessageRole_MESSAGE_ROLE_ASSISTANT {
-		m.typing = false
+		m.waitingForAgent = false
 
 		for _, part := range msg.Spec.Content {
 			switch data := part.Data.(type) {
@@ -305,9 +310,7 @@ func (m *model) processMessage(msg *v1.Message) {
 		}
 	}
 
-	// Update usage info if available
 	if msg.Status != nil && msg.Status.Usage != nil {
-		// Convert MessageUsage to TaskUsage for display
 		m.lastUsage = &v1.TaskUsage{
 			InputTokens:      msg.Status.Usage.InputTokens,
 			OutputTokens:     msg.Status.Usage.OutputTokens,
@@ -339,13 +342,6 @@ func (m *model) onToggleAgent() tea.Cmd {
 
 	m.activeAgent = m.agents[currentIdx]
 	return nil
-}
-
-func (m *model) onReconnect() tea.Cmd {
-	return tea.Batch(
-		eventSubscriber(m.ctx, m.apiClient, m.eventChannel, m.task.Metadata.Id),
-		eventBridge(m.eventChannel),
-	)
 }
 
 func (m *model) onWindowResize(msg tea.WindowSizeMsg) {
@@ -385,6 +381,7 @@ func (m *model) View() string {
 }
 
 func (m *model) renderHeader() string {
+	// Build agent section
 	agentName := "Unknown"
 	if m.activeAgent != nil {
 		agentName = m.activeAgent.Spec.Name
@@ -394,56 +391,36 @@ func (m *model) renderHeader() string {
 	if m.task != nil {
 		switch m.task.Status.Phase {
 		case v1.TaskPhase_TASK_PHASE_AWAITING:
-			taskStatus = "Awaiting"
+			taskStatus = "Idle"
 		case v1.TaskPhase_TASK_PHASE_RUNNING:
-			taskStatus = "Running"
+			taskStatus = "Thinking"
 		case v1.TaskPhase_TASK_PHASE_SUSPENDED:
 			taskStatus = "Suspended"
 		}
 	}
 
 	statusText := ""
-	if m.typing {
-		statusText = m.spinner.View() + " Agent is thinking..."
+	if m.task.Status.Phase == v1.TaskPhase_TASK_PHASE_RUNNING {
+		statusText = m.spinner.View() + taskStatusStyle.Render(taskStatus)
 	} else {
 		statusText = taskStatusStyle.Render(taskStatus)
 	}
 
-	usageText := ""
-	if m.lastUsage != nil {
-		// Build token display with arrows
-		tokenDisplay := fmt.Sprintf("Tokens: %d↑ %d↓", m.lastUsage.InputTokens, m.lastUsage.OutputTokens)
-		
-		// Add cache tokens if available
-		if m.lastUsage.CacheReadTokens > 0 || m.lastUsage.CacheWriteTokens > 0 {
-			tokenDisplay += fmt.Sprintf(" (Cache: %d↑ %d↓)", m.lastUsage.CacheReadTokens, m.lastUsage.CacheWriteTokens)
-		}
-		
-		usageText = usageStyle.Render(fmt.Sprintf("%s | Cost: $%.4f", tokenDisplay, m.lastUsage.Cost))
+	modelName, contextWindowSize, err := m.getAgentModelInfo(m.activeAgent)
+	if err != nil {
+		slog.Error("failed to get model info", "error", err)
 	}
 
-	// Extract model info from agent if available
-	modelInfo := ""
-	if m.activeAgent != nil && m.activeAgent.Spec.ModelId != "" {
-		// Extract meaningful model name from model ID
-		modelName := m.extractModelName(m.activeAgent.Spec.ModelId)
-		if modelName != "" {
-			modelInfo = agentModelStyle.Render(modelName)
-		}
-	}
-
-	// Build agent section with diamond symbol
 	agentSection := lipgloss.JoinHorizontal(lipgloss.Left,
 		agentDiamondStyle.Render("» "),
 		agentNameStyle.Render(agentName),
 	)
 
-	// Add model info if available
-	if modelInfo != "" {
+	if modelName != "" {
 		agentSection = lipgloss.JoinHorizontal(lipgloss.Left,
 			agentSection,
 			bulletSeparatorStyle.Render(" • "),
-			modelInfo,
+			agentModelStyle.Render(abbreviateModelName(modelName)),
 		)
 	}
 
@@ -452,6 +429,23 @@ func (m *model) renderHeader() string {
 		bulletSeparatorStyle.Render(" • "),
 		statusText,
 	)
+
+	// usage section
+	usageText := ""
+	if m.lastUsage != nil {
+		tokenDisplay := fmt.Sprintf("Tokens: %d↑ %d↓", m.lastUsage.InputTokens, m.lastUsage.OutputTokens)
+
+		if m.lastUsage.CacheReadTokens > 0 || m.lastUsage.CacheWriteTokens > 0 {
+			tokenDisplay += fmt.Sprintf(" (Cache: %d↑ %d↓)", m.lastUsage.CacheReadTokens, m.lastUsage.CacheWriteTokens)
+		}
+
+		contextUsage := m.calculateContextUsage(contextWindowSize)
+		if contextUsage >= 0 {
+			tokenDisplay += fmt.Sprintf(" | Context: %d%%", contextUsage)
+		}
+
+		usageText = usageStyle.Render(fmt.Sprintf("%s | Cost: $%.2f", tokenDisplay, m.lastUsage.Cost))
+	}
 
 	headerContent := lipgloss.JoinHorizontal(lipgloss.Left,
 		left,
@@ -467,27 +461,81 @@ func (m *model) updateViewportContent() {
 	m.viewport.GotoBottom()
 }
 
-func (m *model) extractModelName(modelId string) string {
-	// Map common model IDs to display names
-	// This is a simplified approach - could be enhanced with actual model resolution
-	switch {
-	case strings.Contains(strings.ToLower(modelId), "gpt-4"):
-		return "GPT-4"
-	case strings.Contains(strings.ToLower(modelId), "gpt-3.5"):
-		return "GPT-3.5"
-	case strings.Contains(strings.ToLower(modelId), "claude"):
-		return "Claude"
-	case strings.Contains(strings.ToLower(modelId), "sonnet"):
-		return "Claude Sonnet"
-	case strings.Contains(strings.ToLower(modelId), "haiku"):
-		return "Claude Haiku"
-	case strings.Contains(strings.ToLower(modelId), "opus"):
-		return "Claude Opus"
-	default:
-		// If no recognizable pattern, show first 8 chars of model ID
-		if len(modelId) > 8 {
-			return modelId[:8] + "..."
-		}
-		return modelId
+func (m *model) getAgentModelInfo(agent *v1.Agent) (string, int64, error) {
+	if agent.Spec.ModelId == "" {
+		return "", 0, fmt.Errorf("agent %s has no model", agent.Metadata.Id)
 	}
+
+	resp, err := m.apiClient.Model().GetModel(m.ctx, &connect.Request[v1.GetModelRequest]{
+		Msg: &v1.GetModelRequest{
+			Id: agent.Spec.ModelId,
+		},
+	})
+	if err != nil {
+		return "", 0, fmt.Errorf("failed to retrieve model %s: %w", agent.Spec.ModelId, err)
+	}
+
+	return resp.Msg.Model.Spec.Name, resp.Msg.Model.Spec.ContextWindow, nil
+}
+
+func (m *model) calculateContextUsage(contextWindowSize int64) int {
+	if m.lastUsage == nil || m.activeAgent == nil {
+		return -1
+	}
+
+	if contextWindowSize <= 0 {
+		slog.Error("invalid context window size", "contextWindowSize", contextWindowSize)
+		return -1
+	}
+
+	totalTokens := m.lastUsage.InputTokens + m.lastUsage.OutputTokens + m.lastUsage.CacheReadTokens + m.lastUsage.CacheWriteTokens
+	percentage := int((float64(totalTokens) / float64(contextWindowSize)) * 100)
+	if percentage > 100 {
+		percentage = 100
+	}
+
+	return percentage
+}
+
+func getWorkspacePath(task *v1.Task) string {
+	if task.Spec.Workspace != "" {
+		return abbreviatePath(task.Spec.Workspace)
+	}
+
+	return ""
+}
+
+func abbreviatePath(path string) string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return path
+	}
+
+	if strings.HasPrefix(path, home) {
+		return "~" + path[len(home):]
+	}
+
+	return path
+}
+
+func abbreviateModelName(name string) string {
+	if len(name) > 12 {
+		return name[:12] + "..."
+	}
+	return name
+}
+
+func renderWelcomeMessage() string {
+	separator := separatorStyle.Render()
+
+	welcomeLines := []string{
+		separator,
+		"Welcome! Type your message below.",
+		"Press Ctrl + ? for help at any time.",
+		"Press Ctrl + C to exit.",
+		separator,
+		"",
+	}
+
+	return strings.Join(welcomeLines, "\n")
 }
