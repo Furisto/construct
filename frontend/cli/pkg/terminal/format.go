@@ -2,6 +2,8 @@ package terminal
 
 import (
 	"fmt"
+	"os"
+	"regexp"
 	"strings"
 
 	"github.com/charmbracelet/glamour"
@@ -12,18 +14,17 @@ func (m model) formatMessages() string {
 	var formatted strings.Builder
 
 	for i, msg := range m.messages {
-		// Add separator between different conversations
-		if i > 0 && m.messages[i-1].Type() == MessageTypeAssistantTool && msg.Type() == MessageTypeUser {
-			formatted.WriteString("\n")
+		if i > 0 {
+			formatted.WriteString("\n\n")
 		}
 
 		switch msg := msg.(type) {
 		case *userMessage:
-			formatted.WriteString(userPromptStyle.String() + msg.content + "\n\n")
+			formatted.WriteString(userPromptStyle.String() + msg.content)
 
 		case *assistantTextMessage:
-			formatted.WriteString(
-				formatMessageContent(msg.content, m.width-6) + "\n\n")
+			formatted.WriteString(whiteBullet.String() +
+				formatMessageContent(msg.content, m.width-6))
 
 		case *assistantToolMessage:
 			toolName := getToolNameString(msg.toolName)
@@ -42,8 +43,6 @@ func (m model) formatMessages() string {
 			if msg.error != "" {
 				formatted.WriteString("  " + errorStyle.Render("Error: ") + msg.error + "\n")
 			}
-			formatted.WriteString("\n")
-
 		case *submitReportMessage:
 			formatted.WriteString(reportStyle.Render("📋 Task Report") + "\n")
 			formatted.WriteString(reportContentStyle.Render("Summary: ") + msg.summary + "\n")
@@ -64,12 +63,15 @@ func (m model) formatMessages() string {
 			if msg.nextSteps != "" {
 				formatted.WriteString(reportContentStyle.Render("Next Steps: ") + msg.nextSteps + "\n")
 			}
-			formatted.WriteString("\n")
 
 		case *errorMessage:
-			formatted.WriteString(errorStyle.Render("❌ Error: ") + msg.content + "\n\n")
+			formatted.WriteString(errorStyle.Render("❌ Error: ") + msg.content)
 		}
 	}
+
+	f, _ := os.CreateTemp("", "construct-cli-messages.md")
+	f.WriteString(formatted.String())
+	f.Close()
 
 	return formatted.String()
 }
@@ -99,9 +101,8 @@ func getToolNameString(toolName v1.ToolName) string {
 
 // formatMessageContent formats the content of a message
 func formatMessageContent(content string, maxWidth int) string {
-
 	md, _ := glamour.NewTermRenderer(
-		glamour.WithEnvironmentConfig(),
+		glamour.WithStandardStyle("dark"), // avoid OSC background queries
 		// glamour.WithWordWrap(maxWidth),
 	)
 
@@ -114,7 +115,16 @@ func formatMessageContent(content string, maxWidth int) string {
 
 	// Regular text formatting
 
-	return assistantTextStyle.Render(out)
+	return assistantTextStyle.Render(trimLeadingWhitespaceWithANSI(out))
+}
+
+func trimLeadingWhitespaceWithANSI(s string) string {
+	// This pattern matches from the start:
+	// - Any combination of whitespace OR ANSI sequences
+	// - Stops when it hits a character that's neither
+	pattern := `^(?:\x1b\[[0-9;]*m|\s)*`
+	re := regexp.MustCompile(pattern)
+	return re.ReplaceAllString(s, "")
 }
 
 func containsCodeBlock(content string) bool {
