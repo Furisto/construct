@@ -6,6 +6,7 @@ require (
 	connectrpc.com/connect v1.18.1
 	entgo.io/ent v0.14.4
 	github.com/anthropics/anthropic-sdk-go v0.2.0-alpha.13
+	github.com/bmatcuk/doublestar/v4 v4.8.1
 	github.com/cohesion-org/deepseek-go v1.2.7
 	github.com/furisto/construct/api/go v0.0.0-00010101000000-000000000000
 	github.com/google/go-cmp v0.6.0
@@ -18,6 +19,7 @@ require (
 	github.com/openai/openai-go v1.2.0
 	github.com/posthog/posthog-go v1.5.12
 	github.com/shopspring/decimal v1.4.0
+	github.com/sourcegraph/go-diff-patch v0.0.0-20240223163233-798fd1e94a8e
 	github.com/spf13/afero v1.14.0
 	github.com/tink-crypto/tink-go v0.0.0-20230613075026-d6de17e3f164
 	github.com/zalando/go-keyring v0.2.6
@@ -47,6 +49,7 @@ require (
 	github.com/google/pprof v0.0.0-20241029153458-d1b30febd7db // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/hashicorp/hcl/v2 v2.13.0 // indirect
+	github.com/hedwigz/entviz v0.0.0-20221011080911-9d47f6f1d818 // indirect
 	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mitchellh/go-wordwrap v0.0.0-20150314170334-ad45545899c7 // indirect
@@ -60,9 +63,11 @@ require (
 	go.uber.org/mock v0.5.2 // indirect
 	golang.org/x/crypto v0.33.0 // indirect
 	golang.org/x/mod v0.23.0 // indirect
-	golang.org/x/sys v0.30.0 // indirect
-	golang.org/x/text v0.23.0 // indirect
+	golang.org/x/sync v0.13.0 // indirect
+	golang.org/x/sys v0.32.0 // indirect
+	golang.org/x/text v0.24.0 // indirect
 	golang.org/x/time v0.7.0 // indirect
+	golang.org/x/tools v0.30.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apimachinery v0.32.3 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect

@@ -71,6 +71,12 @@ message ModelSpec {
 
   // enabled indicates whether this model is currently available for use.
   bool enabled = 5;
+
+  // alias is a short name for the model (1-255 characters).
+  string alias = 6 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 255
+  ];
 }
 
 // ModelCapability represents special abilities that a model may support beyond basic text generation.
@@ -134,6 +140,12 @@ message CreateModelRequest {
 
   // context_window is the maximum number of tokens the model can process (must be > 0).
   int64 context_window = 5 [(buf.validate.field).int64.gt = 0];
+
+  // alias is a short name for the model (1-255 characters).
+  optional string alias = 6 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 255
+  ];
 }
 
 // CreateModelResponse contains the newly created model.
@@ -226,6 +238,12 @@ message UpdateModelRequest {
 
   // enabled is the new availability status for the model (optional).
   optional bool enabled = 7;
+
+  // alias is the new alias for the model (1-255 characters, optional).
+  optional string alias = 8 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 255
+  ];
 }
 
 // UpdateModelResponse contains the updated model.
