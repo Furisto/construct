@@ -35,6 +35,8 @@ const (
 	FieldCacheReadCost = "cache_read_cost"
 	// FieldEnabled holds the string denoting the enabled field in the database.
 	FieldEnabled = "enabled"
+	// FieldAlias holds the string denoting the alias field in the database.
+	FieldAlias = "alias"
 	// FieldModelProviderID holds the string denoting the model_provider_id field in the database.
 	FieldModelProviderID = "model_provider_id"
 	// EdgeAgents holds the string denoting the agents edge name in mutations.
@@ -81,6 +83,7 @@ var Columns = []string{
 	FieldCacheWriteCost,
 	FieldCacheReadCost,
 	FieldEnabled,
+	FieldAlias,
 	FieldModelProviderID,
 }
 
@@ -174,6 +177,11 @@ func ByCacheReadCost(opts ...sql.OrderTermOption) OrderOption {
 // ByEnabled orders the results by the enabled field.
 func ByEnabled(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldEnabled, opts...).ToFunc()
+}
+
+// ByAlias orders the results by the alias field.
+func ByAlias(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAlias, opts...).ToFunc()
 }
 
 // ByModelProviderID orders the results by the model_provider_id field.

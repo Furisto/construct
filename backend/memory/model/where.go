@@ -101,6 +101,11 @@ func Enabled(v bool) predicate.Model {
 	return predicate.Model(sql.FieldEQ(FieldEnabled, v))
 }
 
+// Alias applies equality check predicate on the "alias" field. It's identical to AliasEQ.
+func Alias(v string) predicate.Model {
+	return predicate.Model(sql.FieldEQ(FieldAlias, v))
+}
+
 // ModelProviderID applies equality check predicate on the "model_provider_id" field. It's identical to ModelProviderIDEQ.
 func ModelProviderID(v uuid.UUID) predicate.Model {
 	return predicate.Model(sql.FieldEQ(FieldModelProviderID, v))
@@ -469,6 +474,81 @@ func EnabledEQ(v bool) predicate.Model {
 // EnabledNEQ applies the NEQ predicate on the "enabled" field.
 func EnabledNEQ(v bool) predicate.Model {
 	return predicate.Model(sql.FieldNEQ(FieldEnabled, v))
+}
+
+// AliasEQ applies the EQ predicate on the "alias" field.
+func AliasEQ(v string) predicate.Model {
+	return predicate.Model(sql.FieldEQ(FieldAlias, v))
+}
+
+// AliasNEQ applies the NEQ predicate on the "alias" field.
+func AliasNEQ(v string) predicate.Model {
+	return predicate.Model(sql.FieldNEQ(FieldAlias, v))
+}
+
+// AliasIn applies the In predicate on the "alias" field.
+func AliasIn(vs ...string) predicate.Model {
+	return predicate.Model(sql.FieldIn(FieldAlias, vs...))
+}
+
+// AliasNotIn applies the NotIn predicate on the "alias" field.
+func AliasNotIn(vs ...string) predicate.Model {
+	return predicate.Model(sql.FieldNotIn(FieldAlias, vs...))
+}
+
+// AliasGT applies the GT predicate on the "alias" field.
+func AliasGT(v string) predicate.Model {
+	return predicate.Model(sql.FieldGT(FieldAlias, v))
+}
+
+// AliasGTE applies the GTE predicate on the "alias" field.
+func AliasGTE(v string) predicate.Model {
+	return predicate.Model(sql.FieldGTE(FieldAlias, v))
+}
+
+// AliasLT applies the LT predicate on the "alias" field.
+func AliasLT(v string) predicate.Model {
+	return predicate.Model(sql.FieldLT(FieldAlias, v))
+}
+
+// AliasLTE applies the LTE predicate on the "alias" field.
+func AliasLTE(v string) predicate.Model {
+	return predicate.Model(sql.FieldLTE(FieldAlias, v))
+}
+
+// AliasContains applies the Contains predicate on the "alias" field.
+func AliasContains(v string) predicate.Model {
+	return predicate.Model(sql.FieldContains(FieldAlias, v))
+}
+
+// AliasHasPrefix applies the HasPrefix predicate on the "alias" field.
+func AliasHasPrefix(v string) predicate.Model {
+	return predicate.Model(sql.FieldHasPrefix(FieldAlias, v))
+}
+
+// AliasHasSuffix applies the HasSuffix predicate on the "alias" field.
+func AliasHasSuffix(v string) predicate.Model {
+	return predicate.Model(sql.FieldHasSuffix(FieldAlias, v))
+}
+
+// AliasIsNil applies the IsNil predicate on the "alias" field.
+func AliasIsNil() predicate.Model {
+	return predicate.Model(sql.FieldIsNull(FieldAlias))
+}
+
+// AliasNotNil applies the NotNil predicate on the "alias" field.
+func AliasNotNil() predicate.Model {
+	return predicate.Model(sql.FieldNotNull(FieldAlias))
+}
+
+// AliasEqualFold applies the EqualFold predicate on the "alias" field.
+func AliasEqualFold(v string) predicate.Model {
+	return predicate.Model(sql.FieldEqualFold(FieldAlias, v))
+}
+
+// AliasContainsFold applies the ContainsFold predicate on the "alias" field.
+func AliasContainsFold(v string) predicate.Model {
+	return predicate.Model(sql.FieldContainsFold(FieldAlias, v))
 }
 
 // ModelProviderIDEQ applies the EQ predicate on the "model_provider_id" field.

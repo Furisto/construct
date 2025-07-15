@@ -141,6 +141,20 @@ func (mc *ModelCreate) SetNillableEnabled(b *bool) *ModelCreate {
 	return mc
 }
 
+// SetAlias sets the "alias" field.
+func (mc *ModelCreate) SetAlias(s string) *ModelCreate {
+	mc.mutation.SetAlias(s)
+	return mc
+}
+
+// SetNillableAlias sets the "alias" field if the given value is not nil.
+func (mc *ModelCreate) SetNillableAlias(s *string) *ModelCreate {
+	if s != nil {
+		mc.SetAlias(*s)
+	}
+	return mc
+}
+
 // SetModelProviderID sets the "model_provider_id" field.
 func (mc *ModelCreate) SetModelProviderID(u uuid.UUID) *ModelCreate {
 	mc.mutation.SetModelProviderID(u)
@@ -394,6 +408,10 @@ func (mc *ModelCreate) createSpec() (*Model, *sqlgraph.CreateSpec) {
 	if value, ok := mc.mutation.Enabled(); ok {
 		_spec.SetField(model.FieldEnabled, field.TypeBool, value)
 		_node.Enabled = value
+	}
+	if value, ok := mc.mutation.Alias(); ok {
+		_spec.SetField(model.FieldAlias, field.TypeString, value)
+		_node.Alias = value
 	}
 	if nodes := mc.mutation.AgentsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

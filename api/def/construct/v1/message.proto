@@ -77,13 +77,22 @@ message MessageSpec {
   repeated MessagePart content = 1;
 }
 
+enum ContentStatus {
+  CONTENT_STATUS_UNSPECIFIED = 0;
+  CONTENT_STATUS_PARTIAL = 1;
+  CONTENT_STATUS_COMPLETE = 2;
+}
+
 // MessageStatus contains the observed state and usage information of the message.
 message MessageStatus {
   // usage tracks resource consumption and costs associated with generating this message.
   MessageUsage usage = 1;
 
-  // completed indicates whether the message is the last message in the task.
-  bool completed = 2;
+  // content_state indicates the status of the message content.
+  ContentStatus content_state = 2;
+
+  // is_final_response indicates whether this message is the final response to the user's request.
+  bool is_final_response = 3;
 }
 
 // MessageRole indicates the source/author of a message in the conversation.
@@ -107,30 +116,15 @@ message MessagePart {
     ];
   }
 
-  message ToolResult {
-    ToolName tool_name = 1 [(buf.validate.field).required = true];
-    map<string, string> arguments = 2;
-    string result = 3;
-    string error = 4;
-  }
-
-  message SubmitReport {
-    string summary = 1;
-    bool completed = 2;
-    repeated string deliverables = 3;
-    string next_steps = 4;
-  }
-
   // content holds the message payload in various formats.
   oneof data {
     // text contains plain text message content.
     Text text = 1;
 
-    // tool_result contains the result of a tool call.
-    ToolResult tool_result = 2;
+    ToolCall tool_call = 2;
 
-    // submit_report contains the result of a submit_report tool call.
-    SubmitReport submit_report = 3;
+    // tool_result contains the result of a tool call.
+    ToolResult tool_result = 3;
   }
 }
 
@@ -250,3 +244,224 @@ message DeleteMessageRequest {
 
 // DeleteMessageResponse confirms the message deletion (empty response).
 message DeleteMessageResponse {}
+
+message ToolCall {
+  message CodeInterpreterInput {
+    string code = 1;
+  }
+
+  message CreateFileInput {
+    string path = 1;
+    string content = 2;
+  }
+
+  message EditFileInput {
+    message DiffPair {
+      string old = 1;
+      string new = 2;
+    }
+    string path = 1;
+    repeated DiffPair diffs = 2;
+  }
+
+  message ExecuteCommandInput {
+    string command = 1;
+  }
+
+  message FindFileInput {
+    string pattern = 1;
+    string path = 2;
+    string exclude_pattern = 3;
+    int32 max_results = 4;
+  }
+
+  message GrepInput {
+    string query = 1;
+    string path = 2;
+    string include_pattern = 3;
+    string exclude_pattern = 4;
+    bool case_sensitive = 5;
+    int32 max_results = 6;
+  }
+
+  message HandoffInput {
+    string requested_agent = 1;
+    string handover_message = 2;
+  }
+
+  message AskUserInput {
+    string question = 1;
+    repeated string options = 2;
+  }
+
+  message ListFilesInput {
+    string path = 1;
+    bool recursive = 2;
+  }
+
+  message ReadFileInput {
+    string path = 1;
+  }
+
+  message SubmitReportInput {
+    string summary = 1;
+    bool completed = 2;
+    repeated string deliverables = 3;
+    string next_steps = 4;
+  }
+
+  string id = 1;
+  string tool_name = 2 [(buf.validate.field).required = true];
+  oneof Input {
+    CreateFileInput create_file = 3;
+    EditFileInput edit_file = 4;
+    ExecuteCommandInput execute_command = 5;
+    FindFileInput find_file = 6;
+    GrepInput grep = 7;
+    HandoffInput handoff = 8;
+    AskUserInput ask_user = 9;
+    ListFilesInput list_files = 10;
+    ReadFileInput read_file = 11;
+    SubmitReportInput submit_report = 12;
+    CodeInterpreterInput code_interpreter = 13;
+  }
+}
+
+message ToolResult {
+  message CodeInterpreterResult {
+    string output = 1;
+  }
+
+  message CreateFileResult {
+    bool overwritten = 1;
+  }
+
+  message EditFileResult {
+    message PatchInfo {
+      string patch = 1;
+      int32 lines_added = 2;
+      int32 lines_removed = 3;
+    }
+
+    string path = 1;
+    PatchInfo patch_info = 2;
+  }
+
+  message ExecuteCommandResult {
+    string stdout = 1;
+    string stderr = 2;
+    int32 exit_code = 3;
+    string command = 4;
+  }
+
+  message FindFileResult {
+    repeated string files = 1;
+    int32 total_files = 2;
+    int32 truncated_count = 3;
+  }
+
+  message GrepResult {
+    message ContextLine {
+      int32 line_number = 1;
+      string content = 2;
+    }
+
+    message GrepMatch {
+      string file_path = 1;
+      int32 line_number = 2;
+      string line_content = 3;
+      repeated ContextLine context = 4;
+    }
+
+    repeated GrepMatch matches = 1;
+    int32 total_matches = 2;
+    int32 searched_files = 3;
+  }
+
+  message ListFilesResult {
+    message DirectoryEntry {
+      string name = 1;
+      string type = 2;
+      int64 size = 3;
+    }
+
+    string path = 1;
+    repeated DirectoryEntry entries = 2;
+  }
+
+  message ReadFileResult {
+    string path = 1;
+    string content = 2;
+  }
+
+  message SubmitReportResult {
+    string summary = 1;
+    bool completed = 2;
+    repeated string deliverables = 3;
+    string next_steps = 4;
+  }
+
+  string id = 1;
+  string tool_name = 2 [(buf.validate.field).required = true];
+
+  oneof result {
+    CreateFileResult create_file = 3;
+    EditFileResult edit_file = 4;
+    ExecuteCommandResult execute_command = 5;
+    FindFileResult find_file = 6;
+    GrepResult grep = 7;
+    ListFilesResult list_files = 8;
+    ReadFileResult read_file = 9;
+    SubmitReportResult submit_report = 10;
+    CodeInterpreterResult code_interpreter = 11;
+  }
+
+  ToolError error = 13;
+}
+
+message CreateFileToolResult {
+  message Input {
+    string file_path = 1;
+    string file_content = 2;
+  }
+  Input input = 1;
+  bool overwritten = 2;
+}
+
+message EditFileToolResult {
+  string file_path = 1;
+  string file_content = 2;
+}
+
+message ExecuteCommandToolResult {
+  string command = 1;
+  string output = 2;
+  string error = 3;
+}
+
+message FindFileToolResult {
+  string file_path = 1;
+}
+
+message GrepToolResult {
+  string file_path = 1;
+  string file_content = 2;
+}
+
+message HandoffToolResult {}
+
+message ListFilesToolResult {}
+
+message ReadFileToolResult {}
+
+message SubmitReport {
+  string summary = 1;
+  bool completed = 2;
+  repeated string deliverables = 3;
+  string next_steps = 4;
+}
+
+message ToolError {
+  string message = 1;
+  map<string, string> details = 2;
+}

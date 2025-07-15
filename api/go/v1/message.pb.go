@@ -27,6 +27,55 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type ContentStatus int32
+
+const (
+	ContentStatus_CONTENT_STATUS_UNSPECIFIED ContentStatus = 0
+	ContentStatus_CONTENT_STATUS_PARTIAL     ContentStatus = 1
+	ContentStatus_CONTENT_STATUS_COMPLETE    ContentStatus = 2
+)
+
+// Enum value maps for ContentStatus.
+var (
+	ContentStatus_name = map[int32]string{
+		0: "CONTENT_STATUS_UNSPECIFIED",
+		1: "CONTENT_STATUS_PARTIAL",
+		2: "CONTENT_STATUS_COMPLETE",
+	}
+	ContentStatus_value = map[string]int32{
+		"CONTENT_STATUS_UNSPECIFIED": 0,
+		"CONTENT_STATUS_PARTIAL":     1,
+		"CONTENT_STATUS_COMPLETE":    2,
+	}
+)
+
+func (x ContentStatus) Enum() *ContentStatus {
+	p := new(ContentStatus)
+	*p = x
+	return p
+}
+
+func (x ContentStatus) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ContentStatus) Descriptor() protoreflect.EnumDescriptor {
+	return file_construct_v1_message_proto_enumTypes[0].Descriptor()
+}
+
+func (ContentStatus) Type() protoreflect.EnumType {
+	return &file_construct_v1_message_proto_enumTypes[0]
+}
+
+func (x ContentStatus) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ContentStatus.Descriptor instead.
+func (ContentStatus) EnumDescriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{0}
+}
+
 // MessageRole indicates the source/author of a message in the conversation.
 type MessageRole int32
 
@@ -64,11 +113,11 @@ func (x MessageRole) String() string {
 }
 
 func (MessageRole) Descriptor() protoreflect.EnumDescriptor {
-	return file_construct_v1_message_proto_enumTypes[0].Descriptor()
+	return file_construct_v1_message_proto_enumTypes[1].Descriptor()
 }
 
 func (MessageRole) Type() protoreflect.EnumType {
-	return &file_construct_v1_message_proto_enumTypes[0]
+	return &file_construct_v1_message_proto_enumTypes[1]
 }
 
 func (x MessageRole) Number() protoreflect.EnumNumber {
@@ -77,7 +126,7 @@ func (x MessageRole) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use MessageRole.Descriptor instead.
 func (MessageRole) EnumDescriptor() ([]byte, []int) {
-	return file_construct_v1_message_proto_rawDescGZIP(), []int{0}
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{1}
 }
 
 // Message represents a complete message entity with metadata, specification, and status.
@@ -295,10 +344,12 @@ type MessageStatus struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// usage tracks resource consumption and costs associated with generating this message.
 	Usage *MessageUsage `protobuf:"bytes,1,opt,name=usage,proto3" json:"usage,omitempty"`
-	// completed indicates whether the message is the last message in the task.
-	Completed     bool `protobuf:"varint,2,opt,name=completed,proto3" json:"completed,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// content_state indicates the status of the message content.
+	ContentState ContentStatus `protobuf:"varint,2,opt,name=content_state,json=contentState,proto3,enum=construct.v1.ContentStatus" json:"content_state,omitempty"`
+	// is_final_response indicates whether this message is the final response to the user's request.
+	IsFinalResponse bool `protobuf:"varint,3,opt,name=is_final_response,json=isFinalResponse,proto3" json:"is_final_response,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *MessageStatus) Reset() {
@@ -338,9 +389,16 @@ func (x *MessageStatus) GetUsage() *MessageUsage {
 	return nil
 }
 
-func (x *MessageStatus) GetCompleted() bool {
+func (x *MessageStatus) GetContentState() ContentStatus {
 	if x != nil {
-		return x.Completed
+		return x.ContentState
+	}
+	return ContentStatus_CONTENT_STATUS_UNSPECIFIED
+}
+
+func (x *MessageStatus) GetIsFinalResponse() bool {
+	if x != nil {
+		return x.IsFinalResponse
 	}
 	return false
 }
@@ -353,8 +411,8 @@ type MessagePart struct {
 	// Types that are valid to be assigned to Data:
 	//
 	//	*MessagePart_Text_
-	//	*MessagePart_ToolResult_
-	//	*MessagePart_SubmitReport_
+	//	*MessagePart_ToolCall
+	//	*MessagePart_ToolResult
 	Data          isMessagePart_Data `protobuf_oneof:"data"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -406,19 +464,19 @@ func (x *MessagePart) GetText() *MessagePart_Text {
 	return nil
 }
 
-func (x *MessagePart) GetToolResult() *MessagePart_ToolResult {
+func (x *MessagePart) GetToolCall() *ToolCall {
 	if x != nil {
-		if x, ok := x.Data.(*MessagePart_ToolResult_); ok {
-			return x.ToolResult
+		if x, ok := x.Data.(*MessagePart_ToolCall); ok {
+			return x.ToolCall
 		}
 	}
 	return nil
 }
 
-func (x *MessagePart) GetSubmitReport() *MessagePart_SubmitReport {
+func (x *MessagePart) GetToolResult() *ToolResult {
 	if x != nil {
-		if x, ok := x.Data.(*MessagePart_SubmitReport_); ok {
-			return x.SubmitReport
+		if x, ok := x.Data.(*MessagePart_ToolResult); ok {
+			return x.ToolResult
 		}
 	}
 	return nil
@@ -433,21 +491,20 @@ type MessagePart_Text_ struct {
 	Text *MessagePart_Text `protobuf:"bytes,1,opt,name=text,proto3,oneof"`
 }
 
-type MessagePart_ToolResult_ struct {
-	// tool_result contains the result of a tool call.
-	ToolResult *MessagePart_ToolResult `protobuf:"bytes,2,opt,name=tool_result,json=toolResult,proto3,oneof"`
+type MessagePart_ToolCall struct {
+	ToolCall *ToolCall `protobuf:"bytes,2,opt,name=tool_call,json=toolCall,proto3,oneof"`
 }
 
-type MessagePart_SubmitReport_ struct {
-	// submit_report contains the result of a submit_report tool call.
-	SubmitReport *MessagePart_SubmitReport `protobuf:"bytes,3,opt,name=submit_report,json=submitReport,proto3,oneof"`
+type MessagePart_ToolResult struct {
+	// tool_result contains the result of a tool call.
+	ToolResult *ToolResult `protobuf:"bytes,3,opt,name=tool_result,json=toolResult,proto3,oneof"`
 }
 
 func (*MessagePart_Text_) isMessagePart_Data() {}
 
-func (*MessagePart_ToolResult_) isMessagePart_Data() {}
+func (*MessagePart_ToolCall) isMessagePart_Data() {}
 
-func (*MessagePart_SubmitReport_) isMessagePart_Data() {}
+func (*MessagePart_ToolResult) isMessagePart_Data() {}
 
 // MessageUsage tracks resource consumption and associated costs for generating a message.
 type MessageUsage struct {
@@ -1045,6 +1102,954 @@ func (*DeleteMessageResponse) Descriptor() ([]byte, []int) {
 	return file_construct_v1_message_proto_rawDescGZIP(), []int{15}
 }
 
+type ToolCall struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Id       string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ToolName string                 `protobuf:"bytes,2,opt,name=tool_name,json=toolName,proto3" json:"tool_name,omitempty"`
+	// Types that are valid to be assigned to Input:
+	//
+	//	*ToolCall_CreateFile
+	//	*ToolCall_EditFile
+	//	*ToolCall_ExecuteCommand
+	//	*ToolCall_FindFile
+	//	*ToolCall_Grep
+	//	*ToolCall_Handoff
+	//	*ToolCall_AskUser
+	//	*ToolCall_ListFiles
+	//	*ToolCall_ReadFile
+	//	*ToolCall_SubmitReport
+	//	*ToolCall_CodeInterpreter
+	Input         isToolCall_Input `protobuf_oneof:"Input"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ToolCall) Reset() {
+	*x = ToolCall{}
+	mi := &file_construct_v1_message_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolCall) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolCall) ProtoMessage() {}
+
+func (x *ToolCall) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToolCall.ProtoReflect.Descriptor instead.
+func (*ToolCall) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *ToolCall) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *ToolCall) GetToolName() string {
+	if x != nil {
+		return x.ToolName
+	}
+	return ""
+}
+
+func (x *ToolCall) GetInput() isToolCall_Input {
+	if x != nil {
+		return x.Input
+	}
+	return nil
+}
+
+func (x *ToolCall) GetCreateFile() *ToolCall_CreateFileInput {
+	if x != nil {
+		if x, ok := x.Input.(*ToolCall_CreateFile); ok {
+			return x.CreateFile
+		}
+	}
+	return nil
+}
+
+func (x *ToolCall) GetEditFile() *ToolCall_EditFileInput {
+	if x != nil {
+		if x, ok := x.Input.(*ToolCall_EditFile); ok {
+			return x.EditFile
+		}
+	}
+	return nil
+}
+
+func (x *ToolCall) GetExecuteCommand() *ToolCall_ExecuteCommandInput {
+	if x != nil {
+		if x, ok := x.Input.(*ToolCall_ExecuteCommand); ok {
+			return x.ExecuteCommand
+		}
+	}
+	return nil
+}
+
+func (x *ToolCall) GetFindFile() *ToolCall_FindFileInput {
+	if x != nil {
+		if x, ok := x.Input.(*ToolCall_FindFile); ok {
+			return x.FindFile
+		}
+	}
+	return nil
+}
+
+func (x *ToolCall) GetGrep() *ToolCall_GrepInput {
+	if x != nil {
+		if x, ok := x.Input.(*ToolCall_Grep); ok {
+			return x.Grep
+		}
+	}
+	return nil
+}
+
+func (x *ToolCall) GetHandoff() *ToolCall_HandoffInput {
+	if x != nil {
+		if x, ok := x.Input.(*ToolCall_Handoff); ok {
+			return x.Handoff
+		}
+	}
+	return nil
+}
+
+func (x *ToolCall) GetAskUser() *ToolCall_AskUserInput {
+	if x != nil {
+		if x, ok := x.Input.(*ToolCall_AskUser); ok {
+			return x.AskUser
+		}
+	}
+	return nil
+}
+
+func (x *ToolCall) GetListFiles() *ToolCall_ListFilesInput {
+	if x != nil {
+		if x, ok := x.Input.(*ToolCall_ListFiles); ok {
+			return x.ListFiles
+		}
+	}
+	return nil
+}
+
+func (x *ToolCall) GetReadFile() *ToolCall_ReadFileInput {
+	if x != nil {
+		if x, ok := x.Input.(*ToolCall_ReadFile); ok {
+			return x.ReadFile
+		}
+	}
+	return nil
+}
+
+func (x *ToolCall) GetSubmitReport() *ToolCall_SubmitReportInput {
+	if x != nil {
+		if x, ok := x.Input.(*ToolCall_SubmitReport); ok {
+			return x.SubmitReport
+		}
+	}
+	return nil
+}
+
+func (x *ToolCall) GetCodeInterpreter() *ToolCall_CodeInterpreterInput {
+	if x != nil {
+		if x, ok := x.Input.(*ToolCall_CodeInterpreter); ok {
+			return x.CodeInterpreter
+		}
+	}
+	return nil
+}
+
+type isToolCall_Input interface {
+	isToolCall_Input()
+}
+
+type ToolCall_CreateFile struct {
+	CreateFile *ToolCall_CreateFileInput `protobuf:"bytes,3,opt,name=create_file,json=createFile,proto3,oneof"`
+}
+
+type ToolCall_EditFile struct {
+	EditFile *ToolCall_EditFileInput `protobuf:"bytes,4,opt,name=edit_file,json=editFile,proto3,oneof"`
+}
+
+type ToolCall_ExecuteCommand struct {
+	ExecuteCommand *ToolCall_ExecuteCommandInput `protobuf:"bytes,5,opt,name=execute_command,json=executeCommand,proto3,oneof"`
+}
+
+type ToolCall_FindFile struct {
+	FindFile *ToolCall_FindFileInput `protobuf:"bytes,6,opt,name=find_file,json=findFile,proto3,oneof"`
+}
+
+type ToolCall_Grep struct {
+	Grep *ToolCall_GrepInput `protobuf:"bytes,7,opt,name=grep,proto3,oneof"`
+}
+
+type ToolCall_Handoff struct {
+	Handoff *ToolCall_HandoffInput `protobuf:"bytes,8,opt,name=handoff,proto3,oneof"`
+}
+
+type ToolCall_AskUser struct {
+	AskUser *ToolCall_AskUserInput `protobuf:"bytes,9,opt,name=ask_user,json=askUser,proto3,oneof"`
+}
+
+type ToolCall_ListFiles struct {
+	ListFiles *ToolCall_ListFilesInput `protobuf:"bytes,10,opt,name=list_files,json=listFiles,proto3,oneof"`
+}
+
+type ToolCall_ReadFile struct {
+	ReadFile *ToolCall_ReadFileInput `protobuf:"bytes,11,opt,name=read_file,json=readFile,proto3,oneof"`
+}
+
+type ToolCall_SubmitReport struct {
+	SubmitReport *ToolCall_SubmitReportInput `protobuf:"bytes,12,opt,name=submit_report,json=submitReport,proto3,oneof"`
+}
+
+type ToolCall_CodeInterpreter struct {
+	CodeInterpreter *ToolCall_CodeInterpreterInput `protobuf:"bytes,13,opt,name=code_interpreter,json=codeInterpreter,proto3,oneof"`
+}
+
+func (*ToolCall_CreateFile) isToolCall_Input() {}
+
+func (*ToolCall_EditFile) isToolCall_Input() {}
+
+func (*ToolCall_ExecuteCommand) isToolCall_Input() {}
+
+func (*ToolCall_FindFile) isToolCall_Input() {}
+
+func (*ToolCall_Grep) isToolCall_Input() {}
+
+func (*ToolCall_Handoff) isToolCall_Input() {}
+
+func (*ToolCall_AskUser) isToolCall_Input() {}
+
+func (*ToolCall_ListFiles) isToolCall_Input() {}
+
+func (*ToolCall_ReadFile) isToolCall_Input() {}
+
+func (*ToolCall_SubmitReport) isToolCall_Input() {}
+
+func (*ToolCall_CodeInterpreter) isToolCall_Input() {}
+
+type ToolResult struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Id       string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ToolName string                 `protobuf:"bytes,2,opt,name=tool_name,json=toolName,proto3" json:"tool_name,omitempty"`
+	// Types that are valid to be assigned to Result:
+	//
+	//	*ToolResult_CreateFile
+	//	*ToolResult_EditFile
+	//	*ToolResult_ExecuteCommand
+	//	*ToolResult_FindFile
+	//	*ToolResult_Grep
+	//	*ToolResult_ListFiles
+	//	*ToolResult_ReadFile
+	//	*ToolResult_SubmitReport
+	//	*ToolResult_CodeInterpreter
+	Result        isToolResult_Result `protobuf_oneof:"result"`
+	Error         *ToolError          `protobuf:"bytes,13,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ToolResult) Reset() {
+	*x = ToolResult{}
+	mi := &file_construct_v1_message_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolResult) ProtoMessage() {}
+
+func (x *ToolResult) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToolResult.ProtoReflect.Descriptor instead.
+func (*ToolResult) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *ToolResult) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *ToolResult) GetToolName() string {
+	if x != nil {
+		return x.ToolName
+	}
+	return ""
+}
+
+func (x *ToolResult) GetResult() isToolResult_Result {
+	if x != nil {
+		return x.Result
+	}
+	return nil
+}
+
+func (x *ToolResult) GetCreateFile() *ToolResult_CreateFileResult {
+	if x != nil {
+		if x, ok := x.Result.(*ToolResult_CreateFile); ok {
+			return x.CreateFile
+		}
+	}
+	return nil
+}
+
+func (x *ToolResult) GetEditFile() *ToolResult_EditFileResult {
+	if x != nil {
+		if x, ok := x.Result.(*ToolResult_EditFile); ok {
+			return x.EditFile
+		}
+	}
+	return nil
+}
+
+func (x *ToolResult) GetExecuteCommand() *ToolResult_ExecuteCommandResult {
+	if x != nil {
+		if x, ok := x.Result.(*ToolResult_ExecuteCommand); ok {
+			return x.ExecuteCommand
+		}
+	}
+	return nil
+}
+
+func (x *ToolResult) GetFindFile() *ToolResult_FindFileResult {
+	if x != nil {
+		if x, ok := x.Result.(*ToolResult_FindFile); ok {
+			return x.FindFile
+		}
+	}
+	return nil
+}
+
+func (x *ToolResult) GetGrep() *ToolResult_GrepResult {
+	if x != nil {
+		if x, ok := x.Result.(*ToolResult_Grep); ok {
+			return x.Grep
+		}
+	}
+	return nil
+}
+
+func (x *ToolResult) GetListFiles() *ToolResult_ListFilesResult {
+	if x != nil {
+		if x, ok := x.Result.(*ToolResult_ListFiles); ok {
+			return x.ListFiles
+		}
+	}
+	return nil
+}
+
+func (x *ToolResult) GetReadFile() *ToolResult_ReadFileResult {
+	if x != nil {
+		if x, ok := x.Result.(*ToolResult_ReadFile); ok {
+			return x.ReadFile
+		}
+	}
+	return nil
+}
+
+func (x *ToolResult) GetSubmitReport() *ToolResult_SubmitReportResult {
+	if x != nil {
+		if x, ok := x.Result.(*ToolResult_SubmitReport); ok {
+			return x.SubmitReport
+		}
+	}
+	return nil
+}
+
+func (x *ToolResult) GetCodeInterpreter() *ToolResult_CodeInterpreterResult {
+	if x != nil {
+		if x, ok := x.Result.(*ToolResult_CodeInterpreter); ok {
+			return x.CodeInterpreter
+		}
+	}
+	return nil
+}
+
+func (x *ToolResult) GetError() *ToolError {
+	if x != nil {
+		return x.Error
+	}
+	return nil
+}
+
+type isToolResult_Result interface {
+	isToolResult_Result()
+}
+
+type ToolResult_CreateFile struct {
+	CreateFile *ToolResult_CreateFileResult `protobuf:"bytes,3,opt,name=create_file,json=createFile,proto3,oneof"`
+}
+
+type ToolResult_EditFile struct {
+	EditFile *ToolResult_EditFileResult `protobuf:"bytes,4,opt,name=edit_file,json=editFile,proto3,oneof"`
+}
+
+type ToolResult_ExecuteCommand struct {
+	ExecuteCommand *ToolResult_ExecuteCommandResult `protobuf:"bytes,5,opt,name=execute_command,json=executeCommand,proto3,oneof"`
+}
+
+type ToolResult_FindFile struct {
+	FindFile *ToolResult_FindFileResult `protobuf:"bytes,6,opt,name=find_file,json=findFile,proto3,oneof"`
+}
+
+type ToolResult_Grep struct {
+	Grep *ToolResult_GrepResult `protobuf:"bytes,7,opt,name=grep,proto3,oneof"`
+}
+
+type ToolResult_ListFiles struct {
+	ListFiles *ToolResult_ListFilesResult `protobuf:"bytes,8,opt,name=list_files,json=listFiles,proto3,oneof"`
+}
+
+type ToolResult_ReadFile struct {
+	ReadFile *ToolResult_ReadFileResult `protobuf:"bytes,9,opt,name=read_file,json=readFile,proto3,oneof"`
+}
+
+type ToolResult_SubmitReport struct {
+	SubmitReport *ToolResult_SubmitReportResult `protobuf:"bytes,10,opt,name=submit_report,json=submitReport,proto3,oneof"`
+}
+
+type ToolResult_CodeInterpreter struct {
+	CodeInterpreter *ToolResult_CodeInterpreterResult `protobuf:"bytes,11,opt,name=code_interpreter,json=codeInterpreter,proto3,oneof"`
+}
+
+func (*ToolResult_CreateFile) isToolResult_Result() {}
+
+func (*ToolResult_EditFile) isToolResult_Result() {}
+
+func (*ToolResult_ExecuteCommand) isToolResult_Result() {}
+
+func (*ToolResult_FindFile) isToolResult_Result() {}
+
+func (*ToolResult_Grep) isToolResult_Result() {}
+
+func (*ToolResult_ListFiles) isToolResult_Result() {}
+
+func (*ToolResult_ReadFile) isToolResult_Result() {}
+
+func (*ToolResult_SubmitReport) isToolResult_Result() {}
+
+func (*ToolResult_CodeInterpreter) isToolResult_Result() {}
+
+type CreateFileToolResult struct {
+	state         protoimpl.MessageState      `protogen:"open.v1"`
+	Input         *CreateFileToolResult_Input `protobuf:"bytes,1,opt,name=input,proto3" json:"input,omitempty"`
+	Overwritten   bool                        `protobuf:"varint,2,opt,name=overwritten,proto3" json:"overwritten,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateFileToolResult) Reset() {
+	*x = CreateFileToolResult{}
+	mi := &file_construct_v1_message_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateFileToolResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateFileToolResult) ProtoMessage() {}
+
+func (x *CreateFileToolResult) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateFileToolResult.ProtoReflect.Descriptor instead.
+func (*CreateFileToolResult) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *CreateFileToolResult) GetInput() *CreateFileToolResult_Input {
+	if x != nil {
+		return x.Input
+	}
+	return nil
+}
+
+func (x *CreateFileToolResult) GetOverwritten() bool {
+	if x != nil {
+		return x.Overwritten
+	}
+	return false
+}
+
+type EditFileToolResult struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	FilePath      string                 `protobuf:"bytes,1,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
+	FileContent   string                 `protobuf:"bytes,2,opt,name=file_content,json=fileContent,proto3" json:"file_content,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EditFileToolResult) Reset() {
+	*x = EditFileToolResult{}
+	mi := &file_construct_v1_message_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EditFileToolResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EditFileToolResult) ProtoMessage() {}
+
+func (x *EditFileToolResult) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EditFileToolResult.ProtoReflect.Descriptor instead.
+func (*EditFileToolResult) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *EditFileToolResult) GetFilePath() string {
+	if x != nil {
+		return x.FilePath
+	}
+	return ""
+}
+
+func (x *EditFileToolResult) GetFileContent() string {
+	if x != nil {
+		return x.FileContent
+	}
+	return ""
+}
+
+type ExecuteCommandToolResult struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Command       string                 `protobuf:"bytes,1,opt,name=command,proto3" json:"command,omitempty"`
+	Output        string                 `protobuf:"bytes,2,opt,name=output,proto3" json:"output,omitempty"`
+	Error         string                 `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ExecuteCommandToolResult) Reset() {
+	*x = ExecuteCommandToolResult{}
+	mi := &file_construct_v1_message_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ExecuteCommandToolResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExecuteCommandToolResult) ProtoMessage() {}
+
+func (x *ExecuteCommandToolResult) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExecuteCommandToolResult.ProtoReflect.Descriptor instead.
+func (*ExecuteCommandToolResult) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *ExecuteCommandToolResult) GetCommand() string {
+	if x != nil {
+		return x.Command
+	}
+	return ""
+}
+
+func (x *ExecuteCommandToolResult) GetOutput() string {
+	if x != nil {
+		return x.Output
+	}
+	return ""
+}
+
+func (x *ExecuteCommandToolResult) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+type FindFileToolResult struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	FilePath      string                 `protobuf:"bytes,1,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FindFileToolResult) Reset() {
+	*x = FindFileToolResult{}
+	mi := &file_construct_v1_message_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FindFileToolResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FindFileToolResult) ProtoMessage() {}
+
+func (x *FindFileToolResult) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FindFileToolResult.ProtoReflect.Descriptor instead.
+func (*FindFileToolResult) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *FindFileToolResult) GetFilePath() string {
+	if x != nil {
+		return x.FilePath
+	}
+	return ""
+}
+
+type GrepToolResult struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	FilePath      string                 `protobuf:"bytes,1,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
+	FileContent   string                 `protobuf:"bytes,2,opt,name=file_content,json=fileContent,proto3" json:"file_content,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GrepToolResult) Reset() {
+	*x = GrepToolResult{}
+	mi := &file_construct_v1_message_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GrepToolResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GrepToolResult) ProtoMessage() {}
+
+func (x *GrepToolResult) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GrepToolResult.ProtoReflect.Descriptor instead.
+func (*GrepToolResult) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *GrepToolResult) GetFilePath() string {
+	if x != nil {
+		return x.FilePath
+	}
+	return ""
+}
+
+func (x *GrepToolResult) GetFileContent() string {
+	if x != nil {
+		return x.FileContent
+	}
+	return ""
+}
+
+type HandoffToolResult struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HandoffToolResult) Reset() {
+	*x = HandoffToolResult{}
+	mi := &file_construct_v1_message_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HandoffToolResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HandoffToolResult) ProtoMessage() {}
+
+func (x *HandoffToolResult) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HandoffToolResult.ProtoReflect.Descriptor instead.
+func (*HandoffToolResult) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{23}
+}
+
+type ListFilesToolResult struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListFilesToolResult) Reset() {
+	*x = ListFilesToolResult{}
+	mi := &file_construct_v1_message_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListFilesToolResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListFilesToolResult) ProtoMessage() {}
+
+func (x *ListFilesToolResult) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListFilesToolResult.ProtoReflect.Descriptor instead.
+func (*ListFilesToolResult) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{24}
+}
+
+type ReadFileToolResult struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReadFileToolResult) Reset() {
+	*x = ReadFileToolResult{}
+	mi := &file_construct_v1_message_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReadFileToolResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReadFileToolResult) ProtoMessage() {}
+
+func (x *ReadFileToolResult) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReadFileToolResult.ProtoReflect.Descriptor instead.
+func (*ReadFileToolResult) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{25}
+}
+
+type SubmitReport struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Summary       string                 `protobuf:"bytes,1,opt,name=summary,proto3" json:"summary,omitempty"`
+	Completed     bool                   `protobuf:"varint,2,opt,name=completed,proto3" json:"completed,omitempty"`
+	Deliverables  []string               `protobuf:"bytes,3,rep,name=deliverables,proto3" json:"deliverables,omitempty"`
+	NextSteps     string                 `protobuf:"bytes,4,opt,name=next_steps,json=nextSteps,proto3" json:"next_steps,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SubmitReport) Reset() {
+	*x = SubmitReport{}
+	mi := &file_construct_v1_message_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SubmitReport) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SubmitReport) ProtoMessage() {}
+
+func (x *SubmitReport) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SubmitReport.ProtoReflect.Descriptor instead.
+func (*SubmitReport) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *SubmitReport) GetSummary() string {
+	if x != nil {
+		return x.Summary
+	}
+	return ""
+}
+
+func (x *SubmitReport) GetCompleted() bool {
+	if x != nil {
+		return x.Completed
+	}
+	return false
+}
+
+func (x *SubmitReport) GetDeliverables() []string {
+	if x != nil {
+		return x.Deliverables
+	}
+	return nil
+}
+
+func (x *SubmitReport) GetNextSteps() string {
+	if x != nil {
+		return x.NextSteps
+	}
+	return ""
+}
+
+type ToolError struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	Details       map[string]string      `protobuf:"bytes,2,rep,name=details,proto3" json:"details,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ToolError) Reset() {
+	*x = ToolError{}
+	mi := &file_construct_v1_message_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolError) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolError) ProtoMessage() {}
+
+func (x *ToolError) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToolError.ProtoReflect.Descriptor instead.
+func (*ToolError) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *ToolError) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *ToolError) GetDetails() map[string]string {
+	if x != nil {
+		return x.Details
+	}
+	return nil
+}
+
 type MessagePart_Text struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Content       string                 `protobuf:"bytes,1,opt,name=content,proto3" json:"content,omitempty"`
@@ -1054,7 +2059,7 @@ type MessagePart_Text struct {
 
 func (x *MessagePart_Text) Reset() {
 	*x = MessagePart_Text{}
-	mi := &file_construct_v1_message_proto_msgTypes[16]
+	mi := &file_construct_v1_message_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1066,7 +2071,7 @@ func (x *MessagePart_Text) String() string {
 func (*MessagePart_Text) ProtoMessage() {}
 
 func (x *MessagePart_Text) ProtoReflect() protoreflect.Message {
-	mi := &file_construct_v1_message_proto_msgTypes[16]
+	mi := &file_construct_v1_message_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1089,142 +2094,6 @@ func (x *MessagePart_Text) GetContent() string {
 	return ""
 }
 
-type MessagePart_ToolResult struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ToolName      ToolName               `protobuf:"varint,1,opt,name=tool_name,json=toolName,proto3,enum=construct.v1.ToolName" json:"tool_name,omitempty"`
-	Arguments     map[string]string      `protobuf:"bytes,2,rep,name=arguments,proto3" json:"arguments,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	Result        string                 `protobuf:"bytes,3,opt,name=result,proto3" json:"result,omitempty"`
-	Error         string                 `protobuf:"bytes,4,opt,name=error,proto3" json:"error,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *MessagePart_ToolResult) Reset() {
-	*x = MessagePart_ToolResult{}
-	mi := &file_construct_v1_message_proto_msgTypes[17]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *MessagePart_ToolResult) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*MessagePart_ToolResult) ProtoMessage() {}
-
-func (x *MessagePart_ToolResult) ProtoReflect() protoreflect.Message {
-	mi := &file_construct_v1_message_proto_msgTypes[17]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use MessagePart_ToolResult.ProtoReflect.Descriptor instead.
-func (*MessagePart_ToolResult) Descriptor() ([]byte, []int) {
-	return file_construct_v1_message_proto_rawDescGZIP(), []int{4, 1}
-}
-
-func (x *MessagePart_ToolResult) GetToolName() ToolName {
-	if x != nil {
-		return x.ToolName
-	}
-	return ToolName_UNSPECIFIED
-}
-
-func (x *MessagePart_ToolResult) GetArguments() map[string]string {
-	if x != nil {
-		return x.Arguments
-	}
-	return nil
-}
-
-func (x *MessagePart_ToolResult) GetResult() string {
-	if x != nil {
-		return x.Result
-	}
-	return ""
-}
-
-func (x *MessagePart_ToolResult) GetError() string {
-	if x != nil {
-		return x.Error
-	}
-	return ""
-}
-
-type MessagePart_SubmitReport struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Summary       string                 `protobuf:"bytes,1,opt,name=summary,proto3" json:"summary,omitempty"`
-	Completed     bool                   `protobuf:"varint,2,opt,name=completed,proto3" json:"completed,omitempty"`
-	Deliverables  []string               `protobuf:"bytes,3,rep,name=deliverables,proto3" json:"deliverables,omitempty"`
-	NextSteps     string                 `protobuf:"bytes,4,opt,name=next_steps,json=nextSteps,proto3" json:"next_steps,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *MessagePart_SubmitReport) Reset() {
-	*x = MessagePart_SubmitReport{}
-	mi := &file_construct_v1_message_proto_msgTypes[18]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *MessagePart_SubmitReport) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*MessagePart_SubmitReport) ProtoMessage() {}
-
-func (x *MessagePart_SubmitReport) ProtoReflect() protoreflect.Message {
-	mi := &file_construct_v1_message_proto_msgTypes[18]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use MessagePart_SubmitReport.ProtoReflect.Descriptor instead.
-func (*MessagePart_SubmitReport) Descriptor() ([]byte, []int) {
-	return file_construct_v1_message_proto_rawDescGZIP(), []int{4, 2}
-}
-
-func (x *MessagePart_SubmitReport) GetSummary() string {
-	if x != nil {
-		return x.Summary
-	}
-	return ""
-}
-
-func (x *MessagePart_SubmitReport) GetCompleted() bool {
-	if x != nil {
-		return x.Completed
-	}
-	return false
-}
-
-func (x *MessagePart_SubmitReport) GetDeliverables() []string {
-	if x != nil {
-		return x.Deliverables
-	}
-	return nil
-}
-
-func (x *MessagePart_SubmitReport) GetNextSteps() string {
-	if x != nil {
-		return x.NextSteps
-	}
-	return ""
-}
-
 // Filter specifies criteria for narrowing the list of returned messages.
 type ListMessagesRequest_Filter struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1240,7 +2109,7 @@ type ListMessagesRequest_Filter struct {
 
 func (x *ListMessagesRequest_Filter) Reset() {
 	*x = ListMessagesRequest_Filter{}
-	mi := &file_construct_v1_message_proto_msgTypes[20]
+	mi := &file_construct_v1_message_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1252,7 +2121,7 @@ func (x *ListMessagesRequest_Filter) String() string {
 func (*ListMessagesRequest_Filter) ProtoMessage() {}
 
 func (x *ListMessagesRequest_Filter) ProtoReflect() protoreflect.Message {
-	mi := &file_construct_v1_message_proto_msgTypes[20]
+	mi := &file_construct_v1_message_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1289,6 +2158,1462 @@ func (x *ListMessagesRequest_Filter) GetRoles() MessageRole {
 	return MessageRole_MESSAGE_ROLE_UNSPECIFIED
 }
 
+type ToolCall_CodeInterpreterInput struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ToolCall_CodeInterpreterInput) Reset() {
+	*x = ToolCall_CodeInterpreterInput{}
+	mi := &file_construct_v1_message_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolCall_CodeInterpreterInput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolCall_CodeInterpreterInput) ProtoMessage() {}
+
+func (x *ToolCall_CodeInterpreterInput) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToolCall_CodeInterpreterInput.ProtoReflect.Descriptor instead.
+func (*ToolCall_CodeInterpreterInput) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{16, 0}
+}
+
+func (x *ToolCall_CodeInterpreterInput) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
+type ToolCall_CreateFileInput struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Path          string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	Content       string                 `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ToolCall_CreateFileInput) Reset() {
+	*x = ToolCall_CreateFileInput{}
+	mi := &file_construct_v1_message_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolCall_CreateFileInput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolCall_CreateFileInput) ProtoMessage() {}
+
+func (x *ToolCall_CreateFileInput) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToolCall_CreateFileInput.ProtoReflect.Descriptor instead.
+func (*ToolCall_CreateFileInput) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{16, 1}
+}
+
+func (x *ToolCall_CreateFileInput) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *ToolCall_CreateFileInput) GetContent() string {
+	if x != nil {
+		return x.Content
+	}
+	return ""
+}
+
+type ToolCall_EditFileInput struct {
+	state         protoimpl.MessageState             `protogen:"open.v1"`
+	Path          string                             `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	Diffs         []*ToolCall_EditFileInput_DiffPair `protobuf:"bytes,2,rep,name=diffs,proto3" json:"diffs,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ToolCall_EditFileInput) Reset() {
+	*x = ToolCall_EditFileInput{}
+	mi := &file_construct_v1_message_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolCall_EditFileInput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolCall_EditFileInput) ProtoMessage() {}
+
+func (x *ToolCall_EditFileInput) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToolCall_EditFileInput.ProtoReflect.Descriptor instead.
+func (*ToolCall_EditFileInput) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{16, 2}
+}
+
+func (x *ToolCall_EditFileInput) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *ToolCall_EditFileInput) GetDiffs() []*ToolCall_EditFileInput_DiffPair {
+	if x != nil {
+		return x.Diffs
+	}
+	return nil
+}
+
+type ToolCall_ExecuteCommandInput struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Command       string                 `protobuf:"bytes,1,opt,name=command,proto3" json:"command,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ToolCall_ExecuteCommandInput) Reset() {
+	*x = ToolCall_ExecuteCommandInput{}
+	mi := &file_construct_v1_message_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolCall_ExecuteCommandInput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolCall_ExecuteCommandInput) ProtoMessage() {}
+
+func (x *ToolCall_ExecuteCommandInput) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToolCall_ExecuteCommandInput.ProtoReflect.Descriptor instead.
+func (*ToolCall_ExecuteCommandInput) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{16, 3}
+}
+
+func (x *ToolCall_ExecuteCommandInput) GetCommand() string {
+	if x != nil {
+		return x.Command
+	}
+	return ""
+}
+
+type ToolCall_FindFileInput struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Pattern        string                 `protobuf:"bytes,1,opt,name=pattern,proto3" json:"pattern,omitempty"`
+	Path           string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	ExcludePattern string                 `protobuf:"bytes,3,opt,name=exclude_pattern,json=excludePattern,proto3" json:"exclude_pattern,omitempty"`
+	MaxResults     int32                  `protobuf:"varint,4,opt,name=max_results,json=maxResults,proto3" json:"max_results,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *ToolCall_FindFileInput) Reset() {
+	*x = ToolCall_FindFileInput{}
+	mi := &file_construct_v1_message_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolCall_FindFileInput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolCall_FindFileInput) ProtoMessage() {}
+
+func (x *ToolCall_FindFileInput) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToolCall_FindFileInput.ProtoReflect.Descriptor instead.
+func (*ToolCall_FindFileInput) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{16, 4}
+}
+
+func (x *ToolCall_FindFileInput) GetPattern() string {
+	if x != nil {
+		return x.Pattern
+	}
+	return ""
+}
+
+func (x *ToolCall_FindFileInput) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *ToolCall_FindFileInput) GetExcludePattern() string {
+	if x != nil {
+		return x.ExcludePattern
+	}
+	return ""
+}
+
+func (x *ToolCall_FindFileInput) GetMaxResults() int32 {
+	if x != nil {
+		return x.MaxResults
+	}
+	return 0
+}
+
+type ToolCall_GrepInput struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Query          string                 `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
+	Path           string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	IncludePattern string                 `protobuf:"bytes,3,opt,name=include_pattern,json=includePattern,proto3" json:"include_pattern,omitempty"`
+	ExcludePattern string                 `protobuf:"bytes,4,opt,name=exclude_pattern,json=excludePattern,proto3" json:"exclude_pattern,omitempty"`
+	CaseSensitive  bool                   `protobuf:"varint,5,opt,name=case_sensitive,json=caseSensitive,proto3" json:"case_sensitive,omitempty"`
+	MaxResults     int32                  `protobuf:"varint,6,opt,name=max_results,json=maxResults,proto3" json:"max_results,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *ToolCall_GrepInput) Reset() {
+	*x = ToolCall_GrepInput{}
+	mi := &file_construct_v1_message_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolCall_GrepInput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolCall_GrepInput) ProtoMessage() {}
+
+func (x *ToolCall_GrepInput) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToolCall_GrepInput.ProtoReflect.Descriptor instead.
+func (*ToolCall_GrepInput) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{16, 5}
+}
+
+func (x *ToolCall_GrepInput) GetQuery() string {
+	if x != nil {
+		return x.Query
+	}
+	return ""
+}
+
+func (x *ToolCall_GrepInput) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *ToolCall_GrepInput) GetIncludePattern() string {
+	if x != nil {
+		return x.IncludePattern
+	}
+	return ""
+}
+
+func (x *ToolCall_GrepInput) GetExcludePattern() string {
+	if x != nil {
+		return x.ExcludePattern
+	}
+	return ""
+}
+
+func (x *ToolCall_GrepInput) GetCaseSensitive() bool {
+	if x != nil {
+		return x.CaseSensitive
+	}
+	return false
+}
+
+func (x *ToolCall_GrepInput) GetMaxResults() int32 {
+	if x != nil {
+		return x.MaxResults
+	}
+	return 0
+}
+
+type ToolCall_HandoffInput struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	RequestedAgent  string                 `protobuf:"bytes,1,opt,name=requested_agent,json=requestedAgent,proto3" json:"requested_agent,omitempty"`
+	HandoverMessage string                 `protobuf:"bytes,2,opt,name=handover_message,json=handoverMessage,proto3" json:"handover_message,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *ToolCall_HandoffInput) Reset() {
+	*x = ToolCall_HandoffInput{}
+	mi := &file_construct_v1_message_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolCall_HandoffInput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolCall_HandoffInput) ProtoMessage() {}
+
+func (x *ToolCall_HandoffInput) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToolCall_HandoffInput.ProtoReflect.Descriptor instead.
+func (*ToolCall_HandoffInput) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{16, 6}
+}
+
+func (x *ToolCall_HandoffInput) GetRequestedAgent() string {
+	if x != nil {
+		return x.RequestedAgent
+	}
+	return ""
+}
+
+func (x *ToolCall_HandoffInput) GetHandoverMessage() string {
+	if x != nil {
+		return x.HandoverMessage
+	}
+	return ""
+}
+
+type ToolCall_AskUserInput struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Question      string                 `protobuf:"bytes,1,opt,name=question,proto3" json:"question,omitempty"`
+	Options       []string               `protobuf:"bytes,2,rep,name=options,proto3" json:"options,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ToolCall_AskUserInput) Reset() {
+	*x = ToolCall_AskUserInput{}
+	mi := &file_construct_v1_message_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolCall_AskUserInput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolCall_AskUserInput) ProtoMessage() {}
+
+func (x *ToolCall_AskUserInput) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToolCall_AskUserInput.ProtoReflect.Descriptor instead.
+func (*ToolCall_AskUserInput) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{16, 7}
+}
+
+func (x *ToolCall_AskUserInput) GetQuestion() string {
+	if x != nil {
+		return x.Question
+	}
+	return ""
+}
+
+func (x *ToolCall_AskUserInput) GetOptions() []string {
+	if x != nil {
+		return x.Options
+	}
+	return nil
+}
+
+type ToolCall_ListFilesInput struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Path          string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	Recursive     bool                   `protobuf:"varint,2,opt,name=recursive,proto3" json:"recursive,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ToolCall_ListFilesInput) Reset() {
+	*x = ToolCall_ListFilesInput{}
+	mi := &file_construct_v1_message_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolCall_ListFilesInput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolCall_ListFilesInput) ProtoMessage() {}
+
+func (x *ToolCall_ListFilesInput) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToolCall_ListFilesInput.ProtoReflect.Descriptor instead.
+func (*ToolCall_ListFilesInput) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{16, 8}
+}
+
+func (x *ToolCall_ListFilesInput) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *ToolCall_ListFilesInput) GetRecursive() bool {
+	if x != nil {
+		return x.Recursive
+	}
+	return false
+}
+
+type ToolCall_ReadFileInput struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Path          string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ToolCall_ReadFileInput) Reset() {
+	*x = ToolCall_ReadFileInput{}
+	mi := &file_construct_v1_message_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolCall_ReadFileInput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolCall_ReadFileInput) ProtoMessage() {}
+
+func (x *ToolCall_ReadFileInput) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToolCall_ReadFileInput.ProtoReflect.Descriptor instead.
+func (*ToolCall_ReadFileInput) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{16, 9}
+}
+
+func (x *ToolCall_ReadFileInput) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+type ToolCall_SubmitReportInput struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Summary       string                 `protobuf:"bytes,1,opt,name=summary,proto3" json:"summary,omitempty"`
+	Completed     bool                   `protobuf:"varint,2,opt,name=completed,proto3" json:"completed,omitempty"`
+	Deliverables  []string               `protobuf:"bytes,3,rep,name=deliverables,proto3" json:"deliverables,omitempty"`
+	NextSteps     string                 `protobuf:"bytes,4,opt,name=next_steps,json=nextSteps,proto3" json:"next_steps,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ToolCall_SubmitReportInput) Reset() {
+	*x = ToolCall_SubmitReportInput{}
+	mi := &file_construct_v1_message_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolCall_SubmitReportInput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolCall_SubmitReportInput) ProtoMessage() {}
+
+func (x *ToolCall_SubmitReportInput) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToolCall_SubmitReportInput.ProtoReflect.Descriptor instead.
+func (*ToolCall_SubmitReportInput) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{16, 10}
+}
+
+func (x *ToolCall_SubmitReportInput) GetSummary() string {
+	if x != nil {
+		return x.Summary
+	}
+	return ""
+}
+
+func (x *ToolCall_SubmitReportInput) GetCompleted() bool {
+	if x != nil {
+		return x.Completed
+	}
+	return false
+}
+
+func (x *ToolCall_SubmitReportInput) GetDeliverables() []string {
+	if x != nil {
+		return x.Deliverables
+	}
+	return nil
+}
+
+func (x *ToolCall_SubmitReportInput) GetNextSteps() string {
+	if x != nil {
+		return x.NextSteps
+	}
+	return ""
+}
+
+type ToolCall_EditFileInput_DiffPair struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Old           string                 `protobuf:"bytes,1,opt,name=old,proto3" json:"old,omitempty"`
+	New           string                 `protobuf:"bytes,2,opt,name=new,proto3" json:"new,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ToolCall_EditFileInput_DiffPair) Reset() {
+	*x = ToolCall_EditFileInput_DiffPair{}
+	mi := &file_construct_v1_message_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolCall_EditFileInput_DiffPair) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolCall_EditFileInput_DiffPair) ProtoMessage() {}
+
+func (x *ToolCall_EditFileInput_DiffPair) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToolCall_EditFileInput_DiffPair.ProtoReflect.Descriptor instead.
+func (*ToolCall_EditFileInput_DiffPair) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{16, 2, 0}
+}
+
+func (x *ToolCall_EditFileInput_DiffPair) GetOld() string {
+	if x != nil {
+		return x.Old
+	}
+	return ""
+}
+
+func (x *ToolCall_EditFileInput_DiffPair) GetNew() string {
+	if x != nil {
+		return x.New
+	}
+	return ""
+}
+
+type ToolResult_CodeInterpreterResult struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Output        string                 `protobuf:"bytes,1,opt,name=output,proto3" json:"output,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ToolResult_CodeInterpreterResult) Reset() {
+	*x = ToolResult_CodeInterpreterResult{}
+	mi := &file_construct_v1_message_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolResult_CodeInterpreterResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolResult_CodeInterpreterResult) ProtoMessage() {}
+
+func (x *ToolResult_CodeInterpreterResult) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToolResult_CodeInterpreterResult.ProtoReflect.Descriptor instead.
+func (*ToolResult_CodeInterpreterResult) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{17, 0}
+}
+
+func (x *ToolResult_CodeInterpreterResult) GetOutput() string {
+	if x != nil {
+		return x.Output
+	}
+	return ""
+}
+
+type ToolResult_CreateFileResult struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Overwritten   bool                   `protobuf:"varint,1,opt,name=overwritten,proto3" json:"overwritten,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ToolResult_CreateFileResult) Reset() {
+	*x = ToolResult_CreateFileResult{}
+	mi := &file_construct_v1_message_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolResult_CreateFileResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolResult_CreateFileResult) ProtoMessage() {}
+
+func (x *ToolResult_CreateFileResult) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToolResult_CreateFileResult.ProtoReflect.Descriptor instead.
+func (*ToolResult_CreateFileResult) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{17, 1}
+}
+
+func (x *ToolResult_CreateFileResult) GetOverwritten() bool {
+	if x != nil {
+		return x.Overwritten
+	}
+	return false
+}
+
+type ToolResult_EditFileResult struct {
+	state         protoimpl.MessageState               `protogen:"open.v1"`
+	Path          string                               `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	PatchInfo     *ToolResult_EditFileResult_PatchInfo `protobuf:"bytes,2,opt,name=patch_info,json=patchInfo,proto3" json:"patch_info,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ToolResult_EditFileResult) Reset() {
+	*x = ToolResult_EditFileResult{}
+	mi := &file_construct_v1_message_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolResult_EditFileResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolResult_EditFileResult) ProtoMessage() {}
+
+func (x *ToolResult_EditFileResult) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToolResult_EditFileResult.ProtoReflect.Descriptor instead.
+func (*ToolResult_EditFileResult) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{17, 2}
+}
+
+func (x *ToolResult_EditFileResult) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *ToolResult_EditFileResult) GetPatchInfo() *ToolResult_EditFileResult_PatchInfo {
+	if x != nil {
+		return x.PatchInfo
+	}
+	return nil
+}
+
+type ToolResult_ExecuteCommandResult struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Stdout        string                 `protobuf:"bytes,1,opt,name=stdout,proto3" json:"stdout,omitempty"`
+	Stderr        string                 `protobuf:"bytes,2,opt,name=stderr,proto3" json:"stderr,omitempty"`
+	ExitCode      int32                  `protobuf:"varint,3,opt,name=exit_code,json=exitCode,proto3" json:"exit_code,omitempty"`
+	Command       string                 `protobuf:"bytes,4,opt,name=command,proto3" json:"command,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ToolResult_ExecuteCommandResult) Reset() {
+	*x = ToolResult_ExecuteCommandResult{}
+	mi := &file_construct_v1_message_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolResult_ExecuteCommandResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolResult_ExecuteCommandResult) ProtoMessage() {}
+
+func (x *ToolResult_ExecuteCommandResult) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToolResult_ExecuteCommandResult.ProtoReflect.Descriptor instead.
+func (*ToolResult_ExecuteCommandResult) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{17, 3}
+}
+
+func (x *ToolResult_ExecuteCommandResult) GetStdout() string {
+	if x != nil {
+		return x.Stdout
+	}
+	return ""
+}
+
+func (x *ToolResult_ExecuteCommandResult) GetStderr() string {
+	if x != nil {
+		return x.Stderr
+	}
+	return ""
+}
+
+func (x *ToolResult_ExecuteCommandResult) GetExitCode() int32 {
+	if x != nil {
+		return x.ExitCode
+	}
+	return 0
+}
+
+func (x *ToolResult_ExecuteCommandResult) GetCommand() string {
+	if x != nil {
+		return x.Command
+	}
+	return ""
+}
+
+type ToolResult_FindFileResult struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Files          []string               `protobuf:"bytes,1,rep,name=files,proto3" json:"files,omitempty"`
+	TotalFiles     int32                  `protobuf:"varint,2,opt,name=total_files,json=totalFiles,proto3" json:"total_files,omitempty"`
+	TruncatedCount int32                  `protobuf:"varint,3,opt,name=truncated_count,json=truncatedCount,proto3" json:"truncated_count,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *ToolResult_FindFileResult) Reset() {
+	*x = ToolResult_FindFileResult{}
+	mi := &file_construct_v1_message_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolResult_FindFileResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolResult_FindFileResult) ProtoMessage() {}
+
+func (x *ToolResult_FindFileResult) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToolResult_FindFileResult.ProtoReflect.Descriptor instead.
+func (*ToolResult_FindFileResult) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{17, 4}
+}
+
+func (x *ToolResult_FindFileResult) GetFiles() []string {
+	if x != nil {
+		return x.Files
+	}
+	return nil
+}
+
+func (x *ToolResult_FindFileResult) GetTotalFiles() int32 {
+	if x != nil {
+		return x.TotalFiles
+	}
+	return 0
+}
+
+func (x *ToolResult_FindFileResult) GetTruncatedCount() int32 {
+	if x != nil {
+		return x.TruncatedCount
+	}
+	return 0
+}
+
+type ToolResult_GrepResult struct {
+	state         protoimpl.MessageState             `protogen:"open.v1"`
+	Matches       []*ToolResult_GrepResult_GrepMatch `protobuf:"bytes,1,rep,name=matches,proto3" json:"matches,omitempty"`
+	TotalMatches  int32                              `protobuf:"varint,2,opt,name=total_matches,json=totalMatches,proto3" json:"total_matches,omitempty"`
+	SearchedFiles int32                              `protobuf:"varint,3,opt,name=searched_files,json=searchedFiles,proto3" json:"searched_files,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ToolResult_GrepResult) Reset() {
+	*x = ToolResult_GrepResult{}
+	mi := &file_construct_v1_message_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolResult_GrepResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolResult_GrepResult) ProtoMessage() {}
+
+func (x *ToolResult_GrepResult) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToolResult_GrepResult.ProtoReflect.Descriptor instead.
+func (*ToolResult_GrepResult) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{17, 5}
+}
+
+func (x *ToolResult_GrepResult) GetMatches() []*ToolResult_GrepResult_GrepMatch {
+	if x != nil {
+		return x.Matches
+	}
+	return nil
+}
+
+func (x *ToolResult_GrepResult) GetTotalMatches() int32 {
+	if x != nil {
+		return x.TotalMatches
+	}
+	return 0
+}
+
+func (x *ToolResult_GrepResult) GetSearchedFiles() int32 {
+	if x != nil {
+		return x.SearchedFiles
+	}
+	return 0
+}
+
+type ToolResult_ListFilesResult struct {
+	state         protoimpl.MessageState                       `protogen:"open.v1"`
+	Path          string                                       `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	Entries       []*ToolResult_ListFilesResult_DirectoryEntry `protobuf:"bytes,2,rep,name=entries,proto3" json:"entries,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ToolResult_ListFilesResult) Reset() {
+	*x = ToolResult_ListFilesResult{}
+	mi := &file_construct_v1_message_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolResult_ListFilesResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolResult_ListFilesResult) ProtoMessage() {}
+
+func (x *ToolResult_ListFilesResult) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToolResult_ListFilesResult.ProtoReflect.Descriptor instead.
+func (*ToolResult_ListFilesResult) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{17, 6}
+}
+
+func (x *ToolResult_ListFilesResult) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *ToolResult_ListFilesResult) GetEntries() []*ToolResult_ListFilesResult_DirectoryEntry {
+	if x != nil {
+		return x.Entries
+	}
+	return nil
+}
+
+type ToolResult_ReadFileResult struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Path          string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	Content       string                 `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ToolResult_ReadFileResult) Reset() {
+	*x = ToolResult_ReadFileResult{}
+	mi := &file_construct_v1_message_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolResult_ReadFileResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolResult_ReadFileResult) ProtoMessage() {}
+
+func (x *ToolResult_ReadFileResult) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToolResult_ReadFileResult.ProtoReflect.Descriptor instead.
+func (*ToolResult_ReadFileResult) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{17, 7}
+}
+
+func (x *ToolResult_ReadFileResult) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *ToolResult_ReadFileResult) GetContent() string {
+	if x != nil {
+		return x.Content
+	}
+	return ""
+}
+
+type ToolResult_SubmitReportResult struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Summary       string                 `protobuf:"bytes,1,opt,name=summary,proto3" json:"summary,omitempty"`
+	Completed     bool                   `protobuf:"varint,2,opt,name=completed,proto3" json:"completed,omitempty"`
+	Deliverables  []string               `protobuf:"bytes,3,rep,name=deliverables,proto3" json:"deliverables,omitempty"`
+	NextSteps     string                 `protobuf:"bytes,4,opt,name=next_steps,json=nextSteps,proto3" json:"next_steps,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ToolResult_SubmitReportResult) Reset() {
+	*x = ToolResult_SubmitReportResult{}
+	mi := &file_construct_v1_message_proto_msgTypes[50]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolResult_SubmitReportResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolResult_SubmitReportResult) ProtoMessage() {}
+
+func (x *ToolResult_SubmitReportResult) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[50]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToolResult_SubmitReportResult.ProtoReflect.Descriptor instead.
+func (*ToolResult_SubmitReportResult) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{17, 8}
+}
+
+func (x *ToolResult_SubmitReportResult) GetSummary() string {
+	if x != nil {
+		return x.Summary
+	}
+	return ""
+}
+
+func (x *ToolResult_SubmitReportResult) GetCompleted() bool {
+	if x != nil {
+		return x.Completed
+	}
+	return false
+}
+
+func (x *ToolResult_SubmitReportResult) GetDeliverables() []string {
+	if x != nil {
+		return x.Deliverables
+	}
+	return nil
+}
+
+func (x *ToolResult_SubmitReportResult) GetNextSteps() string {
+	if x != nil {
+		return x.NextSteps
+	}
+	return ""
+}
+
+type ToolResult_EditFileResult_PatchInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Patch         string                 `protobuf:"bytes,1,opt,name=patch,proto3" json:"patch,omitempty"`
+	LinesAdded    int32                  `protobuf:"varint,2,opt,name=lines_added,json=linesAdded,proto3" json:"lines_added,omitempty"`
+	LinesRemoved  int32                  `protobuf:"varint,3,opt,name=lines_removed,json=linesRemoved,proto3" json:"lines_removed,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ToolResult_EditFileResult_PatchInfo) Reset() {
+	*x = ToolResult_EditFileResult_PatchInfo{}
+	mi := &file_construct_v1_message_proto_msgTypes[51]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolResult_EditFileResult_PatchInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolResult_EditFileResult_PatchInfo) ProtoMessage() {}
+
+func (x *ToolResult_EditFileResult_PatchInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[51]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToolResult_EditFileResult_PatchInfo.ProtoReflect.Descriptor instead.
+func (*ToolResult_EditFileResult_PatchInfo) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{17, 2, 0}
+}
+
+func (x *ToolResult_EditFileResult_PatchInfo) GetPatch() string {
+	if x != nil {
+		return x.Patch
+	}
+	return ""
+}
+
+func (x *ToolResult_EditFileResult_PatchInfo) GetLinesAdded() int32 {
+	if x != nil {
+		return x.LinesAdded
+	}
+	return 0
+}
+
+func (x *ToolResult_EditFileResult_PatchInfo) GetLinesRemoved() int32 {
+	if x != nil {
+		return x.LinesRemoved
+	}
+	return 0
+}
+
+type ToolResult_GrepResult_ContextLine struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	LineNumber    int32                  `protobuf:"varint,1,opt,name=line_number,json=lineNumber,proto3" json:"line_number,omitempty"`
+	Content       string                 `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ToolResult_GrepResult_ContextLine) Reset() {
+	*x = ToolResult_GrepResult_ContextLine{}
+	mi := &file_construct_v1_message_proto_msgTypes[52]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolResult_GrepResult_ContextLine) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolResult_GrepResult_ContextLine) ProtoMessage() {}
+
+func (x *ToolResult_GrepResult_ContextLine) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[52]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToolResult_GrepResult_ContextLine.ProtoReflect.Descriptor instead.
+func (*ToolResult_GrepResult_ContextLine) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{17, 5, 0}
+}
+
+func (x *ToolResult_GrepResult_ContextLine) GetLineNumber() int32 {
+	if x != nil {
+		return x.LineNumber
+	}
+	return 0
+}
+
+func (x *ToolResult_GrepResult_ContextLine) GetContent() string {
+	if x != nil {
+		return x.Content
+	}
+	return ""
+}
+
+type ToolResult_GrepResult_GrepMatch struct {
+	state         protoimpl.MessageState               `protogen:"open.v1"`
+	FilePath      string                               `protobuf:"bytes,1,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
+	LineNumber    int32                                `protobuf:"varint,2,opt,name=line_number,json=lineNumber,proto3" json:"line_number,omitempty"`
+	LineContent   string                               `protobuf:"bytes,3,opt,name=line_content,json=lineContent,proto3" json:"line_content,omitempty"`
+	Context       []*ToolResult_GrepResult_ContextLine `protobuf:"bytes,4,rep,name=context,proto3" json:"context,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ToolResult_GrepResult_GrepMatch) Reset() {
+	*x = ToolResult_GrepResult_GrepMatch{}
+	mi := &file_construct_v1_message_proto_msgTypes[53]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolResult_GrepResult_GrepMatch) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolResult_GrepResult_GrepMatch) ProtoMessage() {}
+
+func (x *ToolResult_GrepResult_GrepMatch) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[53]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToolResult_GrepResult_GrepMatch.ProtoReflect.Descriptor instead.
+func (*ToolResult_GrepResult_GrepMatch) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{17, 5, 1}
+}
+
+func (x *ToolResult_GrepResult_GrepMatch) GetFilePath() string {
+	if x != nil {
+		return x.FilePath
+	}
+	return ""
+}
+
+func (x *ToolResult_GrepResult_GrepMatch) GetLineNumber() int32 {
+	if x != nil {
+		return x.LineNumber
+	}
+	return 0
+}
+
+func (x *ToolResult_GrepResult_GrepMatch) GetLineContent() string {
+	if x != nil {
+		return x.LineContent
+	}
+	return ""
+}
+
+func (x *ToolResult_GrepResult_GrepMatch) GetContext() []*ToolResult_GrepResult_ContextLine {
+	if x != nil {
+		return x.Context
+	}
+	return nil
+}
+
+type ToolResult_ListFilesResult_DirectoryEntry struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Type          string                 `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
+	Size          int64                  `protobuf:"varint,3,opt,name=size,proto3" json:"size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ToolResult_ListFilesResult_DirectoryEntry) Reset() {
+	*x = ToolResult_ListFilesResult_DirectoryEntry{}
+	mi := &file_construct_v1_message_proto_msgTypes[54]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolResult_ListFilesResult_DirectoryEntry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolResult_ListFilesResult_DirectoryEntry) ProtoMessage() {}
+
+func (x *ToolResult_ListFilesResult_DirectoryEntry) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[54]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToolResult_ListFilesResult_DirectoryEntry.ProtoReflect.Descriptor instead.
+func (*ToolResult_ListFilesResult_DirectoryEntry) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{17, 6, 0}
+}
+
+func (x *ToolResult_ListFilesResult_DirectoryEntry) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *ToolResult_ListFilesResult_DirectoryEntry) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *ToolResult_ListFilesResult_DirectoryEntry) GetSize() int64 {
+	if x != nil {
+		return x.Size
+	}
+	return 0
+}
+
+type CreateFileToolResult_Input struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	FilePath      string                 `protobuf:"bytes,1,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
+	FileContent   string                 `protobuf:"bytes,2,opt,name=file_content,json=fileContent,proto3" json:"file_content,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateFileToolResult_Input) Reset() {
+	*x = CreateFileToolResult_Input{}
+	mi := &file_construct_v1_message_proto_msgTypes[55]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateFileToolResult_Input) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateFileToolResult_Input) ProtoMessage() {}
+
+func (x *CreateFileToolResult_Input) ProtoReflect() protoreflect.Message {
+	mi := &file_construct_v1_message_proto_msgTypes[55]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateFileToolResult_Input.ProtoReflect.Descriptor instead.
+func (*CreateFileToolResult_Input) Descriptor() ([]byte, []int) {
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{18, 0}
+}
+
+func (x *CreateFileToolResult_Input) GetFilePath() string {
+	if x != nil {
+		return x.FilePath
+	}
+	return ""
+}
+
+func (x *CreateFileToolResult_Input) GetFileContent() string {
+	if x != nil {
+		return x.FileContent
+	}
+	return ""
+}
+
 var File_construct_v1_message_proto protoreflect.FileDescriptor
 
 const file_construct_v1_message_proto_rawDesc = "" +
@@ -1311,32 +3636,18 @@ const file_construct_v1_message_proto_rawDesc = "" +
 	"\t_agent_idB\v\n" +
 	"\t_model_id\"B\n" +
 	"\vMessageSpec\x123\n" +
-	"\acontent\x18\x01 \x03(\v2\x19.construct.v1.MessagePartR\acontent\"_\n" +
+	"\acontent\x18\x01 \x03(\v2\x19.construct.v1.MessagePartR\acontent\"\xaf\x01\n" +
 	"\rMessageStatus\x120\n" +
-	"\x05usage\x18\x01 \x01(\v2\x1a.construct.v1.MessageUsageR\x05usage\x12\x1c\n" +
-	"\tcompleted\x18\x02 \x01(\bR\tcompleted\"\xa9\x05\n" +
+	"\x05usage\x18\x01 \x01(\v2\x1a.construct.v1.MessageUsageR\x05usage\x12@\n" +
+	"\rcontent_state\x18\x02 \x01(\x0e2\x1b.construct.v1.ContentStatusR\fcontentState\x12*\n" +
+	"\x11is_final_response\x18\x03 \x01(\bR\x0fisFinalResponse\"\xee\x01\n" +
 	"\vMessagePart\x124\n" +
-	"\x04text\x18\x01 \x01(\v2\x1e.construct.v1.MessagePart.TextH\x00R\x04text\x12G\n" +
-	"\vtool_result\x18\x02 \x01(\v2$.construct.v1.MessagePart.ToolResultH\x00R\n" +
-	"toolResult\x12M\n" +
-	"\rsubmit_report\x18\x03 \x01(\v2&.construct.v1.MessagePart.SubmitReportH\x00R\fsubmitReport\x1a-\n" +
+	"\x04text\x18\x01 \x01(\v2\x1e.construct.v1.MessagePart.TextH\x00R\x04text\x125\n" +
+	"\ttool_call\x18\x02 \x01(\v2\x16.construct.v1.ToolCallH\x00R\btoolCall\x12;\n" +
+	"\vtool_result\x18\x03 \x01(\v2\x18.construct.v1.ToolResultH\x00R\n" +
+	"toolResult\x1a-\n" +
 	"\x04Text\x12%\n" +
-	"\acontent\x18\x01 \x01(\tB\v\xbaH\br\x06\x10\x01\x18\x80\x80\x04R\acontent\x1a\x88\x02\n" +
-	"\n" +
-	"ToolResult\x12;\n" +
-	"\ttool_name\x18\x01 \x01(\x0e2\x16.construct.v1.ToolNameB\x06\xbaH\x03\xc8\x01\x01R\btoolName\x12Q\n" +
-	"\targuments\x18\x02 \x03(\v23.construct.v1.MessagePart.ToolResult.ArgumentsEntryR\targuments\x12\x16\n" +
-	"\x06result\x18\x03 \x01(\tR\x06result\x12\x14\n" +
-	"\x05error\x18\x04 \x01(\tR\x05error\x1a<\n" +
-	"\x0eArgumentsEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a\x89\x01\n" +
-	"\fSubmitReport\x12\x18\n" +
-	"\asummary\x18\x01 \x01(\tR\asummary\x12\x1c\n" +
-	"\tcompleted\x18\x02 \x01(\bR\tcompleted\x12\"\n" +
-	"\fdeliverables\x18\x03 \x03(\tR\fdeliverables\x12\x1d\n" +
-	"\n" +
-	"next_steps\x18\x04 \x01(\tR\tnextStepsB\x06\n" +
+	"\acontent\x18\x01 \x01(\tB\v\xbaH\br\x06\x10\x01\x18\x80\x80\x04R\acontentB\x06\n" +
 	"\x04data\"\xc4\x01\n" +
 	"\fMessageUsage\x12!\n" +
 	"\finput_tokens\x18\x01 \x01(\x03R\vinputTokens\x12#\n" +
@@ -1389,7 +3700,178 @@ const file_construct_v1_message_proto_rawDesc = "" +
 	"\amessage\x18\x01 \x01(\v2\x15.construct.v1.MessageB\x06\xbaH\x03\xc8\x01\x01R\amessage\"0\n" +
 	"\x14DeleteMessageRequest\x12\x18\n" +
 	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\"\x17\n" +
-	"\x15DeleteMessageResponse*^\n" +
+	"\x15DeleteMessageResponse\"\xa0\x0f\n" +
+	"\bToolCall\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12#\n" +
+	"\ttool_name\x18\x02 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\btoolName\x12I\n" +
+	"\vcreate_file\x18\x03 \x01(\v2&.construct.v1.ToolCall.CreateFileInputH\x00R\n" +
+	"createFile\x12C\n" +
+	"\tedit_file\x18\x04 \x01(\v2$.construct.v1.ToolCall.EditFileInputH\x00R\beditFile\x12U\n" +
+	"\x0fexecute_command\x18\x05 \x01(\v2*.construct.v1.ToolCall.ExecuteCommandInputH\x00R\x0eexecuteCommand\x12C\n" +
+	"\tfind_file\x18\x06 \x01(\v2$.construct.v1.ToolCall.FindFileInputH\x00R\bfindFile\x126\n" +
+	"\x04grep\x18\a \x01(\v2 .construct.v1.ToolCall.GrepInputH\x00R\x04grep\x12?\n" +
+	"\ahandoff\x18\b \x01(\v2#.construct.v1.ToolCall.HandoffInputH\x00R\ahandoff\x12@\n" +
+	"\bask_user\x18\t \x01(\v2#.construct.v1.ToolCall.AskUserInputH\x00R\aaskUser\x12F\n" +
+	"\n" +
+	"list_files\x18\n" +
+	" \x01(\v2%.construct.v1.ToolCall.ListFilesInputH\x00R\tlistFiles\x12C\n" +
+	"\tread_file\x18\v \x01(\v2$.construct.v1.ToolCall.ReadFileInputH\x00R\breadFile\x12O\n" +
+	"\rsubmit_report\x18\f \x01(\v2(.construct.v1.ToolCall.SubmitReportInputH\x00R\fsubmitReport\x12X\n" +
+	"\x10code_interpreter\x18\r \x01(\v2+.construct.v1.ToolCall.CodeInterpreterInputH\x00R\x0fcodeInterpreter\x1a*\n" +
+	"\x14CodeInterpreterInput\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\tR\x04code\x1a?\n" +
+	"\x0fCreateFileInput\x12\x12\n" +
+	"\x04path\x18\x01 \x01(\tR\x04path\x12\x18\n" +
+	"\acontent\x18\x02 \x01(\tR\acontent\x1a\x98\x01\n" +
+	"\rEditFileInput\x12\x12\n" +
+	"\x04path\x18\x01 \x01(\tR\x04path\x12C\n" +
+	"\x05diffs\x18\x02 \x03(\v2-.construct.v1.ToolCall.EditFileInput.DiffPairR\x05diffs\x1a.\n" +
+	"\bDiffPair\x12\x10\n" +
+	"\x03old\x18\x01 \x01(\tR\x03old\x12\x10\n" +
+	"\x03new\x18\x02 \x01(\tR\x03new\x1a/\n" +
+	"\x13ExecuteCommandInput\x12\x18\n" +
+	"\acommand\x18\x01 \x01(\tR\acommand\x1a\x87\x01\n" +
+	"\rFindFileInput\x12\x18\n" +
+	"\apattern\x18\x01 \x01(\tR\apattern\x12\x12\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\x12'\n" +
+	"\x0fexclude_pattern\x18\x03 \x01(\tR\x0eexcludePattern\x12\x1f\n" +
+	"\vmax_results\x18\x04 \x01(\x05R\n" +
+	"maxResults\x1a\xcf\x01\n" +
+	"\tGrepInput\x12\x14\n" +
+	"\x05query\x18\x01 \x01(\tR\x05query\x12\x12\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\x12'\n" +
+	"\x0finclude_pattern\x18\x03 \x01(\tR\x0eincludePattern\x12'\n" +
+	"\x0fexclude_pattern\x18\x04 \x01(\tR\x0eexcludePattern\x12%\n" +
+	"\x0ecase_sensitive\x18\x05 \x01(\bR\rcaseSensitive\x12\x1f\n" +
+	"\vmax_results\x18\x06 \x01(\x05R\n" +
+	"maxResults\x1ab\n" +
+	"\fHandoffInput\x12'\n" +
+	"\x0frequested_agent\x18\x01 \x01(\tR\x0erequestedAgent\x12)\n" +
+	"\x10handover_message\x18\x02 \x01(\tR\x0fhandoverMessage\x1aD\n" +
+	"\fAskUserInput\x12\x1a\n" +
+	"\bquestion\x18\x01 \x01(\tR\bquestion\x12\x18\n" +
+	"\aoptions\x18\x02 \x03(\tR\aoptions\x1aB\n" +
+	"\x0eListFilesInput\x12\x12\n" +
+	"\x04path\x18\x01 \x01(\tR\x04path\x12\x1c\n" +
+	"\trecursive\x18\x02 \x01(\bR\trecursive\x1a#\n" +
+	"\rReadFileInput\x12\x12\n" +
+	"\x04path\x18\x01 \x01(\tR\x04path\x1a\x8e\x01\n" +
+	"\x11SubmitReportInput\x12\x18\n" +
+	"\asummary\x18\x01 \x01(\tR\asummary\x12\x1c\n" +
+	"\tcompleted\x18\x02 \x01(\bR\tcompleted\x12\"\n" +
+	"\fdeliverables\x18\x03 \x03(\tR\fdeliverables\x12\x1d\n" +
+	"\n" +
+	"next_steps\x18\x04 \x01(\tR\tnextStepsB\a\n" +
+	"\x05Input\"\xae\x11\n" +
+	"\n" +
+	"ToolResult\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12#\n" +
+	"\ttool_name\x18\x02 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\btoolName\x12L\n" +
+	"\vcreate_file\x18\x03 \x01(\v2).construct.v1.ToolResult.CreateFileResultH\x00R\n" +
+	"createFile\x12F\n" +
+	"\tedit_file\x18\x04 \x01(\v2'.construct.v1.ToolResult.EditFileResultH\x00R\beditFile\x12X\n" +
+	"\x0fexecute_command\x18\x05 \x01(\v2-.construct.v1.ToolResult.ExecuteCommandResultH\x00R\x0eexecuteCommand\x12F\n" +
+	"\tfind_file\x18\x06 \x01(\v2'.construct.v1.ToolResult.FindFileResultH\x00R\bfindFile\x129\n" +
+	"\x04grep\x18\a \x01(\v2#.construct.v1.ToolResult.GrepResultH\x00R\x04grep\x12I\n" +
+	"\n" +
+	"list_files\x18\b \x01(\v2(.construct.v1.ToolResult.ListFilesResultH\x00R\tlistFiles\x12F\n" +
+	"\tread_file\x18\t \x01(\v2'.construct.v1.ToolResult.ReadFileResultH\x00R\breadFile\x12R\n" +
+	"\rsubmit_report\x18\n" +
+	" \x01(\v2+.construct.v1.ToolResult.SubmitReportResultH\x00R\fsubmitReport\x12[\n" +
+	"\x10code_interpreter\x18\v \x01(\v2..construct.v1.ToolResult.CodeInterpreterResultH\x00R\x0fcodeInterpreter\x12-\n" +
+	"\x05error\x18\r \x01(\v2\x17.construct.v1.ToolErrorR\x05error\x1a/\n" +
+	"\x15CodeInterpreterResult\x12\x16\n" +
+	"\x06output\x18\x01 \x01(\tR\x06output\x1a4\n" +
+	"\x10CreateFileResult\x12 \n" +
+	"\voverwritten\x18\x01 \x01(\bR\voverwritten\x1a\xdf\x01\n" +
+	"\x0eEditFileResult\x12\x12\n" +
+	"\x04path\x18\x01 \x01(\tR\x04path\x12P\n" +
+	"\n" +
+	"patch_info\x18\x02 \x01(\v21.construct.v1.ToolResult.EditFileResult.PatchInfoR\tpatchInfo\x1ag\n" +
+	"\tPatchInfo\x12\x14\n" +
+	"\x05patch\x18\x01 \x01(\tR\x05patch\x12\x1f\n" +
+	"\vlines_added\x18\x02 \x01(\x05R\n" +
+	"linesAdded\x12#\n" +
+	"\rlines_removed\x18\x03 \x01(\x05R\flinesRemoved\x1a}\n" +
+	"\x14ExecuteCommandResult\x12\x16\n" +
+	"\x06stdout\x18\x01 \x01(\tR\x06stdout\x12\x16\n" +
+	"\x06stderr\x18\x02 \x01(\tR\x06stderr\x12\x1b\n" +
+	"\texit_code\x18\x03 \x01(\x05R\bexitCode\x12\x18\n" +
+	"\acommand\x18\x04 \x01(\tR\acommand\x1ap\n" +
+	"\x0eFindFileResult\x12\x14\n" +
+	"\x05files\x18\x01 \x03(\tR\x05files\x12\x1f\n" +
+	"\vtotal_files\x18\x02 \x01(\x05R\n" +
+	"totalFiles\x12'\n" +
+	"\x0ftruncated_count\x18\x03 \x01(\x05R\x0etruncatedCount\x1a\xa5\x03\n" +
+	"\n" +
+	"GrepResult\x12G\n" +
+	"\amatches\x18\x01 \x03(\v2-.construct.v1.ToolResult.GrepResult.GrepMatchR\amatches\x12#\n" +
+	"\rtotal_matches\x18\x02 \x01(\x05R\ftotalMatches\x12%\n" +
+	"\x0esearched_files\x18\x03 \x01(\x05R\rsearchedFiles\x1aH\n" +
+	"\vContextLine\x12\x1f\n" +
+	"\vline_number\x18\x01 \x01(\x05R\n" +
+	"lineNumber\x12\x18\n" +
+	"\acontent\x18\x02 \x01(\tR\acontent\x1a\xb7\x01\n" +
+	"\tGrepMatch\x12\x1b\n" +
+	"\tfile_path\x18\x01 \x01(\tR\bfilePath\x12\x1f\n" +
+	"\vline_number\x18\x02 \x01(\x05R\n" +
+	"lineNumber\x12!\n" +
+	"\fline_content\x18\x03 \x01(\tR\vlineContent\x12I\n" +
+	"\acontext\x18\x04 \x03(\v2/.construct.v1.ToolResult.GrepResult.ContextLineR\acontext\x1a\xc6\x01\n" +
+	"\x0fListFilesResult\x12\x12\n" +
+	"\x04path\x18\x01 \x01(\tR\x04path\x12Q\n" +
+	"\aentries\x18\x02 \x03(\v27.construct.v1.ToolResult.ListFilesResult.DirectoryEntryR\aentries\x1aL\n" +
+	"\x0eDirectoryEntry\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
+	"\x04type\x18\x02 \x01(\tR\x04type\x12\x12\n" +
+	"\x04size\x18\x03 \x01(\x03R\x04size\x1a>\n" +
+	"\x0eReadFileResult\x12\x12\n" +
+	"\x04path\x18\x01 \x01(\tR\x04path\x12\x18\n" +
+	"\acontent\x18\x02 \x01(\tR\acontent\x1a\x8f\x01\n" +
+	"\x12SubmitReportResult\x12\x18\n" +
+	"\asummary\x18\x01 \x01(\tR\asummary\x12\x1c\n" +
+	"\tcompleted\x18\x02 \x01(\bR\tcompleted\x12\"\n" +
+	"\fdeliverables\x18\x03 \x03(\tR\fdeliverables\x12\x1d\n" +
+	"\n" +
+	"next_steps\x18\x04 \x01(\tR\tnextStepsB\b\n" +
+	"\x06result\"\xc1\x01\n" +
+	"\x14CreateFileToolResult\x12>\n" +
+	"\x05input\x18\x01 \x01(\v2(.construct.v1.CreateFileToolResult.InputR\x05input\x12 \n" +
+	"\voverwritten\x18\x02 \x01(\bR\voverwritten\x1aG\n" +
+	"\x05Input\x12\x1b\n" +
+	"\tfile_path\x18\x01 \x01(\tR\bfilePath\x12!\n" +
+	"\ffile_content\x18\x02 \x01(\tR\vfileContent\"T\n" +
+	"\x12EditFileToolResult\x12\x1b\n" +
+	"\tfile_path\x18\x01 \x01(\tR\bfilePath\x12!\n" +
+	"\ffile_content\x18\x02 \x01(\tR\vfileContent\"b\n" +
+	"\x18ExecuteCommandToolResult\x12\x18\n" +
+	"\acommand\x18\x01 \x01(\tR\acommand\x12\x16\n" +
+	"\x06output\x18\x02 \x01(\tR\x06output\x12\x14\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error\"1\n" +
+	"\x12FindFileToolResult\x12\x1b\n" +
+	"\tfile_path\x18\x01 \x01(\tR\bfilePath\"P\n" +
+	"\x0eGrepToolResult\x12\x1b\n" +
+	"\tfile_path\x18\x01 \x01(\tR\bfilePath\x12!\n" +
+	"\ffile_content\x18\x02 \x01(\tR\vfileContent\"\x13\n" +
+	"\x11HandoffToolResult\"\x15\n" +
+	"\x13ListFilesToolResult\"\x14\n" +
+	"\x12ReadFileToolResult\"\x89\x01\n" +
+	"\fSubmitReport\x12\x18\n" +
+	"\asummary\x18\x01 \x01(\tR\asummary\x12\x1c\n" +
+	"\tcompleted\x18\x02 \x01(\bR\tcompleted\x12\"\n" +
+	"\fdeliverables\x18\x03 \x03(\tR\fdeliverables\x12\x1d\n" +
+	"\n" +
+	"next_steps\x18\x04 \x01(\tR\tnextSteps\"\xa1\x01\n" +
+	"\tToolError\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\x12>\n" +
+	"\adetails\x18\x02 \x03(\v2$.construct.v1.ToolError.DetailsEntryR\adetails\x1a:\n" +
+	"\fDetailsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01*h\n" +
+	"\rContentStatus\x12\x1e\n" +
+	"\x1aCONTENT_STATUS_UNSPECIFIED\x10\x00\x12\x1a\n" +
+	"\x16CONTENT_STATUS_PARTIAL\x10\x01\x12\x1b\n" +
+	"\x17CONTENT_STATUS_COMPLETE\x10\x02*^\n" +
 	"\vMessageRole\x12\x1c\n" +
 	"\x18MESSAGE_ROLE_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11MESSAGE_ROLE_USER\x10\x01\x12\x1a\n" +
@@ -1414,75 +3896,138 @@ func file_construct_v1_message_proto_rawDescGZIP() []byte {
 	return file_construct_v1_message_proto_rawDescData
 }
 
-var file_construct_v1_message_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_construct_v1_message_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
+var file_construct_v1_message_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_construct_v1_message_proto_msgTypes = make([]protoimpl.MessageInfo, 57)
 var file_construct_v1_message_proto_goTypes = []any{
-	(MessageRole)(0),                   // 0: construct.v1.MessageRole
-	(*Message)(nil),                    // 1: construct.v1.Message
-	(*MessageMetadata)(nil),            // 2: construct.v1.MessageMetadata
-	(*MessageSpec)(nil),                // 3: construct.v1.MessageSpec
-	(*MessageStatus)(nil),              // 4: construct.v1.MessageStatus
-	(*MessagePart)(nil),                // 5: construct.v1.MessagePart
-	(*MessageUsage)(nil),               // 6: construct.v1.MessageUsage
-	(*CreateMessageRequest)(nil),       // 7: construct.v1.CreateMessageRequest
-	(*CreateMessageResponse)(nil),      // 8: construct.v1.CreateMessageResponse
-	(*GetMessageRequest)(nil),          // 9: construct.v1.GetMessageRequest
-	(*GetMessageResponse)(nil),         // 10: construct.v1.GetMessageResponse
-	(*ListMessagesRequest)(nil),        // 11: construct.v1.ListMessagesRequest
-	(*ListMessagesResponse)(nil),       // 12: construct.v1.ListMessagesResponse
-	(*UpdateMessageRequest)(nil),       // 13: construct.v1.UpdateMessageRequest
-	(*UpdateMessageResponse)(nil),      // 14: construct.v1.UpdateMessageResponse
-	(*DeleteMessageRequest)(nil),       // 15: construct.v1.DeleteMessageRequest
-	(*DeleteMessageResponse)(nil),      // 16: construct.v1.DeleteMessageResponse
-	(*MessagePart_Text)(nil),           // 17: construct.v1.MessagePart.Text
-	(*MessagePart_ToolResult)(nil),     // 18: construct.v1.MessagePart.ToolResult
-	(*MessagePart_SubmitReport)(nil),   // 19: construct.v1.MessagePart.SubmitReport
-	nil,                                // 20: construct.v1.MessagePart.ToolResult.ArgumentsEntry
-	(*ListMessagesRequest_Filter)(nil), // 21: construct.v1.ListMessagesRequest.Filter
-	(*timestamppb.Timestamp)(nil),      // 22: google.protobuf.Timestamp
-	(SortField)(0),                     // 23: construct.v1.SortField
-	(SortOrder)(0),                     // 24: construct.v1.SortOrder
-	(ToolName)(0),                      // 25: construct.v1.ToolName
+	(ContentStatus)(0),                                // 0: construct.v1.ContentStatus
+	(MessageRole)(0),                                  // 1: construct.v1.MessageRole
+	(*Message)(nil),                                   // 2: construct.v1.Message
+	(*MessageMetadata)(nil),                           // 3: construct.v1.MessageMetadata
+	(*MessageSpec)(nil),                               // 4: construct.v1.MessageSpec
+	(*MessageStatus)(nil),                             // 5: construct.v1.MessageStatus
+	(*MessagePart)(nil),                               // 6: construct.v1.MessagePart
+	(*MessageUsage)(nil),                              // 7: construct.v1.MessageUsage
+	(*CreateMessageRequest)(nil),                      // 8: construct.v1.CreateMessageRequest
+	(*CreateMessageResponse)(nil),                     // 9: construct.v1.CreateMessageResponse
+	(*GetMessageRequest)(nil),                         // 10: construct.v1.GetMessageRequest
+	(*GetMessageResponse)(nil),                        // 11: construct.v1.GetMessageResponse
+	(*ListMessagesRequest)(nil),                       // 12: construct.v1.ListMessagesRequest
+	(*ListMessagesResponse)(nil),                      // 13: construct.v1.ListMessagesResponse
+	(*UpdateMessageRequest)(nil),                      // 14: construct.v1.UpdateMessageRequest
+	(*UpdateMessageResponse)(nil),                     // 15: construct.v1.UpdateMessageResponse
+	(*DeleteMessageRequest)(nil),                      // 16: construct.v1.DeleteMessageRequest
+	(*DeleteMessageResponse)(nil),                     // 17: construct.v1.DeleteMessageResponse
+	(*ToolCall)(nil),                                  // 18: construct.v1.ToolCall
+	(*ToolResult)(nil),                                // 19: construct.v1.ToolResult
+	(*CreateFileToolResult)(nil),                      // 20: construct.v1.CreateFileToolResult
+	(*EditFileToolResult)(nil),                        // 21: construct.v1.EditFileToolResult
+	(*ExecuteCommandToolResult)(nil),                  // 22: construct.v1.ExecuteCommandToolResult
+	(*FindFileToolResult)(nil),                        // 23: construct.v1.FindFileToolResult
+	(*GrepToolResult)(nil),                            // 24: construct.v1.GrepToolResult
+	(*HandoffToolResult)(nil),                         // 25: construct.v1.HandoffToolResult
+	(*ListFilesToolResult)(nil),                       // 26: construct.v1.ListFilesToolResult
+	(*ReadFileToolResult)(nil),                        // 27: construct.v1.ReadFileToolResult
+	(*SubmitReport)(nil),                              // 28: construct.v1.SubmitReport
+	(*ToolError)(nil),                                 // 29: construct.v1.ToolError
+	(*MessagePart_Text)(nil),                          // 30: construct.v1.MessagePart.Text
+	(*ListMessagesRequest_Filter)(nil),                // 31: construct.v1.ListMessagesRequest.Filter
+	(*ToolCall_CodeInterpreterInput)(nil),             // 32: construct.v1.ToolCall.CodeInterpreterInput
+	(*ToolCall_CreateFileInput)(nil),                  // 33: construct.v1.ToolCall.CreateFileInput
+	(*ToolCall_EditFileInput)(nil),                    // 34: construct.v1.ToolCall.EditFileInput
+	(*ToolCall_ExecuteCommandInput)(nil),              // 35: construct.v1.ToolCall.ExecuteCommandInput
+	(*ToolCall_FindFileInput)(nil),                    // 36: construct.v1.ToolCall.FindFileInput
+	(*ToolCall_GrepInput)(nil),                        // 37: construct.v1.ToolCall.GrepInput
+	(*ToolCall_HandoffInput)(nil),                     // 38: construct.v1.ToolCall.HandoffInput
+	(*ToolCall_AskUserInput)(nil),                     // 39: construct.v1.ToolCall.AskUserInput
+	(*ToolCall_ListFilesInput)(nil),                   // 40: construct.v1.ToolCall.ListFilesInput
+	(*ToolCall_ReadFileInput)(nil),                    // 41: construct.v1.ToolCall.ReadFileInput
+	(*ToolCall_SubmitReportInput)(nil),                // 42: construct.v1.ToolCall.SubmitReportInput
+	(*ToolCall_EditFileInput_DiffPair)(nil),           // 43: construct.v1.ToolCall.EditFileInput.DiffPair
+	(*ToolResult_CodeInterpreterResult)(nil),          // 44: construct.v1.ToolResult.CodeInterpreterResult
+	(*ToolResult_CreateFileResult)(nil),               // 45: construct.v1.ToolResult.CreateFileResult
+	(*ToolResult_EditFileResult)(nil),                 // 46: construct.v1.ToolResult.EditFileResult
+	(*ToolResult_ExecuteCommandResult)(nil),           // 47: construct.v1.ToolResult.ExecuteCommandResult
+	(*ToolResult_FindFileResult)(nil),                 // 48: construct.v1.ToolResult.FindFileResult
+	(*ToolResult_GrepResult)(nil),                     // 49: construct.v1.ToolResult.GrepResult
+	(*ToolResult_ListFilesResult)(nil),                // 50: construct.v1.ToolResult.ListFilesResult
+	(*ToolResult_ReadFileResult)(nil),                 // 51: construct.v1.ToolResult.ReadFileResult
+	(*ToolResult_SubmitReportResult)(nil),             // 52: construct.v1.ToolResult.SubmitReportResult
+	(*ToolResult_EditFileResult_PatchInfo)(nil),       // 53: construct.v1.ToolResult.EditFileResult.PatchInfo
+	(*ToolResult_GrepResult_ContextLine)(nil),         // 54: construct.v1.ToolResult.GrepResult.ContextLine
+	(*ToolResult_GrepResult_GrepMatch)(nil),           // 55: construct.v1.ToolResult.GrepResult.GrepMatch
+	(*ToolResult_ListFilesResult_DirectoryEntry)(nil), // 56: construct.v1.ToolResult.ListFilesResult.DirectoryEntry
+	(*CreateFileToolResult_Input)(nil),                // 57: construct.v1.CreateFileToolResult.Input
+	nil,                                               // 58: construct.v1.ToolError.DetailsEntry
+	(*timestamppb.Timestamp)(nil),                     // 59: google.protobuf.Timestamp
+	(SortField)(0),                                    // 60: construct.v1.SortField
+	(SortOrder)(0),                                    // 61: construct.v1.SortOrder
 }
 var file_construct_v1_message_proto_depIdxs = []int32{
-	2,  // 0: construct.v1.Message.metadata:type_name -> construct.v1.MessageMetadata
-	3,  // 1: construct.v1.Message.spec:type_name -> construct.v1.MessageSpec
-	4,  // 2: construct.v1.Message.status:type_name -> construct.v1.MessageStatus
-	22, // 3: construct.v1.MessageMetadata.created_at:type_name -> google.protobuf.Timestamp
-	22, // 4: construct.v1.MessageMetadata.updated_at:type_name -> google.protobuf.Timestamp
-	0,  // 5: construct.v1.MessageMetadata.role:type_name -> construct.v1.MessageRole
-	5,  // 6: construct.v1.MessageSpec.content:type_name -> construct.v1.MessagePart
-	6,  // 7: construct.v1.MessageStatus.usage:type_name -> construct.v1.MessageUsage
-	17, // 8: construct.v1.MessagePart.text:type_name -> construct.v1.MessagePart.Text
-	18, // 9: construct.v1.MessagePart.tool_result:type_name -> construct.v1.MessagePart.ToolResult
-	19, // 10: construct.v1.MessagePart.submit_report:type_name -> construct.v1.MessagePart.SubmitReport
-	5,  // 11: construct.v1.CreateMessageRequest.content:type_name -> construct.v1.MessagePart
-	1,  // 12: construct.v1.CreateMessageResponse.message:type_name -> construct.v1.Message
-	1,  // 13: construct.v1.GetMessageResponse.message:type_name -> construct.v1.Message
-	21, // 14: construct.v1.ListMessagesRequest.filter:type_name -> construct.v1.ListMessagesRequest.Filter
-	23, // 15: construct.v1.ListMessagesRequest.sort_field:type_name -> construct.v1.SortField
-	24, // 16: construct.v1.ListMessagesRequest.sort_order:type_name -> construct.v1.SortOrder
-	1,  // 17: construct.v1.ListMessagesResponse.messages:type_name -> construct.v1.Message
-	5,  // 18: construct.v1.UpdateMessageRequest.content:type_name -> construct.v1.MessagePart
-	1,  // 19: construct.v1.UpdateMessageResponse.message:type_name -> construct.v1.Message
-	25, // 20: construct.v1.MessagePart.ToolResult.tool_name:type_name -> construct.v1.ToolName
-	20, // 21: construct.v1.MessagePart.ToolResult.arguments:type_name -> construct.v1.MessagePart.ToolResult.ArgumentsEntry
-	0,  // 22: construct.v1.ListMessagesRequest.Filter.roles:type_name -> construct.v1.MessageRole
-	7,  // 23: construct.v1.MessageService.CreateMessage:input_type -> construct.v1.CreateMessageRequest
-	9,  // 24: construct.v1.MessageService.GetMessage:input_type -> construct.v1.GetMessageRequest
-	11, // 25: construct.v1.MessageService.ListMessages:input_type -> construct.v1.ListMessagesRequest
-	13, // 26: construct.v1.MessageService.UpdateMessage:input_type -> construct.v1.UpdateMessageRequest
-	15, // 27: construct.v1.MessageService.DeleteMessage:input_type -> construct.v1.DeleteMessageRequest
-	8,  // 28: construct.v1.MessageService.CreateMessage:output_type -> construct.v1.CreateMessageResponse
-	10, // 29: construct.v1.MessageService.GetMessage:output_type -> construct.v1.GetMessageResponse
-	12, // 30: construct.v1.MessageService.ListMessages:output_type -> construct.v1.ListMessagesResponse
-	14, // 31: construct.v1.MessageService.UpdateMessage:output_type -> construct.v1.UpdateMessageResponse
-	16, // 32: construct.v1.MessageService.DeleteMessage:output_type -> construct.v1.DeleteMessageResponse
-	28, // [28:33] is the sub-list for method output_type
-	23, // [23:28] is the sub-list for method input_type
-	23, // [23:23] is the sub-list for extension type_name
-	23, // [23:23] is the sub-list for extension extendee
-	0,  // [0:23] is the sub-list for field type_name
+	3,  // 0: construct.v1.Message.metadata:type_name -> construct.v1.MessageMetadata
+	4,  // 1: construct.v1.Message.spec:type_name -> construct.v1.MessageSpec
+	5,  // 2: construct.v1.Message.status:type_name -> construct.v1.MessageStatus
+	59, // 3: construct.v1.MessageMetadata.created_at:type_name -> google.protobuf.Timestamp
+	59, // 4: construct.v1.MessageMetadata.updated_at:type_name -> google.protobuf.Timestamp
+	1,  // 5: construct.v1.MessageMetadata.role:type_name -> construct.v1.MessageRole
+	6,  // 6: construct.v1.MessageSpec.content:type_name -> construct.v1.MessagePart
+	7,  // 7: construct.v1.MessageStatus.usage:type_name -> construct.v1.MessageUsage
+	0,  // 8: construct.v1.MessageStatus.content_state:type_name -> construct.v1.ContentStatus
+	30, // 9: construct.v1.MessagePart.text:type_name -> construct.v1.MessagePart.Text
+	18, // 10: construct.v1.MessagePart.tool_call:type_name -> construct.v1.ToolCall
+	19, // 11: construct.v1.MessagePart.tool_result:type_name -> construct.v1.ToolResult
+	6,  // 12: construct.v1.CreateMessageRequest.content:type_name -> construct.v1.MessagePart
+	2,  // 13: construct.v1.CreateMessageResponse.message:type_name -> construct.v1.Message
+	2,  // 14: construct.v1.GetMessageResponse.message:type_name -> construct.v1.Message
+	31, // 15: construct.v1.ListMessagesRequest.filter:type_name -> construct.v1.ListMessagesRequest.Filter
+	60, // 16: construct.v1.ListMessagesRequest.sort_field:type_name -> construct.v1.SortField
+	61, // 17: construct.v1.ListMessagesRequest.sort_order:type_name -> construct.v1.SortOrder
+	2,  // 18: construct.v1.ListMessagesResponse.messages:type_name -> construct.v1.Message
+	6,  // 19: construct.v1.UpdateMessageRequest.content:type_name -> construct.v1.MessagePart
+	2,  // 20: construct.v1.UpdateMessageResponse.message:type_name -> construct.v1.Message
+	33, // 21: construct.v1.ToolCall.create_file:type_name -> construct.v1.ToolCall.CreateFileInput
+	34, // 22: construct.v1.ToolCall.edit_file:type_name -> construct.v1.ToolCall.EditFileInput
+	35, // 23: construct.v1.ToolCall.execute_command:type_name -> construct.v1.ToolCall.ExecuteCommandInput
+	36, // 24: construct.v1.ToolCall.find_file:type_name -> construct.v1.ToolCall.FindFileInput
+	37, // 25: construct.v1.ToolCall.grep:type_name -> construct.v1.ToolCall.GrepInput
+	38, // 26: construct.v1.ToolCall.handoff:type_name -> construct.v1.ToolCall.HandoffInput
+	39, // 27: construct.v1.ToolCall.ask_user:type_name -> construct.v1.ToolCall.AskUserInput
+	40, // 28: construct.v1.ToolCall.list_files:type_name -> construct.v1.ToolCall.ListFilesInput
+	41, // 29: construct.v1.ToolCall.read_file:type_name -> construct.v1.ToolCall.ReadFileInput
+	42, // 30: construct.v1.ToolCall.submit_report:type_name -> construct.v1.ToolCall.SubmitReportInput
+	32, // 31: construct.v1.ToolCall.code_interpreter:type_name -> construct.v1.ToolCall.CodeInterpreterInput
+	45, // 32: construct.v1.ToolResult.create_file:type_name -> construct.v1.ToolResult.CreateFileResult
+	46, // 33: construct.v1.ToolResult.edit_file:type_name -> construct.v1.ToolResult.EditFileResult
+	47, // 34: construct.v1.ToolResult.execute_command:type_name -> construct.v1.ToolResult.ExecuteCommandResult
+	48, // 35: construct.v1.ToolResult.find_file:type_name -> construct.v1.ToolResult.FindFileResult
+	49, // 36: construct.v1.ToolResult.grep:type_name -> construct.v1.ToolResult.GrepResult
+	50, // 37: construct.v1.ToolResult.list_files:type_name -> construct.v1.ToolResult.ListFilesResult
+	51, // 38: construct.v1.ToolResult.read_file:type_name -> construct.v1.ToolResult.ReadFileResult
+	52, // 39: construct.v1.ToolResult.submit_report:type_name -> construct.v1.ToolResult.SubmitReportResult
+	44, // 40: construct.v1.ToolResult.code_interpreter:type_name -> construct.v1.ToolResult.CodeInterpreterResult
+	29, // 41: construct.v1.ToolResult.error:type_name -> construct.v1.ToolError
+	57, // 42: construct.v1.CreateFileToolResult.input:type_name -> construct.v1.CreateFileToolResult.Input
+	58, // 43: construct.v1.ToolError.details:type_name -> construct.v1.ToolError.DetailsEntry
+	1,  // 44: construct.v1.ListMessagesRequest.Filter.roles:type_name -> construct.v1.MessageRole
+	43, // 45: construct.v1.ToolCall.EditFileInput.diffs:type_name -> construct.v1.ToolCall.EditFileInput.DiffPair
+	53, // 46: construct.v1.ToolResult.EditFileResult.patch_info:type_name -> construct.v1.ToolResult.EditFileResult.PatchInfo
+	55, // 47: construct.v1.ToolResult.GrepResult.matches:type_name -> construct.v1.ToolResult.GrepResult.GrepMatch
+	56, // 48: construct.v1.ToolResult.ListFilesResult.entries:type_name -> construct.v1.ToolResult.ListFilesResult.DirectoryEntry
+	54, // 49: construct.v1.ToolResult.GrepResult.GrepMatch.context:type_name -> construct.v1.ToolResult.GrepResult.ContextLine
+	8,  // 50: construct.v1.MessageService.CreateMessage:input_type -> construct.v1.CreateMessageRequest
+	10, // 51: construct.v1.MessageService.GetMessage:input_type -> construct.v1.GetMessageRequest
+	12, // 52: construct.v1.MessageService.ListMessages:input_type -> construct.v1.ListMessagesRequest
+	14, // 53: construct.v1.MessageService.UpdateMessage:input_type -> construct.v1.UpdateMessageRequest
+	16, // 54: construct.v1.MessageService.DeleteMessage:input_type -> construct.v1.DeleteMessageRequest
+	9,  // 55: construct.v1.MessageService.CreateMessage:output_type -> construct.v1.CreateMessageResponse
+	11, // 56: construct.v1.MessageService.GetMessage:output_type -> construct.v1.GetMessageResponse
+	13, // 57: construct.v1.MessageService.ListMessages:output_type -> construct.v1.ListMessagesResponse
+	15, // 58: construct.v1.MessageService.UpdateMessage:output_type -> construct.v1.UpdateMessageResponse
+	17, // 59: construct.v1.MessageService.DeleteMessage:output_type -> construct.v1.DeleteMessageResponse
+	55, // [55:60] is the sub-list for method output_type
+	50, // [50:55] is the sub-list for method input_type
+	50, // [50:50] is the sub-list for extension type_name
+	50, // [50:50] is the sub-list for extension extendee
+	0,  // [0:50] is the sub-list for field type_name
 }
 
 func init() { file_construct_v1_message_proto_init() }
@@ -1494,18 +4039,42 @@ func file_construct_v1_message_proto_init() {
 	file_construct_v1_message_proto_msgTypes[1].OneofWrappers = []any{}
 	file_construct_v1_message_proto_msgTypes[4].OneofWrappers = []any{
 		(*MessagePart_Text_)(nil),
-		(*MessagePart_ToolResult_)(nil),
-		(*MessagePart_SubmitReport_)(nil),
+		(*MessagePart_ToolCall)(nil),
+		(*MessagePart_ToolResult)(nil),
 	}
 	file_construct_v1_message_proto_msgTypes[10].OneofWrappers = []any{}
-	file_construct_v1_message_proto_msgTypes[20].OneofWrappers = []any{}
+	file_construct_v1_message_proto_msgTypes[16].OneofWrappers = []any{
+		(*ToolCall_CreateFile)(nil),
+		(*ToolCall_EditFile)(nil),
+		(*ToolCall_ExecuteCommand)(nil),
+		(*ToolCall_FindFile)(nil),
+		(*ToolCall_Grep)(nil),
+		(*ToolCall_Handoff)(nil),
+		(*ToolCall_AskUser)(nil),
+		(*ToolCall_ListFiles)(nil),
+		(*ToolCall_ReadFile)(nil),
+		(*ToolCall_SubmitReport)(nil),
+		(*ToolCall_CodeInterpreter)(nil),
+	}
+	file_construct_v1_message_proto_msgTypes[17].OneofWrappers = []any{
+		(*ToolResult_CreateFile)(nil),
+		(*ToolResult_EditFile)(nil),
+		(*ToolResult_ExecuteCommand)(nil),
+		(*ToolResult_FindFile)(nil),
+		(*ToolResult_Grep)(nil),
+		(*ToolResult_ListFiles)(nil),
+		(*ToolResult_ReadFile)(nil),
+		(*ToolResult_SubmitReport)(nil),
+		(*ToolResult_CodeInterpreter)(nil),
+	}
+	file_construct_v1_message_proto_msgTypes[29].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_construct_v1_message_proto_rawDesc), len(file_construct_v1_message_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   21,
+			NumEnums:      2,
+			NumMessages:   57,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

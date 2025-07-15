@@ -24,6 +24,7 @@ func (Model) Fields() []ent.Field {
 		field.Float("cache_write_cost").Min(0).Default(0),
 		field.Float("cache_read_cost").Min(0).Default(0),
 		field.Bool("enabled").Default(true),
+		field.String("alias").Optional(),
 
 		field.UUID("model_provider_id", uuid.UUID{}),
 	}

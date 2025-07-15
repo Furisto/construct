@@ -175,7 +175,9 @@ type ModelSpec struct {
 	// context_window is the maximum number of tokens the model can process (must be > 0).
 	ContextWindow int64 `protobuf:"varint,4,opt,name=context_window,json=contextWindow,proto3" json:"context_window,omitempty"`
 	// enabled indicates whether this model is currently available for use.
-	Enabled       bool `protobuf:"varint,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	Enabled bool `protobuf:"varint,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// alias is a short name for the model (1-255 characters).
+	Alias         string `protobuf:"bytes,6,opt,name=alias,proto3" json:"alias,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -243,6 +245,13 @@ func (x *ModelSpec) GetEnabled() bool {
 		return x.Enabled
 	}
 	return false
+}
+
+func (x *ModelSpec) GetAlias() string {
+	if x != nil {
+		return x.Alias
+	}
+	return ""
 }
 
 // ModelPricing defines the cost structure for using a model, with prices per token type.
@@ -386,6 +395,8 @@ type CreateModelRequest struct {
 	Pricing *ModelPricing `protobuf:"bytes,4,opt,name=pricing,proto3" json:"pricing,omitempty"`
 	// context_window is the maximum number of tokens the model can process (must be > 0).
 	ContextWindow int64 `protobuf:"varint,5,opt,name=context_window,json=contextWindow,proto3" json:"context_window,omitempty"`
+	// alias is a short name for the model (1-255 characters).
+	Alias         *string `protobuf:"bytes,6,opt,name=alias,proto3,oneof" json:"alias,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -453,6 +464,13 @@ func (x *CreateModelRequest) GetContextWindow() int64 {
 		return x.ContextWindow
 	}
 	return 0
+}
+
+func (x *CreateModelRequest) GetAlias() string {
+	if x != nil && x.Alias != nil {
+		return *x.Alias
+	}
+	return ""
 }
 
 // CreateModelResponse contains the newly created model.
@@ -746,7 +764,9 @@ type UpdateModelRequest struct {
 	// context_window is the new maximum token limit for the model (must be > 0, optional).
 	ContextWindow *int64 `protobuf:"varint,6,opt,name=context_window,json=contextWindow,proto3,oneof" json:"context_window,omitempty"`
 	// enabled is the new availability status for the model (optional).
-	Enabled       *bool `protobuf:"varint,7,opt,name=enabled,proto3,oneof" json:"enabled,omitempty"`
+	Enabled *bool `protobuf:"varint,7,opt,name=enabled,proto3,oneof" json:"enabled,omitempty"`
+	// alias is the new alias for the model (1-255 characters, optional).
+	Alias         *string `protobuf:"bytes,8,opt,name=alias,proto3,oneof" json:"alias,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -828,6 +848,13 @@ func (x *UpdateModelRequest) GetEnabled() bool {
 		return *x.Enabled
 	}
 	return false
+}
+
+func (x *UpdateModelRequest) GetAlias() string {
+	if x != nil && x.Alias != nil {
+		return *x.Alias
+	}
+	return ""
 }
 
 // UpdateModelResponse contains the updated model.
@@ -1034,14 +1061,16 @@ const file_construct_v1_model_proto_rawDesc = "" +
 	"created_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\tcreatedAt\x12A\n" +
 	"\n" +
 	"updated_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\tupdatedAt\x124\n" +
-	"\x11model_provider_id\x18\x04 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x0fmodelProviderId\"\xee\x01\n" +
+	"\x11model_provider_id\x18\x04 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x0fmodelProviderId\"\x90\x02\n" +
 	"\tModelSpec\x12\x1e\n" +
 	"\x04name\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\xff\x01R\x04name\x12A\n" +
 	"\fcapabilities\x18\x02 \x03(\x0e2\x1d.construct.v1.ModelCapabilityR\fcapabilities\x124\n" +
 	"\apricing\x18\x03 \x01(\v2\x1a.construct.v1.ModelPricingR\apricing\x12.\n" +
 	"\x0econtext_window\x18\x04 \x01(\x03B\a\xbaH\x04\"\x02 \x00R\rcontextWindow\x12\x18\n" +
-	"\aenabled\x18\x05 \x01(\bR\aenabled\"\xf8\x01\n" +
+	"\aenabled\x18\x05 \x01(\bR\aenabled\x12 \n" +
+	"\x05alias\x18\x06 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xff\x01R\x05alias\"\xf8\x01\n" +
 	"\fModelPricing\x123\n" +
 	"\n" +
 	"input_cost\x18\x01 \x01(\v2\x14.google.type.DecimalR\tinputCost\x125\n" +
@@ -1051,14 +1080,17 @@ const file_construct_v1_model_proto_rawDesc = "" +
 	"\x0fcache_read_cost\x18\x04 \x01(\v2\x14.google.type.DecimalR\rcacheReadCost\"m\n" +
 	"\x05Model\x127\n" +
 	"\bmetadata\x18\x01 \x01(\v2\x1b.construct.v1.ModelMetadataR\bmetadata\x12+\n" +
-	"\x04spec\x18\x02 \x01(\v2\x17.construct.v1.ModelSpecR\x04spec\"\x93\x02\n" +
+	"\x04spec\x18\x02 \x01(\v2\x17.construct.v1.ModelSpecR\x04spec\"\xc4\x02\n" +
 	"\x12CreateModelRequest\x12\x1e\n" +
 	"\x04name\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\xff\x01R\x04name\x124\n" +
 	"\x11model_provider_id\x18\x02 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x0fmodelProviderId\x12A\n" +
 	"\fcapabilities\x18\x03 \x03(\x0e2\x1d.construct.v1.ModelCapabilityR\fcapabilities\x124\n" +
 	"\apricing\x18\x04 \x01(\v2\x1a.construct.v1.ModelPricingR\apricing\x12.\n" +
-	"\x0econtext_window\x18\x05 \x01(\x03B\a\xbaH\x04\"\x02 \x00R\rcontextWindow\"H\n" +
+	"\x0econtext_window\x18\x05 \x01(\x03B\a\xbaH\x04\"\x02 \x00R\rcontextWindow\x12%\n" +
+	"\x05alias\x18\x06 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xff\x01H\x00R\x05alias\x88\x01\x01B\b\n" +
+	"\x06_alias\"H\n" +
 	"\x13CreateModelResponse\x121\n" +
 	"\x05model\x18\x01 \x01(\v2\x13.construct.v1.ModelB\x06\xbaH\x03\xc8\x01\x01R\x05model\"+\n" +
 	"\x0fGetModelRequest\x12\x18\n" +
@@ -1087,7 +1119,7 @@ const file_construct_v1_model_proto_rawDesc = "" +
 	"\v_sort_order\"i\n" +
 	"\x12ListModelsResponse\x12+\n" +
 	"\x06models\x18\x01 \x03(\v2\x13.construct.v1.ModelR\x06models\x12&\n" +
-	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"\xaa\x03\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"\xdb\x03\n" +
 	"\x12UpdateModelRequest\x12\x18\n" +
 	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\x12#\n" +
 	"\x04name\x18\x02 \x01(\tB\n" +
@@ -1096,14 +1128,17 @@ const file_construct_v1_model_proto_rawDesc = "" +
 	"\fcapabilities\x18\x04 \x03(\x0e2\x1d.construct.v1.ModelCapabilityR\fcapabilities\x129\n" +
 	"\apricing\x18\x05 \x01(\v2\x1a.construct.v1.ModelPricingH\x02R\apricing\x88\x01\x01\x123\n" +
 	"\x0econtext_window\x18\x06 \x01(\x03B\a\xbaH\x04\"\x02 \x00H\x03R\rcontextWindow\x88\x01\x01\x12\x1d\n" +
-	"\aenabled\x18\a \x01(\bH\x04R\aenabled\x88\x01\x01B\a\n" +
+	"\aenabled\x18\a \x01(\bH\x04R\aenabled\x88\x01\x01\x12%\n" +
+	"\x05alias\x18\b \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xff\x01H\x05R\x05alias\x88\x01\x01B\a\n" +
 	"\x05_nameB\x14\n" +
 	"\x12_model_provider_idB\n" +
 	"\n" +
 	"\b_pricingB\x11\n" +
 	"\x0f_context_windowB\n" +
 	"\n" +
-	"\b_enabled\"H\n" +
+	"\b_enabledB\b\n" +
+	"\x06_alias\"H\n" +
 	"\x13UpdateModelResponse\x121\n" +
 	"\x05model\x18\x01 \x01(\v2\x13.construct.v1.ModelB\x06\xbaH\x03\xc8\x01\x01R\x05model\".\n" +
 	"\x12DeleteModelRequest\x12\x18\n" +
@@ -1204,6 +1239,7 @@ func file_construct_v1_model_proto_init() {
 		return
 	}
 	file_construct_v1_common_proto_init()
+	file_construct_v1_model_proto_msgTypes[4].OneofWrappers = []any{}
 	file_construct_v1_model_proto_msgTypes[8].OneofWrappers = []any{}
 	file_construct_v1_model_proto_msgTypes[10].OneofWrappers = []any{}
 	file_construct_v1_model_proto_msgTypes[14].OneofWrappers = []any{}

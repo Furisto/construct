@@ -85,6 +85,7 @@ var (
 		{Name: "cache_write_cost", Type: field.TypeFloat64, Default: 0},
 		{Name: "cache_read_cost", Type: field.TypeFloat64, Default: 0},
 		{Name: "enabled", Type: field.TypeBool, Default: true},
+		{Name: "alias", Type: field.TypeString, Nullable: true},
 		{Name: "model_provider_id", Type: field.TypeUUID},
 	}
 	// ModelsTable holds the schema information for the "models" table.
@@ -95,7 +96,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "models_model_providers_models",
-				Columns:    []*schema.Column{ModelsColumns[11]},
+				Columns:    []*schema.Column{ModelsColumns[12]},
 				RefColumns: []*schema.Column{ModelProvidersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},

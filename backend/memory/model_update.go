@@ -191,6 +191,26 @@ func (mu *ModelUpdate) SetNillableEnabled(b *bool) *ModelUpdate {
 	return mu
 }
 
+// SetAlias sets the "alias" field.
+func (mu *ModelUpdate) SetAlias(s string) *ModelUpdate {
+	mu.mutation.SetAlias(s)
+	return mu
+}
+
+// SetNillableAlias sets the "alias" field if the given value is not nil.
+func (mu *ModelUpdate) SetNillableAlias(s *string) *ModelUpdate {
+	if s != nil {
+		mu.SetAlias(*s)
+	}
+	return mu
+}
+
+// ClearAlias clears the value of the "alias" field.
+func (mu *ModelUpdate) ClearAlias() *ModelUpdate {
+	mu.mutation.ClearAlias()
+	return mu
+}
+
 // SetModelProviderID sets the "model_provider_id" field.
 func (mu *ModelUpdate) SetModelProviderID(u uuid.UUID) *ModelUpdate {
 	mu.mutation.SetModelProviderID(u)
@@ -418,6 +438,12 @@ func (mu *ModelUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if value, ok := mu.mutation.Enabled(); ok {
 		_spec.SetField(model.FieldEnabled, field.TypeBool, value)
+	}
+	if value, ok := mu.mutation.Alias(); ok {
+		_spec.SetField(model.FieldAlias, field.TypeString, value)
+	}
+	if mu.mutation.AliasCleared() {
+		_spec.ClearField(model.FieldAlias, field.TypeString)
 	}
 	if mu.mutation.AgentsCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -715,6 +741,26 @@ func (muo *ModelUpdateOne) SetNillableEnabled(b *bool) *ModelUpdateOne {
 	return muo
 }
 
+// SetAlias sets the "alias" field.
+func (muo *ModelUpdateOne) SetAlias(s string) *ModelUpdateOne {
+	muo.mutation.SetAlias(s)
+	return muo
+}
+
+// SetNillableAlias sets the "alias" field if the given value is not nil.
+func (muo *ModelUpdateOne) SetNillableAlias(s *string) *ModelUpdateOne {
+	if s != nil {
+		muo.SetAlias(*s)
+	}
+	return muo
+}
+
+// ClearAlias clears the value of the "alias" field.
+func (muo *ModelUpdateOne) ClearAlias() *ModelUpdateOne {
+	muo.mutation.ClearAlias()
+	return muo
+}
+
 // SetModelProviderID sets the "model_provider_id" field.
 func (muo *ModelUpdateOne) SetModelProviderID(u uuid.UUID) *ModelUpdateOne {
 	muo.mutation.SetModelProviderID(u)
@@ -972,6 +1018,12 @@ func (muo *ModelUpdateOne) sqlSave(ctx context.Context) (_node *Model, err error
 	}
 	if value, ok := muo.mutation.Enabled(); ok {
 		_spec.SetField(model.FieldEnabled, field.TypeBool, value)
+	}
+	if value, ok := muo.mutation.Alias(); ok {
+		_spec.SetField(model.FieldAlias, field.TypeString, value)
+	}
+	if muo.mutation.AliasCleared() {
+		_spec.ClearField(model.FieldAlias, field.TypeString)
 	}
 	if muo.mutation.AgentsCleared() {
 		edge := &sqlgraph.EdgeSpec{

@@ -37,6 +37,7 @@ func MemoryModelToProto(m *memory.Model) (*v1.Model, error) {
 		Pricing:       pricing,
 		ContextWindow: m.ContextWindow,
 		Enabled:       m.Enabled,
+		Alias:         m.Alias,
 	}
 
 	return &v1.Model{

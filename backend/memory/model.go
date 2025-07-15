@@ -41,6 +41,8 @@ type Model struct {
 	CacheReadCost float64 `json:"cache_read_cost,omitempty"`
 	// Enabled holds the value of the "enabled" field.
 	Enabled bool `json:"enabled,omitempty"`
+	// Alias holds the value of the "alias" field.
+	Alias string `json:"alias,omitempty"`
 	// ModelProviderID holds the value of the "model_provider_id" field.
 	ModelProviderID uuid.UUID `json:"model_provider_id,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -104,7 +106,7 @@ func (*Model) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullFloat64)
 		case model.FieldContextWindow:
 			values[i] = new(sql.NullInt64)
-		case model.FieldName:
+		case model.FieldName, model.FieldAlias:
 			values[i] = new(sql.NullString)
 		case model.FieldCreateTime, model.FieldUpdateTime:
 			values[i] = new(sql.NullTime)
@@ -193,6 +195,12 @@ func (m *Model) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				m.Enabled = value.Bool
 			}
+		case model.FieldAlias:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field alias", values[i])
+			} else if value.Valid {
+				m.Alias = value.String
+			}
 		case model.FieldModelProviderID:
 			if value, ok := values[i].(*uuid.UUID); !ok {
 				return fmt.Errorf("unexpected type %T for field model_provider_id", values[i])
@@ -279,6 +287,9 @@ func (m *Model) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("enabled=")
 	builder.WriteString(fmt.Sprintf("%v", m.Enabled))
+	builder.WriteString(", ")
+	builder.WriteString("alias=")
+	builder.WriteString(m.Alias)
 	builder.WriteString(", ")
 	builder.WriteString("model_provider_id=")
 	builder.WriteString(fmt.Sprintf("%v", m.ModelProviderID))

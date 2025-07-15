@@ -2073,6 +2073,7 @@ type ModelMutation struct {
 	cache_read_cost       *float64
 	addcache_read_cost    *float64
 	enabled               *bool
+	alias                 *string
 	clearedFields         map[string]struct{}
 	agents                map[uuid.UUID]struct{}
 	removedagents         map[uuid.UUID]struct{}
@@ -2680,6 +2681,55 @@ func (m *ModelMutation) ResetEnabled() {
 	m.enabled = nil
 }
 
+// SetAlias sets the "alias" field.
+func (m *ModelMutation) SetAlias(s string) {
+	m.alias = &s
+}
+
+// Alias returns the value of the "alias" field in the mutation.
+func (m *ModelMutation) Alias() (r string, exists bool) {
+	v := m.alias
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAlias returns the old "alias" field's value of the Model entity.
+// If the Model object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ModelMutation) OldAlias(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAlias is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAlias requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAlias: %w", err)
+	}
+	return oldValue.Alias, nil
+}
+
+// ClearAlias clears the value of the "alias" field.
+func (m *ModelMutation) ClearAlias() {
+	m.alias = nil
+	m.clearedFields[model.FieldAlias] = struct{}{}
+}
+
+// AliasCleared returns if the "alias" field was cleared in this mutation.
+func (m *ModelMutation) AliasCleared() bool {
+	_, ok := m.clearedFields[model.FieldAlias]
+	return ok
+}
+
+// ResetAlias resets all changes to the "alias" field.
+func (m *ModelMutation) ResetAlias() {
+	m.alias = nil
+	delete(m.clearedFields, model.FieldAlias)
+}
+
 // SetModelProviderID sets the "model_provider_id" field.
 func (m *ModelMutation) SetModelProviderID(u uuid.UUID) {
 	m.model_provider = &u
@@ -2885,7 +2935,7 @@ func (m *ModelMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ModelMutation) Fields() []string {
-	fields := make([]string, 0, 11)
+	fields := make([]string, 0, 12)
 	if m.create_time != nil {
 		fields = append(fields, model.FieldCreateTime)
 	}
@@ -2915,6 +2965,9 @@ func (m *ModelMutation) Fields() []string {
 	}
 	if m.enabled != nil {
 		fields = append(fields, model.FieldEnabled)
+	}
+	if m.alias != nil {
+		fields = append(fields, model.FieldAlias)
 	}
 	if m.model_provider != nil {
 		fields = append(fields, model.FieldModelProviderID)
@@ -2947,6 +3000,8 @@ func (m *ModelMutation) Field(name string) (ent.Value, bool) {
 		return m.CacheReadCost()
 	case model.FieldEnabled:
 		return m.Enabled()
+	case model.FieldAlias:
+		return m.Alias()
 	case model.FieldModelProviderID:
 		return m.ModelProviderID()
 	}
@@ -2978,6 +3033,8 @@ func (m *ModelMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldCacheReadCost(ctx)
 	case model.FieldEnabled:
 		return m.OldEnabled(ctx)
+	case model.FieldAlias:
+		return m.OldAlias(ctx)
 	case model.FieldModelProviderID:
 		return m.OldModelProviderID(ctx)
 	}
@@ -3058,6 +3115,13 @@ func (m *ModelMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetEnabled(v)
+		return nil
+	case model.FieldAlias:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAlias(v)
 		return nil
 	case model.FieldModelProviderID:
 		v, ok := value.(uuid.UUID)
@@ -3162,6 +3226,9 @@ func (m *ModelMutation) ClearedFields() []string {
 	if m.FieldCleared(model.FieldCapabilities) {
 		fields = append(fields, model.FieldCapabilities)
 	}
+	if m.FieldCleared(model.FieldAlias) {
+		fields = append(fields, model.FieldAlias)
+	}
 	return fields
 }
 
@@ -3178,6 +3245,9 @@ func (m *ModelMutation) ClearField(name string) error {
 	switch name {
 	case model.FieldCapabilities:
 		m.ClearCapabilities()
+		return nil
+	case model.FieldAlias:
+		m.ClearAlias()
 		return nil
 	}
 	return fmt.Errorf("unknown Model nullable field %s", name)
@@ -3216,6 +3286,9 @@ func (m *ModelMutation) ResetField(name string) error {
 		return nil
 	case model.FieldEnabled:
 		m.ResetEnabled()
+		return nil
+	case model.FieldAlias:
+		m.ResetAlias()
 		return nil
 	case model.FieldModelProviderID:
 		m.ResetModelProviderID()

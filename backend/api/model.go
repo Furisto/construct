@@ -70,6 +70,10 @@ func (h *ModelHandler) CreateModel(ctx context.Context, req *connect.Request[v1.
 				SetCacheReadCost(cacheReadCost)
 		}
 
+		if req.Msg.Alias != nil {
+			modelCreate.SetAlias(*req.Msg.Alias)
+		}
+
 		return modelCreate.Save(ctx)
 	})
 
@@ -201,6 +205,10 @@ func (h *ModelHandler) UpdateModel(ctx context.Context, req *connect.Request[v1.
 
 		if req.Msg.Enabled != nil {
 			update = update.SetEnabled(*req.Msg.Enabled)
+		}
+
+		if req.Msg.Alias != nil {
+			update = update.SetAlias(*req.Msg.Alias)
 		}
 
 		return update.Save(ctx)
