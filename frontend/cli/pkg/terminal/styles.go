@@ -13,23 +13,23 @@ var (
 	headerStyle = lipgloss.NewStyle().
 		// BorderStyle(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("62")).
-		Padding(0, 1).
-		MarginBottom(1)
+		Padding(0, 1)
+		// MarginBottom(1)
 
 	agentNameStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("255")).
 			Bold(true)
 
 	agentDiamondStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("250")).
-			Bold(true)
+				Foreground(lipgloss.Color("250")).
+				Bold(true)
 
 	agentModelStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("245")).
 			Italic(true)
 
 	bulletSeparatorStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("240"))
+				Foreground(lipgloss.Color("240"))
 
 	taskStatusStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("34"))
@@ -88,13 +88,13 @@ var (
 	// 		Padding(0, 1)
 
 	// Bullet points
-	whiteBullet = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("252")).
-			SetString("• ")
+	assistantBullet = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("250")).
+			SetString("◆ ")
 
-	blueBullet = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("39")).
-			SetString("• ")
+	toolCallBullet = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("34")).
+			SetString("▶ ")
 
 	// Waiting indicator
 	waitingStyle = lipgloss.NewStyle().
@@ -108,8 +108,7 @@ var (
 
 	// Tool message styles
 	toolCallStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("39")).
-			Bold(true)
+			Foreground(lipgloss.Color("250"))
 
 	toolArgsStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("243")).
@@ -143,8 +142,7 @@ var (
 
 	// User prompt style
 	userPromptStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("252")).
-			Bold(true).
+			Foreground(lipgloss.Color("245")).
 			SetString("> ")
 
 	// Separator style

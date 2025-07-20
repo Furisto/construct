@@ -28,7 +28,7 @@ type Interpreter struct {
 	inputSchema any
 }
 
-func NewInterpreter(tools ...Tool) *Interpreter {
+func NewInterpreter(tools []Tool, interceptors []Interceptor) *Interpreter {
 	reflector := jsonschema.Reflector{
 		AllowAdditionalProperties: false,
 		DoNotReference:            true,
@@ -38,11 +38,6 @@ func NewInterpreter(tools ...Tool) *Interpreter {
 	inputSchema := map[string]interface{}{
 		"type":       "object",
 		"properties": reflected.Properties,
-	}
-
-	interceptors := []Interceptor{
-		InterceptorFunc(FunctionCallLogInterceptor),
-		InterceptorFunc(ToolNameInterceptor),
 	}
 
 	return &Interpreter{
@@ -68,7 +63,7 @@ func (c *Interpreter) Run(ctx context.Context, fsys afero.Fs, input json.RawMess
 	return "", nil
 }
 
-func (c *Interpreter) Interpret(ctx context.Context, fsys afero.Fs, input json.RawMessage) (*InterpreterResult, error) {
+func (c *Interpreter) Interpret(ctx context.Context, fsys afero.Fs, input json.RawMessage, taskID uuid.UUID) (*InterpreterResult, error) {
 	var args InterpreterArgs
 	err := json.Unmarshal(input, &args)
 	if err != nil {
@@ -79,7 +74,7 @@ func (c *Interpreter) Interpret(ctx context.Context, fsys afero.Fs, input json.R
 	vm.SetFieldNameMapper(sobek.TagFieldNameMapper("json", true))
 
 	var stdout bytes.Buffer
-	session := NewSession(uuid.New(), vm, &stdout, &stdout, fsys)
+	session := NewSession(taskID, vm, &stdout, &stdout, fsys)
 
 	for _, tool := range c.Tools {
 		vm.Set(tool.Name(), c.intercept(session, tool, tool.ToolHandler(session)))
@@ -110,11 +105,9 @@ func (c *Interpreter) Interpret(ctx context.Context, fsys afero.Fs, input json.R
 }
 
 func (c *Interpreter) intercept(session *Session, toolName Tool, inner func(sobek.FunctionCall) sobek.Value) func(sobek.FunctionCall) sobek.Value {
-	return func(call sobek.FunctionCall) sobek.Value {
-		for _, interceptor := range c.Interceptors {
-			inner = interceptor.Intercept(session, toolName, inner)
-		}
-		return inner(call)
+	wrapped := inner
+	for _, interceptor := range c.Interceptors {
+		wrapped = interceptor.Intercept(session, toolName, wrapped)
 	}
+	return wrapped
 }
-

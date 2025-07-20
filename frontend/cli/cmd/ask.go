@@ -309,7 +309,7 @@ func handleResponseStream(ctx context.Context, cmd *cobra.Command, client *clien
 			return err
 		}
 
-		if message.Status != nil && message.Status.Completed {
+		if message.Status != nil && message.Status.IsFinalResponse {
 			streamCancel()
 			break
 		}
@@ -350,12 +350,6 @@ func formatTextMessage(message *v1.Message, cmd *cobra.Command) error {
 		switch partData := part.Data.(type) {
 		case *v1.MessagePart_Text_:
 			cmd.Println(partData.Text.Content)
-		case *v1.MessagePart_ToolResult_:
-			cmd.Println(partData.ToolResult.Result)
-		case *v1.MessagePart_SubmitReport_:
-			cmd.Println(partData.SubmitReport.Summary)
-			cmd.Println(partData.SubmitReport.Deliverables)
-			cmd.Println(partData.SubmitReport.NextSteps)
 		}
 	}
 	return nil

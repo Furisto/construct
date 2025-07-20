@@ -29,8 +29,9 @@ import (
 	"github.com/furisto/construct/backend/tool"
 	"github.com/furisto/construct/backend/tool/codeact"
 	"github.com/google/uuid"
+	"github.com/grafana/sobek/ast"
+	"github.com/grafana/sobek/parser"
 	"github.com/spf13/afero"
-	"google.golang.org/protobuf/types/known/timestamppb"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -88,6 +89,12 @@ func NewRuntime(memory *memory.Client, encryption *secret.Client, listener net.L
 		return nil, err
 	}
 
+	interceptors := []codeact.Interceptor{
+		codeact.InterceptorFunc(codeact.FunctionCallLogInterceptor),
+		codeact.InterceptorFunc(codeact.ToolNameInterceptor),
+		codeact.NewToolEventPublisher(messageHub),
+	}
+
 	runtime := &Runtime{
 		memory:     memory,
 		encryption: encryption,
@@ -95,7 +102,7 @@ func NewRuntime(memory *memory.Client, encryption *secret.Client, listener net.L
 		eventHub:    messageHub,
 		concurrency: options.Concurrency,
 		queue:       queue,
-		interpreter: codeact.NewInterpreter(options.Tools...),
+		interpreter: codeact.NewInterpreter(options.Tools, interceptors),
 	}
 
 	api := api.NewServer(runtime, listener)
@@ -195,8 +202,9 @@ func (rt *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 	if err != nil {
 		return err
 	}
-	os.WriteFile("system_prompt.txt", []byte(systemPrompt), 0644)
+	os.WriteFile(fmt.Sprintf("/tmp/system_prompt_%s.txt", time.Now().Format("20060102150405")), []byte(systemPrompt), 0644)
 
+	// messageID := uuid.New()
 	message, err := modelProvider.InvokeModel(
 		ctx,
 		agent.Edges.Model.Name,
@@ -207,10 +215,40 @@ func (rt *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 				switch block := block.(type) {
 				case *model.TextBlock:
 					fmt.Print(block.Text)
+
+					// rt.eventHub.Publish(taskID, &v1.SubscribeResponse{
+					// 	Message: &v1.Message{
+					// 		Metadata: &v1.MessageMetadata{
+					// 			Id:        messageID.String(),
+					// 			TaskId:    taskID.String(),
+					// 			CreatedAt: timestamppb.New(time.Now()),
+					// 			UpdatedAt: timestamppb.New(time.Now()),
+					// 			AgentId:   conv.Ptr(agent.ID.String()),
+					// 			ModelId:   conv.Ptr(agent.Edges.Model.ID.String()),
+					// 			Role:      v1.MessageRole_MESSAGE_ROLE_ASSISTANT,
+					// 		},
+					// 		Spec: &v1.MessageSpec{
+					// 			Content: []*v1.MessagePart{
+					// 				{
+					// 					Data: &v1.MessagePart_Text_{
+					// 						Text: &v1.MessagePart_Text{
+					// 							Content: block.Text,
+					// 						},
+					// 					},
+					// 				},
+					// 			},
+					// 		},
+					// 		Status: &v1.MessageStatus{
+					// 			ContentState:    v1.ContentStatus_CONTENT_STATUS_PARTIAL,
+					// 			IsFinalResponse: false,
+					// 		},
+					// 	},
+					// })
 				case *model.ToolCallBlock:
 					fmt.Println(block.Args)
 				}
 			}
+
 		}),
 		model.WithTools(rt.interpreter),
 	)
@@ -228,41 +266,42 @@ func (rt *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 	if err != nil {
 		return err
 	}
-	protoMessage.Status.Completed = !hasToolCalls(message.Content)
+	protoMessage.Status.IsFinalResponse = !hasToolCalls(message.Content)
+	protoMessage.Status.ContentState = v1.ContentStatus_CONTENT_STATUS_COMPLETE
 
 	rt.eventHub.Publish(taskID, &v1.SubscribeResponse{
 		Message: protoMessage,
 	})
 
-	toolResults, err := rt.callTools(ctx, message.Content)
+	toolResults, err := rt.callTools(ctx, taskID, message.Content)
 	if err != nil {
 		return err
 	}
 
 	if len(toolResults) > 0 {
-		toolMessage, err := rt.saveToolResults(ctx, taskID, toolResults)
+		_, err := rt.saveToolResults(ctx, taskID, toolResults)
 		if err != nil {
 			return err
 		}
 
-		protoToolResults, err := ConvertToolResultsToProto(toolResults)
-		if err != nil {
-			return err
-		}
+		// protoToolResults, err := ConvertToolResultsToProto(toolResults)
+		// if err != nil {
+		// 	return err
+		// }
 
-		rt.eventHub.Publish(taskID, &v1.SubscribeResponse{
-			Message: &v1.Message{
-				Metadata: &v1.MessageMetadata{
-					Id:        toolMessage.ID.String(),
-					TaskId:    taskID.String(),
-					CreatedAt: timestamppb.New(toolMessage.CreateTime),
-					UpdatedAt: timestamppb.New(toolMessage.UpdateTime),
-				},
-				Spec: &v1.MessageSpec{
-					Content: protoToolResults,
-				},
-			},
-		})
+		// rt.eventHub.Publish(taskID, &v1.SubscribeResponse{
+		// 	Message: &v1.Message{
+		// 		Metadata: &v1.MessageMetadata{
+		// 			Id:        toolMessage.ID.String(),
+		// 			TaskId:    taskID.String(),
+		// 			CreatedAt: timestamppb.New(toolMessage.CreateTime),
+		// 			UpdatedAt: timestamppb.New(toolMessage.UpdateTime),
+		// 		},
+		// 		Spec: &v1.MessageSpec{
+		// 			Content: protoToolResults,
+		// 		},
+		// 	},
+		// })
 	}
 
 	_, err = rt.memory.Task.UpdateOneID(taskID).AddTurns(1).Save(ctx)
@@ -431,7 +470,6 @@ func (rt *Runtime) assembleSystemPrompt(agentInstruction string, cwd string) (st
 	}
 
 	tmplParams := struct {
-		CurrentTime      string
 		WorkingDirectory string
 		OperatingSystem  string
 		DefaultShell     string
@@ -439,7 +477,6 @@ func (rt *Runtime) assembleSystemPrompt(agentInstruction string, cwd string) (st
 		ToolInstructions string
 		Tools            string
 	}{
-		CurrentTime:      time.Now().Format(time.RFC3339),
 		WorkingDirectory: cwd,
 		OperatingSystem:  runtime.GOOS,
 		DefaultShell:     shell.Name,
@@ -509,7 +546,7 @@ func (rt *Runtime) saveResponse(ctx context.Context, taskID uuid.UUID, processed
 	return newMessage, nil
 }
 
-func (rt *Runtime) callTools(ctx context.Context, content []model.ContentBlock) ([]ToolResult, error) {
+func (rt *Runtime) callTools(ctx context.Context, taskID uuid.UUID, content []model.ContentBlock) ([]ToolResult, error) {
 	var toolResults []ToolResult
 
 	for _, block := range content {
@@ -520,8 +557,16 @@ func (rt *Runtime) callTools(ctx context.Context, content []model.ContentBlock) 
 
 		switch toolCall.Tool {
 		case tool.ToolNameCodeInterpreter:
+
 			os.WriteFile("/tmp/tool_call.json", []byte(toolCall.Args), 0644)
-			result, err := rt.interpreter.Interpret(ctx, afero.NewOsFs(), toolCall.Args)
+			// script, err := parseScript(toolCall.Args)
+			// if err != nil {
+			// 	return nil, err
+			// }
+
+			// os.WriteFile("/tmp/script.js", []byte(fmt.Sprintf("const script = `%v`", script)), 0644)
+
+			result, err := rt.interpreter.Interpret(ctx, afero.NewOsFs(), toolCall.Args, taskID)
 			if err != nil {
 				return nil, err
 			}
@@ -539,6 +584,22 @@ func (rt *Runtime) callTools(ctx context.Context, content []model.ContentBlock) 
 	}
 
 	return toolResults, nil
+}
+
+func parseScript(raw json.RawMessage) ([]string, error) {
+	var args codeact.InterpreterArgs
+	err := json.Unmarshal(raw, &args)
+	if err != nil {
+		return nil, err
+	}
+
+	finder := NewFunctionCallFinder([]string{"get_file_contents", "write_file"})
+	calls, err := finder.FindCalls(args.Script)
+	if err != nil {
+		return nil, err
+	}
+
+	return calls, nil
 }
 
 func (rt *Runtime) modelProviderAPI(m *memory.Model) (model.ModelProvider, error) {
@@ -603,4 +664,165 @@ func (rt *Runtime) TriggerReconciliation(taskID uuid.UUID) {
 
 func (rt *Runtime) EventHub() *stream.EventHub {
 	return rt.eventHub
+}
+
+// FunctionCallFinder finds calls to specific predefined functions
+type FunctionCallFinder struct {
+	targetFunctions map[string]bool
+	foundCalls      []string
+}
+
+// NewFunctionCallFinder creates a new finder for the specified target functions
+func NewFunctionCallFinder(targetFunctions []string) *FunctionCallFinder {
+	targets := make(map[string]bool)
+	for _, fn := range targetFunctions {
+		targets[fn] = true
+	}
+
+	return &FunctionCallFinder{
+		targetFunctions: targets,
+		foundCalls:      make([]string, 0),
+	}
+}
+
+// FindCalls analyzes the JavaScript code and returns the names of target functions that are called
+func (f *FunctionCallFinder) FindCalls(code string) ([]string, error) {
+	program, err := parser.ParseFile(nil, "", code, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	ast, _ := json.MarshalIndent(program, "", "  ")
+	os.WriteFile("/tmp/ast.json", ast, 0644)
+
+	f.foundCalls = make([]string, 0) // Reset for new analysis
+	f.walkNode(program)
+
+	return f.foundCalls, nil
+}
+
+// walkNode recursively walks through AST nodes looking for function calls
+func (f *FunctionCallFinder) walkNode(node ast.Node) {
+	if node == nil {
+		return
+	}
+
+	switch n := node.(type) {
+	case *ast.Program:
+		for _, stmt := range n.Body {
+			f.walkNode(stmt)
+		}
+
+	case *ast.Binding:
+		f.walkNode(n.Initializer)
+		f.walkNode(n.Target)
+
+	case *ast.CallExpression:
+		// Check if this is a call to one of our target functions
+		if ident, ok := n.Callee.(*ast.Identifier); ok {
+			// if f.targetFunctions[ident.Name] {
+			//     f.foundCalls = append(f.foundCalls, ident.Name)
+			// }
+
+			f.foundCalls = append(f.foundCalls, ident.Name.String())
+		}
+
+		// Continue walking the call expression
+		f.walkNode(n.Callee)
+		for _, arg := range n.ArgumentList {
+			f.walkNode(arg)
+		}
+
+	case *ast.LexicalDeclaration:
+		for _, decl := range n.List {
+			f.walkNode(decl)
+		}
+
+	case *ast.ExpressionStatement:
+		f.walkNode(n.Expression)
+
+	case *ast.BlockStatement:
+		for _, stmt := range n.List {
+			f.walkNode(stmt)
+		}
+
+	case *ast.VariableStatement:
+		for _, decl := range n.List {
+			f.walkNode(decl)
+		}
+
+	case *ast.AssignExpression:
+		f.walkNode(n.Left)
+		f.walkNode(n.Right)
+
+	case *ast.FunctionLiteral:
+		f.walkNode(n.Body)
+
+	case *ast.IfStatement:
+		f.walkNode(n.Test)
+		f.walkNode(n.Consequent)
+		f.walkNode(n.Alternate)
+
+	case *ast.ForOfStatement:
+		f.walkNode(n.Body)
+
+	case *ast.ForStatement:
+		f.walkNode(n.Initializer)
+		f.walkNode(n.Test)
+		f.walkNode(n.Update)
+		f.walkNode(n.Body)
+
+	case *ast.WhileStatement:
+		f.walkNode(n.Test)
+		f.walkNode(n.Body)
+
+	case *ast.TryStatement:
+		f.walkNode(n.Body)
+		f.walkNode(n.Catch)
+		// f.walkNode(n.Finally)
+
+	case *ast.CatchStatement:
+		f.walkNode(n.Body)
+
+	case *ast.ReturnStatement:
+		f.walkNode(n.Argument)
+
+	case *ast.ThrowStatement:
+		f.walkNode(n.Argument)
+
+	case *ast.BinaryExpression:
+		f.walkNode(n.Left)
+		f.walkNode(n.Right)
+
+	case *ast.UnaryExpression:
+		f.walkNode(n.Operand)
+
+	case *ast.ConditionalExpression:
+		f.walkNode(n.Test)
+		f.walkNode(n.Consequent)
+		f.walkNode(n.Alternate)
+
+	case *ast.ArrayLiteral:
+		for _, elem := range n.Value {
+			f.walkNode(elem)
+		}
+
+	case *ast.ObjectLiteral:
+		for _, prop := range n.Value {
+			f.walkNode(prop)
+		}
+
+	case *ast.DotExpression:
+		f.walkNode(n.Left)
+
+	case *ast.BracketExpression:
+		f.walkNode(n.Left)
+		f.walkNode(n.Member)
+
+	case *ast.NewExpression:
+		f.walkNode(n.Callee)
+		for _, arg := range n.ArgumentList {
+			f.walkNode(arg)
+		}
+	}
 }

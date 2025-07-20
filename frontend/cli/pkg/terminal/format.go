@@ -2,12 +2,10 @@ package terminal
 
 import (
 	"fmt"
-	"os"
 	"regexp"
 	"strings"
 
 	"github.com/charmbracelet/glamour"
-	v1 "github.com/furisto/construct/api/go/v1"
 )
 
 func (m model) formatMessages() string {
@@ -23,99 +21,127 @@ func (m model) formatMessages() string {
 			formatted.WriteString(userPromptStyle.String() + msg.content)
 
 		case *assistantTextMessage:
-			formatted.WriteString(whiteBullet.String() +
-				formatMessageContent(msg.content, m.width-6))
+			// Add diamond bullet and indent for assistant messages
+			formatted.WriteString(assistantBullet.String() +
+				formatMessageContent(msg.content))
+			// lines := strings.Split(content, "\n")
+			// for i, line := range lines {
+			// 	if i > 0 {
+			// 		formatted.WriteString("\n")
+			// 	}
+			// 	if i == 0 {
+			// 		formatted.WriteString("  " + assistantBullet.String() + line)
+			// 	} else {
+			// 		formatted.WriteString("    " + line) // 4-space indent for continuation lines
+			// 	}
+			// }
 
-		case *assistantToolMessage:
-			toolName := getToolNameString(msg.toolName)
-			formatted.WriteString(blueBullet.String() +
-				toolCallStyle.Render(fmt.Sprintf("Tool: %s", toolName)) + "\n")
+		// case *assistantToolMessage:
+		// 	toolName := getToolNameString(msg.toolName)
+		// 	formatted.WriteString(blueBullet.String() +
+		// 		toolCallStyle.Render(fmt.Sprintf("Tool: %s", toolName)) + "\n")
 
-			if len(msg.arguments) > 0 {
-				formatted.WriteString("  Arguments:\n")
-				for key, value := range msg.arguments {
-					formatted.WriteString(fmt.Sprintf("    %s: %s\n",
-						boldStyle.Render(key),
-						toolArgsStyle.Render(value)))
-				}
+		// 	if len(msg.arguments) > 0 {
+		// 		formatted.WriteString("  Arguments:\n")
+		// 		for key, value := range msg.arguments {
+		// 			formatted.WriteString(fmt.Sprintf("    %s: %s\n",
+		// 				boldStyle.Render(key),
+		// 				toolArgsStyle.Render(value)))
+		// 		}
+		// 	}
+
+		// 	if msg.error != "" {
+		// 		formatted.WriteString("  " + errorStyle.Render("Error: ") + msg.error + "\n")
+		// 	}
+
+		case *readFileToolCall:
+			formatted.WriteString("  " + toolCallBullet.String())
+			formatted.WriteString(toolCallStyle.Render(fmt.Sprintf("%s(%s)", boldStyle.Render("Read"), msg.Input.Path)))
+
+		case *createFileToolCall:
+			formatted.WriteString("  " + toolCallBullet.String())
+			formatted.WriteString(toolCallStyle.Render(fmt.Sprintf("%s(%s)", boldStyle.Render("Create"), msg.Input.Path)))
+
+		case *editFileToolCall:
+			formatted.WriteString("  " + toolCallBullet.String())
+			formatted.WriteString(toolCallStyle.Render(fmt.Sprintf("%s(%s)", boldStyle.Render("Edit"), msg.Input.Path)))
+
+		case *executeCommandToolCall:
+			command := msg.Input.Command
+			if len(command) > 50 {
+				command = command[:47] + "..."
+			}
+			formatted.WriteString("  " + toolCallBullet.String())
+			formatted.WriteString(toolCallStyle.Render(fmt.Sprintf("%s(%s)", boldStyle.Render("Execute"), command)))
+
+		case *findFileToolCall:
+			pathInfo := msg.Input.Path
+			if pathInfo == "" {
+				pathInfo = "."
 			}
 
-			if msg.error != "" {
-				formatted.WriteString("  " + errorStyle.Render("Error: ") + msg.error + "\n")
-			}
-		case *submitReportMessage:
-			formatted.WriteString(reportStyle.Render("📋 Task Report") + "\n")
-			formatted.WriteString(reportContentStyle.Render("Summary: ") + msg.summary + "\n")
-
-			if msg.completed {
-				formatted.WriteString(reportContentStyle.Render("Status: ") + "✅ Completed\n")
-			} else {
-				formatted.WriteString(reportContentStyle.Render("Status: ") + "🔄 In Progress\n")
+			if len(pathInfo) > 50 {
+				start := Max(0, len(pathInfo)-50)
+				pathInfo = pathInfo[start:] + "..."
 			}
 
-			if len(msg.deliverables) > 0 {
-				formatted.WriteString(reportContentStyle.Render("Deliverables:\n"))
-				for _, deliverable := range msg.deliverables {
-					formatted.WriteString(fmt.Sprintf("  • %s\n", deliverable))
-				}
+			excludeArg := msg.Input.ExcludePattern
+			if len(excludeArg) > 50 {
+				excludeArg = excludeArg[:47] + "..."
+			}
+			if excludeArg == "" {
+				excludeArg = "none"
 			}
 
-			if msg.nextSteps != "" {
-				formatted.WriteString(reportContentStyle.Render("Next Steps: ") + msg.nextSteps + "\n")
+			formatted.WriteString("  " + toolCallBullet.String())
+			formatted.WriteString(toolCallStyle.Render(fmt.Sprintf("%s(pattern: %s, path: %s, exclude: %s)", boldStyle.Render("Find"), msg.Input.Pattern, pathInfo, excludeArg)))
+
+		case *grepToolCall:
+			searchInfo := msg.Input.Query
+			if msg.Input.IncludePattern != "" {
+				searchInfo = fmt.Sprintf("%s in %s", searchInfo, msg.Input.IncludePattern)
 			}
+			formatted.WriteString("  " + toolCallBullet.String())
+			formatted.WriteString(toolCallStyle.Render(fmt.Sprintf("%s(%s)", boldStyle.Render("Grep"), searchInfo)))
+
+		case *handoffToolCall:
+			formatted.WriteString("  " + toolCallBullet.String())
+			formatted.WriteString(toolCallStyle.Render(fmt.Sprintf("%s → %s", boldStyle.Render("Handoff"), msg.Input.RequestedAgent)))
+
+		case *listFilesToolCall:
+			pathInfo := msg.Input.Path
+			if pathInfo == "" {
+				pathInfo = "."
+			}
+			listType := "List"
+			if msg.Input.Recursive {
+				listType = "List -R"
+			}
+			formatted.WriteString("  " + toolCallBullet.String())
+			formatted.WriteString(toolCallStyle.Render(fmt.Sprintf("%s(%s)", boldStyle.Render(listType), pathInfo)))
 
 		case *errorMessage:
 			formatted.WriteString(errorStyle.Render("❌ Error: ") + msg.content)
 		}
 	}
 
-	f, _ := os.CreateTemp("", "construct-cli-messages.md")
-	f.WriteString(formatted.String())
-	f.Close()
+	// f, _ := os.CreateTemp("", "construct-cli-messages.md")
+	// f.WriteString(formatted.String())
+	// f.Close()
 
 	return formatted.String()
 }
 
-func getToolNameString(toolName v1.ToolName) string {
-	switch toolName {
-	case v1.ToolName_EDIT_FILE:
-		return "Edit File"
-	case v1.ToolName_CREATE_FILE:
-		return "Create File"
-	case v1.ToolName_READ_FILE:
-		return "Read File"
-	case v1.ToolName_EXECUTE_COMMAND:
-		return "Execute Command"
-	case v1.ToolName_FIND_FILE:
-		return "Find File"
-	case v1.ToolName_HANDOFF:
-		return "Handoff"
-	case v1.ToolName_LIST_FILES:
-		return "List Files"
-	case v1.ToolName_CODE_INTERPRETER:
-		return "Code Interpreter"
-	default:
-		return "Unknown Tool"
-	}
-}
-
-// formatMessageContent formats the content of a message
-func formatMessageContent(content string, maxWidth int) string {
+func formatMessageContent(content string) string {
 	md, _ := glamour.NewTermRenderer(
 		glamour.WithStandardStyle("dark"), // avoid OSC background queries
 		// glamour.WithWordWrap(maxWidth),
 	)
 
 	out, _ := md.Render(content)
-
-	// // If it's a code block, format it differently
-	// if containsCodeBlock(content) {
-	// 	return formatCodeBlocks(content, maxWidth)
-	// }
-
-	// Regular text formatting
-
-	return assistantTextStyle.Render(trimLeadingWhitespaceWithANSI(out))
+	trimmed := trimLeadingWhitespaceWithANSI(out)
+	trimmed = trimTrailingWhitespaceWithANSI(trimmed)
+	return assistantTextStyle.Render(trimmed)
 }
 
 func trimLeadingWhitespaceWithANSI(s string) string {
@@ -123,6 +149,15 @@ func trimLeadingWhitespaceWithANSI(s string) string {
 	// - Any combination of whitespace OR ANSI sequences
 	// - Stops when it hits a character that's neither
 	pattern := `^(?:\x1b\[[0-9;]*m|\s)*`
+	re := regexp.MustCompile(pattern)
+	return re.ReplaceAllString(s, "")
+}
+
+func trimTrailingWhitespaceWithANSI(s string) string {
+	// This pattern matches from the end:
+	// - Any combination of whitespace OR ANSI sequences
+	// - Stops when it hits a character that's neither
+	pattern := `(?:\x1b\[[0-9;]*m|\s)*$`
 	re := regexp.MustCompile(pattern)
 	return re.ReplaceAllString(s, "")
 }

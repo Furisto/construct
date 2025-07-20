@@ -6,7 +6,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"path/filepath"
 
 	"github.com/furisto/construct/api/go/client/mocks"
@@ -149,10 +148,6 @@ func (c *EndpointContext) Validate() error {
 	if c.Kind == "unix" {
 		if !filepath.IsAbs(c.Address) {
 			return fmt.Errorf("unix address must be an absolute path: %s", c.Address)
-		}
-
-		if _, err := os.Stat(c.Address); os.IsNotExist(err) {
-			return fmt.Errorf("unix address does not exist: %s", c.Address)
 		}
 	}
 

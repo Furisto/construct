@@ -176,10 +176,6 @@ func (m *model) onKeyPressed(msg tea.KeyMsg) tea.Cmd {
 		if m.mode == ModeInput {
 			return m.onMessageSend(msg)
 		}
-	case tea.KeyCtrlL:
-		m.messages = []message{}
-		m.updateViewportContent()
-		return nil
 	case tea.KeyF1:
 		m.mode = ModeInput
 		m.input.Focus()
@@ -290,22 +286,10 @@ func (m *model) processMessage(msg *v1.Message) {
 					content:   data.Text.Content,
 					timestamp: msg.Metadata.CreatedAt.AsTime(),
 				})
-			case *v1.MessagePart_ToolResult_:
-				m.messages = append(m.messages, &assistantToolMessage{
-					toolName:  data.ToolResult.ToolName,
-					arguments: data.ToolResult.Arguments,
-					result:    data.ToolResult.Result,
-					error:     data.ToolResult.Error,
-					timestamp: msg.Metadata.CreatedAt.AsTime(),
-				})
-			case *v1.MessagePart_SubmitReport_:
-				m.messages = append(m.messages, &submitReportMessage{
-					summary:      data.SubmitReport.Summary,
-					completed:    data.SubmitReport.Completed,
-					deliverables: data.SubmitReport.Deliverables,
-					nextSteps:    data.SubmitReport.NextSteps,
-					timestamp:    msg.Metadata.CreatedAt.AsTime(),
-				})
+			case *v1.MessagePart_ToolCall:
+				m.messages = append(m.messages, m.createToolCallMessage(data.ToolCall, msg.Metadata.CreatedAt.AsTime()))
+			case *v1.MessagePart_ToolResult:
+				m.messages = append(m.messages, m.createToolResultMessage(data.ToolResult, msg.Metadata.CreatedAt.AsTime()))
 			}
 		}
 	}
@@ -458,7 +442,6 @@ func (m *model) renderHeader() string {
 
 func (m *model) updateViewportContent() {
 	m.viewport.SetContent(m.formatMessages())
-	m.viewport.GotoBottom()
 }
 
 func (m *model) getAgentModelInfo(agent *v1.Agent) (string, int64, error) {
@@ -538,4 +521,126 @@ func renderWelcomeMessage() string {
 	}
 
 	return strings.Join(welcomeLines, "\n")
+}
+
+func (m *model) createToolCallMessage(toolCall *v1.ToolCall, timestamp time.Time) message {
+	switch toolInput := toolCall.Input.(type) {
+	case *v1.ToolCall_EditFile:
+		return &editFileToolCall{
+			ID:        toolCall.Id,
+			Input:     toolInput.EditFile,
+			timestamp: timestamp,
+		}
+	case *v1.ToolCall_CreateFile:
+		return &createFileToolCall{
+			ID:        toolCall.Id,
+			Input:     toolInput.CreateFile,
+			timestamp: timestamp,
+		}
+	case *v1.ToolCall_ExecuteCommand:
+		return &executeCommandToolCall{
+			ID:        toolCall.Id,
+			Input:     toolInput.ExecuteCommand,
+			timestamp: timestamp,
+		}
+	case *v1.ToolCall_FindFile:
+		return &findFileToolCall{
+			ID:        toolCall.Id,
+			Input:     toolInput.FindFile,
+			timestamp: timestamp,
+		}
+	case *v1.ToolCall_Grep:
+		return &grepToolCall{
+			ID:        toolCall.Id,
+			Input:     toolInput.Grep,
+			timestamp: timestamp,
+		}
+	case *v1.ToolCall_Handoff:
+		return &handoffToolCall{
+			ID:        toolCall.Id,
+			Input:     toolInput.Handoff,
+			timestamp: timestamp,
+		}
+	case *v1.ToolCall_AskUser:
+		return &askUserToolCall{
+			ID:        toolCall.Id,
+			Input:     toolInput.AskUser,
+			timestamp: timestamp,
+		}
+	case *v1.ToolCall_ListFiles:
+		return &listFilesToolCall{
+			ID:        toolCall.Id,
+			Input:     toolInput.ListFiles,
+			timestamp: timestamp,
+		}
+	case *v1.ToolCall_ReadFile:
+		return &readFileToolCall{
+			ID:        toolCall.Id,
+			Input:     toolInput.ReadFile,
+			timestamp: timestamp,
+		}
+	case *v1.ToolCall_SubmitReport:
+		return &submitReportToolCall{
+			ID:        toolCall.Id,
+			Input:     toolInput.SubmitReport,
+			timestamp: timestamp,
+		}
+	}
+
+	return nil
+}
+
+func (m *model) createToolResultMessage(toolResult *v1.ToolResult, timestamp time.Time) message {
+	switch toolOutput := toolResult.Result.(type) {
+	case *v1.ToolResult_CreateFile:
+		return &createFileResult{
+			ID:        toolResult.Id,
+			Result:    toolOutput.CreateFile,
+			timestamp: timestamp,
+		}
+	case *v1.ToolResult_EditFile:
+		return &editFileResult{
+			ID:        toolResult.Id,
+			Result:    toolOutput.EditFile,
+			timestamp: timestamp,
+		}
+	case *v1.ToolResult_ExecuteCommand:
+		return &executeCommandResult{
+			ID:        toolResult.Id,
+			Result:    toolOutput.ExecuteCommand,
+			timestamp: timestamp,
+		}
+	case *v1.ToolResult_FindFile:
+		return &findFileResult{
+			ID:        toolResult.Id,
+			Result:    toolOutput.FindFile,
+			timestamp: timestamp,
+		}
+	case *v1.ToolResult_Grep:
+		return &grepResult{
+			ID:        toolResult.Id,
+			Result:    toolOutput.Grep,
+			timestamp: timestamp,
+		}
+	case *v1.ToolResult_ListFiles:
+		return &listFilesResult{
+			ID:        toolResult.Id,
+			Result:    toolOutput.ListFiles,
+			timestamp: timestamp,
+		}
+	case *v1.ToolResult_ReadFile:
+		return &readFileResult{
+			ID:        toolResult.Id,
+			Result:    toolOutput.ReadFile,
+			timestamp: timestamp,
+		}
+	case *v1.ToolResult_SubmitReport:
+		return &submitReportResult{
+			ID:        toolResult.Id,
+			Result:    toolOutput.SubmitReport,
+			timestamp: timestamp,
+		}
+	default:
+		return nil
+	}
 }
