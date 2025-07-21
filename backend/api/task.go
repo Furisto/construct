@@ -125,6 +125,10 @@ func (h *TaskHandler) ListTasks(ctx context.Context, req *connect.Request[v1.Lis
 		}
 	}
 
+	if req.Msg.PageSize != nil {
+		query = query.Limit(int(*req.Msg.PageSize))
+	}
+
 	tasks, err := query.WithAgent().All(ctx)
 	if err != nil {
 		return nil, apiError(err)

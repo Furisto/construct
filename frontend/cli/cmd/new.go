@@ -70,7 +70,8 @@ func handleNewCommand(ctx context.Context, apiClient *api.Client, options *newOp
 	agent := agentResp.Msg.Agent
 	resp, err := apiClient.Task().CreateTask(ctx, &connect.Request[v1.CreateTaskRequest]{
 		Msg: &v1.CreateTaskRequest{
-			AgentId: agent.Metadata.Id,
+			AgentId:     agent.Metadata.Id,
+			Description: "Build a Go-based coding agent with Anthropic and OpenAI API integration",
 		},
 	})
 
