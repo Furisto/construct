@@ -41,8 +41,9 @@ Examples:
 		GroupID: "core",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			apiClient := getAPIClient(cmd.Context())
+			verbose := getGlobalOptions(cmd.Context()).Verbose
 
-			return fail.HandleError(handleNewCommand(cmd.Context(), apiClient, options))
+			return fail.HandleError(handleNewCommand(cmd.Context(), apiClient, options, verbose))
 		},
 	}
 
@@ -52,7 +53,7 @@ Examples:
 	return cmd
 }
 
-func handleNewCommand(ctx context.Context, apiClient *api.Client, options *newOptions) error {
+func handleNewCommand(ctx context.Context, apiClient *api.Client, options *newOptions, verbose bool) error {
 	agentID, err := getAgentID(ctx, apiClient, options.agent)
 	if err != nil {
 		return err
@@ -81,8 +82,13 @@ func handleNewCommand(ctx context.Context, apiClient *api.Client, options *newOp
 
 	fmt.Println("Created task", resp.Msg.Task.Metadata.Id)
 
+	model := terminal.NewModel(ctx, apiClient, resp.Msg.Task, agent)
+	if verbose {
+		model.Verbose = true
+	}
+
 	program := tea.NewProgram(
-		terminal.NewModel(ctx, apiClient, resp.Msg.Task, agent),
+		model,
 		tea.WithAltScreen(),
 	)
 

@@ -340,7 +340,6 @@ func (rt *Runtime) saveToolResults(ctx context.Context, taskID uuid.UUID, toolRe
 		SetContent(&types.MessageContent{
 			Blocks: toolBlocks,
 		}).
-		SetProcessedTime(time.Now()).
 		Save(ctx)
 }
 

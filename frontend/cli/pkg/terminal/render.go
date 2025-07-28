@@ -32,7 +32,8 @@ type model struct {
 	activeAgent *v1.Agent
 	agents      []*v1.Agent
 
-	ctx context.Context
+	ctx     context.Context
+	Verbose bool
 
 	state           appState
 	mode            uiMode
@@ -587,10 +588,12 @@ func (m *model) createToolCallMessage(toolCall *v1.ToolCall, timestamp time.Time
 			timestamp: timestamp,
 		}
 	case *v1.ToolCall_CodeInterpreter:
-		return &codeInterpreterToolCall{
-			ID:        toolCall.Id,
-			Input:     toolInput.CodeInterpreter,
-			timestamp: timestamp,
+		if m.Verbose {
+			return &codeInterpreterToolCall{
+				ID:        toolCall.Id,
+				Input:     toolInput.CodeInterpreter,
+				timestamp: timestamp,
+			}
 		}
 	}
 
@@ -648,12 +651,14 @@ func (m *model) createToolResultMessage(toolResult *v1.ToolResult, timestamp tim
 			timestamp: timestamp,
 		}
 	case *v1.ToolResult_CodeInterpreter:
-		return &codeInterpreterResult{
-			ID:        toolResult.Id,
-			Result:    toolOutput.CodeInterpreter,
-			timestamp: timestamp,
+		if m.Verbose {
+			return &codeInterpreterResult{
+				ID:        toolResult.Id,
+				Result:    toolOutput.CodeInterpreter,
+				timestamp: timestamp,
+			}
 		}
-	default:
-		return nil
 	}
+
+	return nil
 }

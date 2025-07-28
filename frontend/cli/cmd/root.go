@@ -35,6 +35,8 @@ func NewRootCmd() *cobra.Command {
 				Level: slog.LevelDebug,
 			})))
 
+			cmd.SetContext(setGlobalOptions(cmd.Context(), &options))
+
 			if requiresContext(cmd) {
 				err := setAPIClient(cmd.Context(), cmd)
 				if err != nil {

@@ -14,7 +14,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-
 type ContextManager struct {
 	fs       *afero.Afero
 	userInfo UserInfo
@@ -122,6 +121,7 @@ const (
 	ContextKeyEndpointContext ContextKey = "endpoint_context"
 	ContextKeyRuntimeInfo     ContextKey = "runtime_info"
 	ContextKeyUserInfo        ContextKey = "user_info"
+	ContextKeyGlobalOptions   ContextKey = "global_options"
 )
 
 func getAPIClient(ctx context.Context) *api.Client {
@@ -240,4 +240,15 @@ func getRenderer(ctx context.Context) OutputRenderer {
 	}
 
 	return &DefaultRenderer{}
+}
+
+func setGlobalOptions(ctx context.Context, options *globalOptions) context.Context {
+	return context.WithValue(ctx, ContextKeyGlobalOptions, options)
+}
+
+func getGlobalOptions(ctx context.Context) *globalOptions {
+	if opts, ok := ctx.Value(ContextKeyGlobalOptions).(*globalOptions); ok {
+		return opts
+	}
+	return &globalOptions{}
 }
