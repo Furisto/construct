@@ -107,6 +107,12 @@ func (m model) formatMessages() string {
 		}
 	}
 
+	if m.partialMessage != "" {
+		formatted.WriteString("\n\n")
+		formatted.WriteString(assistantBullet.String() +
+			formatMessageContent(m.partialMessage))
+	}
+
 	// f, _ := os.CreateTemp("", "construct-cli-messages.md")
 	// f.WriteString(formatted.String())
 	// f.Close()
@@ -226,11 +232,11 @@ func formatCodeInterpreterContent(code string) string {
 	md, _ := glamour.NewTermRenderer(
 		glamour.WithStandardStyle("dark"),
 	)
-	
+
 	rendered, _ := md.Render(fmt.Sprintf("```\n%s\n```", code))
 	trimmed := trimLeadingWhitespaceWithANSI(rendered)
 	trimmed = trimTrailingWhitespaceWithANSI(trimmed)
-	
+
 	// Apply the code interpreter style to each line
 	lines := strings.Split(trimmed, "\n")
 	for i, line := range lines {
@@ -238,7 +244,7 @@ func formatCodeInterpreterContent(code string) string {
 			lines[i] = codeInterpreterStyle.Render(line)
 		}
 	}
-	
+
 	// Add consistent indentation
 	return addIndentationToLines(strings.Join(lines, "\n"), "    ")
 }

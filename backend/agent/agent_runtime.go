@@ -28,10 +28,12 @@ import (
 	"github.com/furisto/construct/backend/stream"
 	"github.com/furisto/construct/backend/tool/base"
 	"github.com/furisto/construct/backend/tool/codeact"
+	"github.com/furisto/construct/shared/conv"
 	"github.com/google/uuid"
 	"github.com/grafana/sobek/ast"
 	"github.com/grafana/sobek/parser"
 	"github.com/spf13/afero"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -204,7 +206,7 @@ func (rt *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 	}
 	os.WriteFile(fmt.Sprintf("/tmp/system_prompt_%s.txt", time.Now().Format("20060102150405")), []byte(systemPrompt), 0644)
 
-	// messageID := uuid.New()
+	messageID := uuid.New()
 	message, err := modelProvider.InvokeModel(
 		ctx,
 		agent.Edges.Model.Name,
@@ -216,34 +218,34 @@ func (rt *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 				case *model.TextBlock:
 					fmt.Print(block.Text)
 
-					// rt.eventHub.Publish(taskID, &v1.SubscribeResponse{
-					// 	Message: &v1.Message{
-					// 		Metadata: &v1.MessageMetadata{
-					// 			Id:        messageID.String(),
-					// 			TaskId:    taskID.String(),
-					// 			CreatedAt: timestamppb.New(time.Now()),
-					// 			UpdatedAt: timestamppb.New(time.Now()),
-					// 			AgentId:   conv.Ptr(agent.ID.String()),
-					// 			ModelId:   conv.Ptr(agent.Edges.Model.ID.String()),
-					// 			Role:      v1.MessageRole_MESSAGE_ROLE_ASSISTANT,
-					// 		},
-					// 		Spec: &v1.MessageSpec{
-					// 			Content: []*v1.MessagePart{
-					// 				{
-					// 					Data: &v1.MessagePart_Text_{
-					// 						Text: &v1.MessagePart_Text{
-					// 							Content: block.Text,
-					// 						},
-					// 					},
-					// 				},
-					// 			},
-					// 		},
-					// 		Status: &v1.MessageStatus{
-					// 			ContentState:    v1.ContentStatus_CONTENT_STATUS_PARTIAL,
-					// 			IsFinalResponse: false,
-					// 		},
-					// 	},
-					// })
+					rt.eventHub.Publish(taskID, &v1.SubscribeResponse{
+						Message: &v1.Message{
+							Metadata: &v1.MessageMetadata{
+								Id:        messageID.String(),
+								TaskId:    taskID.String(),
+								CreatedAt: timestamppb.New(time.Now()),
+								UpdatedAt: timestamppb.New(time.Now()),
+								AgentId:   conv.Ptr(agent.ID.String()),
+								ModelId:   conv.Ptr(agent.Edges.Model.ID.String()),
+								Role:      v1.MessageRole_MESSAGE_ROLE_ASSISTANT,
+							},
+							Spec: &v1.MessageSpec{
+								Content: []*v1.MessagePart{
+									{
+										Data: &v1.MessagePart_Text_{
+											Text: &v1.MessagePart_Text{
+												Content: block.Text,
+											},
+										},
+									},
+								},
+							},
+							Status: &v1.MessageStatus{
+								ContentState:    v1.ContentStatus_CONTENT_STATUS_PARTIAL,
+								IsFinalResponse: false,
+							},
+						},
+					})
 				case *model.ToolCallBlock:
 					fmt.Println(block.Args)
 				}
