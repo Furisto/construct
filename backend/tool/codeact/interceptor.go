@@ -125,7 +125,7 @@ func (p *ToolEventPublisher) Intercept(session *Session, tool Tool, inner func(s
 			if toolResult != nil {
 				fmt.Printf("toolResult: %+v\n", toolResult)
 			}
-			p.publishToolEvent(session.TaskID, toolResult, v1.MessageRole_MESSAGE_ROLE_USER)
+			p.publishToolEvent(session.TaskID, toolResult, v1.MessageRole_MESSAGE_ROLE_SYSTEM)
 		}
 
 		return result
@@ -162,12 +162,12 @@ func convertArgumentsToProtoToolCall(tooCall Tool, arguments []sobek.Value, sess
 		ToolName: tooCall.Name(),
 	}
 
-	input, err := tooCall.Input(session, arguments)
+	in, err := tooCall.Input(session, arguments)
 	if err != nil {
 		return nil, err
 	}
 
-	switch input := input.(type) {
+	switch input := in.(type) {
 	case *filesystem.CreateFileInput:
 		toolCall.Input = &v1.ToolCall_CreateFile{
 			CreateFile: &v1.ToolCall_CreateFileInput{
@@ -251,6 +251,8 @@ func convertArgumentsToProtoToolCall(tooCall Tool, arguments []sobek.Value, sess
 				NextSteps:    input.NextSteps,
 			},
 		}
+	case *communication.PrintInput:
+		return nil, nil
 	default:
 		return nil, shared.Errorf(shared.ErrorSourceSystem, "unknown tool input type: %T", input)
 	}

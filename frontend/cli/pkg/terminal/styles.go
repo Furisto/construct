@@ -153,6 +153,14 @@ var (
 	boldStyle = lipgloss.NewStyle().
 			Bold(true)
 
+	// Code interpreter styles
+	codeInterpreterStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("252")).
+			Padding(0, 1).
+			BorderLeft(true).
+			BorderStyle(lipgloss.ThickBorder()).
+			BorderForeground(lipgloss.Color("34"))
+
 	// Help overlay styles
 	helpOverlayStyle = lipgloss.NewStyle().
 				BorderStyle(lipgloss.RoundedBorder()).

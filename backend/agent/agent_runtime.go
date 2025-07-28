@@ -279,29 +279,19 @@ func (rt *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 	}
 
 	if len(toolResults) > 0 {
-		_, err := rt.saveToolResults(ctx, taskID, toolResults)
+		toolMessage, err := rt.saveToolResults(ctx, taskID, toolResults)
 		if err != nil {
 			return err
 		}
 
-		// protoToolResults, err := ConvertToolResultsToProto(toolResults)
-		// if err != nil {
-		// 	return err
-		// }
+		protoToolResults, err := ConvertMemoryMessageToProto(toolMessage)
+		if err != nil {
+			return err
+		}
 
-		// rt.eventHub.Publish(taskID, &v1.SubscribeResponse{
-		// 	Message: &v1.Message{
-		// 		Metadata: &v1.MessageMetadata{
-		// 			Id:        toolMessage.ID.String(),
-		// 			TaskId:    taskID.String(),
-		// 			CreatedAt: timestamppb.New(toolMessage.CreateTime),
-		// 			UpdatedAt: timestamppb.New(toolMessage.UpdateTime),
-		// 		},
-		// 		Spec: &v1.MessageSpec{
-		// 			Content: protoToolResults,
-		// 		},
-		// 	},
-		// })
+		rt.eventHub.Publish(taskID, &v1.SubscribeResponse{
+			Message: protoToolResults,
+		})
 	}
 
 	_, err = rt.memory.Task.UpdateOneID(taskID).AddTurns(1).Save(ctx)
@@ -350,6 +340,7 @@ func (rt *Runtime) saveToolResults(ctx context.Context, taskID uuid.UUID, toolRe
 		SetContent(&types.MessageContent{
 			Blocks: toolBlocks,
 		}).
+		SetProcessedTime(time.Now()).
 		Save(ctx)
 }
 

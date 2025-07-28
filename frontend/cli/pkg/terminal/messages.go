@@ -217,7 +217,19 @@ func (m *submitReportToolCall) Timestamp() time.Time {
 	return m.timestamp
 }
 
+type codeInterpreterToolCall struct {
+	ID        string
+	Input     *v1.ToolCall_CodeInterpreterInput
+	timestamp time.Time
+}
 
+func (m *codeInterpreterToolCall) Type() messageType {
+	return MessageTypeAssistantTool
+}
+
+func (m *codeInterpreterToolCall) Timestamp() time.Time {
+	return m.timestamp
+}
 
 // TOOL RESULT MESSAGES
 type createFileResult struct {
@@ -329,5 +341,19 @@ func (m *submitReportResult) Type() messageType {
 }
 
 func (m *submitReportResult) Timestamp() time.Time {
+	return m.timestamp
+}
+
+type codeInterpreterResult struct {
+	ID        string
+	Result    *v1.ToolResult_CodeInterpreterResult
+	timestamp time.Time
+}
+
+func (m *codeInterpreterResult) Type() messageType {
+	return MessageTypeAssistantTool
+}
+
+func (m *codeInterpreterResult) Timestamp() time.Time {
 	return m.timestamp
 }

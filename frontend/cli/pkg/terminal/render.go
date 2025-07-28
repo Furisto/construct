@@ -276,7 +276,7 @@ func (m *model) sendMessage(userInput string) tea.Cmd {
 }
 
 func (m *model) processMessage(msg *v1.Message) {
-	if msg.Metadata.Role == v1.MessageRole_MESSAGE_ROLE_ASSISTANT {
+	if msg.Metadata.Role == v1.MessageRole_MESSAGE_ROLE_ASSISTANT || msg.Metadata.Role == v1.MessageRole_MESSAGE_ROLE_SYSTEM {
 		m.waitingForAgent = false
 
 		for _, part := range msg.Spec.Content {
@@ -442,6 +442,7 @@ func (m *model) renderHeader() string {
 
 func (m *model) updateViewportContent() {
 	m.viewport.SetContent(m.formatMessages())
+	m.viewport.GotoBottom()
 }
 
 func (m *model) getAgentModelInfo(agent *v1.Agent) (string, int64, error) {
@@ -585,6 +586,12 @@ func (m *model) createToolCallMessage(toolCall *v1.ToolCall, timestamp time.Time
 			Input:     toolInput.SubmitReport,
 			timestamp: timestamp,
 		}
+	case *v1.ToolCall_CodeInterpreter:
+		return &codeInterpreterToolCall{
+			ID:        toolCall.Id,
+			Input:     toolInput.CodeInterpreter,
+			timestamp: timestamp,
+		}
 	}
 
 	return nil
@@ -638,6 +645,12 @@ func (m *model) createToolResultMessage(toolResult *v1.ToolResult, timestamp tim
 		return &submitReportResult{
 			ID:        toolResult.Id,
 			Result:    toolOutput.SubmitReport,
+			timestamp: timestamp,
+		}
+	case *v1.ToolResult_CodeInterpreter:
+		return &codeInterpreterResult{
+			ID:        toolResult.Id,
+			Result:    toolOutput.CodeInterpreter,
 			timestamp: timestamp,
 		}
 	default:

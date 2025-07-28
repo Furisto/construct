@@ -21,38 +21,8 @@ func (m model) formatMessages() string {
 			formatted.WriteString(userPromptStyle.String() + msg.content)
 
 		case *assistantTextMessage:
-			// Add diamond bullet and indent for assistant messages
 			formatted.WriteString(assistantBullet.String() +
 				formatMessageContent(msg.content))
-			// lines := strings.Split(content, "\n")
-			// for i, line := range lines {
-			// 	if i > 0 {
-			// 		formatted.WriteString("\n")
-			// 	}
-			// 	if i == 0 {
-			// 		formatted.WriteString("  " + assistantBullet.String() + line)
-			// 	} else {
-			// 		formatted.WriteString("    " + line) // 4-space indent for continuation lines
-			// 	}
-			// }
-
-		// case *assistantToolMessage:
-		// 	toolName := getToolNameString(msg.toolName)
-		// 	formatted.WriteString(blueBullet.String() +
-		// 		toolCallStyle.Render(fmt.Sprintf("Tool: %s", toolName)) + "\n")
-
-		// 	if len(msg.arguments) > 0 {
-		// 		formatted.WriteString("  Arguments:\n")
-		// 		for key, value := range msg.arguments {
-		// 			formatted.WriteString(fmt.Sprintf("    %s: %s\n",
-		// 				boldStyle.Render(key),
-		// 				toolArgsStyle.Render(value)))
-		// 		}
-		// 	}
-
-		// 	if msg.error != "" {
-		// 		formatted.WriteString("  " + errorStyle.Render("Error: ") + msg.error + "\n")
-		// 	}
 
 		case *readFileToolCall:
 			formatted.WriteString("  " + toolCallBullet.String())
@@ -119,6 +89,18 @@ func (m model) formatMessages() string {
 			}
 			formatted.WriteString("  " + toolCallBullet.String())
 			formatted.WriteString(toolCallStyle.Render(fmt.Sprintf("%s(%s)", boldStyle.Render(listType), pathInfo)))
+
+		case *codeInterpreterToolCall:
+			formatted.WriteString("  " + toolCallBullet.String())
+			formatted.WriteString(toolCallStyle.Render(fmt.Sprintf("%s(%s)", boldStyle.Render("Interpreter"), "Script")))
+			formatted.WriteString("\n")
+			formatted.WriteString(formatCodeInterpreterContent(msg.Input.Code))
+
+		case *codeInterpreterResult:
+			formatted.WriteString("  " + toolCallBullet.String())
+			formatted.WriteString(toolCallStyle.Render(fmt.Sprintf("%s(%s)", boldStyle.Render("Interpreter"), "Output")))
+			formatted.WriteString("\n")
+			formatted.WriteString(formatCodeInterpreterContent(msg.Result.Output))
 
 		case *errorMessage:
 			formatted.WriteString(errorStyle.Render("❌ Error: ") + msg.content)
@@ -227,4 +209,36 @@ func Min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func addIndentationToLines(content, indentation string) string {
+	lines := strings.Split(content, "\n")
+	for i, line := range lines {
+		if strings.TrimSpace(line) != "" { // Only indent non-empty lines
+			lines[i] = indentation + line
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+func formatCodeInterpreterContent(code string) string {
+	// Process the code through markdown rendering
+	md, _ := glamour.NewTermRenderer(
+		glamour.WithStandardStyle("dark"),
+	)
+	
+	rendered, _ := md.Render(fmt.Sprintf("```\n%s\n```", code))
+	trimmed := trimLeadingWhitespaceWithANSI(rendered)
+	trimmed = trimTrailingWhitespaceWithANSI(trimmed)
+	
+	// Apply the code interpreter style to each line
+	lines := strings.Split(trimmed, "\n")
+	for i, line := range lines {
+		if strings.TrimSpace(line) != "" {
+			lines[i] = codeInterpreterStyle.Render(line)
+		}
+	}
+	
+	// Add consistent indentation
+	return addIndentationToLines(strings.Join(lines, "\n"), "    ")
 }

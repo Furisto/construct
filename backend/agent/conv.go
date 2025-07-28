@@ -8,6 +8,7 @@ import (
 	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/memory/schema/types"
 	"github.com/furisto/construct/backend/model"
+	"github.com/furisto/construct/backend/tool/codeact"
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -97,8 +98,10 @@ func ConvertMemoryMessageToProto(m *memory.Message) (*v1.Message, error) {
 		role = v1.MessageRole_MESSAGE_ROLE_USER
 	case types.MessageSourceAssistant:
 		role = v1.MessageRole_MESSAGE_ROLE_ASSISTANT
+	case types.MessageSourceSystem:
+		role = v1.MessageRole_MESSAGE_ROLE_SYSTEM
 	default:
-		role = v1.MessageRole_MESSAGE_ROLE_UNSPECIFIED
+		return nil, fmt.Errorf("unknown message source: %s", m.Source)
 	}
 
 	var contentParts []*v1.MessagePart
@@ -109,6 +112,32 @@ func ConvertMemoryMessageToProto(m *memory.Message) (*v1.Message, error) {
 				Data: &v1.MessagePart_Text_{
 					Text: &v1.MessagePart_Text{
 						Content: block.Payload,
+					},
+				},
+			})
+
+		case types.MessageBlockKindCodeInterpreterCall:
+			var toolCall model.ToolCallBlock
+			err := json.Unmarshal([]byte(block.Payload), &toolCall)
+			if err != nil {
+				return nil, fmt.Errorf("failed to unmarshal code interpreter call block: %w", err)
+			}
+
+			var interpreterArgs codeact.InterpreterArgs
+			err = json.Unmarshal(toolCall.Args, &interpreterArgs)
+			if err != nil {
+				return nil, fmt.Errorf("failed to unmarshal code interpreter args: %w", err)
+			}
+
+			contentParts = append(contentParts, &v1.MessagePart{
+				Data: &v1.MessagePart_ToolCall{
+					ToolCall: &v1.ToolCall{
+						ToolName: toolCall.Tool,
+						Input: &v1.ToolCall_CodeInterpreter{
+							CodeInterpreter: &v1.ToolCall_CodeInterpreterInput{
+								Code: interpreterArgs.Script,
+							},
+						},
 					},
 				},
 			})
@@ -213,19 +242,27 @@ func ConvertModelContentBlocksToMemory(blocks []model.ContentBlock) (*types.Mess
 			if err != nil {
 				return nil, fmt.Errorf("failed to marshal tool call block: %w", err)
 			}
+			kind := types.MessageBlockKindNativeToolCall
+			if b.Tool == "code_interpreter" {
+				kind = types.MessageBlockKindCodeInterpreterCall
+			}
 			messageBlocks = append(messageBlocks, types.MessageBlock{
-				Kind:    types.MessageBlockKindNativeToolCall,
+				Kind:    kind,
 				Payload: string(payload),
 			})
-		// case *model.ToolResultBlock:
-		// 	payload, err := json.Marshal(b)
-		// 	if err != nil {
-		// 		return nil, fmt.Errorf("failed to marshal tool result block: %w", err)
-		// 	}
-		// 	messageBlocks = append(messageBlocks, types.MessageBlock{
-		// 		Kind:    types.MessageBlockKindNativeToolResult,
-		// 		Payload: string(payload),
-		// 	})
+		case *model.ToolResultBlock:
+			payload, err := json.Marshal(b)
+			if err != nil {
+				return nil, fmt.Errorf("failed to marshal tool result block: %w", err)
+			}
+			kind := types.MessageBlockKindNativeToolResult
+			if b.Name == "code_interpreter" {
+				kind = types.MessageBlockKindCodeInterpreterResult
+			}
+			messageBlocks = append(messageBlocks, types.MessageBlock{
+				Kind:    kind,
+				Payload: string(payload),
+			})
 		default:
 			return nil, fmt.Errorf("unknown content block type: %T", block)
 		}
