@@ -55,6 +55,12 @@ Example output if the file was overwritten:
 - Generating code: When creating boilerplate code, templates, or scaffolding for a project
 - Saving computation results: When you need to persist data, logs, or computation results to disk
 - Building project structure: When setting up initial project organization or adding new components
+- An existing file is corrupted or fundamentally broken
+
+## AVOID create_file when:
+- **The file already exists** - use edit_file instead
+- **Making modifications to existing functionality** - use edit_file instead
+- **The change affects only part of a file** - use edit_file instead
 
 ## Usage examples
 
