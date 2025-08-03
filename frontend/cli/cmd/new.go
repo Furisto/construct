@@ -39,6 +39,18 @@ Examples:
   # Sandbox another directory
   construct new --workspace /workspace/repo/hello/world`,
 		GroupID: "core",
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			userInfo := getUserInfo(cmd.Context())
+
+			if options.workspace == "" {
+				workspace, err := userInfo.Cwd()
+				if err != nil {
+					return err
+				}
+				options.workspace = workspace
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			apiClient := getAPIClient(cmd.Context())
 			verbose := getGlobalOptions(cmd.Context()).Verbose
@@ -71,8 +83,9 @@ func handleNewCommand(ctx context.Context, apiClient *api.Client, options *newOp
 	agent := agentResp.Msg.Agent
 	resp, err := apiClient.Task().CreateTask(ctx, &connect.Request[v1.CreateTaskRequest]{
 		Msg: &v1.CreateTaskRequest{
-			AgentId:     agent.Metadata.Id,
-			Description: "Build a Go-based coding agent with Anthropic and OpenAI API integration",
+			AgentId:          agent.Metadata.Id,
+			Description:      "Build a Go-based coding agent with Anthropic and OpenAI API integration",
+			ProjectDirectory: options.workspace,
 		},
 	})
 

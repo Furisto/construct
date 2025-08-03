@@ -156,6 +156,7 @@ type UserInfo interface {
 	UserID() string
 	HomeDir() (string, error)
 	ConstructDir() (string, error)
+	Cwd() (string, error)
 }
 
 type DefaultCommandRunner struct{}
@@ -204,6 +205,10 @@ func (u *DefaultUserInfo) ConstructDir() (string, error) {
 	}
 
 	return constructDir, nil
+}
+
+func (u *DefaultUserInfo) Cwd() (string, error) {
+	return os.Getwd()
 }
 
 func getCommandRunner(ctx context.Context) CommandRunner {
