@@ -57,25 +57,6 @@ func (e ValidationError) Error() string {
 	return e.Field + ": " + e.Message
 }
 
-// ToolResult represents the standardized result format for tool operations
-type ToolResult struct {
-	Success bool        `json:"success"`
-	Data    interface{} `json:"data,omitempty"`
-	Error   string      `json:"error,omitempty"`
-}
-
-// NewSuccessResult creates a successful tool result
-func NewSuccessResult(data interface{}) *ToolResult {
-	return &ToolResult{
-		Success: true,
-		Data:    data,
-	}
-}
-
-// NewErrorResult creates an error tool result
-func NewErrorResult(err error) *ToolResult {
-	return &ToolResult{
-		Success: false,
-		Error:   err.Error(),
-	}
+type ToolResult interface {
+	Kind() string
 }

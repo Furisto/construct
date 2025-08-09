@@ -3,39 +3,68 @@ package terminal
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	v1 "github.com/furisto/construct/api/go/v1"
 )
 
+const idWidth = 36
+const createdAtWidth = 16
+const updatedAtWidth = 16
+const workspaceWidth = 50
+const summaryWidth = 50
+
 type SelectableTable struct {
-	title       string
-	headers     []string
-	rows        []TableRow
-	selected    int
-	width       int
-	height      int
-	cancelled   bool
-	headerStyle lipgloss.Style
-	rowStyle    lipgloss.Style
+	title         string
+	headers       []string
+	rows          []TableRow
+	selected      int
+	width         int
+	height        int
+	cancelled     bool
+	headerStyle   lipgloss.Style
+	rowStyle      lipgloss.Style
 	selectedStyle lipgloss.Style
 }
 
 type TableRow struct {
-	Data []string
-	Task *v1.Task
+	ID          string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	Workspace   string
+	Description string
+	Task        *v1.Task
+}
+
+func (t *TableRow) Init() tea.Cmd {
+	return nil
+}
+
+func (t *TableRow) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	return t, nil
+}
+
+func (t *TableRow) View() string {
+	return fmt.Sprintf("%s  %s  %s  %s  %s",
+		t.ID,
+		t.CreatedAt.Format("2006-01-02 15:04"),
+		t.UpdatedAt.Format("2006-01-02 15:04"),
+		truncate(t.Workspace, workspaceWidth),
+		truncate(t.Description, summaryWidth),
+	)
 }
 
 func NewSelectableTable(title string, headers []string, rows []TableRow) *SelectableTable {
 	return &SelectableTable{
-		title:       title,
-		headers:     headers,
-		rows:        rows,
-		selected:    0,
-		width:       80,
-		height:      20,
-		cancelled:   false,
+		title:     title,
+		headers:   headers,
+		rows:      rows,
+		selected:  0,
+		width:     80,
+		height:    20,
+		cancelled: false,
 		headerStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("39")).
 			Bold(true).
@@ -118,8 +147,13 @@ func (t *SelectableTable) View() string {
 	lines = append(lines, header)
 	lines = append(lines, strings.Repeat("─", t.width-4))
 
-	for i, row := range t.rows {
-		rowStr := t.renderRow(i, row)
+	for index, row := range t.rows {
+		rowStr := row.View()
+		if index == t.selected {
+			rowStr = t.selectedStyle.Render(rowStr)
+		} else {
+			rowStr = t.rowStyle.Render(rowStr)
+		}
 		lines = append(lines, rowStr)
 	}
 
@@ -130,49 +164,14 @@ func (t *SelectableTable) View() string {
 }
 
 func (t *SelectableTable) renderHeader() string {
-	const idWidth = 36
-	const agentIdWidth = 36
-	const workspaceWidth = 50
-
-	header := fmt.Sprintf("%-*s  %-*s  %-*s",
-		idWidth, t.headers[0],
-		agentIdWidth, t.headers[1], 
-		workspaceWidth, t.headers[2])
+	header := fmt.Sprintf("%-*s  %-*s  %-*s  %-*s  %-*s",
+		idWidth, "ID",
+		createdAtWidth, "Created",
+		updatedAtWidth, "Updated",
+		workspaceWidth, "Workspace",
+		summaryWidth, "Summary")
 
 	return t.headerStyle.Render(header)
-}
-
-func (t *SelectableTable) renderRow(index int, row TableRow) string {
-	const idWidth = 36
-	const agentIdWidth = 36
-	const workspaceWidth = 50
-
-	taskID := row.Data[0]
-	if len(taskID) > idWidth {
-		taskID = taskID[:idWidth-3] + "..."
-	}
-
-	agentID := row.Data[1]
-	if len(agentID) > agentIdWidth {
-		agentID = agentID[:agentIdWidth-3] + "..."
-	}
-
-	workspace := row.Data[2]
-	if len(workspace) > workspaceWidth {
-		workspace = "..." + workspace[len(workspace)-(workspaceWidth-3):]
-	}
-
-	rowStr := fmt.Sprintf("%-*s  %-*s  %-*s",
-		idWidth, taskID,
-		agentIdWidth, agentID,
-		workspaceWidth, workspace)
-
-	style := t.rowStyle
-	if index == t.selected {
-		style = t.selectedStyle
-	}
-
-	return style.Render(rowStr)
 }
 
 func (t *SelectableTable) GetSelectedTask() *v1.Task {
@@ -198,4 +197,11 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func truncate(s string, max int) string {
+	if len(s) > max {
+		return s[:max-3] + "..."
+	}
+	return s
 }

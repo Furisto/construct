@@ -24,24 +24,24 @@ type message interface {
 }
 
 // TEXT MESSAGES
-type userMessage struct {
+type userTextMessage struct {
 	content   string
 	timestamp time.Time
 }
 
-func (m *userMessage) Type() messageType {
+func (m *userTextMessage) Type() messageType {
 	return MessageTypeUser
 }
 
-func (m *userMessage) Timestamp() time.Time {
+func (m *userTextMessage) Timestamp() time.Time {
 	return m.timestamp
 }
 
-func (m *userMessage) Render(writer io.Writer) string {
+func (m *userTextMessage) Render(writer io.Writer) string {
 	return m.content
 }
 
-var _ message = (*userMessage)(nil)
+var _ message = (*userTextMessage)(nil)
 
 type assistantTextMessage struct {
 	content   string
@@ -74,7 +74,6 @@ func (m *errorMessage) Type() messageType {
 func (m *errorMessage) Timestamp() time.Time {
 	return m.timestamp
 }
-
 
 // TOOL CALL MESSAGES
 type createFileToolCall struct {

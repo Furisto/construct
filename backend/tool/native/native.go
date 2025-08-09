@@ -76,3 +76,13 @@ func NewTool[T any](name, description, category string, handler ToolHandler[T], 
 
 	return nil
 }
+
+type NativeToolResult struct {
+	ID     string `json:"id"`
+	Output string `json:"output"`
+	Error  error  `json:"error"`
+}
+
+func (r *NativeToolResult) Kind() string {
+	return "native"
+}

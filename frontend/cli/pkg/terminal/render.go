@@ -233,7 +233,7 @@ func (m *model) onMessageSend(_ tea.KeyMsg) tea.Cmd {
 		userInput := strings.TrimSpace(m.input.Value())
 		m.input.Reset()
 
-		m.messages = append(m.messages, &userMessage{
+		m.messages = append(m.messages, &userTextMessage{
 			content:   userInput,
 			timestamp: time.Now(),
 		})
@@ -278,26 +278,31 @@ func (m *model) sendMessage(userInput string) tea.Cmd {
 }
 
 func (m *model) processMessage(msg *v1.Message) {
-	if msg.Metadata.Role == v1.MessageRole_MESSAGE_ROLE_ASSISTANT || msg.Metadata.Role == v1.MessageRole_MESSAGE_ROLE_SYSTEM {
-		m.waitingForAgent = false
+	m.waitingForAgent = false
 
-		for _, part := range msg.Spec.Content {
-			switch data := part.Data.(type) {
-			case *v1.MessagePart_Text_:
-				if msg.Status.ContentState == v1.ContentStatus_CONTENT_STATUS_PARTIAL {
-					m.partialMessage += data.Text.Content
-				} else if msg.Status.ContentState == v1.ContentStatus_CONTENT_STATUS_COMPLETE {
+	for _, part := range msg.Spec.Content {
+		switch data := part.Data.(type) {
+		case *v1.MessagePart_Text_:
+			if msg.Status.ContentState == v1.ContentStatus_CONTENT_STATUS_PARTIAL {
+				m.partialMessage += data.Text.Content
+			} else {
+				if msg.Metadata.Role == v1.MessageRole_MESSAGE_ROLE_ASSISTANT {
 					m.messages = append(m.messages, &assistantTextMessage{
 						content:   data.Text.Content,
 						timestamp: msg.Metadata.CreatedAt.AsTime(),
 					})
-					m.partialMessage = ""
+				} else {
+					m.messages = append(m.messages, &userTextMessage{
+						content:   data.Text.Content,
+						timestamp: msg.Metadata.CreatedAt.AsTime(),
+					})
 				}
-			case *v1.MessagePart_ToolCall:
-				m.messages = append(m.messages, m.createToolCallMessage(data.ToolCall, msg.Metadata.CreatedAt.AsTime()))
-			case *v1.MessagePart_ToolResult:
-				m.messages = append(m.messages, m.createToolResultMessage(data.ToolResult, msg.Metadata.CreatedAt.AsTime()))
+				m.partialMessage = ""
 			}
+		case *v1.MessagePart_ToolCall:
+			m.messages = append(m.messages, m.createToolCallMessage(data.ToolCall, msg.Metadata.CreatedAt.AsTime()))
+		case *v1.MessagePart_ToolResult:
+			m.messages = append(m.messages, m.createToolResultMessage(data.ToolResult, msg.Metadata.CreatedAt.AsTime()))
 		}
 	}
 

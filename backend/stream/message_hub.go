@@ -9,9 +9,9 @@ import (
 	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/memory/message"
 	"github.com/furisto/construct/backend/memory/schema/types"
+	"github.com/furisto/construct/shared/conv"
 	"github.com/google/uuid"
 	"github.com/maypok86/otter"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type subscription struct {
@@ -93,7 +93,7 @@ func (h *EventHub) Subscribe(ctx context.Context, taskID uuid.UUID) iter.Seq2[*v
 	return func(yield func(*v1.SubscribeResponse, error) bool) {
 		defer unsubscribe()
 
-		messages, err := h.memory.Message.Query().Where(message.TaskIDEQ(taskID)).Order(message.ByProcessedTime()).All(ctx)
+		messages, err := h.memory.Message.Query().Where(message.TaskIDEQ(taskID), message.ProcessedTimeNotNil()).Order(message.ByProcessedTime(), memory.Asc()).All(ctx)
 		if err != nil {
 			if !yield(nil, err) {
 				return
@@ -101,7 +101,7 @@ func (h *EventHub) Subscribe(ctx context.Context, taskID uuid.UUID) iter.Seq2[*v
 		}
 
 		for _, m := range messages {
-			protoMessage, err := ConvertMemoryMessageToProto(m)
+			protoMessage, err := conv.ConvertMemoryMessageToProto(m)
 			if err != nil {
 				if !yield(nil, err) {
 					return
@@ -125,59 +125,4 @@ func (h *EventHub) Subscribe(ctx context.Context, taskID uuid.UUID) iter.Seq2[*v
 			}
 		}
 	}
-}
-
-func ConvertMemoryMessageToProto(m *memory.Message) (*v1.Message, error) {
-	var role v1.MessageRole
-	switch m.Source {
-	case types.MessageSourceUser:
-		role = v1.MessageRole_MESSAGE_ROLE_USER
-	case types.MessageSourceAssistant:
-		role = v1.MessageRole_MESSAGE_ROLE_ASSISTANT
-	default:
-		role = v1.MessageRole_MESSAGE_ROLE_UNSPECIFIED
-	}
-
-	text := ""
-	for _, block := range m.Content.Blocks {
-		if block.Kind == types.MessageBlockKindText {
-			text = block.Payload
-			break
-		}
-	}
-
-	messageUsage := &v1.MessageUsage{}
-	if m.Usage != nil {
-		messageUsage = &v1.MessageUsage{
-			InputTokens:      m.Usage.InputTokens,
-			OutputTokens:     m.Usage.OutputTokens,
-			CacheWriteTokens: m.Usage.CacheWriteTokens,
-		}
-	}
-
-	return &v1.Message{
-		Metadata: &v1.MessageMetadata{
-			Id:        m.ID.String(),
-			CreatedAt: timestamppb.New(m.CreateTime),
-			UpdatedAt: timestamppb.New(m.UpdateTime),
-			TaskId:    m.TaskID.String(),
-			AgentId:   func() *string { if m.AgentID != uuid.Nil { s := m.AgentID.String(); return &s }; return nil }(),
-			ModelId:   func() *string { if m.ModelID != uuid.Nil { s := m.ModelID.String(); return &s }; return nil }(),
-			Role:      role,
-		},
-		Spec: &v1.MessageSpec{
-			Content: []*v1.MessagePart{
-				{
-					Data: &v1.MessagePart_Text_{
-						Text: &v1.MessagePart_Text{
-							Content: text,
-						},
-					},
-				},
-			},
-		},
-		Status: &v1.MessageStatus{
-			Usage: messageUsage,
-		},
-	}, nil
 }

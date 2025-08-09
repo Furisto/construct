@@ -89,7 +89,7 @@ func NewHandler(opts HandlerOptions) *Handler {
 	agentHandler := NewAgentHandler(opts.DB)
 	handler.mux.Handle(v1connect.NewAgentServiceHandler(agentHandler, opts.RequestOptions...))
 
-	taskHandler := NewTaskHandler(opts.DB, opts.MessageHub)
+	taskHandler := NewTaskHandler(opts.DB, opts.MessageHub, opts.AgentRuntime)
 	handler.mux.Handle(v1connect.NewTaskServiceHandler(taskHandler, opts.RequestOptions...))
 
 	messageHandler := NewMessageHandler(opts.DB, opts.AgentRuntime, opts.MessageHub)

@@ -15,20 +15,23 @@ import (
 	"github.com/furisto/construct/backend/memory/task"
 	"github.com/furisto/construct/backend/stream"
 	"github.com/google/uuid"
+
 )
 
 var _ v1connect.TaskServiceHandler = (*TaskHandler)(nil)
 
-func NewTaskHandler(db *memory.Client, eventHub *stream.EventHub) *TaskHandler {
+func NewTaskHandler(db *memory.Client, eventHub *stream.EventHub, runtime AgentRuntime) *TaskHandler {
 	return &TaskHandler{
 		db:       db,
 		eventHub: eventHub,
+		runtime:  runtime,
 	}
 }
 
 type TaskHandler struct {
 	db       *memory.Client
 	eventHub *stream.EventHub
+	runtime  AgentRuntime
 	v1connect.UnimplementedTaskServiceHandler
 }
 
@@ -215,6 +218,8 @@ func (h *TaskHandler) Subscribe(ctx context.Context, req *connect.Request[v1.Sub
 	if err != nil {
 		return apiError(err)
 	}
+
+	h.runtime.TriggerReconciliation(taskID)
 
 	for response, err := range h.eventHub.Subscribe(ctx, taskID) {
 		if err != nil {

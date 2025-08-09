@@ -132,19 +132,22 @@ func showTaskPicker(ctx context.Context, apiClient *api.Client, options *resumeO
 		return fmt.Errorf("no tasks found")
 	}
 
-	headers := []string{"ID", "Agent ID", "Workspace"}
+	headers := []string{"ID", "Created", "Updated", "Workspace"}
 	var tableRows []terminal.TableRow
 
 	for _, task := range resp.Msg.Tasks {
-		agentID := PtrToString(task.Spec.AgentId)
 		workspace := task.Spec.Workspace
 		if workspace == "" {
-			workspace = "."
+			workspace = "unspecified"
 		}
 
 		tableRows = append(tableRows, terminal.TableRow{
-			Data: []string{task.Metadata.Id, agentID, workspace},
-			Task: task,
+			ID:          task.Metadata.Id,
+			CreatedAt:   task.Metadata.CreatedAt.AsTime(),
+			UpdatedAt:   task.Metadata.UpdatedAt.AsTime(),
+			Workspace:   workspace,
+			Description: task.Spec.Description,
+			Task:        task,
 		})
 	}
 
@@ -252,4 +255,3 @@ func startInteractiveSession(ctx context.Context, apiClient *api.Client, task *v
 
 	return nil
 }
-

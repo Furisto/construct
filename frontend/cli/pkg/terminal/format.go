@@ -17,7 +17,7 @@ func (m model) formatMessages() string {
 		}
 
 		switch msg := msg.(type) {
-		case *userMessage:
+		case *userTextMessage:
 			formatted.WriteString(userPromptStyle.String() + msg.content)
 
 		case *assistantTextMessage:

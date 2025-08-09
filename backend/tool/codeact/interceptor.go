@@ -5,7 +5,6 @@ import (
 	"time"
 
 	v1 "github.com/furisto/construct/api/go/v1"
-	"github.com/furisto/construct/backend/stream"
 	"github.com/furisto/construct/backend/tool/base"
 	"github.com/furisto/construct/backend/tool/communication"
 	"github.com/furisto/construct/backend/tool/filesystem"
@@ -15,6 +14,10 @@ import (
 	"github.com/grafana/sobek"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+type EventHub interface {
+	Publish(taskID uuid.UUID, message *v1.SubscribeResponse)
+}
 
 type Interceptor interface {
 	Intercept(session *Session, tool Tool, inner func(sobek.FunctionCall) sobek.Value) func(sobek.FunctionCall) sobek.Value
@@ -229,10 +232,10 @@ func ResetTemporarySessionValuesInterceptor(session *Session, tool Tool, inner f
 }
 
 type ToolEventPublisher struct {
-	EventHub *stream.EventHub
+	EventHub EventHub
 }
 
-func NewToolEventPublisher(eventHub *stream.EventHub) *ToolEventPublisher {
+func NewToolEventPublisher(eventHub EventHub) *ToolEventPublisher {
 	return &ToolEventPublisher{
 		EventHub: eventHub,
 	}

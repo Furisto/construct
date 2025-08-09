@@ -28,6 +28,7 @@ import (
 	"github.com/furisto/construct/backend/stream"
 	"github.com/furisto/construct/backend/tool/base"
 	"github.com/furisto/construct/backend/tool/codeact"
+	"github.com/furisto/construct/backend/tool/native"
 	"github.com/furisto/construct/shared/conv"
 	"github.com/google/uuid"
 	"github.com/spf13/afero"
@@ -203,7 +204,6 @@ func (rt *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 	if err != nil {
 		return err
 	}
-	os.WriteFile(fmt.Sprintf("/tmp/system_prompt_%s.txt", time.Now().Format("20060102150405")), []byte(systemPrompt), 0644)
 
 	messageID := uuid.New()
 	message, err := modelProvider.InvokeModel(
@@ -274,7 +274,7 @@ func (rt *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 
 	toolResults, toolStats, err := rt.callTools(ctx, taskID, message.Content)
 	if err != nil {
-		return err
+		slog.Error("failed to call tools", "error", err)
 	}
 
 	if len(toolResults) > 0 {
@@ -303,7 +303,7 @@ func (rt *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 	return nil
 }
 
-func (rt *Runtime) saveToolResults(ctx context.Context, taskID uuid.UUID, toolResults []ToolResult) (*memory.Message, error) {
+func (rt *Runtime) saveToolResults(ctx context.Context, taskID uuid.UUID, toolResults []base.ToolResult) (*memory.Message, error) {
 	if len(toolResults) > 0 {
 		jsonResults, err := json.MarshalIndent(toolResults, "", "  ")
 		if err == nil {
@@ -318,12 +318,12 @@ func (rt *Runtime) saveToolResults(ctx context.Context, taskID uuid.UUID, toolRe
 			return nil, err
 		}
 		switch result := result.(type) {
-		case *InterpreterToolResult:
+		case *codeact.InterpreterToolResult:
 			toolBlocks = append(toolBlocks, types.MessageBlock{
 				Kind:    types.MessageBlockKindCodeInterpreterResult,
 				Payload: string(jsonResult),
 			})
-		case *NativeToolResult:
+		case *native.NativeToolResult:
 			toolBlocks = append(toolBlocks, types.MessageBlock{
 				Kind:    types.MessageBlockKindNativeToolResult,
 				Payload: string(jsonResult),
@@ -535,8 +535,8 @@ func (rt *Runtime) saveResponse(ctx context.Context, taskID uuid.UUID, processed
 	return newMessage, nil
 }
 
-func (rt *Runtime) callTools(ctx context.Context, taskID uuid.UUID, content []model.ContentBlock) ([]ToolResult, map[string]int64, error) {
-	var toolResults []ToolResult
+func (rt *Runtime) callTools(ctx context.Context, taskID uuid.UUID, content []model.ContentBlock) ([]base.ToolResult, map[string]int64, error) {
+	var toolResults []base.ToolResult
 	toolStats := make(map[string]int64)
 
 	for _, block := range content {
@@ -547,18 +547,13 @@ func (rt *Runtime) callTools(ctx context.Context, taskID uuid.UUID, content []mo
 
 		switch toolCall.Tool {
 		case base.ToolNameCodeInterpreter:
-
 			os.WriteFile("/tmp/tool_call.json", []byte(toolCall.Args), 0644)
 			result, err := rt.interpreter.Interpret(ctx, afero.NewOsFs(), toolCall.Args, taskID)
-			if err != nil {
-				return nil, nil, err
-			}
-
-			toolResults = append(toolResults, &InterpreterToolResult{
+			toolResults = append(toolResults, &codeact.InterpreterToolResult{
 				ID:            toolCall.ID,
 				Output:        result.ConsoleOutput,
 				FunctionCalls: result.FunctionCalls,
-				Error:         err,
+				Error:         conv.ErrorToString(err),
 			})
 
 			for tool, count := range result.ToolStats {

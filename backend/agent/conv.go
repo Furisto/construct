@@ -74,7 +74,7 @@ func ConvertMemoryMessageBlocksToModel(blocks []types.MessageBlock) ([]model.Con
 			contentBlocks = append(contentBlocks, &toolCall)
 
 		case types.MessageBlockKindCodeInterpreterResult:
-			var interpreterResult InterpreterToolResult
+			var interpreterResult codeact.InterpreterToolResult
 			err := json.Unmarshal([]byte(block.Payload), &interpreterResult)
 			if err != nil {
 				return nil, fmt.Errorf("failed to unmarshal code interpreter result block: %w", err)
@@ -83,7 +83,7 @@ func ConvertMemoryMessageBlocksToModel(blocks []types.MessageBlock) ([]model.Con
 				ID:        interpreterResult.ID,
 				Name:      "code_interpreter",
 				Result:    interpreterResult.Output,
-				Succeeded: interpreterResult.Error == nil,
+				Succeeded: interpreterResult.Error == "",
 			})
 		default:
 			return nil, fmt.Errorf("unknown message block kind: %s", block.Kind)
@@ -144,7 +144,7 @@ func ConvertMemoryMessageToProto(m *memory.Message) (*v1.Message, error) {
 				},
 			})
 		case types.MessageBlockKindCodeInterpreterResult:
-			var interpreterResult InterpreterToolResult
+			var interpreterResult codeact.InterpreterToolResult
 			err := json.Unmarshal([]byte(block.Payload), &interpreterResult)
 			if err != nil {
 				return nil, fmt.Errorf("failed to unmarshal code interpreter result: %w", err)
