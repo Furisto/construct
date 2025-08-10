@@ -168,6 +168,12 @@ message ListTasksRequest {
 
     // prefix filters tasks by the prefix of the task id.
     optional string task_id_prefix = 2;
+
+    // has_messages filters tasks by whether they have any messages.
+    // - if set to true: only tasks with at least one message
+    // - if set to false: only tasks with zero messages
+    // - if unset: no filtering by message presence
+    optional bool has_messages = 3;
   }
 
   // filter specifies criteria for narrowing the results.

@@ -122,6 +122,9 @@ func showTaskPicker(ctx context.Context, apiClient *api.Client, options *resumeO
 			PageSize:  api.Ptr(int32(options.limit)),
 			SortField: api.Ptr(v1.SortField_SORT_FIELD_CREATED_AT),
 			SortOrder: api.Ptr(v1.SortOrder_SORT_ORDER_DESC),
+			Filter: &v1.ListTasksRequest_Filter{
+				HasMessages: api.Ptr(true),
+			},
 		},
 	})
 	if err != nil {

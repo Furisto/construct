@@ -6,6 +6,7 @@ import (
 	"entgo.io/ent/schema"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
+	"entgo.io/ent/schema/index"
 	"entgo.io/ent/schema/mixin"
 	"github.com/furisto/construct/backend/memory/schema/types"
 	"github.com/google/uuid"
@@ -38,6 +39,14 @@ func (Message) Edges() []ent.Edge {
 		),
 		edge.To("agent", Agent.Type).Field("agent_id").Unique(),
 		edge.To("model", Model.Type).Field("model_id").Unique(),
+	}
+}
+
+func (Message) Indexes() []ent.Index {
+	return []ent.Index{
+		index.Fields("create_time"),
+		index.Fields("update_time"),
+		index.Fields("task_id"),
 	}
 }
 

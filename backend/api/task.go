@@ -103,6 +103,14 @@ func (h *TaskHandler) ListTasks(ctx context.Context, req *connect.Request[v1.Lis
 		query = query.Where(extension.UUIDHasPrefix(task.FieldID, *req.Msg.Filter.TaskIdPrefix))
 	}
 
+	if req.Msg.Filter != nil && req.Msg.Filter.HasMessages != nil {
+		if *req.Msg.Filter.HasMessages {
+			query = query.Where(task.HasMessages())
+		} else {
+			query = query.Where(task.Not(task.HasMessages()))
+		}
+	}
+
 	sortField := v1.SortField_SORT_FIELD_CREATED_AT
 	if req.Msg.SortField != nil {
 		sortField = *req.Msg.SortField

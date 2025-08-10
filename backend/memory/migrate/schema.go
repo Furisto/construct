@@ -71,6 +71,23 @@ var (
 				OnDelete:   schema.SetNull,
 			},
 		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "message_create_time",
+				Unique:  false,
+				Columns: []*schema.Column{MessagesColumns[1]},
+			},
+			{
+				Name:    "message_update_time",
+				Unique:  false,
+				Columns: []*schema.Column{MessagesColumns[2]},
+			},
+			{
+				Name:    "message_task_id",
+				Unique:  false,
+				Columns: []*schema.Column{MessagesColumns[7]},
+			},
+		},
 	}
 	// ModelsColumns holds the columns for the "models" table.
 	ModelsColumns = []*schema.Column{
@@ -146,6 +163,18 @@ var (
 				Columns:    []*schema.Column{TasksColumns[12]},
 				RefColumns: []*schema.Column{AgentsColumns[0]},
 				OnDelete:   schema.SetNull,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "task_create_time",
+				Unique:  false,
+				Columns: []*schema.Column{TasksColumns[1]},
+			},
+			{
+				Name:    "task_update_time",
+				Unique:  false,
+				Columns: []*schema.Column{TasksColumns[2]},
 			},
 		},
 	}

@@ -1189,7 +1189,12 @@ type ListTasksRequest_Filter struct {
 	// agent_id filters tasks by the agent assigned to execute them (UUID format, optional).
 	AgentId *string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3,oneof" json:"agent_id,omitempty"`
 	// prefix filters tasks by the prefix of the task id.
-	TaskIdPrefix  *string `protobuf:"bytes,2,opt,name=task_id_prefix,json=taskIdPrefix,proto3,oneof" json:"task_id_prefix,omitempty"`
+	TaskIdPrefix *string `protobuf:"bytes,2,opt,name=task_id_prefix,json=taskIdPrefix,proto3,oneof" json:"task_id_prefix,omitempty"`
+	// has_messages filters tasks by whether they have any messages.
+	// - if set to true: only tasks with at least one message
+	// - if set to false: only tasks with zero messages
+	// - if unset: no filtering by message presence
+	HasMessages   *bool `protobuf:"varint,3,opt,name=has_messages,json=hasMessages,proto3,oneof" json:"has_messages,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1238,6 +1243,13 @@ func (x *ListTasksRequest_Filter) GetTaskIdPrefix() string {
 	return ""
 }
 
+func (x *ListTasksRequest_Filter) GetHasMessages() bool {
+	if x != nil && x.HasMessages != nil {
+		return *x.HasMessages
+	}
+	return false
+}
+
 var File_construct_v1_task_proto protoreflect.FileDescriptor
 
 const file_construct_v1_task_proto_rawDesc = "" +
@@ -1283,7 +1295,7 @@ const file_construct_v1_task_proto_rawDesc = "" +
 	"\x0eGetTaskRequest\x12\x18\n" +
 	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\"A\n" +
 	"\x0fGetTaskResponse\x12.\n" +
-	"\x04task\x18\x01 \x01(\v2\x12.construct.v1.TaskB\x06\xbaH\x03\xc8\x01\x01R\x04task\"\xe0\x03\n" +
+	"\x04task\x18\x01 \x01(\v2\x12.construct.v1.TaskB\x06\xbaH\x03\xc8\x01\x01R\x04task\"\x9a\x04\n" +
 	"\x10ListTasksRequest\x12=\n" +
 	"\x06filter\x18\x01 \x01(\v2%.construct.v1.ListTasksRequest.FilterR\x06filter\x12+\n" +
 	"\tpage_size\x18\x02 \x01(\x05B\t\xbaH\x06\x1a\x04\x18d(\x01H\x00R\bpageSize\x88\x01\x01\x12'\n" +
@@ -1292,12 +1304,14 @@ const file_construct_v1_task_proto_rawDesc = "" +
 	"\n" +
 	"sort_field\x18\x04 \x01(\x0e2\x17.construct.v1.SortFieldB\b\xbaH\x05\x82\x01\x02\x10\x01H\x01R\tsortField\x88\x01\x01\x12E\n" +
 	"\n" +
-	"sort_order\x18\x05 \x01(\x0e2\x17.construct.v1.SortOrderB\b\xbaH\x05\x82\x01\x02\x10\x01H\x02R\tsortOrder\x88\x01\x01\x1a}\n" +
+	"sort_order\x18\x05 \x01(\x0e2\x17.construct.v1.SortOrderB\b\xbaH\x05\x82\x01\x02\x10\x01H\x02R\tsortOrder\x88\x01\x01\x1a\xb6\x01\n" +
 	"\x06Filter\x12(\n" +
 	"\bagent_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\aagentId\x88\x01\x01\x12)\n" +
-	"\x0etask_id_prefix\x18\x02 \x01(\tH\x01R\ftaskIdPrefix\x88\x01\x01B\v\n" +
+	"\x0etask_id_prefix\x18\x02 \x01(\tH\x01R\ftaskIdPrefix\x88\x01\x01\x12&\n" +
+	"\fhas_messages\x18\x03 \x01(\bH\x02R\vhasMessages\x88\x01\x01B\v\n" +
 	"\t_agent_idB\x11\n" +
-	"\x0f_task_id_prefixB\f\n" +
+	"\x0f_task_id_prefixB\x0f\n" +
+	"\r_has_messagesB\f\n" +
 	"\n" +
 	"_page_sizeB\r\n" +
 	"\v_sort_fieldB\r\n" +
