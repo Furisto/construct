@@ -96,18 +96,18 @@ func formatMessages(messages []message, partialMessage string, width int) string
 		renderedMessages = append(renderedMessages, renderAssistantMessage(&assistantTextMessage{content: partialMessage}, width))
 	}
 
-	var marginMessages []string
-	for _, msg := range renderedMessages {
-		marginMessages = append(marginMessages, lipgloss.JoinVertical(
-			lipgloss.Left,
-			msg,
-			"",
-		))
-	}
+	// var marginMessages []string
+	// for _, msg := range renderedMessages {
+	// 	marginMessages = append(marginMessages, lipgloss.JoinVertical(
+	// 		lipgloss.Left,
+	// 		msg,
+	// 		"",
+	// 	))
+	// }
 
 	return lipgloss.JoinVertical(
 		lipgloss.Top,
-		marginMessages...,
+		renderedMessages...,
 	)
 
 	// f, _ := os.CreateTemp("", "construct-cli-messages.md")
@@ -119,7 +119,8 @@ func formatMessages(messages []message, partialMessage string, width int) string
 
 func renderUserMessage(msg *userTextMessage, width int) string {
 	// markdown := formatAsMarkdown(msg.content, width)
-	return userMessageStyle.Width(width - 1).Render(msg.content)
+	frameSize := userMessageStyle.GetHorizontalFrameSize()
+	return userMessageStyle.Width(width - frameSize).Render(msg.content)
 }
 
 func renderAssistantMessage(msg *assistantTextMessage, width int) string {

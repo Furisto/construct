@@ -7,17 +7,25 @@ import (
 )
 
 var (
-	appStyle = lipgloss.NewStyle().Margin(1, 2)
+	appStyle = lipgloss.NewStyle().
+			Margin(1, 2)
+		// MarginBackground(lipgloss.Color("21"))
 
 	headerStyle = lipgloss.NewStyle().
-		BorderForeground(lipgloss.Color("62")).
-		Padding(0, 1).
-		MarginBottom(1)
+			BorderForeground(lipgloss.Color("62")).
+			Padding(0, 1).
+			MarginBottom(1)
+		// MarginBackground(lipgloss.Color("3")).
+		// Background(lipgloss.Color("208"))
 
 	inputStyle = lipgloss.NewStyle().
-		Padding(0, 1).
-		MarginTop(1).
-		MarginBottom(1)
+			MarginTop(1)
+		// MarginBackground(lipgloss.Color("3")).
+		// Background(lipgloss.Color("208"))
+
+	// messageFeedStyle = lipgloss.NewStyle().
+	// 	MarginBackground(lipgloss.Color("3")).
+	// 	Background(lipgloss.Color("212"))
 
 	agentNameStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("255")).
@@ -149,14 +157,16 @@ var (
 				SetString("> ")
 
 	userMessageStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("245")).
+				Foreground(lipgloss.Color("255")).
 				BorderStyle(lipgloss.NormalBorder()).
 				BorderForeground(lipgloss.Color("245")).
-				Padding(1, 1).
-				MarginBottom(1)
+				MarginBottom(1).
+				Padding(0, 1)
+				// Background(lipgloss.Color("212")).
+				// MarginBackground(lipgloss.Color("3"))
 
 	assistantMessageStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("252"))
+				Foreground(lipgloss.Color("254"))
 
 	// Separator style
 	separatorStyle = lipgloss.NewStyle().

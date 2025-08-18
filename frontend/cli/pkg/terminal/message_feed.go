@@ -17,8 +17,7 @@ type MessageFeedKeyMap struct {
 }
 
 var (
-	messageFeedStyle = lipgloss.NewStyle()
-	messageKeys      = MessageFeedKeyMap{
+	messageKeys = MessageFeedKeyMap{
 		PageUp:   key.NewBinding(key.WithKeys("ctrl+p")),
 		PageDown: key.NewBinding(key.WithKeys("ctrl+n")),
 	}
@@ -66,7 +65,7 @@ func (m *MessageFeed) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *MessageFeed) View() string {
 	if len(m.messages) == 0 {
-		return messageFeedStyle.Width(m.width).Height(m.height - 1).Render(
+		return lipgloss.NewStyle().Width(m.width).Height(m.height).Render(
 			lipgloss.JoinVertical(
 				lipgloss.Top,
 				m.renderInitialMessage(),
@@ -74,7 +73,7 @@ func (m *MessageFeed) View() string {
 		)
 	}
 
-	return messageFeedStyle.Width(m.width).Render(lipgloss.JoinVertical(
+	return lipgloss.NewStyle().Width(m.width).Render(lipgloss.JoinVertical(
 		lipgloss.Top,
 		m.viewport.View(),
 	))
@@ -87,12 +86,7 @@ func (m *MessageFeed) SetSize(width, height int) tea.Cmd {
 	m.viewport.Width = width
 	m.viewport.Height = height
 
-	m.renderContent()
 	return nil
-}
-
-func (m *MessageFeed) renderContent() string {
-	return ""
 }
 
 func (m *MessageFeed) renderInitialMessage() string {
@@ -111,7 +105,7 @@ func (m *MessageFeed) renderInitialMessage() string {
 }
 
 func (m *MessageFeed) updateViewportContent() {
-	formatted := formatMessages(m.messages, m.partialMessage, m.width)
+	formatted := formatMessages(m.messages, m.partialMessage, m.viewport.Width)
 	m.viewport.SetContent(formatted)
 
 	m.viewport.GotoBottom()

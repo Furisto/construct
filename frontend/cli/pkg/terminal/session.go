@@ -164,7 +164,6 @@ func (m *Session) onKeyEvent(msg tea.KeyMsg) tea.Cmd {
 	// Reset Ctrl+C timer on any other key press
 	m.lastCtrlC = time.Time{}
 
-
 	switch msg.Type {
 	case tea.KeyTab:
 		return m.onToggleAgent()
@@ -306,11 +305,14 @@ func (m *Session) onWindowResize(msg tea.WindowSizeMsg) {
 	m.width = msg.Width
 	m.height = msg.Height
 
+	appWidth := msg.Width - appStyle.GetHorizontalFrameSize()
+
 	headerHeight := lipgloss.Height(m.headerView())
 	inputHeight := lipgloss.Height(m.inputView())
-	messageFeedHeight := msg.Height - headerHeight - inputHeight
+	messageFeedHeight := msg.Height - headerHeight - inputHeight - 1 // substract 1 for new newlines introduced by JoinVertical in Session.View()
+	m.messageFeed.SetSize(appWidth, messageFeedHeight)
 
-	m.messageFeed.SetSize(m.width, messageFeedHeight)
+	m.input.SetWidth(appWidth)
 }
 
 func (m *Session) View() string {
@@ -468,5 +470,3 @@ func abbreviateModelName(name string) string {
 	}
 	return name
 }
-
-
