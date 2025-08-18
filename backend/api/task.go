@@ -8,6 +8,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	v1 "github.com/furisto/construct/api/go/v1"
 	"github.com/furisto/construct/api/go/v1/v1connect"
+	"github.com/furisto/construct/backend/analytics"
 	"github.com/furisto/construct/backend/api/conv"
 	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/memory/agent"
@@ -20,11 +21,12 @@ import (
 
 var _ v1connect.TaskServiceHandler = (*TaskHandler)(nil)
 
-func NewTaskHandler(db *memory.Client, eventHub *stream.EventHub, runtime AgentRuntime) *TaskHandler {
+func NewTaskHandler(db *memory.Client, eventHub *stream.EventHub, runtime AgentRuntime, analytics analytics.Client) *TaskHandler {
 	return &TaskHandler{
 		db:       db,
 		eventHub: eventHub,
 		runtime:  runtime,
+		analytics: analytics,
 	}
 }
 
@@ -32,6 +34,7 @@ type TaskHandler struct {
 	db       *memory.Client
 	eventHub *stream.EventHub
 	runtime  AgentRuntime
+	analytics analytics.Client
 	v1connect.UnimplementedTaskServiceHandler
 }
 
@@ -61,6 +64,8 @@ func (h *TaskHandler) CreateTask(ctx context.Context, req *connect.Request[v1.Cr
 	if err != nil {
 		return nil, apiError(err)
 	}
+
+	analytics.EmitTaskCreated(h.analytics, createdTask.ID.String(), createdTask.AgentID.String())
 
 	return connect.NewResponse(&v1.CreateTaskResponse{
 		Task: protoTask,
@@ -181,6 +186,7 @@ func (h *TaskHandler) UpdateTask(ctx context.Context, req *connect.Request[v1.Up
 		return nil, apiError(connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid task ID format: %w", err)))
 	}
 
+	var updatedFields []string
 	updatedTask, err := memory.Transaction(ctx, h.db, func(tx *memory.Client) (*memory.Task, error) {
 		t, err := tx.Task.Get(ctx, id)
 		if err != nil {
@@ -200,6 +206,7 @@ func (h *TaskHandler) UpdateTask(ctx context.Context, req *connect.Request[v1.Up
 			}
 
 			update = update.SetAgentID(agentID)
+			updatedFields = append(updatedFields, "agent_id")
 		}
 
 		return update.Save(ctx)
@@ -213,6 +220,8 @@ func (h *TaskHandler) UpdateTask(ctx context.Context, req *connect.Request[v1.Up
 	if err != nil {
 		return nil, apiError(err)
 	}
+
+	analytics.EmitTaskUpdated(h.analytics, updatedTask.ID.String(), updatedFields)
 
 	return connect.NewResponse(&v1.UpdateTaskResponse{
 		Task: protoTask,

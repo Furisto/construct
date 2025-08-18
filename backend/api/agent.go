@@ -7,6 +7,7 @@ import (
 	"connectrpc.com/connect"
 	v1 "github.com/furisto/construct/api/go/v1"
 	"github.com/furisto/construct/api/go/v1/v1connect"
+	"github.com/furisto/construct/backend/analytics"
 	"github.com/furisto/construct/backend/api/conv"
 	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/memory/agent"
@@ -15,14 +16,16 @@ import (
 
 var _ v1connect.AgentServiceHandler = (*AgentHandler)(nil)
 
-func NewAgentHandler(db *memory.Client) *AgentHandler {
+func NewAgentHandler(db *memory.Client, analytics analytics.Client) *AgentHandler {
 	return &AgentHandler{
-		db: db,
+		db:        db,
+		analytics: analytics,
 	}
 }
 
 type AgentHandler struct {
-	db *memory.Client
+	db        *memory.Client
+	analytics analytics.Client
 	v1connect.UnimplementedAgentServiceHandler
 }
 
@@ -32,42 +35,51 @@ func (h *AgentHandler) CreateAgent(ctx context.Context, req *connect.Request[v1.
 		return nil, apiError(connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid model ID format: %w", err)))
 	}
 
-	created, err := memory.Transaction(ctx, h.db, func(tx *memory.Client) (*memory.Agent, error) {
+	type agentModel struct {
+		agent *memory.Agent
+		model *memory.Model
+	}
+
+	am, err := memory.Transaction(ctx, h.db, func(tx *memory.Client) (*agentModel, error) {
 		create := tx.Agent.Create().
 			SetName(req.Msg.Name).
 			SetInstructions(req.Msg.Instructions)
-
-		if req.Msg.Description != "" {
-			create = create.SetDescription(req.Msg.Description)
-		}
 
 		model, err := tx.Model.Get(ctx, modelID)
 		if err != nil {
 			return nil, err
 		}
+		create.SetDefaultModel(modelID)
 
 		if !model.Enabled {
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("default model is disabled"))
 		}
 
-		create = create.SetModel(model)
+		if req.Msg.Description != "" {
+			create = create.SetDescription(req.Msg.Description)
+		}
 
-		return create.Save(ctx)
+		agent, err := create.Save(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		return &agentModel{
+			agent: agent,
+			model: model,
+		}, nil
 	})
 
 	if err != nil {
 		return nil, apiError(err)
 	}
 
-	agent, err := h.db.Agent.Query().Where(agent.ID(created.ID)).WithModel().First(ctx)
+	protoAgent, err := conv.ConvertAgentToProto(am.agent)
 	if err != nil {
 		return nil, apiError(err)
 	}
 
-	protoAgent, err := conv.ConvertAgentToProto(agent)
-	if err != nil {
-		return nil, apiError(err)
-	}
+	analytics.EmitAgentCreated(h.analytics, am.agent.ID.String(), am.agent.Name, am.model.Name)
 
 	return connect.NewResponse(&v1.CreateAgentResponse{
 		Agent: protoAgent,
@@ -132,16 +144,20 @@ func (h *AgentHandler) UpdateAgent(ctx context.Context, req *connect.Request[v1.
 
 	update := h.db.Agent.UpdateOneID(id)
 
+	var updatedFields []string
 	if req.Msg.Name != nil {
 		update = update.SetName(*req.Msg.Name)
+		updatedFields = append(updatedFields, "name")
 	}
 
 	if req.Msg.Description != nil {
 		update = update.SetDescription(*req.Msg.Description)
+		updatedFields = append(updatedFields, "description")
 	}
 
 	if req.Msg.Instructions != nil {
 		update = update.SetInstructions(*req.Msg.Instructions)
+		updatedFields = append(updatedFields, "instructions")
 	}
 
 	if req.Msg.ModelId != nil {
@@ -149,11 +165,12 @@ func (h *AgentHandler) UpdateAgent(ctx context.Context, req *connect.Request[v1.
 		if err != nil {
 			return nil, apiError(connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid model ID format: %w", err)))
 		}
-		model, err := h.db.Model.Get(ctx, modelID)
+		_, err = h.db.Model.Get(ctx, modelID)
 		if err != nil {
 			return nil, apiError(err)
 		}
-		update = update.SetModel(model)
+		update = update.SetDefaultModel(modelID)
+		updatedFields = append(updatedFields, "default_model")
 	}
 
 	updatedAgent, err := update.Save(ctx)
@@ -174,6 +191,8 @@ func (h *AgentHandler) UpdateAgent(ctx context.Context, req *connect.Request[v1.
 		return nil, apiError(err)
 	}
 
+	analytics.EmitAgentUpdated(h.analytics, updatedAgent.ID.String(), updatedAgent.Name, updatedFields)
+
 	return connect.NewResponse(&v1.UpdateAgentResponse{
 		Agent: protoAgent,
 	}), nil
@@ -193,6 +212,8 @@ func (h *AgentHandler) DeleteAgent(ctx context.Context, req *connect.Request[v1.
 	if err := h.db.Agent.DeleteOne(agent).Exec(ctx); err != nil {
 		return nil, apiError(fmt.Errorf("failed to delete agent: %w", err))
 	}
+
+	analytics.EmitAgentDeleted(h.analytics, agent.ID.String(), agent.Name)
 
 	return connect.NewResponse(&v1.DeleteAgentResponse{}), nil
 }

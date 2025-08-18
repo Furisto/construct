@@ -6,43 +6,35 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/glamour"
+	"github.com/charmbracelet/lipgloss"
 )
 
-func (m model) formatMessages() string {
-	var formatted strings.Builder
-
-	for i, msg := range m.messages {
-		if i > 0 {
-			formatted.WriteString("\n\n")
-		}
+func formatMessages(messages []message, partialMessage string, width int) string {
+	renderedMessages := []string{}
+	for _, msg := range messages {
 
 		switch msg := msg.(type) {
 		case *userTextMessage:
-			formatted.WriteString(userPromptStyle.String() + msg.content)
+			renderedMessages = append(renderedMessages, renderUserMessage(msg, width))
 
 		case *assistantTextMessage:
-			formatted.WriteString(assistantBullet.String() +
-				formatMessageContent(msg.content))
+			renderedMessages = append(renderedMessages, renderAssistantMessage(msg, width))
 
 		case *readFileToolCall:
-			formatted.WriteString("  " + toolCallBullet.String())
-			formatted.WriteString(toolCallStyle.Render(fmt.Sprintf("%s(%s)", boldStyle.Render("Read"), msg.Input.Path)))
+			renderedMessages = append(renderedMessages, renderToolCallMessage("Read", msg.Input.Path, width))
 
 		case *createFileToolCall:
-			formatted.WriteString("  " + toolCallBullet.String())
-			formatted.WriteString(toolCallStyle.Render(fmt.Sprintf("%s(%s)", boldStyle.Render("Create"), msg.Input.Path)))
+			renderedMessages = append(renderedMessages, renderToolCallMessage("Create", msg.Input.Path, width))
 
 		case *editFileToolCall:
-			formatted.WriteString("  " + toolCallBullet.String())
-			formatted.WriteString(toolCallStyle.Render(fmt.Sprintf("%s(%s)", boldStyle.Render("Edit"), msg.Input.Path)))
+			renderedMessages = append(renderedMessages, renderToolCallMessage("Edit", msg.Input.Path, width))
 
 		case *executeCommandToolCall:
 			command := msg.Input.Command
 			if len(command) > 50 {
 				command = command[:47] + "..."
 			}
-			formatted.WriteString("  " + toolCallBullet.String())
-			formatted.WriteString(toolCallStyle.Render(fmt.Sprintf("%s(%s)", boldStyle.Render("Execute"), command)))
+			renderedMessages = append(renderedMessages, renderToolCallMessage("Execute", command, width))
 
 		case *findFileToolCall:
 			pathInfo := msg.Input.Path
@@ -63,20 +55,18 @@ func (m model) formatMessages() string {
 				excludeArg = "none"
 			}
 
-			formatted.WriteString("  " + toolCallBullet.String())
-			formatted.WriteString(toolCallStyle.Render(fmt.Sprintf("%s(pattern: %s, path: %s, exclude: %s)", boldStyle.Render("Find"), msg.Input.Pattern, pathInfo, excludeArg)))
+			renderedMessages = append(renderedMessages,
+				renderToolCallMessage("Find", fmt.Sprintf("%s(pattern: %s, path: %s, exclude: %s)", boldStyle.Render("Find"), msg.Input.Pattern, pathInfo, excludeArg), width))
 
 		case *grepToolCall:
 			searchInfo := msg.Input.Query
 			if msg.Input.IncludePattern != "" {
 				searchInfo = fmt.Sprintf("%s in %s", searchInfo, msg.Input.IncludePattern)
 			}
-			formatted.WriteString("  " + toolCallBullet.String())
-			formatted.WriteString(toolCallStyle.Render(fmt.Sprintf("%s(%s)", boldStyle.Render("Grep"), searchInfo)))
+			renderedMessages = append(renderedMessages, renderToolCallMessage("Grep", searchInfo, width))
 
 		case *handoffToolCall:
-			formatted.WriteString("  " + toolCallBullet.String())
-			formatted.WriteString(toolCallStyle.Render(fmt.Sprintf("%s → %s", boldStyle.Render("Handoff"), msg.Input.RequestedAgent)))
+			renderedMessages = append(renderedMessages, renderToolCallMessage("Handoff", msg.Input.RequestedAgent, width))
 
 		case *listFilesToolCall:
 			pathInfo := msg.Input.Path
@@ -87,49 +77,69 @@ func (m model) formatMessages() string {
 			if msg.Input.Recursive {
 				listType = "List -R"
 			}
-			formatted.WriteString("  " + toolCallBullet.String())
-			formatted.WriteString(toolCallStyle.Render(fmt.Sprintf("%s(%s)", boldStyle.Render(listType), pathInfo)))
+			renderedMessages = append(renderedMessages, renderToolCallMessage(listType, pathInfo, width))
 
 		case *codeInterpreterToolCall:
-			formatted.WriteString("  " + toolCallBullet.String())
-			formatted.WriteString(toolCallStyle.Render(fmt.Sprintf("%s(%s)", boldStyle.Render("Interpreter"), "Script")))
-			formatted.WriteString("\n")
-			formatted.WriteString(formatCodeInterpreterContent(msg.Input.Code))
+			renderedMessages = append(renderedMessages, renderToolCallMessage("Interpreter", "Script", width))
+			renderedMessages = append(renderedMessages, formatCodeInterpreterContent(msg.Input.Code))
 
 		case *codeInterpreterResult:
-			formatted.WriteString("  " + toolCallBullet.String())
-			formatted.WriteString(toolCallStyle.Render(fmt.Sprintf("%s(%s)", boldStyle.Render("Interpreter"), "Output")))
-			formatted.WriteString("\n")
-			formatted.WriteString(formatCodeInterpreterContent(msg.Result.Output))
+			renderedMessages = append(renderedMessages, renderToolCallMessage("Interpreter", "Output", width))
+			renderedMessages = append(renderedMessages, formatCodeInterpreterContent(msg.Result.Output))
 
 		case *errorMessage:
-			formatted.WriteString(errorStyle.Render("❌ Error: ") + msg.content)
+			renderedMessages = append(renderedMessages, errorStyle.Render("❌ Error: ")+msg.content)
 		}
 	}
 
-	if m.partialMessage != "" {
-		formatted.WriteString("\n\n")
-		formatted.WriteString(assistantBullet.String() +
-			formatMessageContent(m.partialMessage))
+	if partialMessage != "" {
+		renderedMessages = append(renderedMessages, renderAssistantMessage(&assistantTextMessage{content: partialMessage}, width))
 	}
+
+	var marginMessages []string
+	for _, msg := range renderedMessages {
+		marginMessages = append(marginMessages, lipgloss.JoinVertical(
+			lipgloss.Left,
+			msg,
+			"",
+		))
+	}
+
+	return lipgloss.JoinVertical(
+		lipgloss.Top,
+		marginMessages...,
+	)
 
 	// f, _ := os.CreateTemp("", "construct-cli-messages.md")
 	// f.WriteString(formatted.String())
 	// f.Close()
 
-	return formatted.String()
+	// return formatted.String()
 }
 
-func formatMessageContent(content string) string {
+func renderUserMessage(msg *userTextMessage, width int) string {
+	// markdown := formatAsMarkdown(msg.content, width)
+	return userMessageStyle.Width(width - 1).Render(msg.content)
+}
+
+func renderAssistantMessage(msg *assistantTextMessage, width int) string {
+	markdown := formatAsMarkdown(msg.content, width)
+	return assistantMessageStyle.Width(width - 1).Render(markdown)
+}
+
+func renderToolCallMessage(tool, input string, width int) string {
+	return "  " + assistantBullet.String() + toolCallStyle.Width(width-1).Render(fmt.Sprintf("%s(%s)", boldStyle.Render(tool), input))
+}
+
+func formatAsMarkdown(content string, width int) string {
 	md, _ := glamour.NewTermRenderer(
 		glamour.WithStandardStyle("dark"), // avoid OSC background queries
-		// glamour.WithWordWrap(maxWidth),
+		glamour.WithWordWrap(width),
 	)
 
 	out, _ := md.Render(content)
 	trimmed := trimLeadingWhitespaceWithANSI(out)
-	trimmed = trimTrailingWhitespaceWithANSI(trimmed)
-	return assistantTextStyle.Render(trimmed)
+	return trimTrailingWhitespaceWithANSI(trimmed)
 }
 
 func trimLeadingWhitespaceWithANSI(s string) string {

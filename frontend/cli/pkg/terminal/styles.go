@@ -9,12 +9,15 @@ import (
 var (
 	appStyle = lipgloss.NewStyle().Margin(1, 2)
 
-	// Header styles
 	headerStyle = lipgloss.NewStyle().
-		// BorderStyle(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("62")).
-		Padding(0, 1)
-		// MarginBottom(1)
+		Padding(0, 1).
+		MarginBottom(1)
+
+	inputStyle = lipgloss.NewStyle().
+		Padding(0, 1).
+		MarginTop(1).
+		MarginBottom(1)
 
 	agentNameStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("255")).
@@ -38,23 +41,23 @@ var (
 			Foreground(lipgloss.Color("241"))
 
 	// Input styles
-	inputStyle = lipgloss.NewStyle().
-			BorderStyle(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("240")).
-			Background(lipgloss.NoColor{}).
-			Padding(0, 1)
+	// inputStyle = lipgloss.NewStyle().
+	// 		BorderStyle(lipgloss.RoundedBorder()).
+	// 		BorderForeground(lipgloss.Color("240")).
+	// 		Background(lipgloss.NoColor{}).
+	// 		Padding(0, 1)
 
-	inputFocusedStyle = lipgloss.NewStyle().
-				BorderStyle(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color("39")).
-				Background(lipgloss.NoColor{}).
-				Padding(0, 1)
+	// inputFocusedStyle = lipgloss.NewStyle().
+	// 			BorderStyle(lipgloss.RoundedBorder()).
+	// 			BorderForeground(lipgloss.Color("39")).
+	// 			Background(lipgloss.NoColor{}).
+	// 			Padding(0, 1)
 
-	// Viewport styles
-	viewportStyle = lipgloss.NewStyle().
-			Padding(1).
-			MarginTop(1).
-			MarginBottom(1)
+	// // Viewport styles
+	// viewportStyle = lipgloss.NewStyle().
+	// 		Padding(1).
+	// 		MarginTop(1).
+	// 		MarginBottom(1)
 
 	// // Footer styles
 	// footerStyle = lipgloss.NewStyle().
@@ -141,9 +144,19 @@ var (
 			Italic(true)
 
 	// User prompt style
-	userPromptStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("245")).
-			SetString("> ")
+	userPromptBullet = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("245")).
+				SetString("> ")
+
+	userMessageStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("245")).
+				BorderStyle(lipgloss.NormalBorder()).
+				BorderForeground(lipgloss.Color("245")).
+				Padding(1, 1).
+				MarginBottom(1)
+
+	assistantMessageStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("252"))
 
 	// Separator style
 	separatorStyle = lipgloss.NewStyle().
@@ -155,11 +168,11 @@ var (
 
 	// Code interpreter styles
 	codeInterpreterStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("252")).
-			Padding(0, 1).
-			BorderLeft(true).
-			BorderStyle(lipgloss.ThickBorder()).
-			BorderForeground(lipgloss.Color("34"))
+				Foreground(lipgloss.Color("252")).
+				Padding(0, 1).
+				BorderLeft(true).
+				BorderStyle(lipgloss.ThickBorder()).
+				BorderForeground(lipgloss.Color("34"))
 
 	// Help overlay styles
 	helpOverlayStyle = lipgloss.NewStyle().

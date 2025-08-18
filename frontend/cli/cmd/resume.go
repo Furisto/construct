@@ -218,7 +218,7 @@ func resolveTaskID(ctx context.Context, apiClient *api.Client, taskID string) (*
 
 func startInteractiveSession(ctx context.Context, apiClient *api.Client, task *v1.Task, agent *v1.Agent) error {
 	program := tea.NewProgram(
-		terminal.NewModel(ctx, apiClient, task, agent),
+		terminal.NewSession(ctx, apiClient, task, agent),
 		tea.WithAltScreen(),
 	)
 

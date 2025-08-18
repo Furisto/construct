@@ -2,14 +2,15 @@ package terminal
 
 import (
 	"strings"
-	"github.com/charmbracelet/bubbletea"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 type Help struct {
 	tea.Model
 }
 
-func (m *model) renderHelp() string {
+func (m *Session) renderHelp() string {
 	helpContent := []string{
 		helpTitleStyle.Render("KEYBOARD SHORTCUTS"),
 		"",

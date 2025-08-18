@@ -10,6 +10,7 @@ import (
 	"connectrpc.com/connect"
 
 	"github.com/furisto/construct/api/go/v1/v1connect"
+	"github.com/furisto/construct/backend/analytics"
 	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/secret"
 	"github.com/furisto/construct/backend/stream"
@@ -30,13 +31,14 @@ type Server struct {
 	listener net.Listener
 }
 
-func NewServer(runtime AgentRuntime, listener net.Listener) *Server {
+func NewServer(runtime AgentRuntime, listener net.Listener, analyticsClient analytics.Client) *Server {
 	apiHandler := NewHandler(
 		HandlerOptions{
 			DB:           runtime.Memory(),
 			Encryption:   runtime.Encryption(),
 			AgentRuntime: runtime,
 			MessageHub:   runtime.EventHub(),
+			Analytics:    analyticsClient,
 		},
 	)
 
@@ -70,6 +72,7 @@ type HandlerOptions struct {
 	RequestOptions []connect.HandlerOption
 	AgentRuntime   AgentRuntime
 	MessageHub     *stream.EventHub
+	Analytics      analytics.Client
 }
 
 type Handler struct {
@@ -87,10 +90,10 @@ func NewHandler(opts HandlerOptions) *Handler {
 	modelHandler := NewModelHandler(opts.DB)
 	handler.mux.Handle(v1connect.NewModelServiceHandler(modelHandler, opts.RequestOptions...))
 
-	agentHandler := NewAgentHandler(opts.DB)
+	agentHandler := NewAgentHandler(opts.DB, opts.Analytics)
 	handler.mux.Handle(v1connect.NewAgentServiceHandler(agentHandler, opts.RequestOptions...))
 
-	taskHandler := NewTaskHandler(opts.DB, opts.MessageHub, opts.AgentRuntime)
+	taskHandler := NewTaskHandler(opts.DB, opts.MessageHub, opts.AgentRuntime, opts.Analytics)
 	handler.mux.Handle(v1connect.NewTaskServiceHandler(taskHandler, opts.RequestOptions...))
 
 	messageHandler := NewMessageHandler(opts.DB, opts.AgentRuntime, opts.MessageHub)

@@ -95,7 +95,7 @@ func handleNewCommand(ctx context.Context, apiClient *api.Client, options *newOp
 
 	fmt.Println("Created task", resp.Msg.Task.Metadata.Id)
 
-	model := terminal.NewModel(ctx, apiClient, resp.Msg.Task, agent)
+	model := terminal.NewSession(ctx, apiClient, resp.Msg.Task, agent)
 	if verbose {
 		model.Verbose = true
 	}

@@ -17,6 +17,7 @@ import (
 	"time"
 
 	v1 "github.com/furisto/construct/api/go/v1"
+	"github.com/furisto/construct/backend/analytics"
 	"github.com/furisto/construct/backend/api"
 	"github.com/furisto/construct/backend/memory"
 	memory_message "github.com/furisto/construct/backend/memory/message"
@@ -42,6 +43,7 @@ const DefaultServerPort = 29333
 type RuntimeOptions struct {
 	Tools       []codeact.Tool
 	Concurrency int
+	Analytics   analytics.Client
 }
 
 func DefaultRuntimeOptions() *RuntimeOptions {
@@ -65,6 +67,12 @@ func WithConcurrency(concurrency int) RuntimeOption {
 	}
 }
 
+func WithAnalytics(analytics analytics.Client) RuntimeOption {
+	return func(o *RuntimeOptions) {
+		o.Analytics = analytics
+	}
+}
+
 type Runtime struct {
 	api          *api.Server
 	memory       *memory.Client
@@ -75,6 +83,7 @@ type Runtime struct {
 	running      atomic.Bool
 	interpreter  *codeact.Interpreter
 	runningTasks *SyncMap[uuid.UUID, context.CancelFunc]
+	analytics    analytics.Client
 }
 
 func NewRuntime(memory *memory.Client, encryption *secret.Client, listener net.Listener, opts ...RuntimeOption) (*Runtime, error) {
@@ -108,9 +117,10 @@ func NewRuntime(memory *memory.Client, encryption *secret.Client, listener net.L
 		queue:        queue,
 		interpreter:  codeact.NewInterpreter(options.Tools, interceptors),
 		runningTasks: NewSyncMap[uuid.UUID, context.CancelFunc](),
+		analytics:    options.Analytics,
 	}
 
-	api := api.NewServer(runtime, listener)
+	api := api.NewServer(runtime, listener, runtime.analytics)
 	runtime.api = api
 
 	return runtime, nil

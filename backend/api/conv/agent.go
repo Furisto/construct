@@ -26,13 +26,10 @@ func ConvertAgentMetadataToProto(a *memory.Agent) *v1.AgentMetadata {
 }
 
 func ConvertAgentSpecToProto(a *memory.Agent) (*v1.AgentSpec, error) {
-	if a.Edges.Model == nil {
-		return nil, &MissingRelatedEntityError{Entity: "model"}
-	}
 	return &v1.AgentSpec{
 		Name:         a.Name,
 		Description:  a.Description,
 		Instructions: a.Instructions,
-		ModelId:      ConvertUUIDToString(a.Edges.Model.ID),
+		ModelId:      ConvertUUIDToString(a.DefaultModel),
 	}, nil
 }

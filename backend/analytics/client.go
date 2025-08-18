@@ -40,3 +40,20 @@ func (c *PostHogClient) Close() {
 }
 
 var _ Client = (*PostHogClient)(nil)
+
+type InMemoryClient struct {
+	Events []Event
+}
+
+func NewInMemoryClient() *InMemoryClient {
+	return &InMemoryClient{}
+}
+
+func (c *InMemoryClient) Enqueue(event Event) {
+	c.Events = append(c.Events, event)
+}
+
+func (c *InMemoryClient) Close() {
+}
+
+var _ Client = (*InMemoryClient)(nil)

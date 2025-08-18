@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql/schema"
 	api_client "github.com/furisto/construct/api/go/client"
+	"github.com/furisto/construct/backend/analytics"
 	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/secret"
 	"github.com/furisto/construct/backend/stream"
@@ -32,6 +33,7 @@ type ServiceTestExpectation[Response any] struct {
 	Response Response
 	Error    string
 	Database []any
+	Analytics []analytics.Event
 }
 
 type ServiceTestScenario[Request any, Response any] struct {
@@ -88,6 +90,10 @@ func (s *ServiceTestSetup[Request, Response]) RunServiceTests(t *testing.T, scen
 				actual.Response = *response.Msg
 			}
 
+			if len(scenario.Expected.Analytics) > 0 {
+				actual.Analytics = server.Options.Analytics.(*analytics.InMemoryClient).Events
+			}
+
 			if diff := cmp.Diff(scenario.Expected, actual, s.CmpOptions...); diff != "" {
 				if s.Debug {
 					server.DebugDatabase(ctx, t)
@@ -120,6 +126,7 @@ func DefaultTestHandlerOptions(t *testing.T) HandlerOptions {
 		DB:           db,
 		Encryption:   encryption,
 		AgentRuntime: runtime,
+		Analytics:    analytics.NewInMemoryClient(),
 	}
 }
 

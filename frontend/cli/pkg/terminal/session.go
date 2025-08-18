@@ -11,17 +11,16 @@ import (
 	"connectrpc.com/connect"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textarea"
-	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	api_client "github.com/furisto/construct/api/go/client"
 	v1 "github.com/furisto/construct/api/go/v1"
 )
 
-type model struct {
-	viewport viewport.Model
-	input    textarea.Model
-	spinner  spinner.Model
+type Session struct {
+	messageFeed *MessageFeed
+	input       textarea.Model
+	spinner     spinner.Model
 
 	width  int
 	height int
@@ -45,7 +44,9 @@ type model struct {
 	lastCtrlC       time.Time
 }
 
-func NewModel(ctx context.Context, apiClient *api_client.Client, task *v1.Task, agent *v1.Agent) *model {
+var _ tea.Model = (*Session)(nil)
+
+func NewSession(ctx context.Context, apiClient *api_client.Client, task *v1.Task, agent *v1.Agent) *Session {
 	ta := textarea.New()
 	ta.Focus()
 	ta.CharLimit = 32768
@@ -54,12 +55,6 @@ func NewModel(ctx context.Context, apiClient *api_client.Client, task *v1.Task, 
 	ta.FocusedStyle.CursorLine = lipgloss.NewStyle()
 	ta.Prompt = ""
 	ta.Placeholder = "Type your message..."
-
-	vp := viewport.New(80, 20)
-
-	// Set initial welcome message
-	welcomeMessage := renderWelcomeMessage()
-	vp.SetContent(welcomeMessage)
 
 	sp := spinner.New()
 	sp.Spinner = spinner.Spinner{
@@ -75,11 +70,11 @@ func NewModel(ctx context.Context, apiClient *api_client.Client, task *v1.Task, 
 		slog.Error("failed to list agents", "error", err)
 	}
 
-	return &model{
+	return &Session{
 		width:           80,
 		height:          20,
 		input:           ta,
-		viewport:        vp,
+		messageFeed:     NewMessageFeed(),
 		spinner:         sp,
 		apiClient:       apiClient,
 		messages:        []message{},
@@ -96,19 +91,18 @@ func NewModel(ctx context.Context, apiClient *api_client.Client, task *v1.Task, 
 	}
 }
 
-func (m model) Init() tea.Cmd {
+func (m Session) Init() tea.Cmd {
 	windowTitle := "construct"
 	if m.workspacePath != "" {
 		windowTitle = fmt.Sprintf("construct (%s)", m.workspacePath)
 	}
 
 	return tea.Batch(
-		tea.EnterAltScreen,
 		tea.SetWindowTitle(windowTitle),
 	)
 }
 
-func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *Session) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var (
 		cmd  tea.Cmd
 		cmds []tea.Cmd
@@ -130,16 +124,11 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyEsc:
 			m.handleEsc()
 		default:
-			cmds = append(cmds, m.onKeyPressed(msg))
+			cmds = append(cmds, m.onKeyEvent(msg))
 		}
 
 	case tea.WindowSizeMsg:
 		m.onWindowResize(msg)
-
-	case *v1.Message:
-		// slog.Info("processing message", "message", msg)
-		m.processMessage(msg)
-		m.updateViewportContent()
 
 	case *v1.TaskEvent:
 		m.processTaskEvent(msg)
@@ -161,7 +150,8 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	m.viewport, cmd = m.viewport.Update(msg)
+	messageFeed, cmd := m.messageFeed.Update(msg)
+	m.messageFeed = messageFeed.(*MessageFeed)
 	cmds = append(cmds, cmd)
 
 	m.spinner, cmd = m.spinner.Update(msg)
@@ -170,9 +160,10 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func (m *model) onKeyPressed(msg tea.KeyMsg) tea.Cmd {
+func (m *Session) onKeyEvent(msg tea.KeyMsg) tea.Cmd {
 	// Reset Ctrl+C timer on any other key press
 	m.lastCtrlC = time.Time{}
+
 
 	switch msg.Type {
 	case tea.KeyTab:
@@ -192,22 +183,7 @@ func (m *model) onKeyPressed(msg tea.KeyMsg) tea.Cmd {
 	}
 
 	switch msg.String() {
-	case "k", "up":
-		if m.mode == ModeScroll {
-			m.viewport.LineUp(1)
-		}
-	case "j", "down":
-		if m.mode == ModeScroll {
-			m.viewport.LineDown(1)
-		}
-	case "b", "pageup":
-		m.viewport.HalfViewUp()
-	case "f", "pagedown":
-		m.viewport.HalfViewDown()
-	case "home":
-		m.viewport.GotoTop()
-	case "end":
-		m.viewport.GotoBottom()
+
 	case "ctrl+?":
 		m.showHelp = !m.showHelp
 		return nil
@@ -216,7 +192,7 @@ func (m *model) onKeyPressed(msg tea.KeyMsg) tea.Cmd {
 	return nil
 }
 
-func (m *model) handleCtrlC() tea.Cmd {
+func (m *Session) handleCtrlC() tea.Cmd {
 	now := time.Now()
 
 	// If Ctrl+C was pressed recently (within 1 second), quit the app
@@ -231,28 +207,23 @@ func (m *model) handleCtrlC() tea.Cmd {
 	return nil
 }
 
-func (m *model) handleEsc() {
+func (m *Session) handleEsc() {
 	_, err := m.apiClient.Task().SuspendTask(m.ctx, &connect.Request[v1.SuspendTaskRequest]{
 		Msg: &v1.SuspendTaskRequest{
 			TaskId: m.task.Metadata.Id,
 		},
 	})
-	
+
 	if err != nil {
 		slog.Error("failed to suspend task", "error", err)
 	}
 }
 
-func (m *model) onMessageSend(_ tea.KeyMsg) tea.Cmd {
+func (m *Session) onMessageSend(_ tea.KeyMsg) tea.Cmd {
 	if m.input.Value() != "" {
 		userInput := strings.TrimSpace(m.input.Value())
 		m.input.Reset()
 
-		m.messages = append(m.messages, &userTextMessage{
-			content:   userInput,
-			timestamp: time.Now(),
-		})
-		m.updateViewportContent()
 		m.waitingForAgent = true
 
 		return m.sendMessage(userInput)
@@ -261,7 +232,7 @@ func (m *model) onMessageSend(_ tea.KeyMsg) tea.Cmd {
 	return nil
 }
 
-func (m *model) sendMessage(userInput string) tea.Cmd {
+func (m *Session) sendMessage(userInput string) tea.Cmd {
 	return func() tea.Msg {
 		_, err := m.apiClient.Message().CreateMessage(context.Background(), &connect.Request[v1.CreateMessageRequest]{
 			Msg: &v1.CreateMessageRequest{
@@ -280,7 +251,6 @@ func (m *model) sendMessage(userInput string) tea.Cmd {
 
 		if err != nil {
 			slog.Error("failed to send message", "error", err)
-			m.updateViewportContent()
 			m.waitingForAgent = false
 
 			return &errorMessage{
@@ -292,52 +262,7 @@ func (m *model) sendMessage(userInput string) tea.Cmd {
 	}
 }
 
-func (m *model) processMessage(msg *v1.Message) {
-	m.waitingForAgent = false
-
-	for _, part := range msg.Spec.Content {
-		switch data := part.Data.(type) {
-		case *v1.MessagePart_Text_:
-			if msg.Status.ContentState == v1.ContentStatus_CONTENT_STATUS_PARTIAL {
-				m.partialMessage += data.Text.Content
-			} else {
-				if msg.Metadata.Role == v1.MessageRole_MESSAGE_ROLE_ASSISTANT {
-					m.messages = append(m.messages, &assistantTextMessage{
-						content:   data.Text.Content,
-						timestamp: msg.Metadata.CreatedAt.AsTime(),
-					})
-				} else {
-					m.messages = append(m.messages, &userTextMessage{
-						content:   data.Text.Content,
-						timestamp: msg.Metadata.CreatedAt.AsTime(),
-					})
-				}
-				m.partialMessage = ""
-			}
-		case *v1.MessagePart_ToolCall:
-			m.messages = append(m.messages, m.createToolCallMessage(data.ToolCall, msg.Metadata.CreatedAt.AsTime()))
-		case *v1.MessagePart_ToolResult:
-			m.messages = append(m.messages, m.createToolResultMessage(data.ToolResult, msg.Metadata.CreatedAt.AsTime()))
-		case *v1.MessagePart_Error_:
-			m.messages = append(m.messages, &errorMessage{
-				content:   data.Error.Message,
-				timestamp: msg.Metadata.CreatedAt.AsTime(),
-			})
-		}
-	}
-
-	if msg.Status != nil && msg.Status.Usage != nil {
-		m.lastUsage = &v1.TaskUsage{
-			InputTokens:      msg.Status.Usage.InputTokens,
-			OutputTokens:     msg.Status.Usage.OutputTokens,
-			CacheWriteTokens: msg.Status.Usage.CacheWriteTokens,
-			CacheReadTokens:  msg.Status.Usage.CacheReadTokens,
-			Cost:             msg.Status.Usage.Cost,
-		}
-	}
-}
-
-func (m *model) processTaskEvent(msg *v1.TaskEvent) {
+func (m *Session) processTaskEvent(msg *v1.TaskEvent) {
 	if msg.TaskId == m.task.Metadata.Id {
 		resp, err := m.apiClient.Task().GetTask(m.ctx, &connect.Request[v1.GetTaskRequest]{
 			Msg: &v1.GetTaskRequest{
@@ -354,7 +279,7 @@ func (m *model) processTaskEvent(msg *v1.TaskEvent) {
 	}
 }
 
-func (m *model) onToggleAgent() tea.Cmd {
+func (m *Session) onToggleAgent() tea.Cmd {
 	if len(m.agents) <= 1 {
 		return nil
 	}
@@ -377,43 +302,30 @@ func (m *model) onToggleAgent() tea.Cmd {
 	return nil
 }
 
-func (m *model) onWindowResize(msg tea.WindowSizeMsg) {
+func (m *Session) onWindowResize(msg tea.WindowSizeMsg) {
 	m.width = msg.Width
 	m.height = msg.Height
 
-	// Update component sizes. Subtract 6 (2 margin, 2 border, 2 padding) so
-	// the textarea including its own border fits perfectly inside the
-	// outer appStyle margins.
-	m.input.SetWidth(Max(5, Min(m.width-6, 115)))
-	m.viewport.Width = Max(5, Min(m.width-6, 115))
+	headerHeight := lipgloss.Height(m.headerView())
+	inputHeight := lipgloss.Height(m.inputView())
+	messageFeedHeight := msg.Height - headerHeight - inputHeight
+
+	m.messageFeed.SetSize(m.width, messageFeedHeight)
 }
 
-func (m *model) View() string {
+func (m *Session) View() string {
 	if m.showHelp {
 		return m.renderHelp()
 	}
 
-	header := m.renderHeader()
-
-	// Calculate dimensions
-	headerHeight := lipgloss.Height(header)
-	inputHeight := 5 // Fixed height for input area (4 lines + border)
-
-	m.input.SetWidth(Max(5, Min(m.width-6, 115)))
-	textInput := m.input.View()
-
-	m.viewport.Width = Max(5, Min(m.width-6, 115))
-	m.viewport.Height = Max(5, m.height-headerHeight-inputHeight-4)
-	viewport := viewportStyle.Render(m.viewport.View())
-
 	return appStyle.Render(lipgloss.JoinVertical(lipgloss.Left,
-		header,
-		viewport,
-		textInput,
+		m.headerView(),
+		m.messageFeed.View(),
+		m.inputView(),
 	))
 }
 
-func (m *model) renderHeader() string {
+func (m *Session) headerView() string {
 	// Build agent section
 	agentName := "Unknown"
 	if m.activeAgent != nil {
@@ -489,19 +401,11 @@ func (m *model) renderHeader() string {
 	return headerStyle.Render(headerContent)
 }
 
-func (m *model) updateViewportContent() {
-	formatted := m.formatMessages()
-	m.viewport.SetContent(formatted)
-
-	if m.Verbose {
-		f, _ := os.CreateTemp("", "construct-cli-messages.md")
-		f.WriteString(formatted)
-		f.Close()
-	}
-	m.viewport.GotoBottom()
+func (m *Session) inputView() string {
+	return inputStyle.Render(m.input.View())
 }
 
-func (m *model) getAgentModelInfo(agent *v1.Agent) (string, int64, error) {
+func (m *Session) getAgentModelInfo(agent *v1.Agent) (string, int64, error) {
 	if agent.Spec.ModelId == "" {
 		return "", 0, fmt.Errorf("agent %s has no model", agent.Metadata.Id)
 	}
@@ -518,7 +422,7 @@ func (m *model) getAgentModelInfo(agent *v1.Agent) (string, int64, error) {
 	return resp.Msg.Model.Spec.Name, resp.Msg.Model.Spec.ContextWindow, nil
 }
 
-func (m *model) calculateContextUsage(contextWindowSize int64) int {
+func (m *Session) calculateContextUsage(contextWindowSize int64) int {
 	if m.lastUsage == nil || m.activeAgent == nil {
 		return -1
 	}
@@ -565,155 +469,4 @@ func abbreviateModelName(name string) string {
 	return name
 }
 
-func renderWelcomeMessage() string {
-	separator := separatorStyle.Render()
 
-	welcomeLines := []string{
-		separator,
-		"Welcome! Type your message below.",
-		"Press Ctrl + ? for help at any time.",
-		"Press Ctrl + C to exit.",
-		separator,
-		"",
-	}
-
-	return strings.Join(welcomeLines, "\n")
-}
-
-func (m *model) createToolCallMessage(toolCall *v1.ToolCall, timestamp time.Time) message {
-	switch toolInput := toolCall.Input.(type) {
-	case *v1.ToolCall_EditFile:
-		return &editFileToolCall{
-			ID:        toolCall.Id,
-			Input:     toolInput.EditFile,
-			timestamp: timestamp,
-		}
-	case *v1.ToolCall_CreateFile:
-		return &createFileToolCall{
-			ID:        toolCall.Id,
-			Input:     toolInput.CreateFile,
-			timestamp: timestamp,
-		}
-	case *v1.ToolCall_ExecuteCommand:
-		return &executeCommandToolCall{
-			ID:        toolCall.Id,
-			Input:     toolInput.ExecuteCommand,
-			timestamp: timestamp,
-		}
-	case *v1.ToolCall_FindFile:
-		return &findFileToolCall{
-			ID:        toolCall.Id,
-			Input:     toolInput.FindFile,
-			timestamp: timestamp,
-		}
-	case *v1.ToolCall_Grep:
-		return &grepToolCall{
-			ID:        toolCall.Id,
-			Input:     toolInput.Grep,
-			timestamp: timestamp,
-		}
-	case *v1.ToolCall_Handoff:
-		return &handoffToolCall{
-			ID:        toolCall.Id,
-			Input:     toolInput.Handoff,
-			timestamp: timestamp,
-		}
-	case *v1.ToolCall_AskUser:
-		return &askUserToolCall{
-			ID:        toolCall.Id,
-			Input:     toolInput.AskUser,
-			timestamp: timestamp,
-		}
-	case *v1.ToolCall_ListFiles:
-		return &listFilesToolCall{
-			ID:        toolCall.Id,
-			Input:     toolInput.ListFiles,
-			timestamp: timestamp,
-		}
-	case *v1.ToolCall_ReadFile:
-		return &readFileToolCall{
-			ID:        toolCall.Id,
-			Input:     toolInput.ReadFile,
-			timestamp: timestamp,
-		}
-	case *v1.ToolCall_SubmitReport:
-		return &submitReportToolCall{
-			ID:        toolCall.Id,
-			Input:     toolInput.SubmitReport,
-			timestamp: timestamp,
-		}
-	case *v1.ToolCall_CodeInterpreter:
-		if m.Verbose {
-			return &codeInterpreterToolCall{
-				ID:        toolCall.Id,
-				Input:     toolInput.CodeInterpreter,
-				timestamp: timestamp,
-			}
-		}
-	}
-
-	return nil
-}
-
-func (m *model) createToolResultMessage(toolResult *v1.ToolResult, timestamp time.Time) message {
-	switch toolOutput := toolResult.Result.(type) {
-	case *v1.ToolResult_CreateFile:
-		return &createFileResult{
-			ID:        toolResult.Id,
-			Result:    toolOutput.CreateFile,
-			timestamp: timestamp,
-		}
-	case *v1.ToolResult_EditFile:
-		return &editFileResult{
-			ID:        toolResult.Id,
-			Result:    toolOutput.EditFile,
-			timestamp: timestamp,
-		}
-	case *v1.ToolResult_ExecuteCommand:
-		return &executeCommandResult{
-			ID:        toolResult.Id,
-			Result:    toolOutput.ExecuteCommand,
-			timestamp: timestamp,
-		}
-	case *v1.ToolResult_FindFile:
-		return &findFileResult{
-			ID:        toolResult.Id,
-			Result:    toolOutput.FindFile,
-			timestamp: timestamp,
-		}
-	case *v1.ToolResult_Grep:
-		return &grepResult{
-			ID:        toolResult.Id,
-			Result:    toolOutput.Grep,
-			timestamp: timestamp,
-		}
-	case *v1.ToolResult_ListFiles:
-		return &listFilesResult{
-			ID:        toolResult.Id,
-			Result:    toolOutput.ListFiles,
-			timestamp: timestamp,
-		}
-	case *v1.ToolResult_ReadFile:
-		return &readFileResult{
-			ID:        toolResult.Id,
-			Result:    toolOutput.ReadFile,
-			timestamp: timestamp,
-		}
-	case *v1.ToolResult_SubmitReport:
-		return &submitReportResult{
-			ID:        toolResult.Id,
-			Result:    toolOutput.SubmitReport,
-			timestamp: timestamp,
-		}
-	case *v1.ToolResult_CodeInterpreter:
-		if m.Verbose {
-			return &codeInterpreterResult{
-				ID:        toolResult.Id,
-				Result:    toolOutput.CodeInterpreter,
-				timestamp: timestamp,
-			}
-		}
-	}
-
-	return nil
-}
