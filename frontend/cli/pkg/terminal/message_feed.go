@@ -1,6 +1,8 @@
 package terminal
 
 import (
+	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -34,7 +36,9 @@ type MessageFeed struct {
 var _ tea.Model = (*MessageFeed)(nil)
 
 func NewMessageFeed() *MessageFeed {
-	return &MessageFeed{}
+	return &MessageFeed{
+		// renderCache: make(map[string]renderCacheItem),
+	}
 }
 
 func (m *MessageFeed) Init() tea.Cmd {
@@ -73,10 +77,17 @@ func (m *MessageFeed) View() string {
 		)
 	}
 
-	return lipgloss.NewStyle().Width(m.width).Render(lipgloss.JoinVertical(
+	result := lipgloss.NewStyle().Width(m.width).Render(lipgloss.JoinVertical(
 		lipgloss.Top,
 		m.viewport.View(),
 	))
+
+	if _, err := os.Stat("/tmp/debug"); err == nil {
+		os.WriteFile("/tmp/result.txt", []byte(result), 0644)
+		os.WriteFile("/tmp/messages.txt", []byte(m.viewport.View()), 0644)
+	}
+
+	return result
 }
 
 func (m *MessageFeed) SetSize(width, height int) tea.Cmd {
@@ -280,4 +291,111 @@ func (m *MessageFeed) createToolResultMessage(toolResult *v1.ToolResult, timesta
 	}
 
 	return nil
+}
+
+func formatMessages(messages []message, partialMessage string, width int) string {
+	renderedMessages := []string{}
+	for i, msg := range messages {
+		switch msg := msg.(type) {
+		case *userTextMessage:
+			renderedMessages = append(renderedMessages, renderUserMessage(msg, width, addBottomMargin(i, messages)))
+
+		case *assistantTextMessage:
+			renderedMessages = append(renderedMessages, renderAssistantMessage(msg, width, addBottomMargin(i, messages)))
+
+		case *readFileToolCall:
+			renderedMessages = append(renderedMessages, renderToolCallMessage("Read", msg.Input.Path, width, addBottomMargin(i, messages)))
+
+		case *createFileToolCall:
+			renderedMessages = append(renderedMessages, renderToolCallMessage("Create", msg.Input.Path, width, addBottomMargin(i, messages)))
+
+		case *editFileToolCall:
+			renderedMessages = append(renderedMessages, renderToolCallMessage("Edit", msg.Input.Path, width, addBottomMargin(i, messages)))
+
+		case *executeCommandToolCall:
+			command := msg.Input.Command
+			if len(command) > 50 {
+				command = command[:47] + "..."
+			}
+			renderedMessages = append(renderedMessages, renderToolCallMessage("Execute", command, width, addBottomMargin(i, messages)))
+
+		case *findFileToolCall:
+			pathInfo := msg.Input.Path
+			if pathInfo == "" {
+				pathInfo = "."
+			}
+
+			if len(pathInfo) > 50 {
+				start := Max(0, len(pathInfo)-50)
+				pathInfo = pathInfo[start:] + "..."
+			}
+
+			excludeArg := msg.Input.ExcludePattern
+			if len(excludeArg) > 50 {
+				excludeArg = excludeArg[:47] + "..."
+			}
+			if excludeArg == "" {
+				excludeArg = "none"
+			}
+
+			renderedMessages = append(renderedMessages,
+				renderToolCallMessage("Find", fmt.Sprintf("%s(pattern: %s, path: %s, exclude: %s)", boldStyle.Render("Find"), msg.Input.Pattern, pathInfo, excludeArg), width, addBottomMargin(i, messages)))
+
+		case *grepToolCall:
+			searchInfo := msg.Input.Query
+			if msg.Input.IncludePattern != "" {
+				searchInfo = fmt.Sprintf("%s in %s", searchInfo, msg.Input.IncludePattern)
+			}
+			renderedMessages = append(renderedMessages, renderToolCallMessage("Grep", searchInfo, width, addBottomMargin(i, messages)))
+
+		case *handoffToolCall:
+			renderedMessages = append(renderedMessages, renderToolCallMessage("Handoff", msg.Input.RequestedAgent, width, addBottomMargin(i, messages)))
+
+		case *listFilesToolCall:
+			pathInfo := msg.Input.Path
+			if pathInfo == "" {
+				pathInfo = "."
+			}
+			listType := "List"
+			if msg.Input.Recursive {
+				listType = "List -R"
+			}
+			renderedMessages = append(renderedMessages, renderToolCallMessage(listType, pathInfo, width, addBottomMargin(i, messages)))
+
+		case *codeInterpreterToolCall:
+			renderedMessages = append(renderedMessages, renderToolCallMessage("Interpreter", "Script", width, addBottomMargin(i, messages)))
+			renderedMessages = append(renderedMessages, formatCodeInterpreterContent(msg.Input.Code))
+
+		case *codeInterpreterResult:
+			renderedMessages = append(renderedMessages, renderToolCallMessage("Interpreter", "Output", width, addBottomMargin(i, messages)))
+			renderedMessages = append(renderedMessages, formatCodeInterpreterContent(msg.Result.Output))
+
+		case *errorMessage:
+			renderedMessages = append(renderedMessages, errorStyle.Render("❌ Error: ")+msg.content)
+		}
+	}
+
+	if partialMessage != "" {
+		renderedMessages = append(renderedMessages, renderAssistantMessage(&assistantTextMessage{content: partialMessage}, width, false))
+	}
+
+	// var marginMessages []string
+	// for _, msg := range renderedMessages {
+	// 	marginMessages = append(marginMessages, lipgloss.JoinVertical(
+	// 		lipgloss.Left,
+	// 		msg,
+	// 		"",
+	// 	))
+	// }
+
+	return lipgloss.JoinVertical(
+		lipgloss.Top,
+		renderedMessages...,
+	)
+
+	// f, _ := os.CreateTemp("", "construct-cli-messages.md")
+	// f.WriteString(formatted.String())
+	// f.Close()
+
+	// return formatted.String()
 }

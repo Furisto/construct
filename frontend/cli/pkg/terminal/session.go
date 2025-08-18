@@ -25,12 +25,11 @@ type Session struct {
 	width  int
 	height int
 
-	apiClient      *api_client.Client
-	messages       []message
-	partialMessage string
-	task           *v1.Task
-	activeAgent    *v1.Agent
-	agents         []*v1.Agent
+	apiClient   *api_client.Client
+	messages    []message
+	task        *v1.Task
+	activeAgent *v1.Agent
+	agents      []*v1.Agent
 
 	ctx     context.Context
 	Verbose bool
