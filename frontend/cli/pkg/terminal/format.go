@@ -9,23 +9,23 @@ import (
 )
 
 func renderUserMessage(msg *userTextMessage, width int, margin bool) string {
-	// markdown := formatAsMarkdown(msg.content, width)
+	markdown := formatAsMarkdown(msg.content, width)
 	frameSize := userMessageStyle.GetHorizontalFrameSize()
 	style := userMessageStyle.Width(width - frameSize)
 	if margin {
 		style = style.MarginBottom(1)
 	}
-	return style.Render(msg.content)
+	return style.Render(markdown)
 }
 
 func renderAssistantMessage(msg *assistantTextMessage, width int, margin bool) string {
 	frameSize := assistantMessageStyle.GetHorizontalFrameSize()
-	// markdown := formatAsMarkdown(msg.content, width-frameSize)
+	markdown := formatAsMarkdown(msg.content, width-frameSize)
 	style := assistantMessageStyle.Width(width - frameSize)
 	if margin {
 		style = style.MarginBottom(1)
 	}
-	return style.Render(msg.content)
+	return style.Render(markdown)
 }
 
 func renderToolCallMessage(tool, input string, width int, margin bool) string {
@@ -33,13 +33,13 @@ func renderToolCallMessage(tool, input string, width int, margin bool) string {
 	if margin {
 		style = style.MarginBottom(1)
 	}
-	return assistantBullet.String() + style.Render(fmt.Sprintf("%s(%s)", boldStyle.Render(tool), input))
+	return toolCallBullet.String() + style.Render(fmt.Sprintf("%s(%s)", boldStyle.Render(tool), input))
 }
 
 func formatAsMarkdown(content string, width int) string {
 	md, _ := glamour.NewTermRenderer(
 		glamour.WithStandardStyle("dark"), // avoid OSC background queries
-		glamour.WithWordWrap(width),
+		// glamour.WithWordWrap(width),
 	)
 
 	out, _ := md.Render(content)

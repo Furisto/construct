@@ -308,7 +308,7 @@ func (m *Session) onWindowResize(msg tea.WindowSizeMsg) {
 
 	headerHeight := lipgloss.Height(m.headerView())
 	inputHeight := lipgloss.Height(m.inputView())
-	messageFeedHeight := msg.Height - headerHeight - inputHeight - 1 // substract 1 for new newlines introduced by JoinVertical in Session.View()
+	messageFeedHeight := msg.Height - headerHeight - inputHeight - appStyle.GetVerticalFrameSize()
 	m.messageFeed.SetSize(appWidth, messageFeedHeight)
 
 	m.input.SetWidth(appWidth)
@@ -319,11 +319,17 @@ func (m *Session) View() string {
 		return m.renderHelp()
 	}
 
-	return appStyle.Render(lipgloss.JoinVertical(lipgloss.Left,
+	result := appStyle.Render(lipgloss.JoinVertical(lipgloss.Left,
 		m.headerView(),
 		m.messageFeed.View(),
 		m.inputView(),
 	))
+
+	if _, err := os.Stat("/tmp/debug"); err == nil {
+		os.WriteFile("/tmp/app.txt", []byte(result), 0644)
+	}
+
+	return result
 }
 
 func (m *Session) headerView() string {

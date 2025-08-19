@@ -2,7 +2,6 @@ package terminal
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -49,12 +48,12 @@ func (m *MessageFeed) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
-	// case tea.KeyMsg:
-	// 	if key.Matches(msg, messageKeys.PageUp) || key.Matches(msg, messageKeys.PageDown) {
-	// 		u, cmd := m.viewport.Update(msg)
-	// 		m.viewport = u
-	// 		cmds = append(cmds, cmd)
-	// 	}
+	case tea.KeyMsg:
+		if key.Matches(msg, messageKeys.PageUp) || key.Matches(msg, messageKeys.PageDown) {
+			u, cmd := m.viewport.Update(msg)
+			m.viewport = u
+			cmds = append(cmds, cmd)
+		}
 	case *v1.Message:
 		m.processMessage(msg)
 		m.updateViewportContent()
@@ -81,11 +80,6 @@ func (m *MessageFeed) View() string {
 		lipgloss.Top,
 		m.viewport.View(),
 	))
-
-	if _, err := os.Stat("/tmp/debug"); err == nil {
-		os.WriteFile("/tmp/result.txt", []byte(result), 0644)
-		os.WriteFile("/tmp/messages.txt", []byte(m.viewport.View()), 0644)
-	}
 
 	return result
 }
@@ -379,23 +373,8 @@ func formatMessages(messages []message, partialMessage string, width int) string
 		renderedMessages = append(renderedMessages, renderAssistantMessage(&assistantTextMessage{content: partialMessage}, width, false))
 	}
 
-	// var marginMessages []string
-	// for _, msg := range renderedMessages {
-	// 	marginMessages = append(marginMessages, lipgloss.JoinVertical(
-	// 		lipgloss.Left,
-	// 		msg,
-	// 		"",
-	// 	))
-	// }
-
 	return lipgloss.JoinVertical(
 		lipgloss.Top,
 		renderedMessages...,
 	)
-
-	// f, _ := os.CreateTemp("", "construct-cli-messages.md")
-	// f.WriteString(formatted.String())
-	// f.Close()
-
-	// return formatted.String()
 }

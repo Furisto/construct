@@ -48,69 +48,10 @@ var (
 	usageStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("241"))
 
-	// Input styles
-	// inputStyle = lipgloss.NewStyle().
-	// 		BorderStyle(lipgloss.RoundedBorder()).
-	// 		BorderForeground(lipgloss.Color("240")).
-	// 		Background(lipgloss.NoColor{}).
-	// 		Padding(0, 1)
-
-	// inputFocusedStyle = lipgloss.NewStyle().
-	// 			BorderStyle(lipgloss.RoundedBorder()).
-	// 			BorderForeground(lipgloss.Color("39")).
-	// 			Background(lipgloss.NoColor{}).
-	// 			Padding(0, 1)
-
-	// // Viewport styles
-	// viewportStyle = lipgloss.NewStyle().
-	// 		Padding(1).
-	// 		MarginTop(1).
-	// 		MarginBottom(1)
-
-	// // Footer styles
-	// footerStyle = lipgloss.NewStyle().
-	// 		Foreground(lipgloss.Color("241")).
-	// 		BorderStyle(lipgloss.RoundedBorder()).
-	// 		BorderForeground(lipgloss.Color("240")).
-	// 		Padding(0, 1).
-	// 		MarginTop(1)
-
-	// shortcutStyle = lipgloss.NewStyle().
-	// 		Foreground(lipgloss.Color("39")).
-	// 		Bold(true)
-
-	// shortcutDescStyle = lipgloss.NewStyle().
-	// 			Foreground(lipgloss.Color("252"))
-
-	// // Message styles
-	// userMsgStyle = lipgloss.NewStyle().
-	// 		Foreground(lipgloss.Color("252"))
-
-	assistantTextStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("252"))
-
-	// assistantToolStyle = lipgloss.NewStyle().
-	// 			Foreground(lipgloss.Color("39"))
-
-	// // Code block style for tool messages
-	// codeBlockStyle = lipgloss.NewStyle().
-	// 		Foreground(lipgloss.Color("39")).
-	// 		Background(lipgloss.Color("236")).
-	// 		Padding(0, 1)
-
 	// Bullet points
-	assistantBullet = lipgloss.NewStyle().
+	toolCallBullet = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("250")).
 			SetString("◆ ")
-
-	toolCallBullet = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("34")).
-			SetString("▶ ")
-
-	// Waiting indicator
-	waitingStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("241")).
-			Italic(true)
 
 	// Error style
 	errorStyle = lipgloss.NewStyle().
@@ -121,49 +62,14 @@ var (
 	toolCallStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("250"))
 
-	toolArgsStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("243")).
-			Italic(true)
-
-	// Submit report styles
-	reportStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("34")).
-			Bold(true)
-
-	reportContentStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("252"))
-
-	// Status indicator styles
-	statusRunningStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("34")).
-				Bold(true)
-
-	statusWaitingStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("214")).
-				Bold(true)
-
-	statusErrorStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("9")).
-				Bold(true)
-
-	// Timestamp style
-	timestampStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("241")).
-			Italic(true)
-
-	// User prompt style
-	userPromptBullet = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("245")).
-				SetString("> ")
-
 	userMessageStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("255")).
 				BorderStyle(lipgloss.NormalBorder()).
 				BorderForeground(lipgloss.Color("245")).
 				MarginBottom(1).
 				Padding(0, 1)
-				// Background(lipgloss.Color("212")).
-				// MarginBackground(lipgloss.Color("3"))
+		// Background(lipgloss.Color("212")).
+		// MarginBackground(lipgloss.Color("3"))
 
 	assistantMessageStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("254"))
