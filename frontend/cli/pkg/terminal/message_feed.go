@@ -85,11 +85,19 @@ func (m *MessageFeed) View() string {
 }
 
 func (m *MessageFeed) SetSize(width, height int) tea.Cmd {
+	var rerender bool
+	if m.width != width {
+		rerender = true
+	}
 	m.width = width
 	m.height = height
 
 	m.viewport.Width = width
 	m.viewport.Height = height
+
+	if rerender {
+		m.updateViewportContent()
+	}
 
 	return nil
 }

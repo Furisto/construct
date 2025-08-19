@@ -9,9 +9,9 @@ import (
 )
 
 func renderUserMessage(msg *userTextMessage, width int, margin bool) string {
-	markdown := formatAsMarkdown(msg.content, width)
-	frameSize := userMessageStyle.GetHorizontalFrameSize()
-	style := userMessageStyle.Width(width - frameSize)
+	msgWidth := width - userMessageStyle.GetHorizontalBorderSize()
+	markdown := formatAsMarkdown(msg.content, msgWidth)
+	style := userMessageStyle.Width(msgWidth)
 	if margin {
 		style = style.MarginBottom(1)
 	}
@@ -19,9 +19,9 @@ func renderUserMessage(msg *userTextMessage, width int, margin bool) string {
 }
 
 func renderAssistantMessage(msg *assistantTextMessage, width int, margin bool) string {
-	frameSize := assistantMessageStyle.GetHorizontalFrameSize()
-	markdown := formatAsMarkdown(msg.content, width-frameSize)
-	style := assistantMessageStyle.Width(width - frameSize)
+	msgWidth := width - assistantMessageStyle.GetHorizontalBorderSize()
+	markdown := formatAsMarkdown(msg.content, msgWidth)
+	style := assistantMessageStyle.Width(msgWidth)
 	if margin {
 		style = style.MarginBottom(1)
 	}
@@ -29,17 +29,17 @@ func renderAssistantMessage(msg *assistantTextMessage, width int, margin bool) s
 }
 
 func renderToolCallMessage(tool, input string, width int, margin bool) string {
-	style := toolCallStyle.Width(width - 1)
+	style := toolCallStyle.Width(width - toolCallStyle.GetHorizontalBorderSize())
 	if margin {
 		style = style.MarginBottom(1)
 	}
-	return toolCallBullet.String() + style.Render(fmt.Sprintf("%s(%s)", boldStyle.Render(tool), input))
+	return style.Render("◆ " + fmt.Sprintf("%s(%s)", boldStyle.Render(tool), input))
 }
 
 func formatAsMarkdown(content string, width int) string {
 	md, _ := glamour.NewTermRenderer(
 		glamour.WithStandardStyle("dark"), // avoid OSC background queries
-		// glamour.WithWordWrap(width),
+		glamour.WithWordWrap(width),
 	)
 
 	out, _ := md.Render(content)
