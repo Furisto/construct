@@ -226,6 +226,14 @@ func (rt *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 		return nil
 	}
 
+	if nextMessage.Source == types.MessageSourceUser {
+		msg, err := ConvertMemoryMessageToProto(nextMessage)
+		if err != nil {
+			return err
+		}
+		rt.publishMessage(taskID, msg)
+	}
+
 	modelProvider, err := rt.createModelProviderClient(ctx, agent)
 	if err != nil {
 		return err
@@ -652,6 +660,12 @@ func hasToolCalls(content []model.ContentBlock) bool {
 	return false
 }
 
+func (rt *Runtime) publishMessage(taskID uuid.UUID, message *v1.Message) {
+	rt.eventHub.Publish(taskID, &v1.SubscribeResponse{
+		Message: message,
+	})
+}
+
 func (rt *Runtime) Encryption() *secret.Client {
 	return rt.encryption
 }
@@ -724,6 +738,16 @@ func WithContent(content *v1.MessagePart) func(*v1.Message) {
 	return func(msg *v1.Message) {
 		msg.Spec.Content = append(msg.Spec.Content, content)
 	}
+}
+
+func NewUserMessage(taskID uuid.UUID, options ...func(*v1.Message)) *v1.Message {
+	msg := NewMessage(taskID, WithRole(v1.MessageRole_MESSAGE_ROLE_USER))
+
+	for _, option := range options {
+		option(msg)
+	}
+
+	return msg
 }
 
 func NewAssistantMessage(taskID uuid.UUID, options ...func(*v1.Message)) *v1.Message {

@@ -60,7 +60,8 @@ var (
 
 	// Tool message styles
 	toolCallStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("250"))
+			Foreground(lipgloss.Color("250")).
+			PaddingLeft(1)
 
 	userMessageStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("255")).
@@ -68,11 +69,10 @@ var (
 				BorderForeground(lipgloss.Color("245")).
 				MarginBottom(1).
 				Padding(0, 1)
-		// Background(lipgloss.Color("212")).
-		// MarginBackground(lipgloss.Color("3"))
 
 	assistantMessageStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("254"))
+				Foreground(lipgloss.Color("254")).
+				PaddingLeft(1)
 
 	// Separator style
 	separatorStyle = lipgloss.NewStyle().

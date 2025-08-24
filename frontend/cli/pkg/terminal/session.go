@@ -325,10 +325,6 @@ func (m *Session) View() string {
 		m.inputView(),
 	))
 
-	if _, err := os.Stat("/tmp/debug"); err == nil {
-		os.WriteFile("/tmp/app.txt", []byte(result), 0644)
-	}
-
 	return result
 }
 

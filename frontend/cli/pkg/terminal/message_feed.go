@@ -13,16 +13,32 @@ import (
 )
 
 type MessageFeedKeyMap struct {
-	PageUp   key.Binding
-	PageDown key.Binding
+	HalfPageUp   key.Binding
+	HalfPageDown key.Binding
+	Down         key.Binding
+	Up           key.Binding
 }
 
-var (
-	messageKeys = MessageFeedKeyMap{
-		PageUp:   key.NewBinding(key.WithKeys("ctrl+p")),
-		PageDown: key.NewBinding(key.WithKeys("ctrl+n")),
+func NewMessageFeedKeyMap() MessageFeedKeyMap {
+	return MessageFeedKeyMap{
+		HalfPageUp: key.NewBinding(
+			key.WithKeys("ctrl+u"),
+			key.WithHelp("ctrl+u", "½ page up"),
+		),
+		HalfPageDown: key.NewBinding(
+			key.WithKeys("ctrl+d"),
+			key.WithHelp("ctrl+d", "½ page down"),
+		),
+		Up: key.NewBinding(
+			key.WithKeys("up", "k"),
+			key.WithHelp("↑", "up"),
+		),
+		Down: key.NewBinding(
+			key.WithKeys("down", "j"),
+			key.WithHelp("↓", "down"),
+		),
 	}
-)
+}
 
 type MessageFeed struct {
 	width          int
@@ -30,13 +46,15 @@ type MessageFeed struct {
 	viewport       viewport.Model
 	messages       []message
 	partialMessage string
+	keyMap         MessageFeedKeyMap
 }
 
 var _ tea.Model = (*MessageFeed)(nil)
 
 func NewMessageFeed() *MessageFeed {
 	return &MessageFeed{
-		// renderCache: make(map[string]renderCacheItem),
+		viewport: viewport.New(0, 0),
+		keyMap:   NewMessageFeedKeyMap(),
 	}
 }
 
@@ -49,19 +67,26 @@ func (m *MessageFeed) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		if key.Matches(msg, messageKeys.PageUp) || key.Matches(msg, messageKeys.PageDown) {
-			u, cmd := m.viewport.Update(msg)
-			m.viewport = u
-			cmds = append(cmds, cmd)
+		switch {
+		case key.Matches(msg, m.keyMap.HalfPageUp):
+			m.viewport.HalfViewUp()
+		case key.Matches(msg, m.keyMap.HalfPageDown):
+			m.viewport.HalfViewDown()
+		case key.Matches(msg, m.keyMap.Up):
+			m.viewport.LineUp(1)
+		case key.Matches(msg, m.keyMap.Down):
+			m.viewport.LineDown(1)
 		}
+
+	case tea.MouseMsg:
+		u, cmd := m.viewport.Update(msg)
+		m.viewport = u
+		cmds = append(cmds, cmd)
+
 	case *v1.Message:
 		m.processMessage(msg)
 		m.updateViewportContent()
 	}
-
-	u, cmd := m.viewport.Update(msg)
-	m.viewport = u
-	cmds = append(cmds, cmd)
 
 	return m, tea.Batch(cmds...)
 }
@@ -109,7 +134,9 @@ func (m *MessageFeed) renderInitialMessage() string {
 		separator,
 		"Welcome! Type your message below.",
 		"Press Ctrl + ? for help at any time.",
-		"Press Ctrl + C to exit.",
+		"Press Ctrl + C to clear the input area.",
+		"Press Ctrl + C twice to exit.",
+		"Press Esc to stop the agent execution.",
 		separator,
 		"",
 	}
@@ -118,10 +145,14 @@ func (m *MessageFeed) renderInitialMessage() string {
 }
 
 func (m *MessageFeed) updateViewportContent() {
+	wasAtBottom := m.viewport.AtBottom()
+
 	formatted := formatMessages(m.messages, m.partialMessage, m.viewport.Width)
 	m.viewport.SetContent(formatted)
 
-	m.viewport.GotoBottom()
+	if wasAtBottom {
+		m.viewport.GotoBottom()
+	}
 }
 
 func (m *MessageFeed) processMessage(msg *v1.Message) {
