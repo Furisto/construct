@@ -37,6 +37,8 @@ const (
 	ModelProviderType_MODEL_PROVIDER_TYPE_ANTHROPIC ModelProviderType = 1
 	// MODEL_PROVIDER_TYPE_OPENAI represents OpenAI's AI models (GPT, etc.).
 	ModelProviderType_MODEL_PROVIDER_TYPE_OPENAI ModelProviderType = 2
+	// MODEL_PROVIDER_TYPE_GEMINI represents Google's AI models (Gemini, etc.).
+	ModelProviderType_MODEL_PROVIDER_TYPE_GEMINI ModelProviderType = 3
 )
 
 // Enum value maps for ModelProviderType.
@@ -45,11 +47,13 @@ var (
 		0: "MODEL_PROVIDER_TYPE_UNSPECIFIED",
 		1: "MODEL_PROVIDER_TYPE_ANTHROPIC",
 		2: "MODEL_PROVIDER_TYPE_OPENAI",
+		3: "MODEL_PROVIDER_TYPE_GEMINI",
 	}
 	ModelProviderType_value = map[string]int32{
 		"MODEL_PROVIDER_TYPE_UNSPECIFIED": 0,
 		"MODEL_PROVIDER_TYPE_ANTHROPIC":   1,
 		"MODEL_PROVIDER_TYPE_OPENAI":      2,
+		"MODEL_PROVIDER_TYPE_GEMINI":      3,
 	}
 )
 
@@ -977,11 +981,12 @@ const file_construct_v1_modelprovider_proto_rawDesc = "" +
 	"\x0emodel_provider\x18\x01 \x01(\v2\x1b.construct.v1.ModelProviderB\x06\xbaH\x03\xc8\x01\x01R\rmodelProvider\"6\n" +
 	"\x1aDeleteModelProviderRequest\x12\x18\n" +
 	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\"\x1d\n" +
-	"\x1bDeleteModelProviderResponse*{\n" +
+	"\x1bDeleteModelProviderResponse*\x9b\x01\n" +
 	"\x11ModelProviderType\x12#\n" +
 	"\x1fMODEL_PROVIDER_TYPE_UNSPECIFIED\x10\x00\x12!\n" +
 	"\x1dMODEL_PROVIDER_TYPE_ANTHROPIC\x10\x01\x12\x1e\n" +
-	"\x1aMODEL_PROVIDER_TYPE_OPENAI\x10\x022\xb6\x04\n" +
+	"\x1aMODEL_PROVIDER_TYPE_OPENAI\x10\x02\x12\x1e\n" +
+	"\x1aMODEL_PROVIDER_TYPE_GEMINI\x10\x032\xb6\x04\n" +
 	"\x14ModelProviderService\x12l\n" +
 	"\x13CreateModelProvider\x12(.construct.v1.CreateModelProviderRequest\x1a).construct.v1.CreateModelProviderResponse\"\x00\x12f\n" +
 	"\x10GetModelProvider\x12%.construct.v1.GetModelProviderRequest\x1a&.construct.v1.GetModelProviderResponse\"\x03\x90\x02\x01\x12l\n" +

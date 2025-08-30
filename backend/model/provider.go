@@ -8,11 +8,11 @@ import (
 )
 
 type InvokeModelOptions struct {
-	Messages      []Message
 	Tools         []native.Tool
 	MaxTokens     int
 	Temperature   float64
-	StreamHandler func(ctx context.Context, message *Message)
+	StreamHandler func(ctx context.Context, chunk string)
+	ModelProfile  ModelProfile
 }
 
 func DefaultInvokeModelOptions() *InvokeModelOptions {
@@ -43,7 +43,13 @@ func WithTemperature(temperature float64) InvokeModelOption {
 	}
 }
 
-func WithStreamHandler(handler func(ctx context.Context, message *Message)) InvokeModelOption {
+func WithModelProfile(profile ModelProfile) InvokeModelOption {
+	return func(o *InvokeModelOptions) {
+		o.ModelProfile = profile
+	}
+}
+
+func WithStreamHandler(handler func(ctx context.Context, chunk string)) InvokeModelOption {
 	return func(o *InvokeModelOptions) {
 		o.StreamHandler = handler
 	}
@@ -58,6 +64,7 @@ type MessageSource string
 const (
 	MessageSourceUser  MessageSource = "user"
 	MessageSourceModel MessageSource = "model"
+	MessageSourceSystem  MessageSource = "system"
 )
 
 type Message struct {

@@ -249,49 +249,22 @@ func (rt *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 		return err
 	}
 
-	messageID := uuid.New()
 	message, err := modelProvider.InvokeModel(
 		ctx,
 		agent.Edges.Model.Name,
 		systemPrompt,
 		modelMessages,
-		model.WithStreamHandler(func(ctx context.Context, message *model.Message) {
-			for _, block := range message.Content {
-				switch block := block.(type) {
-				case *model.TextBlock:
-					rt.eventHub.Publish(taskID, &v1.SubscribeResponse{
-						Message: &v1.Message{
-							Metadata: &v1.MessageMetadata{
-								Id:        messageID.String(),
-								TaskId:    taskID.String(),
-								CreatedAt: timestamppb.New(time.Now()),
-								UpdatedAt: timestamppb.New(time.Now()),
-								AgentId:   conv.Ptr(agent.ID.String()),
-								ModelId:   conv.Ptr(agent.Edges.Model.ID.String()),
-								Role:      v1.MessageRole_MESSAGE_ROLE_ASSISTANT,
-							},
-							Spec: &v1.MessageSpec{
-								Content: []*v1.MessagePart{
-									{
-										Data: &v1.MessagePart_Text_{
-											Text: &v1.MessagePart_Text{
-												Content: block.Text,
-											},
-										},
-									},
-								},
-							},
-							Status: &v1.MessageStatus{
-								ContentState:    v1.ContentStatus_CONTENT_STATUS_PARTIAL,
-								IsFinalResponse: false,
-							},
+		model.WithStreamHandler(func(ctx context.Context, chunk string) {
+			rt.publishMessage(taskID, NewAssistantMessage(taskID,
+				WithContent(&v1.MessagePart{
+					Data: &v1.MessagePart_Text_{
+						Text: &v1.MessagePart_Text{
+							Content: chunk,
 						},
-					})
-				case *model.ToolCallBlock:
-					fmt.Println(block.Args)
-				}
-			}
-
+					},
+				}),
+				WithStatus(v1.ContentStatus_CONTENT_STATUS_PARTIAL),
+			))
 		}),
 		model.WithTools(rt.interpreter),
 	)
@@ -451,7 +424,7 @@ func (rt *Runtime) createModelProviderClient(ctx context.Context, agent *memory.
 		return nil, err
 	}
 
-	providerAPI, err := rt.modelProviderAPI(m)
+	providerAPI, err := rt.modelProviderClient(m)
 	if err != nil {
 		return nil, err
 	}
@@ -612,28 +585,40 @@ func (rt *Runtime) callTools(ctx context.Context, taskID uuid.UUID, content []mo
 	return toolResults, toolStats, nil
 }
 
-func (rt *Runtime) modelProviderAPI(m *memory.Model) (model.ModelProvider, error) {
+func (rt *Runtime) modelProviderClient(m *memory.Model) (model.ModelProvider, error) {
 	if m.Edges.ModelProvider == nil {
 		return nil, fmt.Errorf("model provider not found")
 	}
 	provider := m.Edges.ModelProvider
 
+	providerAuth, err := rt.encryption.Decrypt(provider.Secret, []byte(secret.ModelProviderSecret(provider.ID)))
+	if err != nil {
+		return nil, err
+	}
+
+	var auth struct {
+		APIKey string `json:"apiKey"`
+	}
+	err = json.Unmarshal(providerAuth, &auth)
+	if err != nil {
+		return nil, err
+	}
+
 	switch provider.ProviderType {
 	case types.ModelProviderTypeAnthropic:
-		providerAuth, err := rt.encryption.Decrypt(provider.Secret, []byte(secret.ModelProviderSecret(provider.ID)))
-		if err != nil {
-			return nil, err
-		}
-
-		var auth struct {
-			APIKey string `json:"apiKey"`
-		}
-		err = json.Unmarshal(providerAuth, &auth)
-		if err != nil {
-			return nil, err
-		}
-
 		provider, err := model.NewAnthropicProvider(auth.APIKey)
+		if err != nil {
+			return nil, err
+		}
+		return provider, nil
+	case types.ModelProviderTypeOpenAI:
+		provider, err := model.NewOpenAICompletionProvider(auth.APIKey)
+		if err != nil {
+			return nil, err
+		}
+		return provider, nil
+	case types.ModelProviderTypeGemini:
+		provider, err := model.NewGeminiProvider(auth.APIKey)
 		if err != nil {
 			return nil, err
 		}
@@ -737,6 +722,12 @@ func WithRole(role v1.MessageRole) func(*v1.Message) {
 func WithContent(content *v1.MessagePart) func(*v1.Message) {
 	return func(msg *v1.Message) {
 		msg.Spec.Content = append(msg.Spec.Content, content)
+	}
+}
+
+func WithStatus(status v1.ContentStatus) func(*v1.Message) {
+	return func(msg *v1.Message) {
+		msg.Status.ContentState = status
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"connectrpc.com/connect"
 	"github.com/furisto/construct/api/go/client"
 	v1 "github.com/furisto/construct/api/go/v1"
+	"github.com/furisto/construct/backend/analytics"
 	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/memory/test"
 	"github.com/google/go-cmp/cmp"
@@ -25,6 +26,9 @@ func TestCreateAgent(t *testing.T) {
 			cmpopts.IgnoreUnexported(v1.CreateAgentResponse{}, v1.Agent{}, v1.AgentMetadata{}, v1.AgentSpec{}),
 			protocmp.Transform(),
 			protocmp.IgnoreFields(&v1.AgentMetadata{}, "id", "created_at", "updated_at"),
+			cmpopts.IgnoreMapEntries(func(key string, value interface{}) bool {
+				return key == "agent_id"
+			}),
 		},
 	}
 
@@ -95,6 +99,17 @@ func TestCreateAgent(t *testing.T) {
 							Description:  "Architect agent",
 							Instructions: "Instructions for architect agent",
 							ModelId:      modelID.String(),
+						},
+					},
+				},
+				Analytics: []analytics.Event{
+					{
+						DistinctId: "user",
+						Event:      "agent_created",
+						Properties: map[string]interface{}{
+							"agent_id":   "ignored",
+							"agent_name": "architect-agent",
+							"model_name": "claude-3-7-sonnet-20250219",
 						},
 					},
 				},

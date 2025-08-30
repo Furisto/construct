@@ -39,6 +39,8 @@ func ConvertModelProviderTypeToProto(dbType types.ModelProviderType) (v1.ModelPr
 		return v1.ModelProviderType_MODEL_PROVIDER_TYPE_ANTHROPIC, nil
 	case types.ModelProviderTypeOpenAI:
 		return v1.ModelProviderType_MODEL_PROVIDER_TYPE_OPENAI, nil
+	case types.ModelProviderTypeGemini:
+		return v1.ModelProviderType_MODEL_PROVIDER_TYPE_GEMINI, nil
 	default:
 		return v1.ModelProviderType_MODEL_PROVIDER_TYPE_UNSPECIFIED, fmt.Errorf("unsupported provider type: %v", dbType)
 	}
@@ -50,6 +52,8 @@ func ConvertModelProviderTypeToMemory(protoType v1.ModelProviderType) (types.Mod
 		return types.ModelProviderTypeAnthropic, nil
 	case v1.ModelProviderType_MODEL_PROVIDER_TYPE_OPENAI:
 		return types.ModelProviderTypeOpenAI, nil
+	case v1.ModelProviderType_MODEL_PROVIDER_TYPE_GEMINI:
+		return types.ModelProviderTypeGemini, nil
 	default:
 		return "", fmt.Errorf("unsupported provider type: %v", protoType)
 	}

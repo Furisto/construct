@@ -201,4 +201,7 @@ enum ModelProviderType {
 
   // MODEL_PROVIDER_TYPE_OPENAI represents OpenAI's AI models (GPT, etc.).
   MODEL_PROVIDER_TYPE_OPENAI = 2;
+
+  // MODEL_PROVIDER_TYPE_GEMINI represents Google's AI models (Gemini, etc.).
+  MODEL_PROVIDER_TYPE_GEMINI = 3;
 }

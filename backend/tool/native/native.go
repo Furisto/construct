@@ -39,7 +39,7 @@ func WithAdditionalCategory(category string) ToolOption {
 type Tool interface {
 	Name() string
 	Description() string
-	Schema() any
+	Schema() map[string]any
 	Run(ctx context.Context, fs afero.Fs, input json.RawMessage) (string, error)
 }
 

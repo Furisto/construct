@@ -61,7 +61,7 @@ func (h *ModelProviderHandler) CreateModelProvider(ctx context.Context, req *con
 			return nil, fmt.Errorf("failed to insert model provider: %w", err)
 		}
 
-		supportedModels := model.SupportedModels(model.Provider(providerType))
+		supportedModels := model.SupportedModels(model.ModelProfileKind(providerType))
 		models := make([]*memory.ModelCreate, 0, len(supportedModels))
 		for _, m := range supportedModels {
 			capabilities, err := conv.LLMModelCapabilitiesToMemory(m.Capabilities)
