@@ -9,9 +9,10 @@ import (
 
 	"entgo.io/ent/dialect"
 	"github.com/furisto/construct/backend/agent"
+	"github.com/furisto/construct/backend/analytics"
 	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/secret"
-	"github.com/furisto/construct/backend/tool"
+	"github.com/furisto/construct/backend/tool/codeact"
 	"github.com/furisto/construct/shared/listener"
 	"github.com/spf13/cobra"
 	"github.com/tink-crypto/tink-go/keyset"
@@ -79,21 +80,27 @@ func NewDaemonRunCmd() *cobra.Command {
 				}
 			}
 
+			analytics, err := analytics.NewPostHogClient()
+			if err != nil {
+				return err
+			}
+
 			runtime, err := agent.NewRuntime(
 				memory,
 				encryption,
 				listener,
 				agent.WithCodeActTools(
-					tool.NewCreateFileTool(),
-					tool.NewReadFileTool(),
-					tool.NewEditFileTool(),
-					tool.NewListFilesTool(),
-					tool.NewGrepTool(),
-					tool.NewFindFileTool(),
-					tool.NewExecuteCommandTool(),
-					tool.NewSubmitReportTool(),
-					tool.NewPrintTool(),
+					codeact.NewCreateFileTool(),
+					codeact.NewReadFileTool(),
+					codeact.NewEditFileTool(),
+					codeact.NewListFilesTool(),
+					codeact.NewGrepTool(),
+					codeact.NewFindFileTool(),
+					codeact.NewExecuteCommandTool(),
+					// codeact.NewSubmitReportTool(),
+					codeact.NewPrintTool(),
 				),
+				agent.WithAnalytics(analytics),
 			)
 
 			if err != nil {

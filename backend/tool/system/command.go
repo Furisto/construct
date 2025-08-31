@@ -8,7 +8,8 @@ import (
 )
 
 type ExecuteCommandInput struct {
-	Command string
+	Command          string
+	WorkingDirectory string
 }
 
 type ExecuteCommandResult struct {
@@ -31,6 +32,9 @@ func ExecuteCommand(input *ExecuteCommandInput) (*ExecuteCommandResult, error) {
 	)
 
 	cmd := exec.Command("/bin/sh", "-c", script)
+	if input.WorkingDirectory != "" {
+		cmd.Dir = input.WorkingDirectory
+	}
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, base.NewCustomError("error executing command", []string{

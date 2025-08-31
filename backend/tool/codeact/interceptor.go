@@ -248,7 +248,7 @@ func (p *ToolEventPublisher) Intercept(session *Session, tool Tool, inner func(s
 			if err != nil {
 				slog.Error("failed to convert arguments to proto tool call", "error", err)
 			}
-			p.publishToolEvent(session.TaskID, toolCall, v1.MessageRole_MESSAGE_ROLE_ASSISTANT)
+			p.publishToolEvent(session.Task.ID, toolCall, v1.MessageRole_MESSAGE_ROLE_ASSISTANT)
 
 			result := inner(call)
 			raw, ok := GetValue[any](session, "result")
@@ -258,7 +258,7 @@ func (p *ToolEventPublisher) Intercept(session *Session, tool Tool, inner func(s
 				if err != nil {
 					slog.Error("failed to convert result to proto tool result", "error", err)
 				}
-				p.publishToolEvent(session.TaskID, toolResult, v1.MessageRole_MESSAGE_ROLE_SYSTEM)
+				p.publishToolEvent(session.Task.ID, toolResult, v1.MessageRole_MESSAGE_ROLE_SYSTEM)
 			}
 			return result
 		} else {

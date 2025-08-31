@@ -93,7 +93,8 @@ When the user asks you to create a new git commit, follow these steps carefully:
 
 ### Key Success Factors
 - Craft meaningful messages that reflect actual changes and their purpose
-- Adapt to each repository's established commit conventions and closely match that style
+- Adapt to each repository's established commit conventions. The commit message should close match the style of the repository
+- After you have created the commit, do not explain to the user why the commit message follows the rules that have been explained to you.
 
 ## Usage Examples
 %[1]s
@@ -170,7 +171,8 @@ func executeCommandInput(session *Session, args []sobek.Value) (any, error) {
 	}
 
 	return &system.ExecuteCommandInput{
-		Command: args[0].String(),
+		Command:          args[0].String(),
+		WorkingDirectory: session.Task.ProjectDirectory,
 	}, nil
 }
 

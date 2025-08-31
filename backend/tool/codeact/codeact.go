@@ -12,26 +12,26 @@ import (
 )
 
 type Session struct {
-	Context context.Context
-	TaskID  uuid.UUID
-	AgentID uuid.UUID
-	VM      *sobek.Runtime
-	System  io.Writer
-	User    io.Writer
-	FS      afero.Fs
-	Memory  *memory.Client
+	Context          context.Context
+	Task             *Task
+	AgentID          uuid.UUID
+	VM               *sobek.Runtime
+	System           io.Writer
+	User             io.Writer
+	FS               afero.Fs
+	Memory           *memory.Client
 
 	CurrentTool string
 	values      map[string]any
 }
 
-func NewSession(taskID uuid.UUID, vm *sobek.Runtime, system io.Writer, user io.Writer, fs afero.Fs) *Session {
+func NewSession(task *Task, vm *sobek.Runtime, system io.Writer, user io.Writer, fs afero.Fs) *Session {
 	return &Session{
-		TaskID: taskID,
-		VM:     vm,
-		System: system,
-		User:   user,
-		FS:     fs,
+		Task:             task,
+		VM:               vm,
+		System:           system,
+		User:             user,
+		FS:               fs,
 
 		values: make(map[string]any),
 	}
@@ -62,6 +62,11 @@ func GetValue[T any](s *Session, key string) (T, bool) {
 
 func UnsetValue(s *Session, key string) {
 	delete(s.values, key)
+}
+
+type Task struct {
+	ID               uuid.UUID
+	ProjectDirectory string
 }
 
 type CodeActToolHandler func(session *Session) func(call sobek.FunctionCall) sobek.Value

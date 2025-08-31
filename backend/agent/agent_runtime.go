@@ -289,7 +289,7 @@ func (rt *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 		Message: protoMessage,
 	})
 
-	toolResults, toolStats, err := rt.callTools(ctx, taskID, message.Content)
+	toolResults, toolStats, err := rt.callTools(ctx, task, message.Content)
 	if err != nil {
 		slog.Error("failed to call tools", "error", err)
 	}
@@ -552,7 +552,7 @@ func (rt *Runtime) saveResponse(ctx context.Context, taskID uuid.UUID, processed
 	return newMessage, nil
 }
 
-func (rt *Runtime) callTools(ctx context.Context, taskID uuid.UUID, content []model.ContentBlock) ([]base.ToolResult, map[string]int64, error) {
+func (rt *Runtime) callTools(ctx context.Context, task *memory.Task, content []model.ContentBlock) ([]base.ToolResult, map[string]int64, error) {
 	var toolResults []base.ToolResult
 	toolStats := make(map[string]int64)
 
@@ -565,7 +565,10 @@ func (rt *Runtime) callTools(ctx context.Context, taskID uuid.UUID, content []mo
 		switch toolCall.Tool {
 		case base.ToolNameCodeInterpreter:
 			os.WriteFile("/tmp/tool_call.json", []byte(toolCall.Args), 0644)
-			result, err := rt.interpreter.Interpret(ctx, afero.NewOsFs(), toolCall.Args, taskID)
+			result, err := rt.interpreter.Interpret(ctx, afero.NewOsFs(), toolCall.Args, &codeact.Task{
+				ID:               task.ID,
+				ProjectDirectory: task.ProjectDirectory,
+			})
 			toolResults = append(toolResults, &codeact.InterpreterToolResult{
 				ID:            toolCall.ID,
 				Output:        result.ConsoleOutput,

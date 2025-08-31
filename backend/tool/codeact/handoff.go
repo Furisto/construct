@@ -60,7 +60,7 @@ func handoffInput(session *Session, args []sobek.Value) (any, error) {
 	}
 
 	return &communication.HandoffInput{
-		TaskID:          session.TaskID,
+		TaskID:          session.Task.ID,
 		CurrentAgentID:  session.AgentID,
 		RequestedAgent:  agent,
 		HandoverMessage: handoverMessage,
