@@ -43,6 +43,8 @@ const (
 	ModelCapability_MODEL_CAPABILITY_PROMPT_CACHE ModelCapability = 3
 	// MODEL_CAPABILITY_THINKING indicates the model supports visible reasoning/thinking processes.
 	ModelCapability_MODEL_CAPABILITY_THINKING ModelCapability = 4
+	// MODEL_CAPABILITY_AUDIO indicates the model can process and understand audio.
+	ModelCapability_MODEL_CAPABILITY_AUDIO ModelCapability = 5
 )
 
 // Enum value maps for ModelCapability.
@@ -53,6 +55,7 @@ var (
 		2: "MODEL_CAPABILITY_COMPUTER_USE",
 		3: "MODEL_CAPABILITY_PROMPT_CACHE",
 		4: "MODEL_CAPABILITY_THINKING",
+		5: "MODEL_CAPABILITY_AUDIO",
 	}
 	ModelCapability_value = map[string]int32{
 		"MODEL_CAPABILITY_UNSPECIFIED":  0,
@@ -60,6 +63,7 @@ var (
 		"MODEL_CAPABILITY_COMPUTER_USE": 2,
 		"MODEL_CAPABILITY_PROMPT_CACHE": 3,
 		"MODEL_CAPABILITY_THINKING":     4,
+		"MODEL_CAPABILITY_AUDIO":        5,
 	}
 )
 
@@ -1143,13 +1147,14 @@ const file_construct_v1_model_proto_rawDesc = "" +
 	"\x05model\x18\x01 \x01(\v2\x13.construct.v1.ModelB\x06\xbaH\x03\xc8\x01\x01R\x05model\".\n" +
 	"\x12DeleteModelRequest\x12\x18\n" +
 	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\"\x15\n" +
-	"\x13DeleteModelResponse*\xb4\x01\n" +
+	"\x13DeleteModelResponse*\xd0\x01\n" +
 	"\x0fModelCapability\x12 \n" +
 	"\x1cMODEL_CAPABILITY_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16MODEL_CAPABILITY_IMAGE\x10\x01\x12!\n" +
 	"\x1dMODEL_CAPABILITY_COMPUTER_USE\x10\x02\x12!\n" +
 	"\x1dMODEL_CAPABILITY_PROMPT_CACHE\x10\x03\x12\x1d\n" +
-	"\x19MODEL_CAPABILITY_THINKING\x10\x042\xb6\x03\n" +
+	"\x19MODEL_CAPABILITY_THINKING\x10\x04\x12\x1a\n" +
+	"\x16MODEL_CAPABILITY_AUDIO\x10\x052\xb6\x03\n" +
 	"\fModelService\x12T\n" +
 	"\vCreateModel\x12 .construct.v1.CreateModelRequest\x1a!.construct.v1.CreateModelResponse\"\x00\x12N\n" +
 	"\bGetModel\x12\x1d.construct.v1.GetModelRequest\x1a\x1e.construct.v1.GetModelResponse\"\x03\x90\x02\x01\x12T\n" +

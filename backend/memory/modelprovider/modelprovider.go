@@ -86,7 +86,7 @@ var (
 // ProviderTypeValidator is a validator for the "provider_type" field enum values. It is called by the builders before save.
 func ProviderTypeValidator(pt types.ModelProviderType) error {
 	switch pt {
-	case "anthropic", "openai":
+	case "anthropic", "openai", "gemini":
 		return nil
 	default:
 		return fmt.Errorf("modelprovider: invalid enum value for provider_type field: %q", pt)

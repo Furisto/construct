@@ -95,6 +95,9 @@ enum ModelCapability {
 
   // MODEL_CAPABILITY_THINKING indicates the model supports visible reasoning/thinking processes.
   MODEL_CAPABILITY_THINKING = 4;
+
+  // MODEL_CAPABILITY_AUDIO indicates the model can process and understand audio.
+  MODEL_CAPABILITY_AUDIO = 5;
 }
 
 // ModelPricing defines the cost structure for using a model, with prices per token type.

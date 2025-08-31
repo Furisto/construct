@@ -111,7 +111,7 @@ func (p *GeminiProvider) InvokeModel(ctx context.Context, model, systemPrompt st
 			return nil, err
 		}
 
-		finalResp = m 
+		finalResp = m
 
 		if len(m.Candidates) > 0 && m.Candidates[0].Content != nil {
 			for _, part := range m.Candidates[0].Content.Parts {
@@ -169,18 +169,18 @@ func (p *GeminiProvider) validateInput(model, systemPrompt string, messages []*M
 
 func defaultGeminiInvokeOptions() *InvokeModelOptions {
 	return &InvokeModelOptions{
-		Tools:       []native.Tool{},
-		MaxTokens:   8192,
-		Temperature: 0.0,
+		Tools:        []native.Tool{},
+		MaxTokens:    8192,
+		Temperature:  0.0,
 		ModelProfile: defaultGeminiModelProfile(),
 	}
 }
 
 func defaultGeminiModelProfile() *GeminiModelProfile {
 	return &GeminiModelProfile{
-		APIKey:     "",
-		BaseURL:    "",
-		MaxRetries: 0,
+		APIKey:             "",
+		BaseURL:            "",
+		MaxRetries:         0,
 		DefaultTemperature: nil,
 		DefaultMaxTokens:   nil,
 		DefaultTopP:        nil,
@@ -220,7 +220,6 @@ func (p *GeminiProvider) transformMessages(messages []*Message) ([]*genai.Conten
 
 		contents = append(contents, c)
 	}
-	
 
 	// Use all messages except the last one as history, last one as current input
 	var history []*genai.Content
@@ -354,4 +353,67 @@ func schemaTypeToGemini(schemaType string) genai.Type {
 	default:
 		return genai.TypeString
 	}
+}
+
+func SupportedGeminiModels() []Model {
+	return []Model{
+		{
+			ID:       uuid.MustParse("01970000-0001-7000-8000-000000000001"),
+			Name:     "gemini-2.5-pro",
+			Provider: ProviderKindGemini,
+			Capabilities: []Capability{
+				CapabilityImage,
+				CapabilityAudio,
+			},
+			ContextWindow: 1048576,
+			Pricing: ModelPricing{
+				Input:      1.125,
+				Output:     10.0,
+				CacheWrite: 0.0,
+				CacheRead:  0.0,
+			},
+		},
+		{
+			ID:       uuid.MustParse("01970000-0002-7000-8000-000000000002"),
+			Name:     "gemini-2.5-flash",
+			Provider: ProviderKindGemini,
+			Capabilities: []Capability{
+				CapabilityImage,
+				CapabilityAudio,
+			},
+			ContextWindow: 1048576,
+			Pricing: ModelPricing{
+				Input:      1.25,
+				Output:     5.0,
+				CacheWrite: 0.0,
+				CacheRead:  0.0,
+			},
+		},
+		{
+			ID:       uuid.MustParse("01970000-0003-7000-8000-000000000003"),
+			Name:     "gemini-2.5-flash-lite",
+			Provider: ProviderKindGemini,
+			Capabilities: []Capability{
+				CapabilityImage,
+				CapabilityAudio,
+			},
+			ContextWindow: 1000000,
+			Pricing: ModelPricing{
+				Input:      0.075,
+				Output:     0.3,
+				CacheWrite: 0.0,
+				CacheRead:  0.0,
+			},
+		},
+	}
+}
+
+func (p *GeminiProvider) GetModel(ctx context.Context, modelID uuid.UUID) (Model, error) {
+	for _, model := range SupportedGeminiModels() {
+		if model.ID == modelID {
+			return model, nil
+		}
+	}
+
+	return Model{}, fmt.Errorf("model not supported")
 }

@@ -7,6 +7,7 @@ const (
 	ModelCapabilityComputerUse      ModelCapability = "computer_use"
 	ModelCapabilityPromptCache      ModelCapability = "prompt_cache"
 	ModelCapabilityExtendedThinking ModelCapability = "extended_thinking"
+	ModelCapabilityAudio            ModelCapability = "audio"
 )
 
 func (c ModelCapability) Values() []ModelCapability {
@@ -15,5 +16,6 @@ func (c ModelCapability) Values() []ModelCapability {
 		ModelCapabilityComputerUse,
 		ModelCapabilityPromptCache,
 		ModelCapabilityExtendedThinking,
+		ModelCapabilityAudio,
 	}
 }

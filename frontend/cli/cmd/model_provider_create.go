@@ -129,6 +129,8 @@ func APIKeyEnvVar(providerType ModelProviderType) (string, error) {
 		return "OPENAI_API_KEY", nil
 	case ModelProviderTypeAnthropic:
 		return "ANTHROPIC_API_KEY", nil
+	case ModelProviderTypeGemini:
+		return "GEMINI_API_KEY", nil
 	default:
 		return "", fmt.Errorf("unknown provider type: %s", providerType)
 	}
@@ -140,6 +142,8 @@ func getProviderDisplayName(providerType ModelProviderType) (string, error) {
 		return "OpenAI", nil
 	case ModelProviderTypeAnthropic:
 		return "Anthropic", nil
+	case ModelProviderTypeGemini:
+		return "Gemini", nil
 	default:
 		return "", fmt.Errorf("unknown provider type: %s", providerType)
 	}

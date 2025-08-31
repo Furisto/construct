@@ -56,6 +56,8 @@ func MemoryModelCapabilityToProto(cap types.ModelCapability) v1.ModelCapability 
 		return v1.ModelCapability_MODEL_CAPABILITY_PROMPT_CACHE
 	case types.ModelCapabilityExtendedThinking:
 		return v1.ModelCapability_MODEL_CAPABILITY_THINKING
+	case types.ModelCapabilityAudio:
+		return v1.ModelCapability_MODEL_CAPABILITY_AUDIO
 	}
 
 	return v1.ModelCapability_MODEL_CAPABILITY_UNSPECIFIED
@@ -71,6 +73,8 @@ func ProtoModelCapabilityToMemory(cap v1.ModelCapability) (types.ModelCapability
 		return types.ModelCapabilityPromptCache, nil
 	case v1.ModelCapability_MODEL_CAPABILITY_THINKING:
 		return types.ModelCapabilityExtendedThinking, nil
+	case v1.ModelCapability_MODEL_CAPABILITY_AUDIO:
+		return types.ModelCapabilityAudio, nil
 	default:
 		return "", fmt.Errorf("unknown model capability: %v", cap)
 	}
@@ -112,6 +116,8 @@ func LLMModelCapabilitiesToMemory(caps []model.Capability) ([]types.ModelCapabil
 			capabilities = append(capabilities, types.ModelCapabilityPromptCache)
 		case model.CapabilityExtendedThinking:
 			capabilities = append(capabilities, types.ModelCapabilityExtendedThinking)
+		case model.CapabilityAudio:
+			capabilities = append(capabilities, types.ModelCapabilityAudio)
 		default:
 			return nil, fmt.Errorf("unknown model capability: %v", cap)
 		}

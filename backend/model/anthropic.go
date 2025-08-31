@@ -17,22 +17,17 @@ type AnthropicProvider struct {
 }
 
 type AnthropicModelProfile struct {
-	// API Configuration
-	APIKey           string        `json:"api_key,omitempty"`
-	BaseURL          string        `json:"base_url,omitempty"`
 	AnthropicVersion string        `json:"anthropic_version,omitempty"`
 	AnthropicBeta    []string      `json:"anthropic_beta,omitempty"`
 	Timeout          time.Duration `json:"timeout,omitempty"`
 	MaxRetries       int           `json:"max_retries,omitempty"`
 
-	// Default Model Parameters
-	DefaultTemperature   float64  `json:"default_temperature,omitempty"`
-	DefaultMaxTokens     int64    `json:"default_max_tokens,omitempty"`
-	DefaultTopP          float32  `json:"default_top_p,omitempty"`
-	DefaultTopK          int      `json:"default_top_k,omitempty"`
-	DefaultStopSequences []string `json:"default_stop_sequences,omitempty"`
+	Temperature   float64  `json:"temperature,omitempty"`
+	MaxTokens     int64    `json:"max_tokens,omitempty"`
+	DefaultTopP   float32  `json:"default_top_p,omitempty"`
+	TopK          int      `json:"top_k,omitempty"`
+	StopSequences []string `json:"stop_sequences,omitempty"`
 
-	// Claude-Specific Features
 	EnablePromptCaching bool `json:"enable_prompt_caching,omitempty"`
 	EnableThinkingMode  bool `json:"enable_thinking_mode,omitempty"`
 	EnableAnalysisMode  bool `json:"enable_analysis_mode,omitempty"`
@@ -46,21 +41,12 @@ func (c *AnthropicModelProfile) Kind() ModelProfileKind {
 }
 
 func (c *AnthropicModelProfile) Validate() error {
-	if c.APIKey == "" {
-		//lint:ignore ST1005 -- Anthropic should be capitalized
-		return fmt.Errorf("Anthropic API key is required")
-	}
-
-	if c.BaseURL == "" {
-		c.BaseURL = "https://api.anthropic.com"
-	}
-
-	if c.DefaultTemperature < 0 || c.DefaultTemperature > 1.0 {
+	if c.Temperature < 0 || c.Temperature > 1.0 {
 		//lint:ignore ST1005 -- Anthropic should be capitalized
 		return fmt.Errorf("Anthropic temperature must be between 0 and 1.0")
 	}
 
-	if c.DefaultTopK < 0 {
+	if c.TopK < 0 {
 		return fmt.Errorf("top_k must be non-negative")
 	}
 
@@ -240,7 +226,7 @@ func (p *AnthropicProvider) InvokeModel(ctx context.Context, model, systemPrompt
 		return nil, err
 	}
 
-	options := DefaultInvokeModelOptions()
+	options := defaultAnthropicInvokeOptions()
 	for _, opt := range opts {
 		opt(options)
 	}
@@ -262,8 +248,8 @@ func (p *AnthropicProvider) InvokeModel(ctx context.Context, model, systemPrompt
 
 	request := anthropic.MessageNewParams{
 		Model:       anthropic.F(model),
-		MaxTokens:   anthropic.F(modelProfile.DefaultMaxTokens),
-		Temperature: anthropic.F(modelProfile.DefaultTemperature),
+		MaxTokens:   anthropic.F(modelProfile.MaxTokens),
+		Temperature: anthropic.F(modelProfile.Temperature),
 		System: anthropic.F([]anthropic.TextBlockParam{
 			{
 				Type: anthropic.F(anthropic.TextBlockParamTypeText),
@@ -323,6 +309,21 @@ func (p *AnthropicProvider) InvokeModel(ctx context.Context, model, systemPrompt
 		CacheWriteTokens: anthropicMessage.Usage.CacheCreationInputTokens,
 		CacheReadTokens:  anthropicMessage.Usage.CacheReadInputTokens,
 	}), nil
+}
+
+func defaultAnthropicInvokeOptions() *InvokeModelOptions {
+	return &InvokeModelOptions{
+		Tools:         []native.Tool{},
+		ModelProfile:  defaultAnthropicModelProfile(),
+		StreamHandler: nil,
+	}
+}
+
+func defaultAnthropicModelProfile() *AnthropicModelProfile {
+	return &AnthropicModelProfile{
+		MaxTokens:  8192,
+		MaxRetries: 0,
+	}
 }
 
 func (p *AnthropicProvider) transformMessages(messages []*Message) ([]anthropic.MessageParam, error) {

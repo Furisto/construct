@@ -18,9 +18,13 @@ type Model struct {
 type ModelProfileKind string
 
 func ensureModelProfile[T ModelProfile](modelProfile ModelProfile) (T, error) {
+	if modelProfile == nil {
+		return *new(T), fmt.Errorf("no model profile provided")
+	}
+
 	p, ok := modelProfile.(T)
 	if !ok {
-		return *new(T), fmt.Errorf("model profile is not an OpenAI model profile")
+		return *new(T), fmt.Errorf("model profile is not an %T profile", new(T))
 	}
 
 	err := p.Validate()
@@ -44,6 +48,7 @@ type Capability string
 
 const (
 	CapabilityImage            Capability = "image"
+	CapabilityAudio            Capability = "audio"
 	CapabilityComputerUse      Capability = "computer_use"
 	CapabilityPromptCache      Capability = "prompt_cache"
 	CapabilityExtendedThinking Capability = "extended_thinking"
@@ -63,7 +68,7 @@ func SupportedModels(provider ModelProfileKind) []Model {
 	case ProviderKindOpenAI:
 		return SupportedOpenAIModels()
 	case ProviderKindGemini:
-		// return SupportedGeminiModels()
+		return SupportedGeminiModels()
 	}
 
 	return nil

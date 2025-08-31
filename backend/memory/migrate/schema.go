@@ -125,7 +125,7 @@ var (
 		{Name: "create_time", Type: field.TypeTime},
 		{Name: "update_time", Type: field.TypeTime},
 		{Name: "name", Type: field.TypeString},
-		{Name: "provider_type", Type: field.TypeEnum, Enums: []string{"anthropic", "openai"}},
+		{Name: "provider_type", Type: field.TypeEnum, Enums: []string{"anthropic", "openai", "gemini"}},
 		{Name: "url", Type: field.TypeString, Nullable: true},
 		{Name: "secret", Type: field.TypeBytes},
 		{Name: "enabled", Type: field.TypeBool, Default: true},
