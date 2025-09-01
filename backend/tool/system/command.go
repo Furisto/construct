@@ -21,7 +21,7 @@ type ExecuteCommandResult struct {
 
 func ExecuteCommand(input *ExecuteCommandInput) (*ExecuteCommandResult, error) {
 	if input.Command == "" {
-		return nil, base.NewError(base.InvalidArgument, "command", "command is required")
+		return nil, base.NewError(base.InvalidInput, "command", "command is required")
 	}
 
 	script := fmt.Sprintf(`#!/bin/sh

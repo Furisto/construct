@@ -15,7 +15,7 @@ const (
 	GenericFileError   = base.GenericFileError
 	Internal           = base.Internal
 	None               = base.None
-	InvalidArgument    = base.InvalidArgument
+	InvalidArgument    = base.InvalidInput
 )
 
 const GenericSuggestion = base.GenericSuggestion

@@ -132,7 +132,7 @@ func TestExecuteCommand(t *testing.T) {
 			Name:      "empty command",
 			TestInput: &ExecuteCommandInput{Command: ""},
 			Expected: base.ToolTestExpectation[*ExecuteCommandResult]{
-				Error: base.NewError(base.InvalidArgument, "command", "command is required"),
+				Error: base.NewError(base.InvalidInput, "command", "command is required"),
 			},
 		},
 		{

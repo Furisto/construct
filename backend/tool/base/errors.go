@@ -15,7 +15,7 @@ const (
 	GenericFileError
 	Internal
 	None
-	InvalidArgument
+	InvalidInput
 )
 
 func (e ErrorCode) String() string {
@@ -38,6 +38,8 @@ func (e ErrorCode) String() string {
 		return "File error"
 	case Internal:
 		return "Internal error"
+	case InvalidInput:
+		return "Invalid argument"
 	}
 	return ""
 }

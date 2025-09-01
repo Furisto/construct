@@ -2,9 +2,11 @@ package codeact
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/grafana/sobek"
 
+	"github.com/furisto/construct/backend/tool/base"
 	"github.com/furisto/construct/backend/tool/filesystem"
 )
 
@@ -123,14 +125,46 @@ func NewListFilesTool() Tool {
 }
 
 func listFilesInput(session *Session, args []sobek.Value) (any, error) {
-	if len(args) < 2 {
-		return nil, nil
+	switch len(args) {
+	case 1:
+		maybeObjectBasedInput := args[0].ToObject(session.VM)
+		if maybeObjectBasedInput == nil || maybeObjectBasedInput == sobek.Undefined() {
+			return nil, base.NewCustomError(base.InvalidInput.String(), listFilesSuggestions)
+		}
+
+		path := maybeObjectBasedInput.Get("path")
+		if path == nil || path == sobek.Undefined() || path.ExportType() != reflect.TypeOf("") {
+			return nil, base.NewCustomError(base.InvalidInput.String(), listFilesSuggestions)
+		}
+
+		recursive := maybeObjectBasedInput.Get("recursive")
+		if recursive == nil || recursive == sobek.Undefined() || recursive.ExportType() != reflect.TypeOf(bool(false)) {
+			return nil, base.NewCustomError(base.InvalidInput.String(), listFilesSuggestions)
+		}
+
+		return &filesystem.ListFilesInput{
+			Path:      path.String(),
+			Recursive: recursive.ToBoolean(),
+		}, nil
+	case 2:
+		path := args[0]
+
+		if path == nil || path == sobek.Undefined() || path.ExportType() != reflect.TypeOf("") {
+			return nil, base.NewCustomError(base.InvalidInput.String(), listFilesSuggestions)
+		}
+
+		recursive := args[1]
+		if recursive == nil || recursive == sobek.Undefined() || recursive.ExportType() != reflect.TypeOf(bool(false)) {
+			return nil, base.NewCustomError(base.InvalidInput.String(), listFilesSuggestions)
+		}
+
+		return &filesystem.ListFilesInput{
+			Path:      path.String(),
+			Recursive: recursive.ToBoolean(),
+		}, nil
 	}
 
-	return &filesystem.ListFilesInput{
-		Path:      args[0].String(),
-		Recursive: args[1].ToBoolean(),
-	}, nil
+	return nil, base.NewCustomError(base.InvalidInput.String(), listFilesSuggestions)
 }
 
 func listFilesHandler(session *Session) func(call sobek.FunctionCall) sobek.Value {
@@ -149,4 +183,11 @@ func listFilesHandler(session *Session) func(call sobek.FunctionCall) sobek.Valu
 		SetValue(session, "result", result)
 		return session.VM.ToValue(result)
 	}
+}
+
+var listFilesSuggestions = []string{
+	"Ensure that you provide the correct input arguments as specified in the tool description",
+	"- **path** (string, required): Absolute path to the directory you want to list (e.g., \"/workspace/project/src\"). Forward slashes (/) work on all platforms.",
+	"- **recursive** (boolean, required): When set to true, lists all files and directories recursively through all subdirectories. When false, only lists the top-level contents of the specified directory.",
+	"For example: list_files('/project/src', false)",
 }
