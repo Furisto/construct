@@ -19,80 +19,80 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type askOutputFormat string
+type execOutputFormat string
 
 const (
-	askOutputFormatText askOutputFormat = "text"
-	askOutputFormatJSON askOutputFormat = "json"
-	askOutputFormatYAML askOutputFormat = "yaml"
+	execOutputFormatText execOutputFormat = "text"
+	execOutputFormatJSON execOutputFormat = "json"
+	execOutputFormatYAML execOutputFormat = "yaml"
 )
 
-func (e *askOutputFormat) String() string {
+func (e *execOutputFormat) String() string {
 	if e == nil || *e == "" {
-		return string(askOutputFormatText)
+		return string(execOutputFormatText)
 	}
 	return string(*e)
 }
 
-func (e *askOutputFormat) Set(v string) error {
+func (e *execOutputFormat) Set(v string) error {
 	switch v {
 	case "text", "json", "yaml":
-		*e = askOutputFormat(v)
+		*e = execOutputFormat(v)
 		return nil
 	default:
 		return errors.New(`must be one of "text", "json", or "yaml"`)
 	}
 }
 
-func (e *askOutputFormat) Type() string {
+func (e *execOutputFormat) Type() string {
 	return "format"
 }
 
-type askOptions struct {
+type execOptions struct {
 	Agent     string
 	Workspace string
 	MaxTurns  int
 	Continue  string
 	Files     []string
-	Format    askOutputFormat
+	Format    execOutputFormat
 }
 
-func NewAskCmd() *cobra.Command {
-	options := askOptions{
-		Format: askOutputFormatText,
+func NewExecCmd() *cobra.Command {
+	options := execOptions{
+		Format: execOutputFormatText,
 	}
 
 	cmd := &cobra.Command{
-		Use:     "ask [question]",
-		Short:   "Ask a question to the AI",
+		Use:     "exec [question]",
+		Short:   "Exec a question to the AI",
 		Args:    cobra.MaximumNArgs(1),
 		GroupID: "core",
 		Example: `  # Simple question
-  construct ask "What is 2+2?"
+  construct exec "What is 2+2?"
 
   # Use a specific agent
-  construct ask "Review this code for security issues" --agent security-reviewer
+  construct exec "Review this code for security issues" --agent security-reviewer
 
   # Include files as context
-  construct ask "What does this code do?" --file main.go --file utils.go
+  construct exec "What does this code do?" --file main.go --file utils.go
 
   # Pipe input with question and file context
-  cat main.go | construct ask "What does this code do?" --file config.yaml
+  cat main.go | construct exec "What does this code do?" --file config.yaml
 
   # Give agent more turns for complex tasks
-  construct ask "Debug why the build is failing" --max-turns 10
+  construct exec "Debug why the build is failing" --max-turns 10
 
   # Get JSON output for scripting
   construct ask "List all Go files" --output json
   
   # Continue the previous task
-  construct ask "Continue refactoring the code" --continue`,
+  construct exec "Continue refactoring the code" --continue`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var question string
 			if len(args) > 0 {
 				question = args[0]
 			}
-			return fail.HandleError(ask(cmd.Context(), cmd, options, question))
+			return fail.HandleError(handleExec(cmd.Context(), cmd, options, question))
 		},
 	}
 
@@ -100,7 +100,7 @@ func NewAskCmd() *cobra.Command {
 	return cmd
 }
 
-func setupFlags(cmd *cobra.Command, options *askOptions) {
+func setupFlags(cmd *cobra.Command, options *execOptions) {
 	cmd.Flags().StringVarP(&options.Agent, "agent", "a", "", "The agent to use (name or ID)")
 	cmd.Flags().StringVarP(&options.Workspace, "workspace", "w", "", "The workspace directory")
 	cmd.Flags().IntVar(&options.MaxTurns, "max-turns", 5, "Maximum number of turns for the conversation")
@@ -110,7 +110,7 @@ func setupFlags(cmd *cobra.Command, options *askOptions) {
 	cmd.Flags().Lookup("continue").NoOptDefVal = "last"
 }
 
-func ask(ctx context.Context, cmd *cobra.Command, options askOptions, question string) error {
+func handleExec(ctx context.Context, cmd *cobra.Command, options execOptions, question string) error {
 	client := getAPIClient(ctx)
 
 	question, err := prepareQuestion(question, options.Files, cmd.InOrStdin(), getFileSystem(ctx))
@@ -194,7 +194,7 @@ func buildMessage(question string, files []string, fs afero.Fs) (string, error) 
 	return builder.String(), nil
 }
 
-func setupTask(ctx context.Context, cmd *cobra.Command, client *client.Client, options askOptions) (task *v1.Task, err error) {
+func setupTask(ctx context.Context, cmd *cobra.Command, client *client.Client, options execOptions) (task *v1.Task, err error) {
 	workspace := options.Workspace
 	if workspace == "" {
 		workspace, err = os.Getwd()
@@ -215,7 +215,7 @@ func setupTask(ctx context.Context, cmd *cobra.Command, client *client.Client, o
 	return createTask(ctx, client, agentID, workspace)
 }
 
-func continueTask(ctx context.Context, options askOptions, client *client.Client) (*v1.Task, error) {
+func continueTask(ctx context.Context, options execOptions, client *client.Client) (*v1.Task, error) {
 	if options.Continue == "last" {
 		tasks, err := client.Task().ListTasks(ctx, &connect.Request[v1.ListTasksRequest]{
 			Msg: &v1.ListTasksRequest{
@@ -281,7 +281,7 @@ func sendMessage(ctx context.Context, client *client.Client, taskID, message str
 	return nil
 }
 
-func handleResponseStream(ctx context.Context, cmd *cobra.Command, client *client.Client, taskID string, format askOutputFormat) error {
+func handleResponseStream(ctx context.Context, cmd *cobra.Command, client *client.Client, taskID string, format execOutputFormat) error {
 	streamCtx, streamCancel := context.WithCancel(ctx)
 	defer streamCancel()
 
@@ -295,7 +295,10 @@ func handleResponseStream(ctx context.Context, cmd *cobra.Command, client *clien
 	}
 
 	for stream.Receive() {
-		message := stream.Msg().Message
+		message := stream.Msg().GetMessage()
+		if message == nil {
+			continue
+		}
 
 		task, err := client.Task().GetTask(ctx, &connect.Request[v1.GetTaskRequest]{
 			Msg: &v1.GetTaskRequest{
@@ -322,17 +325,17 @@ func handleResponseStream(ctx context.Context, cmd *cobra.Command, client *clien
 	return nil
 }
 
-func formatMessage(task *v1.Task, message *v1.Message, format askOutputFormat, cmd *cobra.Command) error {
+func formatMessage(task *v1.Task, message *v1.Message, format execOutputFormat, cmd *cobra.Command) error {
 	switch format {
-	case askOutputFormatText:
+	case execOutputFormatText:
 		return formatTextMessage(message, cmd)
-	case askOutputFormatJSON:
+	case execOutputFormatJSON:
 		jsonBytes, err := formatJSONMessage(task, message)
 		if err != nil {
 			return err
 		}
 		cmd.Println(string(jsonBytes))
-	case askOutputFormatYAML:
+	case execOutputFormatYAML:
 		yamlBytes, err := formatYAMLMessage(task, message)
 		if err != nil {
 			return err
