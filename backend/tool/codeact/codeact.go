@@ -25,8 +25,9 @@ type Session struct {
 	values      map[string]any
 }
 
-func NewSession(task *Task, vm *sobek.Runtime, system io.Writer, user io.Writer, fs afero.Fs) *Session {
+func NewSession(ctx context.Context, task *Task, vm *sobek.Runtime, system io.Writer, user io.Writer, fs afero.Fs) *Session {
 	return &Session{
+		Context:          ctx,
 		Task:             task,
 		VM:               vm,
 		System:           system,

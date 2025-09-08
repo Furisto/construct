@@ -9,8 +9,8 @@ import (
 	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/memory/schema/types"
 	"github.com/furisto/construct/backend/model"
-	"github.com/furisto/construct/backend/tool/codeact"
 	toolbase "github.com/furisto/construct/backend/tool/base"
+	"github.com/furisto/construct/backend/tool/codeact"
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -311,18 +311,9 @@ func ConvertMemoryMessageToProto(m *memory.Message) (*v1.Message, error) {
 
 					var matches []*v1.ToolResult_GrepResult_GrepMatch
 					for _, match := range grepResult.Matches {
-						var contextLines []*v1.ToolResult_GrepResult_ContextLine
-						for _, context := range match.Context {
-							contextLines = append(contextLines, &v1.ToolResult_GrepResult_ContextLine{
-								LineNumber: int32(context.LineNumber),
-								Content:    context.Content,
-							})
-						}
 						matches = append(matches, &v1.ToolResult_GrepResult_GrepMatch{
-							FilePath:    match.FilePath,
-							LineNumber:  int32(match.LineNumber),
-							LineContent: match.LineContent,
-							Context:     contextLines,
+							FilePath: match.FilePath,
+							Value:    match.Value,
 						})
 					}
 

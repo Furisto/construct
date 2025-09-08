@@ -26,21 +26,23 @@ Returns an object containing the search results:
   "matches": [
     {
       "file_path": "/path/to/file.js",
-      "line_number": 42,
-      "line_content": "const searchPattern = /regex/;",
-      "context": [
-        { "line_number": 40, "content": "// Previous lines for context" },
-        { "line_number": 41, "content": "// More context" },
-        { "line_number": 42, "content": "const searchPattern = /regex/;" },
-        { "line_number": 43, "content": "// Context after match" }
-      ]
+      "value": -4-Preceeding context\n:5:Matched line\n-6-Following context"
     },
     // Additional matches...
   ],
   "total_matches": 3,
+  "truncated_matches": 0,
   "searched_files": 125
 }
 %[1]s
+
+**Details:**
+- **matches**: Array of match objects, each containing:
+  - **file_path**: Absolute path to the file containing the match
+  - **value**: The matched line plus surrounding context lines, combined into a single string. Each line is prefixed with the line number and either : for a match or - for a context line.
+- **total_matches**: Total number of matches found and returned
+- **truncated_matches**: Number of additional matches that were found but excluded from results due to max_results limit. 0 indicates no truncation occurred.
+- **searched_files**: Number of files that were searched
 
 ## CRITICAL REQUIREMENTS
 - **Precise Pattern Specification**: Your regex pattern must be properly escaped for accurate matching.
@@ -100,6 +102,15 @@ grep({
   exclude_pattern: "**/node_modules/**"
 })
 %[1]s
+
+### Finding API Calls with Context
+%[1]s
+grep({
+  query: "fetch\(",
+  path: "/workspace/src/components",
+  include_pattern: "*.{js,jsx,ts,tsx}"
+})
+%[1]s
 `
 
 func NewGrepTool() Tool {
@@ -156,7 +167,7 @@ func grepHandler(session *Session) func(call sobek.FunctionCall) sobek.Value {
 		}
 		input := rawInput.(*filesystem.GrepInput)
 
-		result, err := filesystem.Grep(input)
+		result, err := filesystem.Grep(session.Context, input)
 		if err != nil {
 			session.Throw(err)
 		}

@@ -371,21 +371,15 @@ message ToolResult {
   }
 
   message GrepResult {
-    message ContextLine {
-      int32 line_number = 1;
-      string content = 2;
-    }
-
     message GrepMatch {
       string file_path = 1;
-      int32 line_number = 2;
-      string line_content = 3;
-      repeated ContextLine context = 4;
+      string value = 3;
     }
 
     repeated GrepMatch matches = 1;
     int32 total_matches = 2;
-    int32 searched_files = 3;
+    int32 truncated_count = 3;
+    int32 searched_files = 4;
   }
 
   message ListFilesResult {
