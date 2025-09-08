@@ -167,7 +167,7 @@ func grepHandler(session *Session) func(call sobek.FunctionCall) sobek.Value {
 		}
 		input := rawInput.(*filesystem.GrepInput)
 
-		result, err := filesystem.Grep(session.Context, input)
+		result, err := filesystem.Grep(session.Context, input, session.CommandRunner)
 		if err != nil {
 			session.Throw(err)
 		}

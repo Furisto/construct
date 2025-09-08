@@ -448,7 +448,7 @@ func convertResultToProtoToolResult(toolName string, result any) (*v1.MessagePar
 		for _, match := range result.Matches {
 			matches = append(matches, &v1.ToolResult_GrepResult_GrepMatch{
 				FilePath:    match.FilePath,
-				LineContent: match.Value,
+				Value: match.Value,
 			})
 		}
 		toolResult.Result = &v1.ToolResult_Grep{

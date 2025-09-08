@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/furisto/construct/backend/tool/base"
+	"github.com/furisto/construct/shared"
 )
 
 type GrepInput struct {
@@ -33,7 +34,7 @@ type GrepResult struct {
 	SearchedFiles    int         `json:"searched_files"`
 }
 
-func Grep(ctx context.Context, input *GrepInput) (*GrepResult, error) {
+func Grep(ctx context.Context, input *GrepInput, cmdRunner shared.CommandRunner) (*GrepResult, error) {
 	if input.Query == "" || input.Path == "" {
 		return nil, base.NewCustomError("query and path are required", []string{
 			"Provide both a search query and a path to search in",
@@ -49,10 +50,10 @@ func Grep(ctx context.Context, input *GrepInput) (*GrepResult, error) {
 	}
 
 	if isRipgrepAvailable() {
-		return performRipgrep(ctx, input)
+		return performRipgrep(ctx, input, cmdRunner)
 	}
 
-	return performRegularGrep(ctx, input)
+	return performRegularGrep(ctx, input, cmdRunner)
 }
 
 func isRipgrepAvailable() bool {
@@ -60,7 +61,7 @@ func isRipgrepAvailable() bool {
 	return err == nil
 }
 
-func performRipgrep(ctx context.Context, input *GrepInput) (*GrepResult, error) {
+func performRipgrep(ctx context.Context, input *GrepInput, cmdRunner shared.CommandRunner) (*GrepResult, error) {
 	args := []string{
 		"--json",
 		"--line-number",
@@ -103,7 +104,7 @@ func performRipgrep(ctx context.Context, input *GrepInput) (*GrepResult, error) 
 	return parseRipgrepOutput(string(output), input.MaxResults, input.Context)
 }
 
-func performRegularGrep(ctx context.Context, input *GrepInput) (*GrepResult, error) {
+func performRegularGrep(ctx context.Context, input *GrepInput, cmdRunner shared.CommandRunner) (*GrepResult, error) {
 	args := []string{
 		"-r",
 		"-n",

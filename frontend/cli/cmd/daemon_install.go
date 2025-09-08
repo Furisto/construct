@@ -18,6 +18,7 @@ import (
 	v1 "github.com/furisto/construct/api/go/v1"
 	"github.com/furisto/construct/frontend/cli/pkg/fail"
 	"github.com/furisto/construct/frontend/cli/pkg/terminal"
+	"github.com/furisto/construct/shared"
 	"github.com/spf13/cobra"
 )
 
@@ -318,7 +319,7 @@ func createOrUpdateContext(ctx context.Context, out io.Writer, socketType string
 		return nil, fmt.Errorf("invalid socket type: %s", socketType)
 	}
 
-	contextManager := NewContextManager(fs, userInfo)
+	contextManager := shared.NewContextManager(fs, userInfo)
 	exists, err := contextManager.UpsertContext(options.Name, socketType, address, true)
 	if err != nil {
 		return nil, fail.HandleError(err)

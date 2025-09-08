@@ -13,6 +13,7 @@ import (
 	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/secret"
 	"github.com/furisto/construct/backend/tool/codeact"
+	"github.com/furisto/construct/shared"
 	"github.com/furisto/construct/shared/listener"
 	"github.com/spf13/cobra"
 	"github.com/tink-crypto/tink-go/keyset"
@@ -72,7 +73,7 @@ func NewDaemonRunCmd() *cobra.Command {
 			}
 
 			if explicitLaunch(provider.ActivationType()) {
-				contextManager := NewContextManager(getFileSystem(cmd.Context()), getUserInfo(cmd.Context()))
+				contextManager := shared.NewContextManager(getFileSystem(cmd.Context()), getUserInfo(cmd.Context()))
 				contextName := generateContextName(provider.ActivationType(), listener)
 				_, err = contextManager.UpsertContext(contextName, provider.ActivationType(), listener.Addr().String(), true)
 				if err != nil {

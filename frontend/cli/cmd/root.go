@@ -18,6 +18,7 @@ import (
 	"github.com/spf13/cobra"
 
 	api "github.com/furisto/construct/api/go/client"
+	"github.com/furisto/construct/shared"
 )
 
 type globalOptions struct {
@@ -74,7 +75,7 @@ func NewRootCmd() *cobra.Command {
 
 	cmd.AddCommand(NewNewCmd())
 	cmd.AddCommand(NewResumeCmd())
-	cmd.AddCommand(NewAskCmd())
+	cmd.AddCommand(NewExecCmd())
 
 	cmd.AddCommand(NewAgentCmd())
 	cmd.AddCommand(NewTaskCmd())
@@ -124,7 +125,7 @@ func setAPIClient(ctx context.Context, cmd *cobra.Command) error {
 		return nil
 	}
 
-	endpointContexts, err := NewContextManager(getFileSystem(cmd.Context()), getUserInfo(cmd.Context())).LoadContext()
+	endpointContexts, err := shared.NewContextManager(getFileSystem(cmd.Context()), getUserInfo(cmd.Context())).LoadContext()
 	if err != nil {
 		return err
 	}

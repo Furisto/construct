@@ -9,6 +9,7 @@ import (
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql/schema"
 	"github.com/furisto/construct/backend/memory"
+	"github.com/furisto/construct/shared"
 	"github.com/google/go-cmp/cmp"
 	"github.com/spf13/afero"
 
@@ -25,6 +26,7 @@ type ToolTestSetup[ToolInput any, ToolResult any] struct {
 type ToolTestServices struct {
 	DB *memory.Client
 	FS afero.Fs
+	CommandRunner shared.CommandRunner
 }
 
 type ToolTestScenario[ToolInput any, ToolResult any] struct {
