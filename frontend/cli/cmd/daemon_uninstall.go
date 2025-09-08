@@ -10,6 +10,7 @@ import (
 	"runtime"
 
 	"github.com/furisto/construct/frontend/cli/pkg/terminal"
+	"github.com/furisto/construct/shared"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 )
@@ -186,7 +187,7 @@ func getServiceName(service installedService) string {
 	}
 }
 
-func uninstallService(ctx context.Context, out io.Writer, fs *afero.Afero, command CommandRunner, service installedService) error {
+func uninstallService(ctx context.Context, out io.Writer, fs *afero.Afero, command shared.CommandRunner, service installedService) error {
 	switch service.ServiceType {
 	case "launchd":
 		return uninstallLaunchdService(ctx, out, fs, command, service)
@@ -197,7 +198,7 @@ func uninstallService(ctx context.Context, out io.Writer, fs *afero.Afero, comma
 	}
 }
 
-func uninstallLaunchdService(ctx context.Context, out io.Writer, fs *afero.Afero, command CommandRunner, service installedService) error {
+func uninstallLaunchdService(ctx context.Context, out io.Writer, fs *afero.Afero, command shared.CommandRunner, service installedService) error {
 	for _, plistPath := range service.Files {
 		// Try modern bootout command first, fall back to legacy unload
 		_, bootoutErr := command.Run(ctx, "launchctl", "bootout", "gui/"+getUserID(), plistPath)
@@ -217,7 +218,7 @@ func uninstallLaunchdService(ctx context.Context, out io.Writer, fs *afero.Afero
 	return nil
 }
 
-func uninstallSystemdService(ctx context.Context, out io.Writer, fs *afero.Afero, command CommandRunner, service installedService) error {
+func uninstallSystemdService(ctx context.Context, out io.Writer, fs *afero.Afero, command shared.CommandRunner, service installedService) error {
 	_, _ = command.Run(ctx, "systemctl", "stop", "construct.socket")
 	_, _ = command.Run(ctx, "systemctl", "disable", "construct.socket")
 	fmt.Fprintf(out, "%s Systemd service stopped and disabled\n", terminal.SuccessSymbol)

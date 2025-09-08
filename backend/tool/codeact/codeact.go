@@ -6,32 +6,35 @@ import (
 	"io"
 
 	"github.com/furisto/construct/backend/memory"
+	"github.com/furisto/construct/shared"
 	"github.com/google/uuid"
 	"github.com/grafana/sobek"
 	"github.com/spf13/afero"
 )
 
 type Session struct {
-	Context          context.Context
-	Task             *Task
-	AgentID          uuid.UUID
-	VM               *sobek.Runtime
-	System           io.Writer
-	User             io.Writer
-	FS               afero.Fs
-	Memory           *memory.Client
+	Context       context.Context
+	Task          *Task
+	AgentID       uuid.UUID
+	VM            *sobek.Runtime
+	System        io.Writer
+	User          io.Writer
+	FS            afero.Fs
+	Memory        *memory.Client
+	CommandRunner shared.CommandRunner
 
 	CurrentTool string
 	values      map[string]any
 }
 
-func NewSession(task *Task, vm *sobek.Runtime, system io.Writer, user io.Writer, fs afero.Fs) *Session {
+func NewSession(ctx context.Context, task *Task, vm *sobek.Runtime, system io.Writer, user io.Writer, fs afero.Fs) *Session {
 	return &Session{
-		Task:             task,
-		VM:               vm,
-		System:           system,
-		User:             user,
-		FS:               fs,
+		Context: ctx,
+		Task:    task,
+		VM:      vm,
+		System:  system,
+		User:    user,
+		FS:      fs,
 
 		values: make(map[string]any),
 	}

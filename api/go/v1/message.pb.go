@@ -3156,12 +3156,13 @@ func (x *ToolResult_FindFileResult) GetTruncatedCount() int32 {
 }
 
 type ToolResult_GrepResult struct {
-	state         protoimpl.MessageState             `protogen:"open.v1"`
-	Matches       []*ToolResult_GrepResult_GrepMatch `protobuf:"bytes,1,rep,name=matches,proto3" json:"matches,omitempty"`
-	TotalMatches  int32                              `protobuf:"varint,2,opt,name=total_matches,json=totalMatches,proto3" json:"total_matches,omitempty"`
-	SearchedFiles int32                              `protobuf:"varint,3,opt,name=searched_files,json=searchedFiles,proto3" json:"searched_files,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState             `protogen:"open.v1"`
+	Matches        []*ToolResult_GrepResult_GrepMatch `protobuf:"bytes,1,rep,name=matches,proto3" json:"matches,omitempty"`
+	TotalMatches   int32                              `protobuf:"varint,2,opt,name=total_matches,json=totalMatches,proto3" json:"total_matches,omitempty"`
+	TruncatedCount int32                              `protobuf:"varint,3,opt,name=truncated_count,json=truncatedCount,proto3" json:"truncated_count,omitempty"`
+	SearchedFiles  int32                              `protobuf:"varint,4,opt,name=searched_files,json=searchedFiles,proto3" json:"searched_files,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *ToolResult_GrepResult) Reset() {
@@ -3204,6 +3205,13 @@ func (x *ToolResult_GrepResult) GetMatches() []*ToolResult_GrepResult_GrepMatch 
 func (x *ToolResult_GrepResult) GetTotalMatches() int32 {
 	if x != nil {
 		return x.TotalMatches
+	}
+	return 0
+}
+
+func (x *ToolResult_GrepResult) GetTruncatedCount() int32 {
+	if x != nil {
+		return x.TruncatedCount
 	}
 	return 0
 }
@@ -3447,71 +3455,17 @@ func (x *ToolResult_EditFileResult_PatchInfo) GetLinesRemoved() int32 {
 	return 0
 }
 
-type ToolResult_GrepResult_ContextLine struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	LineNumber    int32                  `protobuf:"varint,1,opt,name=line_number,json=lineNumber,proto3" json:"line_number,omitempty"`
-	Content       string                 `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ToolResult_GrepResult_ContextLine) Reset() {
-	*x = ToolResult_GrepResult_ContextLine{}
-	mi := &file_construct_v1_message_proto_msgTypes[53]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ToolResult_GrepResult_ContextLine) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ToolResult_GrepResult_ContextLine) ProtoMessage() {}
-
-func (x *ToolResult_GrepResult_ContextLine) ProtoReflect() protoreflect.Message {
-	mi := &file_construct_v1_message_proto_msgTypes[53]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ToolResult_GrepResult_ContextLine.ProtoReflect.Descriptor instead.
-func (*ToolResult_GrepResult_ContextLine) Descriptor() ([]byte, []int) {
-	return file_construct_v1_message_proto_rawDescGZIP(), []int{17, 5, 0}
-}
-
-func (x *ToolResult_GrepResult_ContextLine) GetLineNumber() int32 {
-	if x != nil {
-		return x.LineNumber
-	}
-	return 0
-}
-
-func (x *ToolResult_GrepResult_ContextLine) GetContent() string {
-	if x != nil {
-		return x.Content
-	}
-	return ""
-}
-
 type ToolResult_GrepResult_GrepMatch struct {
-	state         protoimpl.MessageState               `protogen:"open.v1"`
-	FilePath      string                               `protobuf:"bytes,1,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
-	LineNumber    int32                                `protobuf:"varint,2,opt,name=line_number,json=lineNumber,proto3" json:"line_number,omitempty"`
-	LineContent   string                               `protobuf:"bytes,3,opt,name=line_content,json=lineContent,proto3" json:"line_content,omitempty"`
-	Context       []*ToolResult_GrepResult_ContextLine `protobuf:"bytes,4,rep,name=context,proto3" json:"context,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	FilePath      string                 `protobuf:"bytes,1,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
+	Value         string                 `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ToolResult_GrepResult_GrepMatch) Reset() {
 	*x = ToolResult_GrepResult_GrepMatch{}
-	mi := &file_construct_v1_message_proto_msgTypes[54]
+	mi := &file_construct_v1_message_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3523,7 +3477,7 @@ func (x *ToolResult_GrepResult_GrepMatch) String() string {
 func (*ToolResult_GrepResult_GrepMatch) ProtoMessage() {}
 
 func (x *ToolResult_GrepResult_GrepMatch) ProtoReflect() protoreflect.Message {
-	mi := &file_construct_v1_message_proto_msgTypes[54]
+	mi := &file_construct_v1_message_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3536,7 +3490,7 @@ func (x *ToolResult_GrepResult_GrepMatch) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolResult_GrepResult_GrepMatch.ProtoReflect.Descriptor instead.
 func (*ToolResult_GrepResult_GrepMatch) Descriptor() ([]byte, []int) {
-	return file_construct_v1_message_proto_rawDescGZIP(), []int{17, 5, 1}
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{17, 5, 0}
 }
 
 func (x *ToolResult_GrepResult_GrepMatch) GetFilePath() string {
@@ -3546,25 +3500,11 @@ func (x *ToolResult_GrepResult_GrepMatch) GetFilePath() string {
 	return ""
 }
 
-func (x *ToolResult_GrepResult_GrepMatch) GetLineNumber() int32 {
+func (x *ToolResult_GrepResult_GrepMatch) GetValue() string {
 	if x != nil {
-		return x.LineNumber
-	}
-	return 0
-}
-
-func (x *ToolResult_GrepResult_GrepMatch) GetLineContent() string {
-	if x != nil {
-		return x.LineContent
+		return x.Value
 	}
 	return ""
-}
-
-func (x *ToolResult_GrepResult_GrepMatch) GetContext() []*ToolResult_GrepResult_ContextLine {
-	if x != nil {
-		return x.Context
-	}
-	return nil
 }
 
 type ToolResult_ListFilesResult_DirectoryEntry struct {
@@ -3578,7 +3518,7 @@ type ToolResult_ListFilesResult_DirectoryEntry struct {
 
 func (x *ToolResult_ListFilesResult_DirectoryEntry) Reset() {
 	*x = ToolResult_ListFilesResult_DirectoryEntry{}
-	mi := &file_construct_v1_message_proto_msgTypes[55]
+	mi := &file_construct_v1_message_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3590,7 +3530,7 @@ func (x *ToolResult_ListFilesResult_DirectoryEntry) String() string {
 func (*ToolResult_ListFilesResult_DirectoryEntry) ProtoMessage() {}
 
 func (x *ToolResult_ListFilesResult_DirectoryEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_construct_v1_message_proto_msgTypes[55]
+	mi := &file_construct_v1_message_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3637,7 +3577,7 @@ type CreateFileToolResult_Input struct {
 
 func (x *CreateFileToolResult_Input) Reset() {
 	*x = CreateFileToolResult_Input{}
-	mi := &file_construct_v1_message_proto_msgTypes[56]
+	mi := &file_construct_v1_message_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3649,7 +3589,7 @@ func (x *CreateFileToolResult_Input) String() string {
 func (*CreateFileToolResult_Input) ProtoMessage() {}
 
 func (x *CreateFileToolResult_Input) ProtoReflect() protoreflect.Message {
-	mi := &file_construct_v1_message_proto_msgTypes[56]
+	mi := &file_construct_v1_message_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3830,7 +3770,7 @@ const file_construct_v1_message_proto_rawDesc = "" +
 	"\fdeliverables\x18\x03 \x03(\tR\fdeliverables\x12\x1d\n" +
 	"\n" +
 	"next_steps\x18\x04 \x01(\tR\tnextStepsB\a\n" +
-	"\x05Input\"\xae\x11\n" +
+	"\x05Input\"\x93\x10\n" +
 	"\n" +
 	"ToolResult\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12#\n" +
@@ -3870,22 +3810,16 @@ const file_construct_v1_message_proto_rawDesc = "" +
 	"\x05files\x18\x01 \x03(\tR\x05files\x12\x1f\n" +
 	"\vtotal_files\x18\x02 \x01(\x05R\n" +
 	"totalFiles\x12'\n" +
-	"\x0ftruncated_count\x18\x03 \x01(\x05R\x0etruncatedCount\x1a\xa5\x03\n" +
+	"\x0ftruncated_count\x18\x03 \x01(\x05R\x0etruncatedCount\x1a\x8a\x02\n" +
 	"\n" +
 	"GrepResult\x12G\n" +
 	"\amatches\x18\x01 \x03(\v2-.construct.v1.ToolResult.GrepResult.GrepMatchR\amatches\x12#\n" +
-	"\rtotal_matches\x18\x02 \x01(\x05R\ftotalMatches\x12%\n" +
-	"\x0esearched_files\x18\x03 \x01(\x05R\rsearchedFiles\x1aH\n" +
-	"\vContextLine\x12\x1f\n" +
-	"\vline_number\x18\x01 \x01(\x05R\n" +
-	"lineNumber\x12\x18\n" +
-	"\acontent\x18\x02 \x01(\tR\acontent\x1a\xb7\x01\n" +
+	"\rtotal_matches\x18\x02 \x01(\x05R\ftotalMatches\x12'\n" +
+	"\x0ftruncated_count\x18\x03 \x01(\x05R\x0etruncatedCount\x12%\n" +
+	"\x0esearched_files\x18\x04 \x01(\x05R\rsearchedFiles\x1a>\n" +
 	"\tGrepMatch\x12\x1b\n" +
-	"\tfile_path\x18\x01 \x01(\tR\bfilePath\x12\x1f\n" +
-	"\vline_number\x18\x02 \x01(\x05R\n" +
-	"lineNumber\x12!\n" +
-	"\fline_content\x18\x03 \x01(\tR\vlineContent\x12I\n" +
-	"\acontext\x18\x04 \x03(\v2/.construct.v1.ToolResult.GrepResult.ContextLineR\acontext\x1a\xc6\x01\n" +
+	"\tfile_path\x18\x01 \x01(\tR\bfilePath\x12\x14\n" +
+	"\x05value\x18\x03 \x01(\tR\x05value\x1a\xc6\x01\n" +
 	"\x0fListFilesResult\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12Q\n" +
 	"\aentries\x18\x02 \x03(\v27.construct.v1.ToolResult.ListFilesResult.DirectoryEntryR\aentries\x1aL\n" +
@@ -3966,7 +3900,7 @@ func file_construct_v1_message_proto_rawDescGZIP() []byte {
 }
 
 var file_construct_v1_message_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_construct_v1_message_proto_msgTypes = make([]protoimpl.MessageInfo, 58)
+var file_construct_v1_message_proto_msgTypes = make([]protoimpl.MessageInfo, 57)
 var file_construct_v1_message_proto_goTypes = []any{
 	(ContentStatus)(0),                                // 0: construct.v1.ContentStatus
 	(MessageRole)(0),                                  // 1: construct.v1.MessageRole
@@ -4023,21 +3957,20 @@ var file_construct_v1_message_proto_goTypes = []any{
 	(*ToolResult_ReadFileResult)(nil),                 // 52: construct.v1.ToolResult.ReadFileResult
 	(*ToolResult_SubmitReportResult)(nil),             // 53: construct.v1.ToolResult.SubmitReportResult
 	(*ToolResult_EditFileResult_PatchInfo)(nil),       // 54: construct.v1.ToolResult.EditFileResult.PatchInfo
-	(*ToolResult_GrepResult_ContextLine)(nil),         // 55: construct.v1.ToolResult.GrepResult.ContextLine
-	(*ToolResult_GrepResult_GrepMatch)(nil),           // 56: construct.v1.ToolResult.GrepResult.GrepMatch
-	(*ToolResult_ListFilesResult_DirectoryEntry)(nil), // 57: construct.v1.ToolResult.ListFilesResult.DirectoryEntry
-	(*CreateFileToolResult_Input)(nil),                // 58: construct.v1.CreateFileToolResult.Input
-	nil,                                               // 59: construct.v1.ToolError.DetailsEntry
-	(*timestamppb.Timestamp)(nil),                     // 60: google.protobuf.Timestamp
-	(SortField)(0),                                    // 61: construct.v1.SortField
-	(SortOrder)(0),                                    // 62: construct.v1.SortOrder
+	(*ToolResult_GrepResult_GrepMatch)(nil),           // 55: construct.v1.ToolResult.GrepResult.GrepMatch
+	(*ToolResult_ListFilesResult_DirectoryEntry)(nil), // 56: construct.v1.ToolResult.ListFilesResult.DirectoryEntry
+	(*CreateFileToolResult_Input)(nil),                // 57: construct.v1.CreateFileToolResult.Input
+	nil,                                               // 58: construct.v1.ToolError.DetailsEntry
+	(*timestamppb.Timestamp)(nil),                     // 59: google.protobuf.Timestamp
+	(SortField)(0),                                    // 60: construct.v1.SortField
+	(SortOrder)(0),                                    // 61: construct.v1.SortOrder
 }
 var file_construct_v1_message_proto_depIdxs = []int32{
 	3,  // 0: construct.v1.Message.metadata:type_name -> construct.v1.MessageMetadata
 	4,  // 1: construct.v1.Message.spec:type_name -> construct.v1.MessageSpec
 	5,  // 2: construct.v1.Message.status:type_name -> construct.v1.MessageStatus
-	60, // 3: construct.v1.MessageMetadata.created_at:type_name -> google.protobuf.Timestamp
-	60, // 4: construct.v1.MessageMetadata.updated_at:type_name -> google.protobuf.Timestamp
+	59, // 3: construct.v1.MessageMetadata.created_at:type_name -> google.protobuf.Timestamp
+	59, // 4: construct.v1.MessageMetadata.updated_at:type_name -> google.protobuf.Timestamp
 	1,  // 5: construct.v1.MessageMetadata.role:type_name -> construct.v1.MessageRole
 	6,  // 6: construct.v1.MessageSpec.content:type_name -> construct.v1.MessagePart
 	7,  // 7: construct.v1.MessageStatus.usage:type_name -> construct.v1.MessageUsage
@@ -4050,8 +3983,8 @@ var file_construct_v1_message_proto_depIdxs = []int32{
 	2,  // 14: construct.v1.CreateMessageResponse.message:type_name -> construct.v1.Message
 	2,  // 15: construct.v1.GetMessageResponse.message:type_name -> construct.v1.Message
 	32, // 16: construct.v1.ListMessagesRequest.filter:type_name -> construct.v1.ListMessagesRequest.Filter
-	61, // 17: construct.v1.ListMessagesRequest.sort_field:type_name -> construct.v1.SortField
-	62, // 18: construct.v1.ListMessagesRequest.sort_order:type_name -> construct.v1.SortOrder
+	60, // 17: construct.v1.ListMessagesRequest.sort_field:type_name -> construct.v1.SortField
+	61, // 18: construct.v1.ListMessagesRequest.sort_order:type_name -> construct.v1.SortOrder
 	2,  // 19: construct.v1.ListMessagesResponse.messages:type_name -> construct.v1.Message
 	6,  // 20: construct.v1.UpdateMessageRequest.content:type_name -> construct.v1.MessagePart
 	2,  // 21: construct.v1.UpdateMessageResponse.message:type_name -> construct.v1.Message
@@ -4076,29 +4009,28 @@ var file_construct_v1_message_proto_depIdxs = []int32{
 	53, // 40: construct.v1.ToolResult.submit_report:type_name -> construct.v1.ToolResult.SubmitReportResult
 	45, // 41: construct.v1.ToolResult.code_interpreter:type_name -> construct.v1.ToolResult.CodeInterpreterResult
 	29, // 42: construct.v1.ToolResult.error:type_name -> construct.v1.ToolError
-	58, // 43: construct.v1.CreateFileToolResult.input:type_name -> construct.v1.CreateFileToolResult.Input
-	59, // 44: construct.v1.ToolError.details:type_name -> construct.v1.ToolError.DetailsEntry
+	57, // 43: construct.v1.CreateFileToolResult.input:type_name -> construct.v1.CreateFileToolResult.Input
+	58, // 44: construct.v1.ToolError.details:type_name -> construct.v1.ToolError.DetailsEntry
 	1,  // 45: construct.v1.ListMessagesRequest.Filter.roles:type_name -> construct.v1.MessageRole
 	44, // 46: construct.v1.ToolCall.EditFileInput.diffs:type_name -> construct.v1.ToolCall.EditFileInput.DiffPair
 	54, // 47: construct.v1.ToolResult.EditFileResult.patch_info:type_name -> construct.v1.ToolResult.EditFileResult.PatchInfo
-	56, // 48: construct.v1.ToolResult.GrepResult.matches:type_name -> construct.v1.ToolResult.GrepResult.GrepMatch
-	57, // 49: construct.v1.ToolResult.ListFilesResult.entries:type_name -> construct.v1.ToolResult.ListFilesResult.DirectoryEntry
-	55, // 50: construct.v1.ToolResult.GrepResult.GrepMatch.context:type_name -> construct.v1.ToolResult.GrepResult.ContextLine
-	8,  // 51: construct.v1.MessageService.CreateMessage:input_type -> construct.v1.CreateMessageRequest
-	10, // 52: construct.v1.MessageService.GetMessage:input_type -> construct.v1.GetMessageRequest
-	12, // 53: construct.v1.MessageService.ListMessages:input_type -> construct.v1.ListMessagesRequest
-	14, // 54: construct.v1.MessageService.UpdateMessage:input_type -> construct.v1.UpdateMessageRequest
-	16, // 55: construct.v1.MessageService.DeleteMessage:input_type -> construct.v1.DeleteMessageRequest
-	9,  // 56: construct.v1.MessageService.CreateMessage:output_type -> construct.v1.CreateMessageResponse
-	11, // 57: construct.v1.MessageService.GetMessage:output_type -> construct.v1.GetMessageResponse
-	13, // 58: construct.v1.MessageService.ListMessages:output_type -> construct.v1.ListMessagesResponse
-	15, // 59: construct.v1.MessageService.UpdateMessage:output_type -> construct.v1.UpdateMessageResponse
-	17, // 60: construct.v1.MessageService.DeleteMessage:output_type -> construct.v1.DeleteMessageResponse
-	56, // [56:61] is the sub-list for method output_type
-	51, // [51:56] is the sub-list for method input_type
-	51, // [51:51] is the sub-list for extension type_name
-	51, // [51:51] is the sub-list for extension extendee
-	0,  // [0:51] is the sub-list for field type_name
+	55, // 48: construct.v1.ToolResult.GrepResult.matches:type_name -> construct.v1.ToolResult.GrepResult.GrepMatch
+	56, // 49: construct.v1.ToolResult.ListFilesResult.entries:type_name -> construct.v1.ToolResult.ListFilesResult.DirectoryEntry
+	8,  // 50: construct.v1.MessageService.CreateMessage:input_type -> construct.v1.CreateMessageRequest
+	10, // 51: construct.v1.MessageService.GetMessage:input_type -> construct.v1.GetMessageRequest
+	12, // 52: construct.v1.MessageService.ListMessages:input_type -> construct.v1.ListMessagesRequest
+	14, // 53: construct.v1.MessageService.UpdateMessage:input_type -> construct.v1.UpdateMessageRequest
+	16, // 54: construct.v1.MessageService.DeleteMessage:input_type -> construct.v1.DeleteMessageRequest
+	9,  // 55: construct.v1.MessageService.CreateMessage:output_type -> construct.v1.CreateMessageResponse
+	11, // 56: construct.v1.MessageService.GetMessage:output_type -> construct.v1.GetMessageResponse
+	13, // 57: construct.v1.MessageService.ListMessages:output_type -> construct.v1.ListMessagesResponse
+	15, // 58: construct.v1.MessageService.UpdateMessage:output_type -> construct.v1.UpdateMessageResponse
+	17, // 59: construct.v1.MessageService.DeleteMessage:output_type -> construct.v1.DeleteMessageResponse
+	55, // [55:60] is the sub-list for method output_type
+	50, // [50:55] is the sub-list for method input_type
+	50, // [50:50] is the sub-list for extension type_name
+	50, // [50:50] is the sub-list for extension extendee
+	0,  // [0:50] is the sub-list for field type_name
 }
 
 func init() { file_construct_v1_message_proto_init() }
@@ -4146,7 +4078,7 @@ func file_construct_v1_message_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_construct_v1_message_proto_rawDesc), len(file_construct_v1_message_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   58,
+			NumMessages:   57,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
