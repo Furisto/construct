@@ -23,6 +23,7 @@ func (m *Session) renderHelp() string {
 		"",
 		helpItemStyle.Render("Input Mode (F1):"),
 		helpItemStyle.Render("  Enter         - Send message"),
+		helpItemStyle.Render("  Ctrl+Enter    - New line"),
 		helpItemStyle.Render("  F2            - Switch to scroll mode"),
 		"",
 		helpItemStyle.Render("Scroll Mode (F2):"),

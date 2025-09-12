@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
@@ -16,6 +17,44 @@ import (
 	api_client "github.com/furisto/construct/api/go/client"
 	v1 "github.com/furisto/construct/api/go/v1"
 )
+
+type SessionKeyBindings struct {
+	Help        key.Binding
+	SendMessage key.Binding
+	NewLine     key.Binding
+	SwitchAgent key.Binding
+	ClearOrQuit key.Binding
+	SuspendTask key.Binding
+}
+
+func NewSessionKeyBindings() SessionKeyBindings {
+	return SessionKeyBindings{
+		Help: key.NewBinding(
+			key.WithKeys("ctrl+?"),
+			key.WithHelp("h", "toggle help"),
+		),
+		SendMessage: key.NewBinding(
+			key.WithKeys("enter"),
+			key.WithHelp("enter", "send message"),
+		),
+		NewLine: key.NewBinding(
+			key.WithKeys("strg+enter"),
+			key.WithHelp("strg+enter", "new line"),
+		),
+		SwitchAgent: key.NewBinding(
+			key.WithKeys("tab"),
+			key.WithHelp("tab", "switch agent"),
+		),
+		ClearOrQuit: key.NewBinding(
+			key.WithKeys(tea.KeyCtrlC.String()),
+			key.WithHelp("strg+c", "press one to clear input or twice to quit"),
+		),
+		SuspendTask: key.NewBinding(
+			key.WithKeys("esc"),
+			key.WithHelp("esc", "suspend task execution"),
+		),
+	}
+}
 
 type Session struct {
 	messageFeed *MessageFeed
@@ -41,6 +80,7 @@ type Session struct {
 	lastUsage       *v1.TaskUsage
 	workspacePath   string
 	lastCtrlC       time.Time
+	keyBindings     SessionKeyBindings
 }
 
 var _ tea.Model = (*Session)(nil)
@@ -87,6 +127,7 @@ func NewSession(ctx context.Context, apiClient *api_client.Client, task *v1.Task
 		waitingForAgent: false,
 		lastUsage:       task.Status.Usage,
 		workspacePath:   workspacePath,
+		keyBindings:     NewSessionKeyBindings(),
 	}
 }
 
@@ -109,21 +150,13 @@ func (m *Session) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		cmds = append(cmds, m.onKeyEvent(msg))
 		if m.showHelp {
 			if msg.Type == tea.KeyEsc || msg.String() == "ctrl+?" {
 				m.showHelp = false
 				return m, nil
 			}
 			return m, nil
-		}
-
-		switch msg.Type {
-		case tea.KeyCtrlC:
-			return m, m.handleCtrlC()
-		case tea.KeyEsc:
-			m.handleEsc()
-		default:
-			cmds = append(cmds, m.onKeyEvent(msg))
 		}
 
 	case tea.WindowSizeMsg:
@@ -160,37 +193,73 @@ func (m *Session) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Session) onKeyEvent(msg tea.KeyMsg) tea.Cmd {
-	// Reset Ctrl+C timer on any other key press
-	m.lastCtrlC = time.Time{}
-
-	switch msg.Type {
-	case tea.KeyTab:
-		return m.onToggleAgent()
-	case tea.KeyEnter:
-		if m.mode == ModeInput {
-			return m.onMessageSend(msg)
+	defer func() {
+		// if the key is not quit, reset the last Ctrl+C time
+		if !key.Matches(msg, m.keyBindings.ClearOrQuit) {
+			m.lastCtrlC = time.Time{}
 		}
-	case tea.KeyF1:
-		m.mode = ModeInput
-		m.input.Focus()
-		return nil
-	case tea.KeyF2:
-		m.mode = ModeScroll
-		m.input.Blur()
-		return nil
-	}
+	}()
 
-	switch msg.String() {
-
-	case "ctrl+?":
+	switch {
+	case key.Matches(msg, m.keyBindings.Help):
 		m.showHelp = !m.showHelp
 		return nil
+	case key.Matches(msg, m.keyBindings.SendMessage):
+		return m.handleMessageSend()
+	case key.Matches(msg, m.keyBindings.NewLine):
+		return m.handleInsertNewLine()
+	case key.Matches(msg, m.keyBindings.SwitchAgent):
+		return m.handleSwitchAgent()
+	case key.Matches(msg, m.keyBindings.SuspendTask):
+		return m.handleSuspendTask()
+	case key.Matches(msg, m.keyBindings.ClearOrQuit):
+		return m.handleClearOrQuit()
 	}
 
 	return nil
 }
 
-func (m *Session) handleCtrlC() tea.Cmd {
+func (m *Session) handleMessageSend() tea.Cmd {
+	if m.input.Value() != "" {
+		userInput := strings.TrimSpace(m.input.Value())
+		m.input.Reset()
+
+		m.waitingForAgent = true
+		return m.sendMessage(userInput)
+	}
+
+	return nil
+}
+
+func (m *Session) handleInsertNewLine() tea.Cmd {
+	m.input.InsertString("\n")
+	return nil
+}
+
+func (m *Session) handleSwitchAgent() tea.Cmd {
+	if len(m.agents) <= 1 {
+		return nil
+	}
+
+	currentIdx := -1
+	for i, agent := range m.agents {
+		if agent.Metadata.Id == m.activeAgent.Metadata.Id {
+			currentIdx = i
+			break
+		}
+	}
+
+	if currentIdx == -1 {
+		currentIdx = 0
+	} else {
+		currentIdx = (currentIdx + 1) % len(m.agents)
+	}
+
+	m.activeAgent = m.agents[currentIdx]
+	return nil
+}
+
+func (m *Session) handleClearOrQuit() tea.Cmd {
 	now := time.Now()
 
 	// If Ctrl+C was pressed recently (within 1 second), quit the app
@@ -205,7 +274,7 @@ func (m *Session) handleCtrlC() tea.Cmd {
 	return nil
 }
 
-func (m *Session) handleEsc() {
+func (m *Session) handleSuspendTask() tea.Cmd {
 	_, err := m.apiClient.Task().SuspendTask(m.ctx, &connect.Request[v1.SuspendTaskRequest]{
 		Msg: &v1.SuspendTaskRequest{
 			TaskId: m.task.Metadata.Id,
@@ -214,17 +283,6 @@ func (m *Session) handleEsc() {
 
 	if err != nil {
 		slog.Error("failed to suspend task", "error", err)
-	}
-}
-
-func (m *Session) onMessageSend(_ tea.KeyMsg) tea.Cmd {
-	if m.input.Value() != "" {
-		userInput := strings.TrimSpace(m.input.Value())
-		m.input.Reset()
-
-		m.waitingForAgent = true
-
-		return m.sendMessage(userInput)
 	}
 
 	return nil
@@ -275,29 +333,6 @@ func (m *Session) processTaskEvent(msg *v1.TaskEvent) {
 		m.task = resp.Msg.Task
 		m.lastUsage = resp.Msg.Task.Status.Usage
 	}
-}
-
-func (m *Session) onToggleAgent() tea.Cmd {
-	if len(m.agents) <= 1 {
-		return nil
-	}
-
-	currentIdx := -1
-	for i, agent := range m.agents {
-		if agent.Metadata.Id == m.activeAgent.Metadata.Id {
-			currentIdx = i
-			break
-		}
-	}
-
-	if currentIdx == -1 {
-		currentIdx = 0
-	} else {
-		currentIdx = (currentIdx + 1) % len(m.agents)
-	}
-
-	m.activeAgent = m.agents[currentIdx]
-	return nil
 }
 
 func (m *Session) onWindowResize(msg tea.WindowSizeMsg) {

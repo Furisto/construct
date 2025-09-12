@@ -12,15 +12,15 @@ import (
 	v1 "github.com/furisto/construct/api/go/v1"
 )
 
-type MessageFeedKeyMap struct {
+type MessageFeedKeybindings struct {
 	HalfPageUp   key.Binding
 	HalfPageDown key.Binding
 	Down         key.Binding
 	Up           key.Binding
 }
 
-func NewMessageFeedKeyMap() MessageFeedKeyMap {
-	return MessageFeedKeyMap{
+func NewMessageFeedKeybindings() MessageFeedKeybindings {
+	return MessageFeedKeybindings{
 		HalfPageUp: key.NewBinding(
 			key.WithKeys("ctrl+u"),
 			key.WithHelp("ctrl+u", "½ page up"),
@@ -46,15 +46,15 @@ type MessageFeed struct {
 	viewport       viewport.Model
 	messages       []message
 	partialMessage string
-	keyMap         MessageFeedKeyMap
+	keyBindings    MessageFeedKeybindings
 }
 
 var _ tea.Model = (*MessageFeed)(nil)
 
 func NewMessageFeed() *MessageFeed {
 	return &MessageFeed{
-		viewport: viewport.New(0, 0),
-		keyMap:   NewMessageFeedKeyMap(),
+		viewport:    viewport.New(0, 0),
+		keyBindings: NewMessageFeedKeybindings(),
 	}
 }
 
@@ -68,13 +68,13 @@ func (m *MessageFeed) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
-		case key.Matches(msg, m.keyMap.HalfPageUp):
+		case key.Matches(msg, m.keyBindings.HalfPageUp):
 			m.viewport.HalfViewUp()
-		case key.Matches(msg, m.keyMap.HalfPageDown):
+		case key.Matches(msg, m.keyBindings.HalfPageDown):
 			m.viewport.HalfViewDown()
-		case key.Matches(msg, m.keyMap.Up):
+		case key.Matches(msg, m.keyBindings.Up):
 			m.viewport.LineUp(1)
-		case key.Matches(msg, m.keyMap.Down):
+		case key.Matches(msg, m.keyBindings.Down):
 			m.viewport.LineDown(1)
 		}
 
