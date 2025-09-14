@@ -24,7 +24,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/frontend/cli",
-            "args": ["new"],
+            "args": ["new", "--agent", "coder"],
             "cwd": "${workspaceFolder}"
         },
         {
@@ -33,7 +33,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/frontend/cli",
-            "args": ["daemon"],
+            "args": ["daemon", "run", "--listen-unix", "/tmp/construct.sock"],
             "cwd": "${workspaceFolder}",
             "dlvLoadConfig": {
                 "followPointers": true,

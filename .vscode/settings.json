@@ -3,6 +3,9 @@
         {
             "pattern": "**/*.xml",
             "enabled": false
-        },
+        }
     ],
+    "files.associations": {
+        "**/snapshots/grep/*.json": "plaintext"
+    }
 } 
