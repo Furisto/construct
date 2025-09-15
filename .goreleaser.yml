@@ -56,7 +56,7 @@ release:
 brews:
   - name: construct
     repository:
-      owner: "{{ .Env.GITHUB_OWNER | default \"furisto\" }}"
+      owner: furisto
       name: homebrew-tap
       branch: main
       token: "{{ .Env.GITHUB_TOKEN }}"
