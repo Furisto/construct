@@ -71,10 +71,6 @@ brews:
     test: |
       system "#{bin}/construct", "version"
 
-git:
-  ignore_tags:
-    - "{{ .Env.SKIP_VALIDATE | default \"false\" }}"
-
 # Uncomment if you want to skip builds for missing git tags during development
 # snapshot:
 #   skip_publish: true
