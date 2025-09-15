@@ -33,5 +33,5 @@ jobs:
           version: "~> v2"
           args: release --clean
         env:
-          HOMEBREW_TAP_GH_TOKEN: ${{ secrets.HOMEBREW_TAP_GH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GH_TOKEN }}
 

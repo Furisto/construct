@@ -59,7 +59,7 @@ brews:
       owner: "{{ .Env.GITHUB_OWNER | default \"furisto\" }}"
       name: homebrew-tap
       branch: main
-      token: "{{ .Env.HOMEBREW_TAP_GH_TOKEN }}"
+      token: "{{ .Env.GITHUB_TOKEN }}"
     commit_author:
       name: Thomas Schubart
       email: 24721048+Furisto@users.noreply.github.com
@@ -70,9 +70,6 @@ brews:
       bin.install "construct"
     test: |
       system "#{bin}/construct", "version"
-
-env:
-  - HOMEBREW_TAP_GH_TOKEN
 
 git:
   ignore_tags:
