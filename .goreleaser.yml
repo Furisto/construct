@@ -1,0 +1,84 @@
+version: 2
+
+before:
+  hooks:
+    - go work sync
+
+builds:
+  - id: construct
+    main: ./frontend/cli
+    binary: construct
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/furisto/construct/frontend/cli/cmd.version={{.Version}}
+      - -X github.com/furisto/construct/frontend/cli/cmd.commit={{.Commit}}
+      - -X github.com/furisto/construct/frontend/cli/cmd.date={{.Date}}
+
+archives:
+  - id: construct
+    builds:
+      - construct
+    name_template: "construct_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - README.md
+      - LICENSE*
+      - CHANGELOG.md
+
+checksum:
+  name_template: "construct_{{ .Version }}_checksums.txt"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+
+release:
+  draft: true
+  replace_existing_draft: true
+  target_commitish: "{{ .Commit }}"
+  header: |
+    ## What's Changed
+
+    This release includes the following changes:
+
+brews:
+  - name: construct
+    repository:
+      owner: "{{ .Env.GITHUB_OWNER | default \"furisto\" }}"
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_GH_TOKEN }}"
+    commit_author:
+      name: Thomas Schubart
+      email: 24721048+Furisto@users.noreply.github.com
+    homepage: https://github.com/furisto/construct
+    description: "Your AI-powered development assistant"
+    license: Apache-2.0
+    install: |
+      bin.install "construct"
+    test: |
+      system "#{bin}/construct", "version"
+
+env:
+  - GITHUB_TOKEN
+  - GITHUB_OWNER
+
+git:
+  ignore_tags:
+    - "{{ .Env.SKIP_VALIDATE | default \"false\" }}"
+
+# Uncomment if you want to skip builds for missing git tags during development
+# snapshot:
+#   skip_publish: true
