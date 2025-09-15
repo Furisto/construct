@@ -72,8 +72,7 @@ brews:
       system "#{bin}/construct", "version"
 
 env:
-  - GITHUB_TOKEN
-  - GITHUB_OWNER
+  - HOMEBREW_TAP_GH_TOKEN
 
 git:
   ignore_tags:
