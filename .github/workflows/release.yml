@@ -17,6 +17,10 @@ env:
 jobs:
   release:
     runs-on: ubuntu-latest
+    environment: Release
+    permissions:
+      contents: write
+      packages: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -34,4 +38,3 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GH_TOKEN }}
-
