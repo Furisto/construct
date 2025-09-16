@@ -29,8 +29,6 @@ archives:
     name_template: "construct_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     files:
       - README.md
-      - LICENSE*
-      - CHANGELOG.md
 
 checksum:
   name_template: "construct_{{ .Version }}_checksums.txt"
