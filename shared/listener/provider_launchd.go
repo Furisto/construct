@@ -1,3 +1,5 @@
+//go:build darwin
+
 package listener
 
 import (
@@ -34,4 +36,20 @@ func (p *LaunchdSocketProvider) ActivationType() string {
 
 func IsLaunchdSocketActivation() bool {
 	return strings.HasPrefix(os.Getenv("XPC_SERVICE_NAME"), "sh.construct.daemon.")
+}
+
+func DetectProvider(httpAddress, unixSocket string) (Provider, error) {
+	if unixSocket != "" {
+		return NewUnixSocketProvider(unixSocket), nil
+	}
+
+	if httpAddress != "" {
+		return NewTCPListenerProvider(httpAddress), nil
+	}
+
+	if IsLaunchdSocketActivation() {
+		return NewLaunchdSocketProvider(), nil
+	}
+
+	return nil, fmt.Errorf("no valid listener has been detected. Specify either a unix socket, tcp address or use launchd socket activation")
 }

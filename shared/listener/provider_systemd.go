@@ -1,3 +1,5 @@
+//go:build linux
+
 package listener
 
 import (
@@ -5,6 +7,8 @@ import (
 	"net"
 	"os"
 	"strconv"
+
+	"syscall"
 )
 
 const systemdSocketFD = 3
@@ -65,4 +69,30 @@ func IsSystemdSocketActivation() bool {
 	}
 
 	return false
+}
+
+func isSocket(fd uintptr) bool {
+	var stat syscall.Stat_t
+	err := syscall.Fstat(int(fd), &stat)
+	if err != nil {
+		return false
+	}
+
+	return stat.Mode&syscall.S_IFMT == syscall.S_IFSOCK
+}
+
+func DetectProvider(httpAddress, unixSocket string) (Provider, error) {
+	if unixSocket != "" {
+		return NewUnixSocketProvider(unixSocket), nil
+	}
+
+	if httpAddress != "" {
+		return NewTCPListenerProvider(httpAddress), nil
+	}
+
+	if IsSystemdSocketActivation() {
+		return NewSystemdSocketProvider(), nil
+	}
+
+	return nil, fmt.Errorf("no valid listener has been detected. Specify either a unix socket, tcp address or use systemd socket activation")
 }
