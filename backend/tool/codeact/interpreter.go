@@ -9,6 +9,7 @@ import (
 	"github.com/grafana/sobek"
 	"github.com/invopop/jsonschema"
 	"github.com/spf13/afero"
+	"github.com/furisto/construct/shared"
 )
 
 type InterpreterArgs struct {
@@ -74,7 +75,7 @@ func (c *Interpreter) Interpret(ctx context.Context, fsys afero.Fs, input json.R
 	vm.SetFieldNameMapper(sobek.TagFieldNameMapper("json", true))
 
 	var stdout bytes.Buffer
-	session := NewSession(ctx, task, vm, &stdout, &stdout, fsys)
+	session := NewSession(ctx, task, vm, &stdout, &stdout, fsys, &shared.DefaultCommandRunner{})
 
 	for _, tool := range c.Tools {
 		vm.Set(tool.Name(), c.intercept(session, tool, tool.ToolHandler(session)))
