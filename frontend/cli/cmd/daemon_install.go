@@ -145,7 +145,7 @@ func installLaunchdService(ctx context.Context, out io.Writer, socketType, execP
 	command := getCommandRunner(ctx)
 
 	userInfo := getUserInfo(ctx)
-	homeDir, err := userInfo.ConstructDataDir()
+	homeDir, err := userInfo.HomeDir()
 	if err != nil {
 		return fail.HandleError(err)
 	}
@@ -189,7 +189,11 @@ func installLaunchdService(ctx context.Context, out io.Writer, socketType, execP
 	}
 	fmt.Fprintf(out, " %s Service file written to %s\n", terminal.SuccessSymbol, plistPath)
 
-	userID := userInfo.UserID()
+	userID, err := userInfo.UserID()
+	if err != nil {
+		return fail.HandleError(err)
+	}
+
 	if output, err := command.Run(ctx, "launchctl", "bootstrap", "gui/"+userID, plistPath); err != nil {
 		return fail.NewCommandError("launchctl bootstrap", err, output, "gui/"+userID, plistPath)
 	}

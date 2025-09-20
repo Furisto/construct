@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"path/filepath"
+	"sort"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -33,7 +34,7 @@ func NewConfigGetCmd() *cobra.Command {
 
 			constructDir, err := userInfo.ConstructConfigDir()
 			if err != nil {
-				return fmt.Errorf("failed to get construct directory: %w", err)
+				return fmt.Errorf("failed to retrieve construct config directory: %w", err)
 			}
 
 			settingsFile := filepath.Join(constructDir, "config.yaml")
@@ -78,7 +79,13 @@ func NewConfigGetCmd() *cobra.Command {
 
 func renderConfigValue(value any, prefix string) {
 	if m, ok := value.(map[string]any); ok {
-		for k, v := range m {
+		keys := make([]string, 0, len(m))
+		for k := range m {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			v := m[k]
 			fullKey := prefix + "." + k
 			if isLeafValue(v) {
 				fmt.Printf("%s: %v\n", fullKey, v)

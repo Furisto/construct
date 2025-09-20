@@ -46,7 +46,7 @@ Sets a persistent configuration key-value pair. Use dot notation for nested keys
 
 			constructDir, err := userInfo.ConstructConfigDir()
 			if err != nil {
-				return fmt.Errorf("failed to get construct directory: %w", err)
+				return fmt.Errorf("failed to retrieve construct config directory: %w", err)
 			}
 
 			configFile := filepath.Join(constructDir, "config.yaml")

@@ -109,7 +109,7 @@ func (m *ContextManager) saveContext(endpointContexts *api.EndpointContexts) err
 	}
 
 	endpointContextsFile := filepath.Join(constructDir, "context.yaml")
-	return m.fs.WriteFile(endpointContextsFile, content, 0644)
+	return m.fs.WriteFile(endpointContextsFile, content, 0600)
 }
 
 //go:generate mockgen -destination=mocks/command_runner_mock.go -package=mocks . CommandRunner
@@ -123,7 +123,8 @@ type RuntimeInfo interface {
 
 //go:generate mockgen -destination=mocks/user_info_mock.go -package=mocks . UserInfo
 type UserInfo interface {
-	UserID() string
+	UserID() (string, error)
+	HomeDir() (string, error)
 	ConstructConfigDir() (string, error)
 	ConstructDataDir() (string, error)
 	Cwd() (string, error)
@@ -151,16 +152,20 @@ func NewDefaultUserInfo(fs *afero.Afero) *DefaultUserInfo {
 	return &DefaultUserInfo{fs: fs}
 }
 
-func (u *DefaultUserInfo) UserID() string {
+func (u *DefaultUserInfo) UserID() (string, error) {
 	user, err := user.Current()
 	if err != nil {
-		return ""
+		return "", err
 	}
-	return user.Uid
+	return user.Uid, nil
 }
 
 func (u *DefaultUserInfo) HomeDir() (string, error) {
-	return os.UserHomeDir()
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return homeDir, nil
 }
 
 func (u *DefaultUserInfo) ConstructConfigDir() (string, error) {
