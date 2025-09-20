@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/adrg/xdg"
 	api "github.com/furisto/construct/api/go/client"
 	"github.com/spf13/afero"
 	"gopkg.in/yaml.v3"
@@ -24,7 +25,7 @@ func NewContextManager(fs *afero.Afero, userInfo UserInfo) *ContextManager {
 }
 
 func (m *ContextManager) LoadContext() (*api.EndpointContexts, error) {
-	constructDir, err := m.userInfo.ConstructDir()
+	constructDir, err := m.userInfo.ConstructConfigDir()
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +98,7 @@ func (m *ContextManager) SetCurrentContext(contextName string) error {
 }
 
 func (m *ContextManager) saveContext(endpointContexts *api.EndpointContexts) error {
-	constructDir, err := m.userInfo.ConstructDir()
+	constructDir, err := m.userInfo.ConstructConfigDir()
 	if err != nil {
 		return err
 	}
@@ -111,7 +112,6 @@ func (m *ContextManager) saveContext(endpointContexts *api.EndpointContexts) err
 	return m.fs.WriteFile(endpointContextsFile, content, 0644)
 }
 
-
 //go:generate mockgen -destination=mocks/command_runner_mock.go -package=mocks . CommandRunner
 type CommandRunner interface {
 	Run(ctx context.Context, command string, args ...string) (string, error)
@@ -124,8 +124,8 @@ type RuntimeInfo interface {
 //go:generate mockgen -destination=mocks/user_info_mock.go -package=mocks . UserInfo
 type UserInfo interface {
 	UserID() string
-	HomeDir() (string, error)
-	ConstructDir() (string, error)
+	ConstructConfigDir() (string, error)
+	ConstructDataDir() (string, error)
 	Cwd() (string, error)
 }
 
@@ -163,20 +163,24 @@ func (u *DefaultUserInfo) HomeDir() (string, error) {
 	return os.UserHomeDir()
 }
 
-func (u *DefaultUserInfo) ConstructDir() (string, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("failed to get home directory: %w", err)
+func (u *DefaultUserInfo) ConstructConfigDir() (string, error) {
+	configDir := filepath.Join(xdg.ConfigHome, "construct")
+	if err := u.fs.MkdirAll(configDir, 0700); err != nil {
+		return "", fmt.Errorf("failed to create config directory: %w", err)
 	}
+	return configDir, nil
+}
 
-	constructDir := filepath.Join(homeDir, ".construct")
-	if err := u.fs.MkdirAll(constructDir, 0755); err != nil {
-		return "", fmt.Errorf("failed to create construct directory: %w", err)
+func (u *DefaultUserInfo) ConstructDataDir() (string, error) {
+	dataDir := filepath.Join(xdg.DataHome, "construct")
+	if err := u.fs.MkdirAll(dataDir, 0700); err != nil {
+		return "", fmt.Errorf("failed to create data directory: %w", err)
 	}
-
-	return constructDir, nil
+	return dataDir, nil
 }
 
 func (u *DefaultUserInfo) Cwd() (string, error) {
 	return os.Getwd()
 }
+
+var _ UserInfo = (*DefaultUserInfo)(nil)

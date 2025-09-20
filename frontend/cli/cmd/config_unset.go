@@ -37,7 +37,7 @@ func NewConfigUnsetCmd() *cobra.Command {
 				return err
 			}
 
-			constructDir, err := userInfo.ConstructDir()
+			constructDir, err := userInfo.ConstructConfigDir()
 			if err != nil {
 				return fmt.Errorf("failed to get construct directory: %w", err)
 			}

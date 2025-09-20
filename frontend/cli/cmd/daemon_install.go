@@ -145,7 +145,7 @@ func installLaunchdService(ctx context.Context, out io.Writer, socketType, execP
 	command := getCommandRunner(ctx)
 
 	userInfo := getUserInfo(ctx)
-	homeDir, err := userInfo.HomeDir()
+	homeDir, err := userInfo.ConstructDataDir()
 	if err != nil {
 		return fail.HandleError(err)
 	}

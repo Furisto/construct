@@ -36,7 +36,7 @@ debugging and development. For normal use, 'construct daemon install' is recomme
 		RunE: func(cmd *cobra.Command, args []string) error {
 			userInfo := getUserInfo(cmd.Context())
 
-			homeDir, err := userInfo.HomeDir()
+			homeDir, err := userInfo.ConstructDataDir()
 			if err != nil {
 				return err
 			}
