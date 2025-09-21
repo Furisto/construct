@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -20,6 +19,7 @@ import (
 
 	api "github.com/furisto/construct/api/go/client"
 	"github.com/furisto/construct/shared"
+	"github.com/furisto/construct/shared/config"
 )
 
 var (
@@ -50,13 +50,7 @@ func NewRootCmd() *cobra.Command {
 
 			cmd.SetContext(setGlobalOptions(cmd.Context(), &options))
 
-			userInfo := getUserInfo(cmd.Context())
-			constructDir, err := userInfo.ConstructConfigDir()
-			if err != nil {
-				return err
-			}
-
-			configStore, err := NewConfigStoreFromFile(filepath.Join(constructDir, "config.yaml"))
+			configStore, err := config.NewStore(getFileSystem(cmd.Context()), getUserInfo(cmd.Context()))
 			if err != nil {
 				return err
 			}
@@ -170,7 +164,7 @@ func setAPIClient(ctx context.Context, cmd *cobra.Command) error {
 }
 
 func requiresContext(cmd *cobra.Command) bool {
-	skipCommands := []string{"version", "help", "update", "daemon.", "config."}
+	skipCommands := []string{"info", "help", "update", "daemon.", "config."}
 	for _, skipCmd := range skipCommands {
 		cmdName := cmd.Name()
 		parentCmd := cmd.Parent()

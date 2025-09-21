@@ -15,6 +15,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/furisto/construct/frontend/cli/pkg/fail"
+	"github.com/furisto/construct/shared/config"
 	updater "github.com/inconshreveable/go-update"
 	"github.com/spf13/cobra"
 )
@@ -51,14 +52,29 @@ func NewUpdateCmd() *cobra.Command {
 	}
 }
 
-func update(httpClient *http.Client, configStore *ConfigStore, stdout io.Writer) error {
-	releaseUrl, ok := configStore.Get("update.url")
+func update(httpClient *http.Client, configStore *config.Store, stdout io.Writer) error {
+	releaseUrlVal, ok := configStore.Get("update.url")
+	var releaseUrl string
 	if !ok {
 		releaseUrl = selectEndpoint(httpClient)
+	} else {
+		if value, ok := releaseUrlVal.String(); ok {
+			releaseUrl = value
+		} else {
+			return fmt.Errorf("update.url is not a string")
+		}
 	}
-	channel, ok := configStore.Get("update.channel")
+
+	channelVal, ok := configStore.Get("update.channel")
+	var channel string
 	if !ok {
 		channel = "latest"
+	} else {
+		if value, ok := channelVal.String(); ok {
+			channel = value
+		} else {
+			return fmt.Errorf("update.channel is not a string")
+		}
 	}
 
 	updater := NewUpdater(

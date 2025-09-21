@@ -2,11 +2,10 @@ package cmd
 
 import (
 	"fmt"
-	"path/filepath"
 	"sort"
 
+	"github.com/furisto/construct/shared/config"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 func NewConfigGetCmd() *cobra.Command {
@@ -15,59 +14,32 @@ func NewConfigGetCmd() *cobra.Command {
 		Short: "Get a configuration value",
 		Example: `  # Get the default agent for the 'new' command
   construct config get cmd.new.agent`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			if len(args) == 0 {
-				return getSupportedConfigKeys(), cobra.ShellCompDirectiveNoFileComp
+				return config.SupportedKeys(), cobra.ShellCompDirectiveNoFileComp
 			}
 
 			return []string{}, cobra.ShellCompDirectiveDefault
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			key := args[0]
-			userInfo := getUserInfo(cmd.Context())
+			configStore := getConfigStore(cmd.Context())
 
-			err := isSupportedKey(key)
+			err := validateConfigKey(key)
 			if err != nil {
 				return err
 			}
 
-			constructDir, err := userInfo.ConstructConfigDir()
-			if err != nil {
-				return fmt.Errorf("failed to retrieve construct config directory: %w", err)
-			}
-
-			settingsFile := filepath.Join(constructDir, "config.yaml")
-			fs := getFileSystem(cmd.Context())
-
-			exists, err := fs.Exists(settingsFile)
-			if err != nil {
-				return fmt.Errorf("failed to check config file: %w", err)
-			}
-
-			if !exists {
-				return nil
-			}
-
-			content, err := fs.ReadFile(settingsFile)
-			if err != nil {
-				return fmt.Errorf("failed to read config file: %w", err)
-			}
-
-			var settings map[string]any
-			if err := yaml.Unmarshal(content, &settings); err != nil {
-				return fmt.Errorf("failed to parse config file: %w", err)
-			}
-
-			value, found := getNestedValue(settings, key)
+			value, found := configStore.Get(key)
 			if !found {
 				return nil
 			}
 
-			if isLeafValue(value) {
-				fmt.Println(value)
+			if config.IsLeafValue(value.Raw()) {
+				fmt.Println(value.Raw())
 			} else {
-				renderConfigValue(value, key)
+				renderConfigValue(value.Raw(), key)
 			}
 
 			return nil
@@ -87,7 +59,7 @@ func renderConfigValue(value any, prefix string) {
 		for _, k := range keys {
 			v := m[k]
 			fullKey := prefix + "." + k
-			if isLeafValue(v) {
+			if config.IsLeafValue(v) {
 				fmt.Printf("%s: %v\n", fullKey, v)
 			} else {
 				renderConfigValue(v, fullKey)

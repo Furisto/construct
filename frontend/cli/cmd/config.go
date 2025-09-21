@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/furisto/construct/shared/config"
 	"github.com/sahilm/fuzzy"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 func NewConfigCmd() *cobra.Command {
@@ -26,37 +26,8 @@ func NewConfigCmd() *cobra.Command {
 	return cmd
 }
 
-func getSupportedConfigKeys() []string {
-	return []string{
-		// Command
-		"cmd",
-		"cmd.new",
-		"cmd.new.agent",
-
-		"cmd.ask",
-		"cmd.ask.agent",
-		"cmd.ask.max-turns",
-
-		"cmd.resume",
-		"cmd.resume.recent_task_limit",
-
-		// Logging
-		"log",
-		"log.level",
-		"log.file",
-		"log.format",
-
-		// Misc
-		"editor",
-		"output",
-		"output.format",
-		"output.no-headers",
-		"output.wide",
-	}
-}
-
-func isSupportedKey(key string) error {
-	if !supportedKeys(key) {
+func validateConfigKey(key string) error {
+	if !isSupportedKey(key) {
 		suggestions := getSuggestions(key)
 		if len(suggestions) > 0 {
 			return fmt.Errorf("unsupported configuration key: '%s'\n\nDid you mean one of these?\n%s", key, formatSuggestions(suggestions))
@@ -68,7 +39,7 @@ func isSupportedKey(key string) error {
 }
 
 func getSuggestions(input string) []string {
-	supportedKeys := getSupportedConfigKeys()
+	supportedKeys := config.SupportedKeys()
 
 	matches := fuzzy.Find(input, supportedKeys)
 
@@ -91,8 +62,8 @@ func formatSuggestions(suggestions []string) string {
 	return fmt.Sprintln(strings.Join(formatted, "\n"))
 }
 
-func supportedKeys(key string) bool {
-	supportedKeys := getSupportedConfigKeys()
+func isSupportedKey(key string) bool {
+	supportedKeys := config.SupportedKeys()
 
 	for _, supportedKey := range supportedKeys {
 		if supportedKey == key {
@@ -104,7 +75,7 @@ func supportedKeys(key string) bool {
 }
 
 func isSectionKey(key string) bool {
-	supportedKeys := getSupportedConfigKeys()
+	supportedKeys := config.SupportedKeys()
 
 	for _, supportedKey := range supportedKeys {
 		if strings.HasPrefix(supportedKey, key+".") {
@@ -116,7 +87,7 @@ func isSectionKey(key string) bool {
 }
 
 func getKeysUnderSection(section string) []string {
-	supportedKeys := getSupportedConfigKeys()
+	supportedKeys := config.SupportedKeys()
 	var childKeys []string
 
 	prefix := section + "."
@@ -155,24 +126,5 @@ func parseValue(value string) (any, error) {
 		return floatVal, nil
 	}
 
-	return nil, fmt.Errorf("value must be a boolean, integer or float")
-}
-
-func MarshalYAMLWithSpacing(v interface{}) ([]byte, error) {
-	data, err := yaml.Marshal(v)
-	if err != nil {
-		return nil, err
-	}
-
-	lines := strings.Split(string(data), "\n")
-	var result []string
-
-	for i, line := range lines {
-		if i > 0 && len(line) > 0 && !strings.HasPrefix(line, " ") && !strings.HasPrefix(line, "\t") {
-			result = append(result, "")
-		}
-		result = append(result, line)
-	}
-
-	return []byte(strings.Join(result, "\n")), nil
+	return value, nil
 }

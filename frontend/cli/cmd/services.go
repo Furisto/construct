@@ -3,12 +3,11 @@ package cmd
 import (
 	"context"
 	"net/http"
-	"os"
 
 	api "github.com/furisto/construct/api/go/client"
 	"github.com/furisto/construct/shared"
+	"github.com/furisto/construct/shared/config"
 	"github.com/spf13/afero"
-	"gopkg.in/yaml.v3"
 )
 
 type ContextKey string
@@ -99,36 +98,14 @@ func getHttpClient(ctx context.Context) *http.Client {
 	return http.DefaultClient
 }
 
-func getConfigStore(ctx context.Context) *ConfigStore {
+func getConfigStore(ctx context.Context) *config.Store {
 	if configStore := ctx.Value(ContextKeyConfigStore); configStore != nil {
-		return configStore.(*ConfigStore)
+		return configStore.(*config.Store)
 	}
 
-	return &ConfigStore{settings: make(map[string]any)}
+	return nil
 }
 
-func setConfigStore(ctx context.Context, configStore *ConfigStore) context.Context {
+func setConfigStore(ctx context.Context, configStore *config.Store) context.Context {
 	return context.WithValue(ctx, ContextKeyConfigStore, configStore)
-}
-
-type ConfigStore struct {
-	settings map[string]any
-}
-
-func NewConfigStoreFromFile(filePath string) (*ConfigStore, error) {
-	content, err := os.ReadFile(filePath)
-	if err != nil {
-		return nil, err
-	}
-
-	var settings map[string]any
-	if err := yaml.Unmarshal(content, &settings); err != nil {
-		return nil, err
-	}
-
-	return &ConfigStore{settings: settings}, nil
-}
-
-func (c *ConfigStore) Get(key string) (string, bool) {
-	return "", false
 }
