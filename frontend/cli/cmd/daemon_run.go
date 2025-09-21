@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"path/filepath"
 
 	"entgo.io/ent/dialect"
 	"github.com/furisto/construct/backend/agent"
@@ -29,25 +30,25 @@ func NewDaemonRunCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "run [flags]",
 		Short: "Run the daemon process in the foreground",
-		Long:  `Run the daemon process in the foreground.
+		Long: `Run the daemon process in the foreground.
 
 Starts the daemon process directly in the current terminal. This is useful for 
 debugging and development. For normal use, 'construct daemon install' is recommended.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			userInfo := getUserInfo(cmd.Context())
 
-			homeDir, err := userInfo.HomeDir()
+			dataDir, err := userInfo.ConstructDataDir()
 			if err != nil {
 				return err
 			}
 
-			memory, err := memory.Open(dialect.SQLite, "file:"+homeDir+"/.construct/construct.db?_fk=1&_journal=WAL&_busy_timeout=5000")
+			db, err := memory.Open(dialect.SQLite, "file:"+filepath.Join(dataDir, "construct.db")+"?_fk=1&_journal=WAL&_busy_timeout=5000")
 			if err != nil {
 				return err
 			}
-			defer memory.Close()
+			defer db.Close()
 
-			if err := memory.Schema.Create(cmd.Context()); err != nil {
+			if err := db.Schema.Create(cmd.Context()); err != nil {
 				return err
 			}
 
@@ -81,7 +82,7 @@ debugging and development. For normal use, 'construct daemon install' is recomme
 			}
 
 			runtime, err := agent.NewRuntime(
-				memory,
+				db,
 				encryption,
 				listener,
 				agent.WithCodeActTools(

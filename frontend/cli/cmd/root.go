@@ -51,7 +51,7 @@ func NewRootCmd() *cobra.Command {
 			cmd.SetContext(setGlobalOptions(cmd.Context(), &options))
 
 			userInfo := getUserInfo(cmd.Context())
-			constructDir, err := userInfo.ConstructDir()
+			constructDir, err := userInfo.ConstructConfigDir()
 			if err != nil {
 				return err
 			}

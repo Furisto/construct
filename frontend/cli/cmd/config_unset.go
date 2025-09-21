@@ -37,9 +37,9 @@ func NewConfigUnsetCmd() *cobra.Command {
 				return err
 			}
 
-			constructDir, err := userInfo.ConstructDir()
+			constructDir, err := userInfo.ConstructConfigDir()
 			if err != nil {
-				return fmt.Errorf("failed to get construct directory: %w", err)
+				return fmt.Errorf("failed to retrieve construct config directory: %w", err)
 			}
 
 			configFile := filepath.Join(constructDir, "config.yaml")
@@ -89,7 +89,7 @@ func NewConfigUnsetCmd() *cobra.Command {
 				return fmt.Errorf("failed to marshal config: %w", err)
 			}
 
-			if err := fs.WriteFile(configFile, content, 0644); err != nil {
+			if err := fs.WriteFile(configFile, content, 0600); err != nil {
 				return fmt.Errorf("failed to write config file: %w", err)
 			}
 
