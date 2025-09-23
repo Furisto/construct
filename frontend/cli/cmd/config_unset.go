@@ -53,7 +53,7 @@ func NewConfigUnsetCmd() *cobra.Command {
 				return err
 			}
 
-			return configStore.Flush(getFileSystem(cmd.Context()))
+			return configStore.Flush()
 		},
 	}
 

@@ -103,7 +103,8 @@ func getConfigStore(ctx context.Context) *config.Store {
 		return configStore.(*config.Store)
 	}
 
-	return nil
+	// should never happen, indicates a programming error
+	panic("config store not found")
 }
 
 func setConfigStore(ctx context.Context, configStore *config.Store) context.Context {

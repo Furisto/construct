@@ -59,6 +59,11 @@ func getNestedValue(data map[string]any, key string) (any, bool) {
 
 func setNestedValue(data map[string]any, key string, value any) error {
 	keys := strings.Split(key, ".")
+	for i, k := range keys {
+		if k == "" {
+			return fmt.Errorf("invalid key: empty path segment at position %d", i)
+		}
+	}
 	current := data
 
 	for i := 0; i < len(keys)-1; i++ {

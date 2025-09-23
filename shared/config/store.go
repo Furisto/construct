@@ -81,7 +81,7 @@ func (c *Store) Set(key string, value any) error {
 	return setNestedValue(c.settings, key, value)
 }
 
-func (c *Store) Flush(fs *afero.Afero) error {
+func (c *Store) Flush() error {
 	output, err := MarshalYAMLWithSpacing(c.settings)
 	if err != nil {
 		return err

@@ -55,7 +55,7 @@ Sets a persistent configuration key-value pair. Use dot notation for nested keys
 				return err
 			}
 
-			return configStore.Flush(getFileSystem(cmd.Context()))
+			return configStore.Flush()
 		},
 	}
 
