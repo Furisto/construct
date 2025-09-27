@@ -25,18 +25,16 @@ const (
 	FieldDescription = "description"
 	// FieldInstructions holds the string denoting the instructions field in the database.
 	FieldInstructions = "instructions"
-	// FieldDefaultModel holds the string denoting the default_model field in the database.
-	FieldDefaultModel = "default_model"
+	// FieldBuiltin holds the string denoting the builtin field in the database.
+	FieldBuiltin = "builtin"
+	// FieldModelID holds the string denoting the model_id field in the database.
+	FieldModelID = "model_id"
 	// EdgeModel holds the string denoting the model edge name in mutations.
 	EdgeModel = "model"
 	// EdgeTasks holds the string denoting the tasks edge name in mutations.
 	EdgeTasks = "tasks"
 	// EdgeMessages holds the string denoting the messages edge name in mutations.
 	EdgeMessages = "messages"
-	// EdgeDelegates holds the string denoting the delegates edge name in mutations.
-	EdgeDelegates = "delegates"
-	// EdgeDelegators holds the string denoting the delegators edge name in mutations.
-	EdgeDelegators = "delegators"
 	// Table holds the table name of the agent in the database.
 	Table = "agents"
 	// ModelTable is the table that holds the model relation/edge.
@@ -45,7 +43,7 @@ const (
 	// It exists in this package in order to avoid circular dependency with the "model" package.
 	ModelInverseTable = "models"
 	// ModelColumn is the table column denoting the model relation/edge.
-	ModelColumn = "default_model"
+	ModelColumn = "model_id"
 	// TasksTable is the table that holds the tasks relation/edge.
 	TasksTable = "tasks"
 	// TasksInverseTable is the table name for the Task entity.
@@ -60,10 +58,6 @@ const (
 	MessagesInverseTable = "messages"
 	// MessagesColumn is the table column denoting the messages relation/edge.
 	MessagesColumn = "agent_id"
-	// DelegatesTable is the table that holds the delegates relation/edge. The primary key declared below.
-	DelegatesTable = "agent_delegators"
-	// DelegatorsTable is the table that holds the delegators relation/edge. The primary key declared below.
-	DelegatorsTable = "agent_delegators"
 )
 
 // Columns holds all SQL columns for agent fields.
@@ -74,17 +68,9 @@ var Columns = []string{
 	FieldName,
 	FieldDescription,
 	FieldInstructions,
-	FieldDefaultModel,
+	FieldBuiltin,
+	FieldModelID,
 }
-
-var (
-	// DelegatesPrimaryKey and DelegatesColumn2 are the table columns denoting the
-	// primary key for the delegates relation (M2M).
-	DelegatesPrimaryKey = []string{"agent_id", "delegate_id"}
-	// DelegatorsPrimaryKey and DelegatorsColumn2 are the table columns denoting the
-	// primary key for the delegators relation (M2M).
-	DelegatorsPrimaryKey = []string{"agent_id", "delegate_id"}
-)
 
 // ValidColumn reports if the column name is valid (part of the table columns).
 func ValidColumn(column string) bool {
@@ -105,6 +91,8 @@ var (
 	UpdateDefaultUpdateTime func() time.Time
 	// NameValidator is a validator for the "name" field. It is called by the builders before save.
 	NameValidator func(string) error
+	// DefaultBuiltin holds the default value on creation for the "builtin" field.
+	DefaultBuiltin bool
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() uuid.UUID
 )
@@ -142,9 +130,14 @@ func ByInstructions(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldInstructions, opts...).ToFunc()
 }
 
-// ByDefaultModel orders the results by the default_model field.
-func ByDefaultModel(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldDefaultModel, opts...).ToFunc()
+// ByBuiltin orders the results by the builtin field.
+func ByBuiltin(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldBuiltin, opts...).ToFunc()
+}
+
+// ByModelID orders the results by the model_id field.
+func ByModelID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldModelID, opts...).ToFunc()
 }
 
 // ByModelField orders the results by model field.
@@ -181,34 +174,6 @@ func ByMessages(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newMessagesStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
-
-// ByDelegatesCount orders the results by delegates count.
-func ByDelegatesCount(opts ...sql.OrderTermOption) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborsCount(s, newDelegatesStep(), opts...)
-	}
-}
-
-// ByDelegates orders the results by delegates terms.
-func ByDelegates(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborTerms(s, newDelegatesStep(), append([]sql.OrderTerm{term}, terms...)...)
-	}
-}
-
-// ByDelegatorsCount orders the results by delegators count.
-func ByDelegatorsCount(opts ...sql.OrderTermOption) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborsCount(s, newDelegatorsStep(), opts...)
-	}
-}
-
-// ByDelegators orders the results by delegators terms.
-func ByDelegators(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborTerms(s, newDelegatorsStep(), append([]sql.OrderTerm{term}, terms...)...)
-	}
-}
 func newModelStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -228,19 +193,5 @@ func newMessagesStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(MessagesInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, true, MessagesTable, MessagesColumn),
-	)
-}
-func newDelegatesStep() *sqlgraph.Step {
-	return sqlgraph.NewStep(
-		sqlgraph.From(Table, FieldID),
-		sqlgraph.To(Table, FieldID),
-		sqlgraph.Edge(sqlgraph.M2M, true, DelegatesTable, DelegatesPrimaryKey...),
-	)
-}
-func newDelegatorsStep() *sqlgraph.Step {
-	return sqlgraph.NewStep(
-		sqlgraph.From(Table, FieldID),
-		sqlgraph.To(Table, FieldID),
-		sqlgraph.Edge(sqlgraph.M2M, false, DelegatorsTable, DelegatorsPrimaryKey...),
 	)
 }

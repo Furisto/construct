@@ -37,6 +37,10 @@ func init() {
 	agentDescName := agentFields[1].Descriptor()
 	// agent.NameValidator is a validator for the "name" field. It is called by the builders before save.
 	agent.NameValidator = agentDescName.Validators[0].(func(string) error)
+	// agentDescBuiltin is the schema descriptor for builtin field.
+	agentDescBuiltin := agentFields[4].Descriptor()
+	// agent.DefaultBuiltin holds the default value on creation for the builtin field.
+	agent.DefaultBuiltin = agentDescBuiltin.Default.(bool)
 	// agentDescID is the schema descriptor for id field.
 	agentDescID := agentFields[0].Descriptor()
 	// agent.DefaultID holds the default value on creation for the id field.

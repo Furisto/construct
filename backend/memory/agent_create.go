@@ -78,9 +78,31 @@ func (ac *AgentCreate) SetInstructions(s string) *AgentCreate {
 	return ac
 }
 
-// SetDefaultModel sets the "default_model" field.
-func (ac *AgentCreate) SetDefaultModel(u uuid.UUID) *AgentCreate {
-	ac.mutation.SetDefaultModel(u)
+// SetBuiltin sets the "builtin" field.
+func (ac *AgentCreate) SetBuiltin(b bool) *AgentCreate {
+	ac.mutation.SetBuiltin(b)
+	return ac
+}
+
+// SetNillableBuiltin sets the "builtin" field if the given value is not nil.
+func (ac *AgentCreate) SetNillableBuiltin(b *bool) *AgentCreate {
+	if b != nil {
+		ac.SetBuiltin(*b)
+	}
+	return ac
+}
+
+// SetModelID sets the "model_id" field.
+func (ac *AgentCreate) SetModelID(u uuid.UUID) *AgentCreate {
+	ac.mutation.SetModelID(u)
+	return ac
+}
+
+// SetNillableModelID sets the "model_id" field if the given value is not nil.
+func (ac *AgentCreate) SetNillableModelID(u *uuid.UUID) *AgentCreate {
+	if u != nil {
+		ac.SetModelID(*u)
+	}
 	return ac
 }
 
@@ -95,12 +117,6 @@ func (ac *AgentCreate) SetNillableID(u *uuid.UUID) *AgentCreate {
 	if u != nil {
 		ac.SetID(*u)
 	}
-	return ac
-}
-
-// SetModelID sets the "model" edge to the Model entity by ID.
-func (ac *AgentCreate) SetModelID(id uuid.UUID) *AgentCreate {
-	ac.mutation.SetModelID(id)
 	return ac
 }
 
@@ -137,36 +153,6 @@ func (ac *AgentCreate) AddMessages(m ...*Message) *AgentCreate {
 		ids[i] = m[i].ID
 	}
 	return ac.AddMessageIDs(ids...)
-}
-
-// AddDelegateIDs adds the "delegates" edge to the Agent entity by IDs.
-func (ac *AgentCreate) AddDelegateIDs(ids ...uuid.UUID) *AgentCreate {
-	ac.mutation.AddDelegateIDs(ids...)
-	return ac
-}
-
-// AddDelegates adds the "delegates" edges to the Agent entity.
-func (ac *AgentCreate) AddDelegates(a ...*Agent) *AgentCreate {
-	ids := make([]uuid.UUID, len(a))
-	for i := range a {
-		ids[i] = a[i].ID
-	}
-	return ac.AddDelegateIDs(ids...)
-}
-
-// AddDelegatorIDs adds the "delegators" edge to the Agent entity by IDs.
-func (ac *AgentCreate) AddDelegatorIDs(ids ...uuid.UUID) *AgentCreate {
-	ac.mutation.AddDelegatorIDs(ids...)
-	return ac
-}
-
-// AddDelegators adds the "delegators" edges to the Agent entity.
-func (ac *AgentCreate) AddDelegators(a ...*Agent) *AgentCreate {
-	ids := make([]uuid.UUID, len(a))
-	for i := range a {
-		ids[i] = a[i].ID
-	}
-	return ac.AddDelegatorIDs(ids...)
 }
 
 // Mutation returns the AgentMutation object of the builder.
@@ -212,6 +198,10 @@ func (ac *AgentCreate) defaults() {
 		v := agent.DefaultUpdateTime()
 		ac.mutation.SetUpdateTime(v)
 	}
+	if _, ok := ac.mutation.Builtin(); !ok {
+		v := agent.DefaultBuiltin
+		ac.mutation.SetBuiltin(v)
+	}
 	if _, ok := ac.mutation.ID(); !ok {
 		v := agent.DefaultID()
 		ac.mutation.SetID(v)
@@ -237,11 +227,8 @@ func (ac *AgentCreate) check() error {
 	if _, ok := ac.mutation.Instructions(); !ok {
 		return &ValidationError{Name: "instructions", err: errors.New(`memory: missing required field "Agent.instructions"`)}
 	}
-	if _, ok := ac.mutation.DefaultModel(); !ok {
-		return &ValidationError{Name: "default_model", err: errors.New(`memory: missing required field "Agent.default_model"`)}
-	}
-	if len(ac.mutation.ModelIDs()) == 0 {
-		return &ValidationError{Name: "model", err: errors.New(`memory: missing required edge "Agent.model"`)}
+	if _, ok := ac.mutation.Builtin(); !ok {
+		return &ValidationError{Name: "builtin", err: errors.New(`memory: missing required field "Agent.builtin"`)}
 	}
 	return nil
 }
@@ -298,6 +285,10 @@ func (ac *AgentCreate) createSpec() (*Agent, *sqlgraph.CreateSpec) {
 		_spec.SetField(agent.FieldInstructions, field.TypeString, value)
 		_node.Instructions = value
 	}
+	if value, ok := ac.mutation.Builtin(); ok {
+		_spec.SetField(agent.FieldBuiltin, field.TypeBool, value)
+		_node.Builtin = value
+	}
 	if nodes := ac.mutation.ModelIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
@@ -312,7 +303,7 @@ func (ac *AgentCreate) createSpec() (*Agent, *sqlgraph.CreateSpec) {
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
-		_node.DefaultModel = nodes[0]
+		_node.ModelID = nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := ac.mutation.TasksIDs(); len(nodes) > 0 {
@@ -340,38 +331,6 @@ func (ac *AgentCreate) createSpec() (*Agent, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(message.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges = append(_spec.Edges, edge)
-	}
-	if nodes := ac.mutation.DelegatesIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
-			Inverse: true,
-			Table:   agent.DelegatesTable,
-			Columns: agent.DelegatesPrimaryKey,
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges = append(_spec.Edges, edge)
-	}
-	if nodes := ac.mutation.DelegatorsIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
-			Inverse: false,
-			Table:   agent.DelegatorsTable,
-			Columns: agent.DelegatorsPrimaryKey,
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

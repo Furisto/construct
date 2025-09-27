@@ -87,23 +87,37 @@ func (au *AgentUpdate) SetNillableInstructions(s *string) *AgentUpdate {
 	return au
 }
 
-// SetDefaultModel sets the "default_model" field.
-func (au *AgentUpdate) SetDefaultModel(u uuid.UUID) *AgentUpdate {
-	au.mutation.SetDefaultModel(u)
+// SetBuiltin sets the "builtin" field.
+func (au *AgentUpdate) SetBuiltin(b bool) *AgentUpdate {
+	au.mutation.SetBuiltin(b)
 	return au
 }
 
-// SetNillableDefaultModel sets the "default_model" field if the given value is not nil.
-func (au *AgentUpdate) SetNillableDefaultModel(u *uuid.UUID) *AgentUpdate {
-	if u != nil {
-		au.SetDefaultModel(*u)
+// SetNillableBuiltin sets the "builtin" field if the given value is not nil.
+func (au *AgentUpdate) SetNillableBuiltin(b *bool) *AgentUpdate {
+	if b != nil {
+		au.SetBuiltin(*b)
 	}
 	return au
 }
 
-// SetModelID sets the "model" edge to the Model entity by ID.
-func (au *AgentUpdate) SetModelID(id uuid.UUID) *AgentUpdate {
-	au.mutation.SetModelID(id)
+// SetModelID sets the "model_id" field.
+func (au *AgentUpdate) SetModelID(u uuid.UUID) *AgentUpdate {
+	au.mutation.SetModelID(u)
+	return au
+}
+
+// SetNillableModelID sets the "model_id" field if the given value is not nil.
+func (au *AgentUpdate) SetNillableModelID(u *uuid.UUID) *AgentUpdate {
+	if u != nil {
+		au.SetModelID(*u)
+	}
+	return au
+}
+
+// ClearModelID clears the value of the "model_id" field.
+func (au *AgentUpdate) ClearModelID() *AgentUpdate {
+	au.mutation.ClearModelID()
 	return au
 }
 
@@ -140,36 +154,6 @@ func (au *AgentUpdate) AddMessages(m ...*Message) *AgentUpdate {
 		ids[i] = m[i].ID
 	}
 	return au.AddMessageIDs(ids...)
-}
-
-// AddDelegateIDs adds the "delegates" edge to the Agent entity by IDs.
-func (au *AgentUpdate) AddDelegateIDs(ids ...uuid.UUID) *AgentUpdate {
-	au.mutation.AddDelegateIDs(ids...)
-	return au
-}
-
-// AddDelegates adds the "delegates" edges to the Agent entity.
-func (au *AgentUpdate) AddDelegates(a ...*Agent) *AgentUpdate {
-	ids := make([]uuid.UUID, len(a))
-	for i := range a {
-		ids[i] = a[i].ID
-	}
-	return au.AddDelegateIDs(ids...)
-}
-
-// AddDelegatorIDs adds the "delegators" edge to the Agent entity by IDs.
-func (au *AgentUpdate) AddDelegatorIDs(ids ...uuid.UUID) *AgentUpdate {
-	au.mutation.AddDelegatorIDs(ids...)
-	return au
-}
-
-// AddDelegators adds the "delegators" edges to the Agent entity.
-func (au *AgentUpdate) AddDelegators(a ...*Agent) *AgentUpdate {
-	ids := make([]uuid.UUID, len(a))
-	for i := range a {
-		ids[i] = a[i].ID
-	}
-	return au.AddDelegatorIDs(ids...)
 }
 
 // Mutation returns the AgentMutation object of the builder.
@@ -225,48 +209,6 @@ func (au *AgentUpdate) RemoveMessages(m ...*Message) *AgentUpdate {
 	return au.RemoveMessageIDs(ids...)
 }
 
-// ClearDelegates clears all "delegates" edges to the Agent entity.
-func (au *AgentUpdate) ClearDelegates() *AgentUpdate {
-	au.mutation.ClearDelegates()
-	return au
-}
-
-// RemoveDelegateIDs removes the "delegates" edge to Agent entities by IDs.
-func (au *AgentUpdate) RemoveDelegateIDs(ids ...uuid.UUID) *AgentUpdate {
-	au.mutation.RemoveDelegateIDs(ids...)
-	return au
-}
-
-// RemoveDelegates removes "delegates" edges to Agent entities.
-func (au *AgentUpdate) RemoveDelegates(a ...*Agent) *AgentUpdate {
-	ids := make([]uuid.UUID, len(a))
-	for i := range a {
-		ids[i] = a[i].ID
-	}
-	return au.RemoveDelegateIDs(ids...)
-}
-
-// ClearDelegators clears all "delegators" edges to the Agent entity.
-func (au *AgentUpdate) ClearDelegators() *AgentUpdate {
-	au.mutation.ClearDelegators()
-	return au
-}
-
-// RemoveDelegatorIDs removes the "delegators" edge to Agent entities by IDs.
-func (au *AgentUpdate) RemoveDelegatorIDs(ids ...uuid.UUID) *AgentUpdate {
-	au.mutation.RemoveDelegatorIDs(ids...)
-	return au
-}
-
-// RemoveDelegators removes "delegators" edges to Agent entities.
-func (au *AgentUpdate) RemoveDelegators(a ...*Agent) *AgentUpdate {
-	ids := make([]uuid.UUID, len(a))
-	for i := range a {
-		ids[i] = a[i].ID
-	}
-	return au.RemoveDelegatorIDs(ids...)
-}
-
 // Save executes the query and returns the number of nodes affected by the update operation.
 func (au *AgentUpdate) Save(ctx context.Context) (int, error) {
 	au.defaults()
@@ -310,9 +252,6 @@ func (au *AgentUpdate) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`memory: validator failed for field "Agent.name": %w`, err)}
 		}
 	}
-	if au.mutation.ModelCleared() && len(au.mutation.ModelIDs()) > 0 {
-		return errors.New(`memory: clearing a required unique edge "Agent.model"`)
-	}
 	return nil
 }
 
@@ -348,6 +287,9 @@ func (au *AgentUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if value, ok := au.mutation.Instructions(); ok {
 		_spec.SetField(agent.FieldInstructions, field.TypeString, value)
+	}
+	if value, ok := au.mutation.Builtin(); ok {
+		_spec.SetField(agent.FieldBuiltin, field.TypeBool, value)
 	}
 	if au.mutation.ModelCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -468,96 +410,6 @@ func (au *AgentUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
-	if au.mutation.DelegatesCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
-			Inverse: true,
-			Table:   agent.DelegatesTable,
-			Columns: agent.DelegatesPrimaryKey,
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := au.mutation.RemovedDelegatesIDs(); len(nodes) > 0 && !au.mutation.DelegatesCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
-			Inverse: true,
-			Table:   agent.DelegatesTable,
-			Columns: agent.DelegatesPrimaryKey,
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := au.mutation.DelegatesIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
-			Inverse: true,
-			Table:   agent.DelegatesTable,
-			Columns: agent.DelegatesPrimaryKey,
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if au.mutation.DelegatorsCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
-			Inverse: false,
-			Table:   agent.DelegatorsTable,
-			Columns: agent.DelegatorsPrimaryKey,
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := au.mutation.RemovedDelegatorsIDs(); len(nodes) > 0 && !au.mutation.DelegatorsCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
-			Inverse: false,
-			Table:   agent.DelegatorsTable,
-			Columns: agent.DelegatorsPrimaryKey,
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := au.mutation.DelegatorsIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
-			Inverse: false,
-			Table:   agent.DelegatorsTable,
-			Columns: agent.DelegatorsPrimaryKey,
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
 	_spec.AddModifiers(au.modifiers...)
 	if n, err = sqlgraph.UpdateNodes(ctx, au.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
@@ -634,23 +486,37 @@ func (auo *AgentUpdateOne) SetNillableInstructions(s *string) *AgentUpdateOne {
 	return auo
 }
 
-// SetDefaultModel sets the "default_model" field.
-func (auo *AgentUpdateOne) SetDefaultModel(u uuid.UUID) *AgentUpdateOne {
-	auo.mutation.SetDefaultModel(u)
+// SetBuiltin sets the "builtin" field.
+func (auo *AgentUpdateOne) SetBuiltin(b bool) *AgentUpdateOne {
+	auo.mutation.SetBuiltin(b)
 	return auo
 }
 
-// SetNillableDefaultModel sets the "default_model" field if the given value is not nil.
-func (auo *AgentUpdateOne) SetNillableDefaultModel(u *uuid.UUID) *AgentUpdateOne {
-	if u != nil {
-		auo.SetDefaultModel(*u)
+// SetNillableBuiltin sets the "builtin" field if the given value is not nil.
+func (auo *AgentUpdateOne) SetNillableBuiltin(b *bool) *AgentUpdateOne {
+	if b != nil {
+		auo.SetBuiltin(*b)
 	}
 	return auo
 }
 
-// SetModelID sets the "model" edge to the Model entity by ID.
-func (auo *AgentUpdateOne) SetModelID(id uuid.UUID) *AgentUpdateOne {
-	auo.mutation.SetModelID(id)
+// SetModelID sets the "model_id" field.
+func (auo *AgentUpdateOne) SetModelID(u uuid.UUID) *AgentUpdateOne {
+	auo.mutation.SetModelID(u)
+	return auo
+}
+
+// SetNillableModelID sets the "model_id" field if the given value is not nil.
+func (auo *AgentUpdateOne) SetNillableModelID(u *uuid.UUID) *AgentUpdateOne {
+	if u != nil {
+		auo.SetModelID(*u)
+	}
+	return auo
+}
+
+// ClearModelID clears the value of the "model_id" field.
+func (auo *AgentUpdateOne) ClearModelID() *AgentUpdateOne {
+	auo.mutation.ClearModelID()
 	return auo
 }
 
@@ -687,36 +553,6 @@ func (auo *AgentUpdateOne) AddMessages(m ...*Message) *AgentUpdateOne {
 		ids[i] = m[i].ID
 	}
 	return auo.AddMessageIDs(ids...)
-}
-
-// AddDelegateIDs adds the "delegates" edge to the Agent entity by IDs.
-func (auo *AgentUpdateOne) AddDelegateIDs(ids ...uuid.UUID) *AgentUpdateOne {
-	auo.mutation.AddDelegateIDs(ids...)
-	return auo
-}
-
-// AddDelegates adds the "delegates" edges to the Agent entity.
-func (auo *AgentUpdateOne) AddDelegates(a ...*Agent) *AgentUpdateOne {
-	ids := make([]uuid.UUID, len(a))
-	for i := range a {
-		ids[i] = a[i].ID
-	}
-	return auo.AddDelegateIDs(ids...)
-}
-
-// AddDelegatorIDs adds the "delegators" edge to the Agent entity by IDs.
-func (auo *AgentUpdateOne) AddDelegatorIDs(ids ...uuid.UUID) *AgentUpdateOne {
-	auo.mutation.AddDelegatorIDs(ids...)
-	return auo
-}
-
-// AddDelegators adds the "delegators" edges to the Agent entity.
-func (auo *AgentUpdateOne) AddDelegators(a ...*Agent) *AgentUpdateOne {
-	ids := make([]uuid.UUID, len(a))
-	for i := range a {
-		ids[i] = a[i].ID
-	}
-	return auo.AddDelegatorIDs(ids...)
 }
 
 // Mutation returns the AgentMutation object of the builder.
@@ -770,48 +606,6 @@ func (auo *AgentUpdateOne) RemoveMessages(m ...*Message) *AgentUpdateOne {
 		ids[i] = m[i].ID
 	}
 	return auo.RemoveMessageIDs(ids...)
-}
-
-// ClearDelegates clears all "delegates" edges to the Agent entity.
-func (auo *AgentUpdateOne) ClearDelegates() *AgentUpdateOne {
-	auo.mutation.ClearDelegates()
-	return auo
-}
-
-// RemoveDelegateIDs removes the "delegates" edge to Agent entities by IDs.
-func (auo *AgentUpdateOne) RemoveDelegateIDs(ids ...uuid.UUID) *AgentUpdateOne {
-	auo.mutation.RemoveDelegateIDs(ids...)
-	return auo
-}
-
-// RemoveDelegates removes "delegates" edges to Agent entities.
-func (auo *AgentUpdateOne) RemoveDelegates(a ...*Agent) *AgentUpdateOne {
-	ids := make([]uuid.UUID, len(a))
-	for i := range a {
-		ids[i] = a[i].ID
-	}
-	return auo.RemoveDelegateIDs(ids...)
-}
-
-// ClearDelegators clears all "delegators" edges to the Agent entity.
-func (auo *AgentUpdateOne) ClearDelegators() *AgentUpdateOne {
-	auo.mutation.ClearDelegators()
-	return auo
-}
-
-// RemoveDelegatorIDs removes the "delegators" edge to Agent entities by IDs.
-func (auo *AgentUpdateOne) RemoveDelegatorIDs(ids ...uuid.UUID) *AgentUpdateOne {
-	auo.mutation.RemoveDelegatorIDs(ids...)
-	return auo
-}
-
-// RemoveDelegators removes "delegators" edges to Agent entities.
-func (auo *AgentUpdateOne) RemoveDelegators(a ...*Agent) *AgentUpdateOne {
-	ids := make([]uuid.UUID, len(a))
-	for i := range a {
-		ids[i] = a[i].ID
-	}
-	return auo.RemoveDelegatorIDs(ids...)
 }
 
 // Where appends a list predicates to the AgentUpdate builder.
@@ -870,9 +664,6 @@ func (auo *AgentUpdateOne) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`memory: validator failed for field "Agent.name": %w`, err)}
 		}
 	}
-	if auo.mutation.ModelCleared() && len(auo.mutation.ModelIDs()) > 0 {
-		return errors.New(`memory: clearing a required unique edge "Agent.model"`)
-	}
 	return nil
 }
 
@@ -925,6 +716,9 @@ func (auo *AgentUpdateOne) sqlSave(ctx context.Context) (_node *Agent, err error
 	}
 	if value, ok := auo.mutation.Instructions(); ok {
 		_spec.SetField(agent.FieldInstructions, field.TypeString, value)
+	}
+	if value, ok := auo.mutation.Builtin(); ok {
+		_spec.SetField(agent.FieldBuiltin, field.TypeBool, value)
 	}
 	if auo.mutation.ModelCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -1038,96 +832,6 @@ func (auo *AgentUpdateOne) sqlSave(ctx context.Context) (_node *Agent, err error
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(message.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if auo.mutation.DelegatesCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
-			Inverse: true,
-			Table:   agent.DelegatesTable,
-			Columns: agent.DelegatesPrimaryKey,
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := auo.mutation.RemovedDelegatesIDs(); len(nodes) > 0 && !auo.mutation.DelegatesCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
-			Inverse: true,
-			Table:   agent.DelegatesTable,
-			Columns: agent.DelegatesPrimaryKey,
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := auo.mutation.DelegatesIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
-			Inverse: true,
-			Table:   agent.DelegatesTable,
-			Columns: agent.DelegatesPrimaryKey,
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if auo.mutation.DelegatorsCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
-			Inverse: false,
-			Table:   agent.DelegatorsTable,
-			Columns: agent.DelegatorsPrimaryKey,
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := auo.mutation.RemovedDelegatorsIDs(); len(nodes) > 0 && !auo.mutation.DelegatorsCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
-			Inverse: false,
-			Table:   agent.DelegatorsTable,
-			Columns: agent.DelegatorsPrimaryKey,
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := auo.mutation.DelegatorsIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
-			Inverse: false,
-			Table:   agent.DelegatorsTable,
-			Columns: agent.DelegatorsPrimaryKey,
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

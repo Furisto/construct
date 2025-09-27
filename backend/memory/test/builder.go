@@ -210,7 +210,7 @@ func (b *AgentBuilder) Build(ctx context.Context) *memory.Agent {
 		SetID(b.agentID).
 		SetName(b.name).
 		SetDescription(b.description).
-		SetDefaultModel(b.defaultModel).
+		SetModelID(b.defaultModel).
 		SetInstructions(b.instructions).
 		Save(ctx)
 
@@ -287,7 +287,7 @@ func NewMessageBuilder(t *testing.T, id uuid.UUID, db *memory.Client, task *memo
 
 func (b *MessageBuilder) WithAgent(agent *memory.Agent) *MessageBuilder {
 	b.agentID = agent.ID
-	b.modelID = agent.DefaultModel
+	b.modelID = agent.ModelID
 	b.source = types.MessageSourceAssistant
 	return b
 }

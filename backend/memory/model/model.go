@@ -53,7 +53,7 @@ const (
 	// It exists in this package in order to avoid circular dependency with the "agent" package.
 	AgentsInverseTable = "agents"
 	// AgentsColumn is the table column denoting the agents relation/edge.
-	AgentsColumn = "default_model"
+	AgentsColumn = "model_id"
 	// ModelProviderTable is the table that holds the model_provider relation/edge.
 	ModelProviderTable = "models"
 	// ModelProviderInverseTable is the table name for the ModelProvider entity.
