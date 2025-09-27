@@ -36,7 +36,7 @@ type AnthropicModelProfile struct {
 
 var _ ModelProfile = (*AnthropicModelProfile)(nil)
 
-func (c *AnthropicModelProfile) Kind() ModelProfileKind {
+func (c *AnthropicModelProfile) Kind() ProviderKind {
 	return ProviderKindAnthropic
 }
 
@@ -207,6 +207,11 @@ func SupportedAnthropicModels() []Model {
 			},
 		},
 	}
+}
+
+func  DefaultAnthropicModel() *Model {
+	models := SupportedAnthropicModels()
+	return &models[0]
 }
 
 func NewAnthropicProvider(apiKey string, url string) (*AnthropicProvider, error) {

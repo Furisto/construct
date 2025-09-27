@@ -10,9 +10,12 @@ import (
 	"github.com/furisto/construct/api/go/v1/v1connect"
 	"github.com/furisto/construct/backend/api/conv"
 	"github.com/furisto/construct/backend/memory"
+	"github.com/furisto/construct/backend/memory/agent"
+	modeldb "github.com/furisto/construct/backend/memory/model"
 	"github.com/furisto/construct/backend/memory/modelprovider"
 	"github.com/furisto/construct/backend/memory/schema/types"
 	"github.com/furisto/construct/backend/model"
+	"github.com/furisto/construct/backend/prompt"
 	"github.com/furisto/construct/backend/secret"
 	"github.com/google/uuid"
 )
@@ -66,7 +69,7 @@ func (h *ModelProviderHandler) CreateModelProvider(ctx context.Context, req *con
 			return nil, fmt.Errorf("failed to insert model provider: %w", err)
 		}
 
-		supportedModels := model.SupportedModels(model.ModelProfileKind(providerType))
+		supportedModels := model.SupportedModels(model.ProviderKind(providerType))
 		models := make([]*memory.ModelCreate, 0, len(supportedModels))
 		for _, m := range supportedModels {
 			capabilities, err := conv.LLMModelCapabilitiesToMemory(m.Capabilities)
@@ -91,6 +94,18 @@ func (h *ModelProviderHandler) CreateModelProvider(ctx context.Context, req *con
 		}
 
 		return modelProvider, nil
+	})
+
+	if err != nil {
+		return nil, apiError(err)
+	}
+
+	_, err = memory.Transaction(ctx, h.db, func(tx *memory.Client) (*memory.Agent, error) {
+		err := createBuiltinAgents(ctx, tx, model.ProviderKind(providerType))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create builtin agents: %w", err)
+		}
+		return nil, nil
 	})
 
 	if err != nil {
@@ -252,4 +267,57 @@ func marshalAuthToJson(config any) ([]byte, error) {
 	default:
 		return nil, fmt.Errorf("unsupported authentication config type: %T", config)
 	}
+}
+
+func createBuiltinAgents(ctx context.Context, tx *memory.Client, providerType model.ProviderKind) error {
+	builtinAgents, err := tx.Agent.Query().Where(agent.Builtin(true)).WithModel().All(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get system agents: %w", err)
+	}
+
+	if len(builtinAgents) > 0 {
+		return nil
+	}
+
+	defaultModel, err := model.DefaultModel(model.ProviderKind(providerType))
+	if err != nil {
+		return fmt.Errorf("failed to get default model: %w", err)
+	}
+
+	modelID, err := tx.Model.Query().Where(modeldb.Name(defaultModel.Name)).FirstID(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get default model: %w", err)
+	}
+
+	err = createBuiltinAgent(ctx, tx, uuid.MustParse("00000001-0000-0000-0000-000000000001"), "coder", prompt.Coder, "Implements solutions based on plans or on demand", modelID)
+	if err != nil {
+		return err
+	}
+
+	return createBuiltinAgent(ctx, tx, uuid.MustParse("00000001-0000-0000-0000-000000000002"), "architect", prompt.Architect, "Gathers requirements and designs detailed implementation plans", modelID)
+}
+
+func createBuiltinAgent(ctx context.Context, tx *memory.Client, agentID uuid.UUID, name string, instructions string, description string, modelID uuid.UUID) error {
+	_, err := tx.Agent.Get(ctx, agentID)
+	if err != nil && !memory.IsNotFound(err) {
+		return fmt.Errorf("failed to retrieve %s agent: %w", name, err)
+	}
+
+	create := tx.Agent.Create().
+		SetID(agentID).
+		SetName(name).
+		SetInstructions(instructions).
+		SetBuiltin(true).
+		SetModelID(modelID)
+
+	if description != "" {
+		create = create.SetDescription(description)
+	}
+
+	_, err = create.Save(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to create agent: %w", err)
+	}
+
+	return nil
 }

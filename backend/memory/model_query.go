@@ -507,7 +507,7 @@ func (mq *ModelQuery) loadAgents(ctx context.Context, query *AgentQuery, nodes [
 		}
 	}
 	if len(query.ctx.Fields) > 0 {
-		query.ctx.AppendFieldOnce(agent.FieldDefaultModel)
+		query.ctx.AppendFieldOnce(agent.FieldModelID)
 	}
 	query.Where(predicate.Agent(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(model.AgentsColumn), fks...))
@@ -517,10 +517,10 @@ func (mq *ModelQuery) loadAgents(ctx context.Context, query *AgentQuery, nodes [
 		return err
 	}
 	for _, n := range neighbors {
-		fk := n.DefaultModel
+		fk := n.ModelID
 		node, ok := nodeids[fk]
 		if !ok {
-			return fmt.Errorf(`unexpected referenced foreign-key "default_model" returned %v for node %v`, fk, n.ID)
+			return fmt.Errorf(`unexpected referenced foreign-key "model_id" returned %v for node %v`, fk, n.ID)
 		}
 		assign(node, n)
 	}

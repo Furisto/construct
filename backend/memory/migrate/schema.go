@@ -17,7 +17,8 @@ var (
 		{Name: "name", Type: field.TypeString},
 		{Name: "description", Type: field.TypeString, Nullable: true},
 		{Name: "instructions", Type: field.TypeString},
-		{Name: "default_model", Type: field.TypeUUID},
+		{Name: "builtin", Type: field.TypeBool, Default: false},
+		{Name: "model_id", Type: field.TypeUUID, Nullable: true},
 	}
 	// AgentsTable holds the schema information for the "agents" table.
 	AgentsTable = &schema.Table{
@@ -27,9 +28,16 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "agents_models_model",
-				Columns:    []*schema.Column{AgentsColumns[6]},
+				Columns:    []*schema.Column{AgentsColumns[7]},
 				RefColumns: []*schema.Column{ModelsColumns[0]},
-				OnDelete:   schema.NoAction,
+				OnDelete:   schema.SetNull,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "agent_name",
+				Unique:  true,
+				Columns: []*schema.Column{AgentsColumns[3]},
 			},
 		},
 	}
@@ -178,31 +186,6 @@ var (
 			},
 		},
 	}
-	// AgentDelegatorsColumns holds the columns for the "agent_delegators" table.
-	AgentDelegatorsColumns = []*schema.Column{
-		{Name: "agent_id", Type: field.TypeUUID},
-		{Name: "delegate_id", Type: field.TypeUUID},
-	}
-	// AgentDelegatorsTable holds the schema information for the "agent_delegators" table.
-	AgentDelegatorsTable = &schema.Table{
-		Name:       "agent_delegators",
-		Columns:    AgentDelegatorsColumns,
-		PrimaryKey: []*schema.Column{AgentDelegatorsColumns[0], AgentDelegatorsColumns[1]},
-		ForeignKeys: []*schema.ForeignKey{
-			{
-				Symbol:     "agent_delegators_agent_id",
-				Columns:    []*schema.Column{AgentDelegatorsColumns[0]},
-				RefColumns: []*schema.Column{AgentsColumns[0]},
-				OnDelete:   schema.Cascade,
-			},
-			{
-				Symbol:     "agent_delegators_delegate_id",
-				Columns:    []*schema.Column{AgentDelegatorsColumns[1]},
-				RefColumns: []*schema.Column{AgentsColumns[0]},
-				OnDelete:   schema.Cascade,
-			},
-		},
-	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		AgentsTable,
@@ -210,7 +193,6 @@ var (
 		ModelsTable,
 		ModelProvidersTable,
 		TasksTable,
-		AgentDelegatorsTable,
 	}
 )
 
@@ -225,6 +207,4 @@ func init() {
 	}
 	ModelsTable.ForeignKeys[0].RefTable = ModelProvidersTable
 	TasksTable.ForeignKeys[0].RefTable = AgentsTable
-	AgentDelegatorsTable.ForeignKeys[0].RefTable = AgentsTable
-	AgentDelegatorsTable.ForeignKeys[1].RefTable = AgentsTable
 }

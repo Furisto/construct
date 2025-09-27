@@ -27,12 +27,13 @@ type ServiceTestSetup[Request any, Response any] struct {
 	Call       ClientServiceCall[Request, Response]
 	CmpOptions []cmp.Option
 	Debug      bool
+	QueryDatabase func(ctx context.Context, db *memory.Client) (any, error)
 }
 
 type ServiceTestExpectation[Response any] struct {
 	Response  Response
 	Error     string
-	Database  []any
+	Database  any
 	Analytics []analytics.Event
 }
 
@@ -92,6 +93,14 @@ func (s *ServiceTestSetup[Request, Response]) RunServiceTests(t *testing.T, scen
 
 			if len(scenario.Expected.Analytics) > 0 {
 				actual.Analytics = server.Options.Analytics.(*analytics.InMemoryClient).Events
+			}
+
+			if s.QueryDatabase != nil && scenario.Expected.Database != nil {
+				resources, err := s.QueryDatabase(ctx, server.Options.DB)
+				if err != nil {
+					t.Fatalf("failed to query database resources: %v", err)
+				}
+				actual.Database = resources
 			}
 
 			if diff := cmp.Diff(scenario.Expected, actual, s.CmpOptions...); diff != "" {
@@ -286,9 +295,7 @@ func (m *MockAgentRuntime) EventHub() *stream.EventHub {
 }
 
 func (m *MockAgentRuntime) TriggerReconciliation(id uuid.UUID) {
-	return
 }
 
 func (m *MockAgentRuntime) CancelTask(id uuid.UUID) {
-	return
 }

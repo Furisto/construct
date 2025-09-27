@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"github.com/furisto/construct/backend/agent"
 	"github.com/furisto/construct/backend/analytics"
 	"github.com/furisto/construct/backend/memory"
+	"github.com/furisto/construct/backend/memory/migrate"
 	"github.com/furisto/construct/backend/secret"
 	"github.com/furisto/construct/backend/tool/codeact"
 	"github.com/furisto/construct/shared"
@@ -48,7 +50,8 @@ debugging and development. For normal use, 'construct daemon install' is recomme
 			}
 			defer db.Close()
 
-			if err := db.Schema.Create(cmd.Context()); err != nil {
+			err = setupMemory(cmd.Context(), db)
+			if err != nil {
 				return err
 			}
 
@@ -154,4 +157,11 @@ func getEncryptionClient() (*secret.Client, error) {
 	}
 
 	return secret.NewClient(keyHandle)
+}
+
+func setupMemory(ctx context.Context, db *memory.Client) error {
+	return db.Schema.Create(ctx,
+		migrate.WithDropColumn(true),
+		migrate.WithDropIndex(true),
+	)
 }

@@ -49,11 +49,11 @@ func (h *AgentHandler) CreateAgent(ctx context.Context, req *connect.Request[v1.
 		if err != nil {
 			return nil, err
 		}
-		create.SetDefaultModel(modelID)
 
 		if !model.Enabled {
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("default model is disabled"))
 		}
+		create.SetModel(model)
 
 		if req.Msg.Description != "" {
 			create = create.SetDescription(req.Msg.Description)
@@ -169,8 +169,8 @@ func (h *AgentHandler) UpdateAgent(ctx context.Context, req *connect.Request[v1.
 		if err != nil {
 			return nil, apiError(err)
 		}
-		update = update.SetDefaultModel(modelID)
-		updatedFields = append(updatedFields, "default_model")
+		update = update.SetModelID(modelID)
+		updatedFields = append(updatedFields, "model_id")
 	}
 
 	updatedAgent, err := update.Save(ctx)

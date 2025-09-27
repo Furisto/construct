@@ -8,14 +8,14 @@ import (
 
 type Model struct {
 	ID            uuid.UUID
-	Provider      ModelProfileKind
+	Provider      ProviderKind
 	Name          string
 	Capabilities  []Capability
 	ContextWindow int64
 	Pricing       ModelPricing
 }
 
-type ModelProfileKind string
+type ProviderKind string
 
 func ensureModelProfile[T ModelProfile](modelProfile ModelProfile) (T, error) {
 	if modelProfile == nil {
@@ -36,12 +36,12 @@ func ensureModelProfile[T ModelProfile](modelProfile ModelProfile) (T, error) {
 }
 
 const (
-	ProviderKindAnthropic ModelProfileKind = "anthropic"
-	ProviderKindOpenAI    ModelProfileKind = "openai"
-	ProviderKindDeepSeek  ModelProfileKind = "deepseek"
-	ProviderKindGemini    ModelProfileKind = "gemini"
-	ProviderKindXAI       ModelProfileKind = "xai"
-	ProviderKindBedrock   ModelProfileKind = "bedrock"
+	ProviderKindAnthropic ProviderKind = "anthropic"
+	ProviderKindOpenAI    ProviderKind = "openai"
+	ProviderKindDeepSeek  ProviderKind = "deepseek"
+	ProviderKindGemini    ProviderKind = "gemini"
+	ProviderKindXAI       ProviderKind = "xai"
+	ProviderKindBedrock   ProviderKind = "bedrock"
 )
 
 type Capability string
@@ -61,7 +61,7 @@ type ModelPricing struct {
 	CacheRead  float64
 }
 
-func SupportedModels(provider ModelProfileKind) []Model {
+func SupportedModels(provider ProviderKind) []Model {
 	switch provider {
 	case ProviderKindAnthropic:
 		return SupportedAnthropicModels()
@@ -74,4 +74,15 @@ func SupportedModels(provider ModelProfileKind) []Model {
 	}
 
 	return nil
+}
+
+func DefaultModel(provider ProviderKind) (*Model, error) {
+	switch provider {
+	case ProviderKindAnthropic:
+		return DefaultAnthropicModel(), nil
+	case ProviderKindGemini:
+		return DefaultGeminiModel(), nil
+	}
+
+	return nil, fmt.Errorf("model not supported")
 }

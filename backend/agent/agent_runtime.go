@@ -432,7 +432,7 @@ func (rt *Runtime) fetchTaskMessages(ctx context.Context, taskID uuid.UUID) ([]*
 }
 
 func (rt *Runtime) createModelProviderClient(ctx context.Context, agent *memory.Agent) (model.ModelProvider, error) {
-	m, err := rt.memory.Model.Query().Where(memory_model.IDEQ(agent.DefaultModel)).WithModelProvider().Only(ctx)
+	m, err := rt.memory.Model.Query().Where(memory_model.IDEQ(agent.ModelID)).WithModelProvider().Only(ctx)
 	if err != nil {
 		return nil, err
 	}

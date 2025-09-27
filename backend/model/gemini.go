@@ -29,7 +29,7 @@ type GeminiModelProfile struct {
 
 var _ ModelProfile = (*GeminiModelProfile)(nil)
 
-func (g *GeminiModelProfile) Kind() ModelProfileKind {
+func (g *GeminiModelProfile) Kind() ProviderKind {
 	return ProviderKindGemini
 }
 
@@ -440,12 +440,7 @@ func SupportedGeminiModels() []Model {
 	}
 }
 
-func (p *GeminiProvider) GetModel(ctx context.Context, modelID uuid.UUID) (Model, error) {
-	for _, model := range SupportedGeminiModels() {
-		if model.ID == modelID {
-			return model, nil
-		}
-	}
-
-	return Model{}, fmt.Errorf("model not supported")
+func DefaultGeminiModel() *Model {
+	models := SupportedGeminiModels()
+	return &models[0]
 }

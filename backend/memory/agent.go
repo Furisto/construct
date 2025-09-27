@@ -29,8 +29,10 @@ type Agent struct {
 	Description string `json:"description,omitempty"`
 	// Instructions holds the value of the "instructions" field.
 	Instructions string `json:"instructions,omitempty"`
-	// DefaultModel holds the value of the "default_model" field.
-	DefaultModel uuid.UUID `json:"default_model,omitempty"`
+	// Builtin holds the value of the "builtin" field.
+	Builtin bool `json:"builtin,omitempty"`
+	// ModelID holds the value of the "model_id" field.
+	ModelID uuid.UUID `json:"model_id,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the AgentQuery when eager-loading is set.
 	Edges        AgentEdges `json:"edges"`
@@ -45,13 +47,9 @@ type AgentEdges struct {
 	Tasks []*Task `json:"tasks,omitempty"`
 	// Messages holds the value of the messages edge.
 	Messages []*Message `json:"messages,omitempty"`
-	// Delegates holds the value of the delegates edge.
-	Delegates []*Agent `json:"delegates,omitempty"`
-	// Delegators holds the value of the delegators edge.
-	Delegators []*Agent `json:"delegators,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [5]bool
+	loadedTypes [3]bool
 }
 
 // ModelOrErr returns the Model value or an error if the edge
@@ -83,34 +81,18 @@ func (e AgentEdges) MessagesOrErr() ([]*Message, error) {
 	return nil, &NotLoadedError{edge: "messages"}
 }
 
-// DelegatesOrErr returns the Delegates value or an error if the edge
-// was not loaded in eager-loading.
-func (e AgentEdges) DelegatesOrErr() ([]*Agent, error) {
-	if e.loadedTypes[3] {
-		return e.Delegates, nil
-	}
-	return nil, &NotLoadedError{edge: "delegates"}
-}
-
-// DelegatorsOrErr returns the Delegators value or an error if the edge
-// was not loaded in eager-loading.
-func (e AgentEdges) DelegatorsOrErr() ([]*Agent, error) {
-	if e.loadedTypes[4] {
-		return e.Delegators, nil
-	}
-	return nil, &NotLoadedError{edge: "delegators"}
-}
-
 // scanValues returns the types for scanning values from sql.Rows.
 func (*Agent) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case agent.FieldBuiltin:
+			values[i] = new(sql.NullBool)
 		case agent.FieldName, agent.FieldDescription, agent.FieldInstructions:
 			values[i] = new(sql.NullString)
 		case agent.FieldCreateTime, agent.FieldUpdateTime:
 			values[i] = new(sql.NullTime)
-		case agent.FieldID, agent.FieldDefaultModel:
+		case agent.FieldID, agent.FieldModelID:
 			values[i] = new(uuid.UUID)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -163,11 +145,17 @@ func (a *Agent) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				a.Instructions = value.String
 			}
-		case agent.FieldDefaultModel:
+		case agent.FieldBuiltin:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field builtin", values[i])
+			} else if value.Valid {
+				a.Builtin = value.Bool
+			}
+		case agent.FieldModelID:
 			if value, ok := values[i].(*uuid.UUID); !ok {
-				return fmt.Errorf("unexpected type %T for field default_model", values[i])
+				return fmt.Errorf("unexpected type %T for field model_id", values[i])
 			} else if value != nil {
-				a.DefaultModel = *value
+				a.ModelID = *value
 			}
 		default:
 			a.selectValues.Set(columns[i], values[i])
@@ -195,16 +183,6 @@ func (a *Agent) QueryTasks() *TaskQuery {
 // QueryMessages queries the "messages" edge of the Agent entity.
 func (a *Agent) QueryMessages() *MessageQuery {
 	return NewAgentClient(a.config).QueryMessages(a)
-}
-
-// QueryDelegates queries the "delegates" edge of the Agent entity.
-func (a *Agent) QueryDelegates() *AgentQuery {
-	return NewAgentClient(a.config).QueryDelegates(a)
-}
-
-// QueryDelegators queries the "delegators" edge of the Agent entity.
-func (a *Agent) QueryDelegators() *AgentQuery {
-	return NewAgentClient(a.config).QueryDelegators(a)
 }
 
 // Update returns a builder for updating this Agent.
@@ -245,8 +223,11 @@ func (a *Agent) String() string {
 	builder.WriteString("instructions=")
 	builder.WriteString(a.Instructions)
 	builder.WriteString(", ")
-	builder.WriteString("default_model=")
-	builder.WriteString(fmt.Sprintf("%v", a.DefaultModel))
+	builder.WriteString("builtin=")
+	builder.WriteString(fmt.Sprintf("%v", a.Builtin))
+	builder.WriteString(", ")
+	builder.WriteString("model_id=")
+	builder.WriteString(fmt.Sprintf("%v", a.ModelID))
 	builder.WriteByte(')')
 	return builder.String()
 }

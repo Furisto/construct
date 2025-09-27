@@ -30,6 +30,6 @@ func ConvertAgentSpecToProto(a *memory.Agent) (*v1.AgentSpec, error) {
 		Name:         a.Name,
 		Description:  a.Description,
 		Instructions: a.Instructions,
-		ModelId:      ConvertUUIDToString(a.DefaultModel),
+		ModelId:      ConvertUUIDToString(a.ModelID),
 	}, nil
 }

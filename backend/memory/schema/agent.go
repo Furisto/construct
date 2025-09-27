@@ -4,6 +4,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
+	"entgo.io/ent/schema/index"
 	"entgo.io/ent/schema/mixin"
 	"github.com/google/uuid"
 )
@@ -18,18 +19,24 @@ func (Agent) Fields() []ent.Field {
 		field.String("name").NotEmpty(),
 		field.String("description").Optional(),
 		field.String("instructions"),
+		field.Bool("builtin").Default(false),
 
-		field.UUID("default_model", uuid.UUID{}),
+		field.UUID("model_id", uuid.UUID{}).Optional(),
 	}
 }
 
 func (Agent) Edges() []ent.Edge {
 	return []ent.Edge{
-		edge.To("model", Model.Type).Field("default_model").Unique().Required(),
+		edge.To("model", Model.Type).Field("model_id").Unique(),
 		edge.From("tasks", Task.Type).Ref("agent"),
 		edge.From("messages", Message.Type).Ref("agent"),
-		edge.To("delegators", Agent.Type).
-			From("delegates"),
+	}
+}
+
+func (Agent) Indexes() []ent.Index {
+	return []ent.Index{
+		index.Fields("name").
+			Unique(),
 	}
 }
 

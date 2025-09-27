@@ -18,6 +18,11 @@ import (
 )
 
 func TestCreateModelProvider(t *testing.T) {
+	type databaseResources struct {
+		ModelProviders []*memory.ModelProvider
+		Agents         []*memory.Agent
+	}
+
 	setup := ServiceTestSetup[v1.CreateModelProviderRequest, v1.CreateModelProviderResponse]{
 		Call: func(ctx context.Context, client *client.Client, req *connect.Request[v1.CreateModelProviderRequest]) (*connect.Response[v1.CreateModelProviderResponse], error) {
 			return client.ModelProvider().CreateModelProvider(ctx, req)
@@ -26,6 +31,20 @@ func TestCreateModelProvider(t *testing.T) {
 			cmpopts.IgnoreUnexported(v1.CreateModelProviderResponse{}, v1.ModelProvider{}, v1.ModelProviderMetadata{}, v1.ModelProviderSpec{}),
 			protocmp.Transform(),
 			protocmp.IgnoreFields(&v1.ModelProviderMetadata{}, "id", "created_at", "updated_at"),
+			cmpopts.IgnoreUnexported(memory.ModelProvider{}, memory.ModelProviderEdges{}, memory.Agent{}, memory.AgentEdges{}),
+			cmpopts.IgnoreFields(memory.ModelProvider{}, "ID", "CreateTime", "UpdateTime", "Secret"),
+			cmpopts.IgnoreFields(memory.Agent{}, "ID", "CreateTime", "UpdateTime", "Instructions", "Description", "ModelID"),
+		},
+		QueryDatabase: func(ctx context.Context, db *memory.Client) (any, error) {
+			modelProviders, err := db.ModelProvider.Query().All(ctx)
+			if err != nil {
+				return nil, err
+			}
+			agents, err := db.Agent.Query().All(ctx)
+			if err != nil {
+				return nil, err
+			}
+			return databaseResources{ModelProviders: modelProviders, Agents: agents}, nil
 		},
 	}
 
@@ -50,6 +69,26 @@ func TestCreateModelProvider(t *testing.T) {
 				},
 			},
 			Expected: ServiceTestExpectation[v1.CreateModelProviderResponse]{
+				Database: databaseResources{
+					ModelProviders: []*memory.ModelProvider{
+						{
+							ID:           uuid.New(),
+							ProviderType: types.ModelProviderTypeAnthropic,
+							Name:         "anthropic",
+							Enabled:      true,
+						},
+					},
+					Agents: []*memory.Agent{
+						{
+							Name: "coder",
+							Builtin: true,
+						},
+						{
+							Name: "architect",
+							Builtin: true,
+						},
+					},
+				},
 				Response: v1.CreateModelProviderResponse{
 					ModelProvider: &v1.ModelProvider{
 						Metadata: &v1.ModelProviderMetadata{

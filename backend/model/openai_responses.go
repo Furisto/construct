@@ -46,7 +46,7 @@ type OpenAIModelProfile struct {
 
 var _ ModelProfile = (*OpenAIModelProfile)(nil)
 
-func (c *OpenAIModelProfile) Kind() ModelProfileKind {
+func (c *OpenAIModelProfile) Kind() ProviderKind {
 	return ProviderKindOpenAI
 }
 

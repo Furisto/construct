@@ -81,9 +81,14 @@ func Instructions(v string) predicate.Agent {
 	return predicate.Agent(sql.FieldEQ(FieldInstructions, v))
 }
 
-// DefaultModel applies equality check predicate on the "default_model" field. It's identical to DefaultModelEQ.
-func DefaultModel(v uuid.UUID) predicate.Agent {
-	return predicate.Agent(sql.FieldEQ(FieldDefaultModel, v))
+// Builtin applies equality check predicate on the "builtin" field. It's identical to BuiltinEQ.
+func Builtin(v bool) predicate.Agent {
+	return predicate.Agent(sql.FieldEQ(FieldBuiltin, v))
+}
+
+// ModelID applies equality check predicate on the "model_id" field. It's identical to ModelIDEQ.
+func ModelID(v uuid.UUID) predicate.Agent {
+	return predicate.Agent(sql.FieldEQ(FieldModelID, v))
 }
 
 // CreateTimeEQ applies the EQ predicate on the "create_time" field.
@@ -371,24 +376,44 @@ func InstructionsContainsFold(v string) predicate.Agent {
 	return predicate.Agent(sql.FieldContainsFold(FieldInstructions, v))
 }
 
-// DefaultModelEQ applies the EQ predicate on the "default_model" field.
-func DefaultModelEQ(v uuid.UUID) predicate.Agent {
-	return predicate.Agent(sql.FieldEQ(FieldDefaultModel, v))
+// BuiltinEQ applies the EQ predicate on the "builtin" field.
+func BuiltinEQ(v bool) predicate.Agent {
+	return predicate.Agent(sql.FieldEQ(FieldBuiltin, v))
 }
 
-// DefaultModelNEQ applies the NEQ predicate on the "default_model" field.
-func DefaultModelNEQ(v uuid.UUID) predicate.Agent {
-	return predicate.Agent(sql.FieldNEQ(FieldDefaultModel, v))
+// BuiltinNEQ applies the NEQ predicate on the "builtin" field.
+func BuiltinNEQ(v bool) predicate.Agent {
+	return predicate.Agent(sql.FieldNEQ(FieldBuiltin, v))
 }
 
-// DefaultModelIn applies the In predicate on the "default_model" field.
-func DefaultModelIn(vs ...uuid.UUID) predicate.Agent {
-	return predicate.Agent(sql.FieldIn(FieldDefaultModel, vs...))
+// ModelIDEQ applies the EQ predicate on the "model_id" field.
+func ModelIDEQ(v uuid.UUID) predicate.Agent {
+	return predicate.Agent(sql.FieldEQ(FieldModelID, v))
 }
 
-// DefaultModelNotIn applies the NotIn predicate on the "default_model" field.
-func DefaultModelNotIn(vs ...uuid.UUID) predicate.Agent {
-	return predicate.Agent(sql.FieldNotIn(FieldDefaultModel, vs...))
+// ModelIDNEQ applies the NEQ predicate on the "model_id" field.
+func ModelIDNEQ(v uuid.UUID) predicate.Agent {
+	return predicate.Agent(sql.FieldNEQ(FieldModelID, v))
+}
+
+// ModelIDIn applies the In predicate on the "model_id" field.
+func ModelIDIn(vs ...uuid.UUID) predicate.Agent {
+	return predicate.Agent(sql.FieldIn(FieldModelID, vs...))
+}
+
+// ModelIDNotIn applies the NotIn predicate on the "model_id" field.
+func ModelIDNotIn(vs ...uuid.UUID) predicate.Agent {
+	return predicate.Agent(sql.FieldNotIn(FieldModelID, vs...))
+}
+
+// ModelIDIsNil applies the IsNil predicate on the "model_id" field.
+func ModelIDIsNil() predicate.Agent {
+	return predicate.Agent(sql.FieldIsNull(FieldModelID))
+}
+
+// ModelIDNotNil applies the NotNil predicate on the "model_id" field.
+func ModelIDNotNil() predicate.Agent {
+	return predicate.Agent(sql.FieldNotNull(FieldModelID))
 }
 
 // HasModel applies the HasEdge predicate on the "model" edge.
@@ -452,52 +477,6 @@ func HasMessages() predicate.Agent {
 func HasMessagesWith(preds ...predicate.Message) predicate.Agent {
 	return predicate.Agent(func(s *sql.Selector) {
 		step := newMessagesStep()
-		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
-			for _, p := range preds {
-				p(s)
-			}
-		})
-	})
-}
-
-// HasDelegates applies the HasEdge predicate on the "delegates" edge.
-func HasDelegates() predicate.Agent {
-	return predicate.Agent(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2M, true, DelegatesTable, DelegatesPrimaryKey...),
-		)
-		sqlgraph.HasNeighbors(s, step)
-	})
-}
-
-// HasDelegatesWith applies the HasEdge predicate on the "delegates" edge with a given conditions (other predicates).
-func HasDelegatesWith(preds ...predicate.Agent) predicate.Agent {
-	return predicate.Agent(func(s *sql.Selector) {
-		step := newDelegatesStep()
-		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
-			for _, p := range preds {
-				p(s)
-			}
-		})
-	})
-}
-
-// HasDelegators applies the HasEdge predicate on the "delegators" edge.
-func HasDelegators() predicate.Agent {
-	return predicate.Agent(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2M, false, DelegatorsTable, DelegatorsPrimaryKey...),
-		)
-		sqlgraph.HasNeighbors(s, step)
-	})
-}
-
-// HasDelegatorsWith applies the HasEdge predicate on the "delegators" edge with a given conditions (other predicates).
-func HasDelegatorsWith(preds ...predicate.Agent) predicate.Agent {
-	return predicate.Agent(func(s *sql.Selector) {
-		step := newDelegatorsStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)
