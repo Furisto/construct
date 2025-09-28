@@ -78,8 +78,8 @@ func (p *OpenAICompletionProvider) InvokeModel(ctx context.Context, model, syste
 		accumulator.AddChunk(chunk)
 
 		for _, choice := range chunk.Choices {
-			if choice.Delta.Content != "" && options.StreamHandler != nil {
-				options.StreamHandler(ctx, choice.Delta.Content)
+			if choice.Delta.Content != "" && options.StreamCallback != nil {
+				options.StreamCallback(ctx, choice.Delta.Content)
 			}
 		}
 	}

@@ -3,24 +3,17 @@ package model
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/furisto/construct/backend/tool/native"
+	"github.com/furisto/construct/shared/resilience"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type InvokeModelOptions struct {
-	Tools         []native.Tool
-	MaxTokens     int
-	Temperature   float64
-	StreamHandler func(ctx context.Context, chunk string)
-	ModelProfile  ModelProfile
-}
-
-func DefaultInvokeModelOptions() *InvokeModelOptions {
-	return &InvokeModelOptions{
-		Tools:       []native.Tool{},
-		MaxTokens:   8192,
-		Temperature: 0.0,
-	}
+	Tools          []native.Tool
+	StreamCallback func(ctx context.Context, chunk string)
+	ModelProfile   ModelProfile
 }
 
 type InvokeModelOption func(*InvokeModelOptions)
@@ -28,18 +21,6 @@ type InvokeModelOption func(*InvokeModelOptions)
 func WithTools(tools ...native.Tool) InvokeModelOption {
 	return func(o *InvokeModelOptions) {
 		o.Tools = tools
-	}
-}
-
-func WithMaxTokens(maxTokens int) InvokeModelOption {
-	return func(o *InvokeModelOptions) {
-		o.MaxTokens = maxTokens
-	}
-}
-
-func WithTemperature(temperature float64) InvokeModelOption {
-	return func(o *InvokeModelOptions) {
-		o.Temperature = temperature
 	}
 }
 
@@ -51,7 +32,63 @@ func WithModelProfile(profile ModelProfile) InvokeModelOption {
 
 func WithStreamHandler(handler func(ctx context.Context, chunk string)) InvokeModelOption {
 	return func(o *InvokeModelOptions) {
-		o.StreamHandler = handler
+		o.StreamCallback = handler
+	}
+}
+
+type ProviderOptions struct {
+	URL            string
+	RetryConfig    *resilience.RetryConfig
+	RetryHooks     []resilience.RetryHook
+	CircuitBreaker *resilience.CircuitBreaker
+	Metrics        *prometheus.Registry
+}
+
+type ProviderOption func(*ProviderOptions)
+
+func WithURL(url string) ProviderOption {
+	return func(options *ProviderOptions) {
+		options.URL = url
+	}
+}
+
+func WithRetryConfig(retryConfig *resilience.RetryConfig) ProviderOption {
+	return func(options *ProviderOptions) {
+		options.RetryConfig = retryConfig
+	}
+}
+
+func WithRetryHooks(retryHooks []resilience.RetryHook) ProviderOption {
+	return func(options *ProviderOptions) {
+		options.RetryHooks = retryHooks
+	}
+}
+
+func WithCircuitBreaker(circuitBreaker *resilience.CircuitBreaker) ProviderOption {
+
+	return func(options *ProviderOptions) {
+		options.CircuitBreaker = circuitBreaker
+	}
+}
+
+func WithMetrics(metrics *prometheus.Registry) ProviderOption {
+	return func(o *ProviderOptions) {
+		o.Metrics = metrics
+	}
+}
+
+func DefaultProviderOptions(name string) *ProviderOptions {
+	return &ProviderOptions{
+		RetryConfig: &resilience.RetryConfig{
+			MaxAttempts:        5,
+			InitialDelay:       1 * time.Second,
+			MaxDelay:           10 * time.Second,
+			UseProviderBackoff: true,
+			BackoffMultiplier:  2,
+		},
+		RetryHooks:     []resilience.RetryHook{},
+		CircuitBreaker: resilience.NewCircuitBreaker(name, 5, 10*time.Second),
+		Metrics:        prometheus.NewRegistry(),
 	}
 }
 

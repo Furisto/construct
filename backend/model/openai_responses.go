@@ -377,8 +377,6 @@ func SupportedOpenAIModels() []Model {
 func DefaultOpenAIModelOptions() *InvokeModelOptions {
 	return &InvokeModelOptions{
 		Tools:       []native.Tool{},
-		MaxTokens:   8192,
-		Temperature: 0.0,
 		ModelProfile: &OpenAIModelProfile{
 			APIURL:                "",
 			Organization:          "",
@@ -387,7 +385,7 @@ func DefaultOpenAIModelOptions() *InvokeModelOptions {
 			EnableFunctionCalling: true,
 			ParallelToolCalls:     true,
 		},
-		StreamHandler: nil,
+		StreamCallback: nil,
 	}
 }
 

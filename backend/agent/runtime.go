@@ -36,6 +36,9 @@ import (
 	"github.com/spf13/afero"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"k8s.io/client-go/util/workqueue"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 )
 
 const DefaultServerPort = 29333
@@ -84,6 +87,7 @@ type Runtime struct {
 	interpreter  *codeact.Interpreter
 	runningTasks *SyncMap[uuid.UUID, context.CancelFunc]
 	analytics    analytics.Client
+	metrics      *prometheus.Registry
 }
 
 func NewRuntime(memory *memory.Client, encryption *secret.Client, listener net.Listener, opts ...RuntimeOption) (*Runtime, error) {
@@ -108,16 +112,22 @@ func NewRuntime(memory *memory.Client, encryption *secret.Client, listener net.L
 		codeact.InterceptorFunc(codeact.ResetTemporarySessionValuesInterceptor),
 	}
 
+	metricsRegistry := prometheus.NewRegistry()
+	metricsRegistry.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
+	metricsRegistry.MustRegister(collectors.NewGoCollector())
+	metricsRegistry.MustRegister(collectors.NewBuildInfoCollector())
+	metricsRegistry.MustRegister(collectors.NewDBStatsCollector(memory.MustDB(), "construct"))
+
 	runtime := &Runtime{
 		memory:     memory,
 		encryption: encryption,
-
 		eventHub:     messageHub,
 		concurrency:  options.Concurrency,
 		queue:        queue,
 		interpreter:  codeact.NewInterpreter(options.Tools, interceptors),
 		runningTasks: NewSyncMap[uuid.UUID, context.CancelFunc](),
 		analytics:    options.Analytics,
+		metrics:      metricsRegistry,
 	}
 
 	api := api.NewServer(runtime, listener, runtime.analytics)
