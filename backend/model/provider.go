@@ -3,6 +3,7 @@ package model
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/furisto/construct/backend/tool/native"
@@ -13,6 +14,7 @@ import (
 type InvokeModelOptions struct {
 	Tools          []native.Tool
 	StreamCallback func(ctx context.Context, chunk string)
+	RetryCallback  func(ctx context.Context, err error, nextRetry time.Duration)
 	ModelProfile   ModelProfile
 }
 
@@ -36,10 +38,15 @@ func WithStreamHandler(handler func(ctx context.Context, chunk string)) InvokeMo
 	}
 }
 
+func WithRetryCallback(handler func(ctx context.Context, err error, nextRetry time.Duration)) InvokeModelOption {
+	return func(o *InvokeModelOptions) {
+		o.RetryCallback = handler
+	}
+}
+
 type ProviderOptions struct {
 	URL            string
 	RetryConfig    *resilience.RetryConfig
-	RetryHooks     []resilience.RetryHook
 	CircuitBreaker *resilience.CircuitBreaker
 	Metrics        *prometheus.Registry
 }
@@ -55,12 +62,6 @@ func WithURL(url string) ProviderOption {
 func WithRetryConfig(retryConfig *resilience.RetryConfig) ProviderOption {
 	return func(options *ProviderOptions) {
 		options.RetryConfig = retryConfig
-	}
-}
-
-func WithRetryHooks(retryHooks []resilience.RetryHook) ProviderOption {
-	return func(options *ProviderOptions) {
-		options.RetryHooks = retryHooks
 	}
 }
 
@@ -80,13 +81,11 @@ func WithMetrics(metrics *prometheus.Registry) ProviderOption {
 func DefaultProviderOptions(name string) *ProviderOptions {
 	return &ProviderOptions{
 		RetryConfig: &resilience.RetryConfig{
-			MaxAttempts:        5,
-			InitialDelay:       1 * time.Second,
-			MaxDelay:           10 * time.Second,
-			UseProviderBackoff: true,
-			BackoffMultiplier:  2,
+			MaxAttempts:       5,
+			InitialDelay:      1 * time.Second,
+			MaxDelay:          10 * time.Second,
+			BackoffMultiplier: 2,
 		},
-		RetryHooks:     []resilience.RetryHook{},
 		CircuitBreaker: resilience.NewCircuitBreaker(name, 5, 10*time.Second),
 		Metrics:        prometheus.NewRegistry(),
 	}
@@ -165,3 +164,81 @@ type Usage struct {
 	CacheWriteTokens int64 `json:"cache_write_tokens"`
 	CacheReadTokens  int64 `json:"cache_read_tokens"`
 }
+
+type ProviderError struct {
+	Provider   string
+	RetryAfter time.Duration
+	Err        error
+	Kind       ProviderErrorKind
+}
+
+func NewProviderError(provider string, kind ProviderErrorKind, err error) *ProviderError {
+	return &ProviderError{
+		Provider: provider,
+		Kind:     kind,
+		Err:      err,
+	}
+}
+
+func (pe *ProviderError) Message() string {
+	switch pe.Kind {
+	case ProviderErrorKindInvalidRequest:
+		return "Invalid request format or content"
+	case ProviderErrorKindRateLimitExceeded:
+		if pe.RetryAfter > 0 {
+			return fmt.Sprintf("Rate limit exceeded, retry after %s", pe.RetryAfter)
+		}
+		return "Rate limit exceeded"
+	case ProviderErrorKindOverloaded:
+		return "API temporarily overloaded"
+	case ProviderErrorKindInternal:
+		return "Internal server error"
+	case ProviderErrorKindTimeout:
+		return "Request timeout"
+	case ProviderErrorKindCanceled:
+		return "Request canceled"
+	case ProviderErrorKindUnknown:
+		return "Unknown error"
+	default:
+		return "Unknown error"
+	}
+}
+
+func (pe *ProviderError) Retryable() bool {
+	switch pe.Kind {
+	case ProviderErrorKindRateLimitExceeded,
+		ProviderErrorKindOverloaded,
+		ProviderErrorKindInternal,
+		ProviderErrorKindTimeout:
+		return true
+	case ProviderErrorKindInvalidRequest,
+		ProviderErrorKindCanceled,
+		ProviderErrorKindUnknown:
+		return false
+	default:
+		return false
+	}
+}
+
+func (pe *ProviderError) Error() string {
+	if pe.Err != nil {
+		return fmt.Sprintf("%s: %s: %s", pe.Provider, pe.Message(), pe.Err.Error())
+	}
+	return fmt.Sprintf("%s: %s", pe.Provider, pe.Message())
+}
+
+func (pe *ProviderError) Unwrap() error {
+	return pe.Err
+}
+
+type ProviderErrorKind string
+
+const (
+	ProviderErrorKindInvalidRequest    ProviderErrorKind = "invalid_request"
+	ProviderErrorKindRateLimitExceeded ProviderErrorKind = "rate_limit_exceeded"
+	ProviderErrorKindOverloaded        ProviderErrorKind = "overloaded"
+	ProviderErrorKindInternal          ProviderErrorKind = "internal"
+	ProviderErrorKindTimeout           ProviderErrorKind = "timeout"
+	ProviderErrorKindCanceled          ProviderErrorKind = "canceled"
+	ProviderErrorKindUnknown           ProviderErrorKind = "unknown"
+)
