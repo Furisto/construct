@@ -39,7 +39,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
-	wqprom "k8s.io/component-base/metrics/prometheus/workqueue"
 )
 
 const DefaultServerPort = 29333
@@ -108,9 +107,9 @@ func NewRuntime(memory *memory.Client, encryption *secret.Client, listener net.L
 	metricsRegistry.MustRegister(collectors.NewBuildInfoCollector())
 	metricsRegistry.MustRegister(collectors.NewDBStatsCollector(memory.MustDB(), "construct"))
 
-	workqueue.SetProvider(wqprom.NewPrometheusMetricsProvider(
-		metricsRegistry,
-	))
+	// Register workqueue metrics provider with custom registry
+	wqProvider := newWorkqueueMetricsProvider(metricsRegistry)
+	workqueue.SetProvider(wqProvider)
 
 	queue := workqueue.NewTypedDelayingQueueWithConfig(workqueue.TypedDelayingQueueConfig[uuid.UUID]{
 		Name: "construct",
@@ -912,3 +911,4 @@ func NewMessage(taskID uuid.UUID, options ...func(*v1.Message)) *v1.Message {
 
 	return msg
 }
+
