@@ -66,7 +66,6 @@ func WithRetryConfig(retryConfig *resilience.RetryConfig) ProviderOption {
 }
 
 func WithCircuitBreaker(circuitBreaker *resilience.CircuitBreaker) ProviderOption {
-
 	return func(options *ProviderOptions) {
 		options.CircuitBreaker = circuitBreaker
 	}
@@ -204,17 +203,23 @@ func (pe *ProviderError) Message() string {
 	}
 }
 
-func (pe *ProviderError) Retryable() bool {
+func (pe *ProviderError) Retryable() (bool, time.Duration) {
 	switch pe.Kind {
-	case ProviderErrorKindRateLimitExceeded,
-		ProviderErrorKindOverloaded,
+	case ProviderErrorKindRateLimitExceeded:
+		return true, pe.RetryAfter
+	case ProviderErrorKindOverloaded:
+		return true, 20 * time.Second
+	default:
+		return false, 0
+	}
+}
+
+func (pe *ProviderError) retryableInternal() bool {
+	switch pe.Kind {
+	case ProviderErrorKindOverloaded,
 		ProviderErrorKindInternal,
 		ProviderErrorKindTimeout:
 		return true
-	case ProviderErrorKindInvalidRequest,
-		ProviderErrorKindCanceled,
-		ProviderErrorKindUnknown:
-		return false
 	default:
 		return false
 	}

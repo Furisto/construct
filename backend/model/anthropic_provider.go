@@ -18,7 +18,6 @@ import (
 type AnthropicProvider struct {
 	client         *anthropic.Client
 	retryConfig    *resilience.RetryConfig
-	retryHooks     []resilience.RetryHook
 	circuitBreaker *resilience.CircuitBreaker
 	metrics        *prometheus.Registry
 }
@@ -27,13 +26,15 @@ func NewAnthropicProvider(apiKey string, opts ...ProviderOption) (*AnthropicProv
 	if apiKey == "" {
 		return nil, fmt.Errorf("anthropic API key is required")
 	}
+	clientOptions := []option.RequestOption{
+		option.WithAPIKey(apiKey),
+	}
 
 	providerOptions := DefaultProviderOptions("anthropic")
 	for _, opt := range opts {
 		opt(providerOptions)
 	}
 
-	var clientOptions []option.RequestOption
 	if providerOptions.URL != "" {
 		clientOptions = append(clientOptions, option.WithBaseURL(providerOptions.URL))
 	}
@@ -109,7 +110,7 @@ func (p *AnthropicProvider) invokeInternal(ctx context.Context, request anthropi
 
 	return backoff.Retry(ctx, func() (*Message, error) {
 		if !p.circuitBreaker.Allow() {
-			return nil, backoff.Permanent(fmt.Errorf("circuit breaker open"))
+			return nil, backoff.Permanent(fmt.Errorf("too many errors from anthropic provider, circuit breaker open"))
 		}
 
 		stream := p.client.Messages.NewStreaming(ctx, request)
@@ -131,7 +132,7 @@ func (p *AnthropicProvider) invokeInternal(ctx context.Context, request anthropi
 		if stream.Err() != nil {
 			p.circuitBreaker.RecordResult(stream.Err())
 			err := p.mapError(stream.Err())
-			if err.Retryable() {
+			if err.retryableInternal() {
 				return nil, stream.Err()
 			}
 			return nil, backoff.Permanent(err)
@@ -304,4 +305,3 @@ func (p *AnthropicProvider) validateInput(model, systemPrompt string, messages [
 func NewAnthropicProviderError(kind ProviderErrorKind, err error) *ProviderError {
 	return NewProviderError("anthropic", kind, err)
 }
-

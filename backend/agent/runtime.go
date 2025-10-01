@@ -39,6 +39,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
+	wqprom "k8s.io/component-base/metrics/prometheus/workqueue"
 )
 
 const DefaultServerPort = 29333
@@ -76,6 +77,11 @@ func WithAnalytics(analytics analytics.Client) RuntimeOption {
 	}
 }
 
+type Result struct {
+	RetryAfter time.Duration
+	Retry      bool
+}
+
 type Runtime struct {
 	api          *api.Server
 	memory       *memory.Client
@@ -96,6 +102,16 @@ func NewRuntime(memory *memory.Client, encryption *secret.Client, listener net.L
 		opt(options)
 	}
 
+	metricsRegistry := prometheus.NewRegistry()
+	metricsRegistry.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
+	metricsRegistry.MustRegister(collectors.NewGoCollector())
+	metricsRegistry.MustRegister(collectors.NewBuildInfoCollector())
+	metricsRegistry.MustRegister(collectors.NewDBStatsCollector(memory.MustDB(), "construct"))
+
+	workqueue.SetProvider(wqprom.NewPrometheusMetricsProvider(
+		metricsRegistry,
+	))
+
 	queue := workqueue.NewTypedDelayingQueueWithConfig(workqueue.TypedDelayingQueueConfig[uuid.UUID]{
 		Name: "construct",
 	})
@@ -112,15 +128,11 @@ func NewRuntime(memory *memory.Client, encryption *secret.Client, listener net.L
 		codeact.InterceptorFunc(codeact.ResetTemporarySessionValuesInterceptor),
 	}
 
-	metricsRegistry := prometheus.NewRegistry()
-	metricsRegistry.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
-	metricsRegistry.MustRegister(collectors.NewGoCollector())
-	metricsRegistry.MustRegister(collectors.NewBuildInfoCollector())
-	metricsRegistry.MustRegister(collectors.NewDBStatsCollector(memory.MustDB(), "construct"))
+	
 
 	runtime := &Runtime{
-		memory:     memory,
-		encryption: encryption,
+		memory:       memory,
+		encryption:   encryption,
 		eventHub:     messageHub,
 		concurrency:  options.Concurrency,
 		queue:        queue,
@@ -157,13 +169,9 @@ func (rt *Runtime) Run(ctx context.Context) error {
 		go func() {
 			defer wg.Done()
 			for {
-				taskID, shutdown := rt.queue.Get()
+				shutdown := rt.processEvent(ctx)
 				if shutdown {
 					return
-				}
-				err := rt.processTask(ctx, taskID)
-				if err != nil {
-					rt.publishError(err, taskID)
 				}
 			}
 		}()
@@ -215,53 +223,79 @@ func (rt *Runtime) publishError(err error, taskID uuid.UUID) {
 	})
 }
 
-func (rt *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
+func (rt *Runtime) processEvent(ctx context.Context) bool {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("panic in processEvent", "error", r)
+		}
+	}()
+
+	taskID, shutdown := rt.queue.Get()
+	if shutdown {
+		return true
+	}
+	defer rt.queue.Done(taskID)
+
+	result, err := rt.processTask(ctx, taskID)
+	if err != nil {
+		rt.publishError(err, taskID)
+	}
+
+	switch {
+	case result.RetryAfter > 0:
+		rt.queue.AddAfter(taskID, result.RetryAfter)
+		return false
+	case result.Retry:
+		rt.queue.Add(taskID)
+	}
+
+	return false
+}
+
+func (rt *Runtime) processTask(ctx context.Context, taskID uuid.UUID) (Result, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	rt.runningTasks.Set(taskID, cancel)
 	defer rt.runningTasks.Delete(taskID)
 	defer cancel()
 
-	defer rt.queue.Done(taskID)
-
 	task, agent, err := rt.fetchTaskWithAgent(ctx, taskID)
 	if err != nil {
-		return err
+		return Result{}, err
 	}
 
 	processedMessages, nextMessage, err := rt.fetchTaskMessages(ctx, task.ID)
 	if err != nil {
-		return err
+		return Result{}, err
 	}
 
 	if nextMessage == nil {
 		slog.DebugContext(ctx, "no unprocessed messages, skipping", "task_id", taskID)
-		return nil
+		return Result{}, nil
 	}
 
-	// Publish task event: processing started
 	rt.publishTaskEvent(taskID)
 
 	if nextMessage.Source == types.MessageSourceUser {
 		msg, err := ConvertMemoryMessageToProto(nextMessage)
 		if err != nil {
-			return err
+			return Result{}, err
 		}
 		rt.publishMessage(taskID, msg)
 	}
 
 	modelProvider, err := rt.createModelProviderClient(ctx, agent)
 	if err != nil {
-		return err
+		return Result{}, err
 	}
 
 	modelMessages, err := rt.prepareModelData(processedMessages, nextMessage)
 	if err != nil {
-		return err
+		return Result{}, err
 	}
 
 	systemPrompt, err := rt.assembleSystemPrompt(agent.Instructions, task.ProjectDirectory)
 	if err != nil {
-		return err
+		return Result{}, err
 	}
 
 	message, err := modelProvider.InvokeModel(
@@ -285,17 +319,24 @@ func (rt *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 	)
 
 	if err != nil {
-		return err
+		var providerError *model.ProviderError
+		if errors.As(err, &providerError) {
+			if retryable, retryAfter := providerError.Retryable(); retryable {
+				return Result{RetryAfter: retryAfter}, err
+			}
+			return Result{}, err
+		}
+		return Result{}, err
 	}
 
 	newMessage, err := rt.saveResponse(ctx, taskID, nextMessage, message, agent.Edges.Model)
 	if err != nil {
-		return err
+		return Result{}, err
 	}
 
 	protoMessage, err := ConvertMemoryMessageToProto(newMessage)
 	if err != nil {
-		return err
+		return Result{}, err
 	}
 	protoMessage.Status.IsFinalResponse = !hasToolCalls(message.Content)
 	protoMessage.Status.ContentState = v1.ContentStatus_CONTENT_STATUS_COMPLETE
@@ -306,7 +347,6 @@ func (rt *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 		},
 	})
 
-	// Publish task event: model response received
 	rt.publishTaskEvent(taskID)
 
 	toolResults, toolStats, err := rt.callTools(ctx, task, message.Content)
@@ -317,7 +357,7 @@ func (rt *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 	if len(toolResults) > 0 {
 		_, err := rt.saveToolResults(ctx, taskID, toolResults)
 		if err != nil {
-			return err
+			return Result{}, err
 		}
 
 		for tool, count := range toolStats {
@@ -326,21 +366,18 @@ func (rt *Runtime) processTask(ctx context.Context, taskID uuid.UUID) error {
 
 		_, err = task.Update().SetToolUses(task.ToolUses).Save(ctx)
 		if err != nil {
-			return err
+			return Result{}, err
 		}
 	}
 
 	_, err = rt.memory.Task.UpdateOneID(taskID).AddTurns(1).Save(ctx)
 	if err != nil {
-		return err
+		return Result{}, err
 	}
 
-	rt.TriggerReconciliation(taskID)
-
-	// Publish task event: processing finished
 	rt.publishTaskEvent(taskID)
 
-	return nil
+	return Result{Retry: true}, nil
 }
 
 func (rt *Runtime) saveToolResults(ctx context.Context, taskID uuid.UUID, toolResults []base.ToolResult) (*memory.Message, error) {
@@ -677,13 +714,13 @@ func (rt *Runtime) modelProviderClient(m *memory.Model) (model.ModelProvider, er
 
 	switch provider.ProviderType {
 	case types.ModelProviderTypeAnthropic:
-		provider, err := model.NewAnthropicProvider(auth.APIKey, "")
+		provider, err := model.NewAnthropicProvider(auth.APIKey)
 		if err != nil {
 			return nil, err
 		}
 		return provider, nil
 	case types.ModelProviderTypeOpenAI:
-		provider, err := model.NewOpenAICompletionProvider(auth.APIKey, "")
+		provider, err := model.NewOpenAICompletionProvider(auth.APIKey)
 		if err != nil {
 			return nil, err
 		}
@@ -695,7 +732,7 @@ func (rt *Runtime) modelProviderClient(m *memory.Model) (model.ModelProvider, er
 		}
 		return provider, nil
 	case types.ModelProviderTypeXAI:
-		provider, err := model.NewOpenAICompletionProvider("csk-kr54542e9e9ccmtd8ddywd8w6vhfc2rn5n4nwwhff8wrhrkw", "https://api.cerebras.ai/v1")
+		provider, err := model.NewOpenAICompletionProvider(auth.APIKey, model.WithURL("https://api.xai.com/v1"))
 		if err != nil {
 			return nil, err
 		}
