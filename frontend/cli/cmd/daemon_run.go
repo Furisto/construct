@@ -49,7 +49,7 @@ debugging and development. For normal use, 'construct daemon install' is recomme
 				return err
 			}
 			defer db.Close()
-
+			
 			err = setupMemory(cmd.Context(), db)
 			if err != nil {
 				return err

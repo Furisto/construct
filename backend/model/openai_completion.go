@@ -15,16 +15,21 @@ type OpenAICompletionProvider struct {
 	client openai.Client
 }
 
-func NewOpenAICompletionProvider(apiKey string, url string) (*OpenAICompletionProvider, error) {
+func NewOpenAICompletionProvider(apiKey string, opts ...ProviderOption) (*OpenAICompletionProvider, error) {
 	if apiKey == "" {
 		return nil, fmt.Errorf("openai API key is required")
+	}
+
+	providerOptions := DefaultProviderOptions("openai")
+	for _, opt := range opts {
+		opt(providerOptions)
 	}
 
 	options := []option.RequestOption{
 		option.WithAPIKey(apiKey),
 	}
-	if url != "" {
-		options = append(options, option.WithBaseURL(url))
+	if providerOptions.URL != "" {
+		options = append(options, option.WithBaseURL(providerOptions.URL))
 	}
 
 	return &OpenAICompletionProvider{
@@ -78,8 +83,8 @@ func (p *OpenAICompletionProvider) InvokeModel(ctx context.Context, model, syste
 		accumulator.AddChunk(chunk)
 
 		for _, choice := range chunk.Choices {
-			if choice.Delta.Content != "" && options.StreamHandler != nil {
-				options.StreamHandler(ctx, choice.Delta.Content)
+			if choice.Delta.Content != "" && options.StreamCallback != nil {
+				options.StreamCallback(ctx, choice.Delta.Content)
 			}
 		}
 	}

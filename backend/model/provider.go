@@ -3,24 +3,19 @@ package model
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"time"
 
 	"github.com/furisto/construct/backend/tool/native"
+	"github.com/furisto/construct/shared/resilience"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type InvokeModelOptions struct {
-	Tools         []native.Tool
-	MaxTokens     int
-	Temperature   float64
-	StreamHandler func(ctx context.Context, chunk string)
-	ModelProfile  ModelProfile
-}
-
-func DefaultInvokeModelOptions() *InvokeModelOptions {
-	return &InvokeModelOptions{
-		Tools:       []native.Tool{},
-		MaxTokens:   8192,
-		Temperature: 0.0,
-	}
+	Tools          []native.Tool
+	StreamCallback func(ctx context.Context, chunk string)
+	RetryCallback  func(ctx context.Context, err error, nextRetry time.Duration)
+	ModelProfile   ModelProfile
 }
 
 type InvokeModelOption func(*InvokeModelOptions)
@@ -28,18 +23,6 @@ type InvokeModelOption func(*InvokeModelOptions)
 func WithTools(tools ...native.Tool) InvokeModelOption {
 	return func(o *InvokeModelOptions) {
 		o.Tools = tools
-	}
-}
-
-func WithMaxTokens(maxTokens int) InvokeModelOption {
-	return func(o *InvokeModelOptions) {
-		o.MaxTokens = maxTokens
-	}
-}
-
-func WithTemperature(temperature float64) InvokeModelOption {
-	return func(o *InvokeModelOptions) {
-		o.Temperature = temperature
 	}
 }
 
@@ -51,7 +34,59 @@ func WithModelProfile(profile ModelProfile) InvokeModelOption {
 
 func WithStreamHandler(handler func(ctx context.Context, chunk string)) InvokeModelOption {
 	return func(o *InvokeModelOptions) {
-		o.StreamHandler = handler
+		o.StreamCallback = handler
+	}
+}
+
+func WithRetryCallback(handler func(ctx context.Context, err error, nextRetry time.Duration)) InvokeModelOption {
+	return func(o *InvokeModelOptions) {
+		o.RetryCallback = handler
+	}
+}
+
+type ProviderOptions struct {
+	URL            string
+	RetryConfig    *resilience.RetryConfig
+	CircuitBreaker *resilience.CircuitBreaker
+	Metrics        *prometheus.Registry
+}
+
+type ProviderOption func(*ProviderOptions)
+
+func WithURL(url string) ProviderOption {
+	return func(options *ProviderOptions) {
+		options.URL = url
+	}
+}
+
+func WithRetryConfig(retryConfig *resilience.RetryConfig) ProviderOption {
+	return func(options *ProviderOptions) {
+		options.RetryConfig = retryConfig
+	}
+}
+
+func WithCircuitBreaker(circuitBreaker *resilience.CircuitBreaker) ProviderOption {
+	return func(options *ProviderOptions) {
+		options.CircuitBreaker = circuitBreaker
+	}
+}
+
+func WithMetrics(metrics *prometheus.Registry) ProviderOption {
+	return func(o *ProviderOptions) {
+		o.Metrics = metrics
+	}
+}
+
+func DefaultProviderOptions(name string) *ProviderOptions {
+	return &ProviderOptions{
+		RetryConfig: &resilience.RetryConfig{
+			MaxAttempts:       5,
+			InitialDelay:      1 * time.Second,
+			MaxDelay:          10 * time.Second,
+			BackoffMultiplier: 2,
+		},
+		CircuitBreaker: resilience.NewCircuitBreaker(name, 5, 10*time.Second),
+		Metrics:        prometheus.NewRegistry(),
 	}
 }
 
@@ -128,3 +163,87 @@ type Usage struct {
 	CacheWriteTokens int64 `json:"cache_write_tokens"`
 	CacheReadTokens  int64 `json:"cache_read_tokens"`
 }
+
+type ProviderError struct {
+	Provider   string
+	RetryAfter time.Duration
+	Err        error
+	Kind       ProviderErrorKind
+}
+
+func NewProviderError(provider string, kind ProviderErrorKind, err error) *ProviderError {
+	return &ProviderError{
+		Provider: provider,
+		Kind:     kind,
+		Err:      err,
+	}
+}
+
+func (pe *ProviderError) Message() string {
+	switch pe.Kind {
+	case ProviderErrorKindInvalidRequest:
+		return "Invalid request format or content"
+	case ProviderErrorKindRateLimitExceeded:
+		if pe.RetryAfter > 0 {
+			return fmt.Sprintf("Rate limit exceeded, retry after %s", pe.RetryAfter)
+		}
+		return "Rate limit exceeded"
+	case ProviderErrorKindOverloaded:
+		return "API temporarily overloaded"
+	case ProviderErrorKindInternal:
+		return "Internal server error"
+	case ProviderErrorKindTimeout:
+		return "Request timeout"
+	case ProviderErrorKindCanceled:
+		return "Request canceled"
+	case ProviderErrorKindUnknown:
+		return "Unknown error"
+	default:
+		return "Unknown error"
+	}
+}
+
+func (pe *ProviderError) Retryable() (bool, time.Duration) {
+	switch pe.Kind {
+	case ProviderErrorKindRateLimitExceeded:
+		return true, pe.RetryAfter
+	case ProviderErrorKindOverloaded:
+		return true, 20 * time.Second
+	default:
+		return false, 0
+	}
+}
+
+func (pe *ProviderError) retryableInternal() bool {
+	switch pe.Kind {
+	case ProviderErrorKindOverloaded,
+		ProviderErrorKindInternal,
+		ProviderErrorKindTimeout:
+		return true
+	default:
+		return false
+	}
+}
+
+func (pe *ProviderError) Error() string {
+	if pe.Err != nil {
+		return fmt.Sprintf("%s: %s: %s", pe.Provider, pe.Message(), pe.Err.Error())
+	}
+	return fmt.Sprintf("%s: %s", pe.Provider, pe.Message())
+}
+
+func (pe *ProviderError) Unwrap() error {
+	return pe.Err
+}
+
+type ProviderErrorKind string
+
+const (
+	ProviderErrorKindInvalidRequest    ProviderErrorKind = "invalid_request"
+	ProviderErrorKindRateLimitExceeded ProviderErrorKind = "rate_limit_exceeded"
+	ProviderErrorKindOverloaded        ProviderErrorKind = "overloaded"
+	ProviderErrorKindInternal          ProviderErrorKind = "internal"
+	ProviderErrorKindTimeout           ProviderErrorKind = "timeout"
+	ProviderErrorKindCanceled          ProviderErrorKind = "canceled"
+	ProviderErrorKindUnknown           ProviderErrorKind = "unknown"
+)

@@ -29,12 +29,13 @@ type Session struct {
 
 func NewSession(ctx context.Context, task *Task, vm *sobek.Runtime, system io.Writer, user io.Writer, fs afero.Fs, commandRunner shared.CommandRunner) *Session {
 	return &Session{
-		Context: ctx,
-		Task:    task,
-		VM:      vm,
-		System:  system,
-		User:    user,
-		FS:      fs,
+		Context:       ctx,
+		Task:          task,
+		VM:            vm,
+		System:        system,
+		User:          user,
+		FS:            fs,
+		CommandRunner: commandRunner,
 
 		values: make(map[string]any),
 	}

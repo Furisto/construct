@@ -114,13 +114,13 @@ func (p *GeminiProvider) InvokeModel(ctx context.Context, model, systemPrompt st
 			for _, part := range m.Candidates[0].Content.Parts {
 				switch {
 				case part.Text != "":
-					options.StreamHandler(ctx, part.Text)
+					options.StreamCallback(ctx, part.Text)
 				case part.FunctionCall != nil:
 					argsJSON, _ := json.Marshal(part.FunctionCall.Args)
 					toolCall := &ToolCallBlock{ID: uuid.NewString(), Tool: part.FunctionCall.Name, Args: argsJSON}
 
 					toolCallJSON, _ := json.Marshal(toolCall)
-					options.StreamHandler(ctx, string(toolCallJSON))
+					options.StreamCallback(ctx, string(toolCallJSON))
 				}
 			}
 		}
@@ -167,8 +167,6 @@ func (p *GeminiProvider) validateInput(model, systemPrompt string, messages []*M
 func defaultGeminiInvokeOptions() *InvokeModelOptions {
 	return &InvokeModelOptions{
 		Tools:        []native.Tool{},
-		MaxTokens:    8192,
-		Temperature:  0.0,
 		ModelProfile: defaultGeminiModelProfile(),
 	}
 }
