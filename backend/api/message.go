@@ -30,6 +30,7 @@ type MessageHandler struct {
 	db         *memory.Client
 	runtime    AgentRuntime
 	messageHub *stream.EventHub
+	eventBus   *stream.Bus
 	v1connect.UnimplementedMessageServiceHandler
 }
 
@@ -62,6 +63,11 @@ func (h *MessageHandler) CreateMessage(ctx context.Context, req *connect.Request
 	}
 
 	h.runtime.TriggerReconciliation(taskID)
+
+	// stream.Publish(h.eventBus, stream.MessageCreatedEvent{
+	// 	MessageID: msg.ID,
+	// 	TaskID:    taskID,
+	// })
 
 	return connect.NewResponse(&v1.CreateMessageResponse{
 		Message: protoMsg,

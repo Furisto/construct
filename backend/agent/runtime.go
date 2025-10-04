@@ -127,8 +127,6 @@ func NewRuntime(memory *memory.Client, encryption *secret.Client, listener net.L
 		codeact.InterceptorFunc(codeact.ResetTemporarySessionValuesInterceptor),
 	}
 
-	
-
 	runtime := &Runtime{
 		memory:       memory,
 		encryption:   encryption,
@@ -296,6 +294,7 @@ func (rt *Runtime) processTask(ctx context.Context, taskID uuid.UUID) (Result, e
 	if err != nil {
 		return Result{}, err
 	}
+	os.WriteFile("/tmp/system_prompt.txt", []byte(systemPrompt), 0644)
 
 	message, err := modelProvider.InvokeModel(
 		ctx,
@@ -534,20 +533,26 @@ func (rt *Runtime) assembleSystemPrompt(agentInstruction string, cwd string) (st
 		slog.Error("failed to get user shell", "error", err)
 	}
 
+	devTools := AvailableDevTools()
+
 	tmplParams := struct {
+		CurrentTime      string
 		WorkingDirectory string
 		OperatingSystem  string
 		DefaultShell     string
 		ProjectStructure string
 		ToolInstructions string
 		Tools            string
+		DevTools         *DevTools
 	}{
+		CurrentTime:      time.Now().Format("2006-01-02 15:04:05 MST"),
 		WorkingDirectory: cwd,
 		OperatingSystem:  runtime.GOOS,
 		DefaultShell:     shell.Name,
 		ProjectStructure: projectStructure,
 		ToolInstructions: toolInstruction,
 		Tools:            builder.String(),
+		DevTools:         devTools,
 	}
 
 	tmpl, err := template.New("system_prompt").Parse(agentInstruction)
@@ -911,4 +916,3 @@ func NewMessage(taskID uuid.UUID, options ...func(*v1.Message)) *v1.Message {
 
 	return msg
 }
-
