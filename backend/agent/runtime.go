@@ -297,7 +297,6 @@ func (rt *Runtime) processTask(ctx context.Context, taskID uuid.UUID) (Result, e
 	if err != nil {
 		return Result{}, err
 	}
-	os.WriteFile("/tmp/system_prompt.txt", []byte(systemPrompt), 0644)
 
 	message, err := modelProvider.InvokeModel(
 		ctx,

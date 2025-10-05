@@ -84,7 +84,10 @@ func (bus *Bus) worker() {
 		select {
 		case <-bus.ctx.Done():
 			return
-		case item := <-bus.workQueue:
+		case item, ok := <-bus.workQueue:
+			if !ok {
+				return
+			}
 			bus.processWorkItem(item)
 		}
 	}
