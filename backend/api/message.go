@@ -8,28 +8,30 @@ import (
 	v1 "github.com/furisto/construct/api/go/v1"
 	"github.com/furisto/construct/api/go/v1/v1connect"
 	"github.com/furisto/construct/backend/api/conv"
+	"github.com/furisto/construct/backend/event"
 	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/memory/message"
 	"github.com/furisto/construct/backend/memory/schema/types"
 	"github.com/furisto/construct/backend/memory/task"
-	"github.com/furisto/construct/backend/stream"
 	"github.com/google/uuid"
 )
 
 var _ v1connect.MessageServiceHandler = (*MessageHandler)(nil)
 
-func NewMessageHandler(db *memory.Client, runtime AgentRuntime, messageHub *stream.EventHub) *MessageHandler {
+func NewMessageHandler(db *memory.Client, runtime AgentRuntime, messageHub *event.MessageHub, eventBus *event.Bus) *MessageHandler {
 	return &MessageHandler{
 		db:         db,
 		runtime:    runtime,
 		messageHub: messageHub,
+		eventBus:   eventBus,
 	}
 }
 
 type MessageHandler struct {
 	db         *memory.Client
 	runtime    AgentRuntime
-	messageHub *stream.EventHub
+	messageHub *event.MessageHub
+	eventBus   *event.Bus
 	v1connect.UnimplementedMessageServiceHandler
 }
 
@@ -61,7 +63,9 @@ func (h *MessageHandler) CreateMessage(ctx context.Context, req *connect.Request
 		return nil, apiError(err)
 	}
 
-	h.runtime.TriggerReconciliation(taskID)
+	event.Publish(h.eventBus, event.TaskEvent{
+		TaskID: taskID,
+	})
 
 	return connect.NewResponse(&v1.CreateMessageResponse{
 		Message: protoMsg,

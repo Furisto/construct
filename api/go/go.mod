@@ -7,11 +7,10 @@ require (
 	connectrpc.com/connect v1.18.1
 	go.uber.org/mock v0.5.2
 	google.golang.org/genproto v0.0.0-20240903143218-8af14fe29dc1
-	google.golang.org/protobuf v1.36.6
+	google.golang.org/protobuf v1.36.8
 )
 
 require (
-	github.com/google/go-cmp v0.6.0 // indirect
-	golang.org/x/net v0.35.0 // indirect
-	golang.org/x/text v0.24.0 // indirect
+	github.com/google/go-cmp v0.7.0 // indirect
+	golang.org/x/net v0.43.0 // indirect
 )

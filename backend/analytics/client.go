@@ -57,3 +57,19 @@ func (c *InMemoryClient) Close() {
 }
 
 var _ Client = (*InMemoryClient)(nil)
+
+
+type NoopClient struct {
+}
+
+func NewNoopClient() *NoopClient {
+	return &NoopClient{}
+}
+
+func (c *NoopClient) Enqueue(event Event) {
+}
+
+func (c *NoopClient) Close() {
+}
+
+var _ Client = (*NoopClient)(nil)
