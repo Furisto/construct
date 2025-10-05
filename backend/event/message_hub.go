@@ -1,4 +1,4 @@
-package stream
+package event
 
 import (
 	"context"
@@ -39,27 +39,27 @@ type MessageBlock struct {
 	Received map[string]bool
 }
 
-type EventHub struct {
+type MessageHub struct {
 	memory      *memory.Client
 	messages    *otter.Cache[uuid.UUID, []*MessageBlock]
 	subscribers map[uuid.UUID][]*subscription
 	mu          sync.RWMutex
 }
 
-func NewMessageHub(db *memory.Client) (*EventHub, error) {
+func NewMessageHub(db *memory.Client) (*MessageHub, error) {
 	messagesCache, err := otter.MustBuilder[uuid.UUID, []*MessageBlock](1000).Build()
 	if err != nil {
 		return nil, err
 	}
 
-	return &EventHub{
+	return &MessageHub{
 		memory:      db,
 		messages:    &messagesCache,
 		subscribers: make(map[uuid.UUID][]*subscription),
 	}, nil
 }
 
-func (h *EventHub) Publish(taskID uuid.UUID, message *v1.SubscribeResponse) {
+func (h *MessageHub) Publish(taskID uuid.UUID, message *v1.SubscribeResponse) {
 	h.mu.RLock()
 	subscribers := make([]*subscription, len(h.subscribers[taskID]))
 	copy(subscribers, h.subscribers[taskID])
@@ -70,7 +70,7 @@ func (h *EventHub) Publish(taskID uuid.UUID, message *v1.SubscribeResponse) {
 	}
 }
 
-func (h *EventHub) Subscribe(ctx context.Context, taskID uuid.UUID) iter.Seq2[*v1.SubscribeResponse, error] {
+func (h *MessageHub) Subscribe(ctx context.Context, taskID uuid.UUID) iter.Seq2[*v1.SubscribeResponse, error] {
 	subscription := &subscription{
 		channel: make(chan *v1.SubscribeResponse, 64),
 	}

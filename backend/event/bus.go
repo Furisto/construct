@@ -1,4 +1,4 @@
-package stream
+package event
 
 import (
 	"context"
@@ -22,6 +22,8 @@ type Event[T any] interface {
 // Handlers do not return errors and are executed asynchronously.
 type Handler[T any] func(context.Context, T)
 
+type EventFilter[T any] func(T) bool
+
 type Bus struct {
 	ctx         context.Context
 	cancel      context.CancelFunc
@@ -44,7 +46,6 @@ type workItem struct {
 // subscriber represents either a handler function or a channel subscriber
 type subscriber struct {
 	id      uuid.UUID
-	handler any
 	invoke  func(context.Context, any)
 	channel any
 }
@@ -115,7 +116,7 @@ func (bus *Bus) processWorkItem(item workItem) {
 //	    log.Printf("Task started: %s", e.TaskID)
 //	})
 //	defer sub.Unsubscribe()
-func Subscribe[T Event[T]](bus *Bus, handler Handler[T]) *Subscription {
+func Subscribe[T Event[T]](bus *Bus, handler Handler[T], filter EventFilter[T]) *Subscription {
 	if bus.closed.Load() {
 		slog.WarnContext(bus.ctx, "attempted to subscribe to closed event bus")
 		return &Subscription{bus: bus}
@@ -124,13 +125,20 @@ func Subscribe[T Event[T]](bus *Bus, handler Handler[T]) *Subscription {
 	var zero T
 	eventType := reflect.TypeOf(zero)
 
+	if filter == nil {
+		filter = func(event T) bool {
+			return true
+		}
+	}
+
 	id := uuid.New()
 	sub := subscriber{
-		id:      id,
-		handler: handler,
+		id: id,
 		invoke: func(ctx context.Context, event any) {
 			if typedEvent, ok := event.(T); ok {
-				handler(ctx, typedEvent)
+				if filter(typedEvent) {
+					handler(ctx, typedEvent)
+				}
 			}
 		},
 	}
@@ -163,7 +171,7 @@ func Subscribe[T Event[T]](bus *Bus, handler Handler[T]) *Subscription {
 //	for event := range ch {
 //	    log.Printf("Task started: %s", event.TaskID)
 //	}
-func SubscribeChannel[T Event[T]](bus *Bus, bufferSize int) (<-chan T, *Subscription) {
+func SubscribeChannel[T Event[T]](bus *Bus, bufferSize int, filter EventFilter[T]) (<-chan T, *Subscription) {
 	if bus.closed.Load() {
 		slog.WarnContext(bus.ctx, "attempted to subscribe channel to closed event bus")
 		ch := make(chan T)
@@ -178,21 +186,28 @@ func SubscribeChannel[T Event[T]](bus *Bus, bufferSize int) (<-chan T, *Subscrip
 	ch := make(chan T, bufferSize)
 	id := uuid.New()
 
+	if filter == nil {
+		filter = func(event T) bool {
+			return true
+		}
+	}
+
 	sub := subscriber{
 		id:      id,
 		channel: ch,
 		invoke: func(ctx context.Context, event any) {
 			if typedEvent, ok := event.(T); ok {
-				// Non-blocking send to prevent blocking publishers
-				select {
-				case ch <- typedEvent:
-				default:
-					// Drop event if channel is full
-					bus.metrics.IncrementDropped(eventTypeName)
-					slog.DebugContext(ctx, "dropped event due to full channel buffer",
-						"event_type", eventTypeName,
-						"subscriber_id", id,
-					)
+				if filter(typedEvent) {
+					select {
+					case ch <- typedEvent:
+					default:
+						// Drop event if channel is full
+						bus.metrics.IncrementDropped(eventTypeName)
+						slog.DebugContext(ctx, "dropped event due to full channel buffer",
+							"event_type", eventTypeName,
+							"subscriber_id", id,
+						)
+					}
 				}
 			}
 		},
@@ -318,6 +333,10 @@ func (bus *Bus) Close() {
 	slog.DebugContext(bus.ctx, "event bus closed")
 }
 
+func (bus *Bus) IsClosed() bool {
+	return bus.closed.Load()
+}
+
 // SubscriberCount returns the number of subscribers for a given event type.
 // This is primarily useful for testing and debugging.
 func SubscriberCount[T Event[T]](bus *Bus) int {
@@ -328,68 +347,6 @@ func SubscriberCount[T Event[T]](bus *Bus) int {
 	defer bus.mu.RUnlock()
 
 	return len(bus.subscribers[eventType])
-}
-
-type eventBusMetricsProvider struct {
-	published *prometheus.CounterVec
-	delivered *prometheus.CounterVec
-	dropped   *prometheus.CounterVec
-}
-
-func newEventBusMetricsProvider(registry *prometheus.Registry) *eventBusMetricsProvider {
-	if registry == nil {
-		return nil
-	}
-
-	provider := &eventBusMetricsProvider{
-		published: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
-				Name: "eventbus_events_published_total",
-				Help: "Total number of events published by event type",
-			},
-			[]string{"event_type"},
-		),
-		delivered: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
-				Name: "eventbus_events_delivered_total",
-				Help: "Total number of events delivered by event type",
-			},
-			[]string{"event_type"},
-		),
-		dropped: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
-				Name: "eventbus_events_dropped_total",
-				Help: "Total number of events dropped due to full channel buffers",
-			},
-			[]string{"event_type"},
-		),
-	}
-
-	registry.MustRegister(
-		provider.published,
-		provider.delivered,
-		provider.dropped,
-	)
-
-	return provider
-}
-
-func (p *eventBusMetricsProvider) IncrementPublished(eventType string) {
-	if p != nil && p.published != nil {
-		p.published.WithLabelValues(eventType).Inc()
-	}
-}
-
-func (p *eventBusMetricsProvider) IncrementDelivered(eventType string) {
-	if p != nil && p.delivered != nil {
-		p.delivered.WithLabelValues(eventType).Inc()
-	}
-}
-
-func (p *eventBusMetricsProvider) IncrementDropped(eventType string) {
-	if p != nil && p.dropped != nil {
-		p.dropped.WithLabelValues(eventType).Inc()
-	}
 }
 
 type MessageCreatedEvent struct {

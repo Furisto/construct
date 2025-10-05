@@ -14,9 +14,9 @@ import (
 	"entgo.io/ent/dialect/sql/schema"
 	api_client "github.com/furisto/construct/api/go/client"
 	"github.com/furisto/construct/backend/analytics"
+	"github.com/furisto/construct/backend/event"
 	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/secret"
-	"github.com/furisto/construct/backend/stream"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
 )
@@ -290,11 +290,8 @@ func (m *MockAgentRuntime) Encryption() *secret.Client {
 	return nil
 }
 
-func (m *MockAgentRuntime) EventHub() *stream.EventHub {
+func (m *MockAgentRuntime) EventHub() *event.MessageHub {
 	return nil
-}
-
-func (m *MockAgentRuntime) TriggerReconciliation(id uuid.UUID) {
 }
 
 func (m *MockAgentRuntime) CancelTask(id uuid.UUID) {

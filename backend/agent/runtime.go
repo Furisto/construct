@@ -19,6 +19,7 @@ import (
 	v1 "github.com/furisto/construct/api/go/v1"
 	"github.com/furisto/construct/backend/analytics"
 	"github.com/furisto/construct/backend/api"
+	"github.com/furisto/construct/backend/event"
 	"github.com/furisto/construct/backend/memory"
 	memory_message "github.com/furisto/construct/backend/memory/message"
 	memory_model "github.com/furisto/construct/backend/memory/model"
@@ -27,7 +28,6 @@ import (
 	"github.com/furisto/construct/backend/model"
 	"github.com/furisto/construct/backend/prompt"
 	"github.com/furisto/construct/backend/secret"
-	"github.com/furisto/construct/backend/stream"
 	"github.com/furisto/construct/backend/tool/base"
 	"github.com/furisto/construct/backend/tool/codeact"
 	"github.com/furisto/construct/backend/tool/native"
@@ -82,17 +82,22 @@ type Result struct {
 }
 
 type Runtime struct {
-	api          *api.Server
-	memory       *memory.Client
-	encryption   *secret.Client
-	eventHub     *stream.EventHub
-	concurrency  int
-	queue        workqueue.TypedDelayingInterface[uuid.UUID]
-	running      atomic.Bool
+	api        *api.Server
+	memory     *memory.Client
+	encryption *secret.Client
+	eventHub   *event.MessageHub
+	bus        *event.Bus
+
+	concurrency int
+	queue       workqueue.TypedDelayingInterface[uuid.UUID]
+	running     atomic.Bool
+	wg          sync.WaitGroup
+
 	interpreter  *codeact.Interpreter
 	runningTasks *SyncMap[uuid.UUID, context.CancelFunc]
-	analytics    analytics.Client
-	metrics      *prometheus.Registry
+
+	analytics analytics.Client
+	metrics   *prometheus.Registry
 }
 
 func NewRuntime(memory *memory.Client, encryption *secret.Client, listener net.Listener, opts ...RuntimeOption) (*Runtime, error) {
@@ -115,7 +120,7 @@ func NewRuntime(memory *memory.Client, encryption *secret.Client, listener net.L
 		Name: "construct",
 	})
 
-	messageHub, err := stream.NewMessageHub(memory)
+	messageHub, err := event.NewMessageHub(memory)
 	if err != nil {
 		return nil, err
 	}
@@ -131,6 +136,7 @@ func NewRuntime(memory *memory.Client, encryption *secret.Client, listener net.L
 		memory:       memory,
 		encryption:   encryption,
 		eventHub:     messageHub,
+		bus:          event.NewBus(metricsRegistry),
 		concurrency:  options.Concurrency,
 		queue:        queue,
 		interpreter:  codeact.NewInterpreter(options.Tools, interceptors),
@@ -139,7 +145,7 @@ func NewRuntime(memory *memory.Client, encryption *secret.Client, listener net.L
 		metrics:      metricsRegistry,
 	}
 
-	api := api.NewServer(runtime, listener, runtime.analytics)
+	api := api.NewServer(runtime, listener, runtime.bus, runtime.analytics)
 	runtime.api = api
 
 	return runtime, nil
@@ -150,11 +156,9 @@ func (rt *Runtime) Run(ctx context.Context) error {
 		return nil
 	}
 
-	var wg sync.WaitGroup
-
-	wg.Add(1)
+	rt.wg.Add(1)
 	go func() {
-		defer wg.Done()
+		defer rt.wg.Done()
 		err := rt.api.ListenAndServe(ctx)
 		if err != nil && err != http.ErrServerClosed {
 			slog.Error("API server failed", "error", err)
@@ -162,17 +166,13 @@ func (rt *Runtime) Run(ctx context.Context) error {
 	}()
 
 	for range rt.concurrency {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for {
-				shutdown := rt.processEvent(ctx)
-				if shutdown {
-					return
-				}
-			}
-		}()
+		rt.wg.Add(1)
+		go rt.worker(ctx)
 	}
+
+	sub := event.Subscribe(rt.bus, func(ctx context.Context, e event.TaskEvent) {
+		rt.queue.Add(e.TaskID)
+	}, nil)
 
 	<-ctx.Done()
 
@@ -184,11 +184,12 @@ func (rt *Runtime) Run(ctx context.Context) error {
 		slog.Error("failed to shutdown API server", "error", err)
 	}
 
+	sub.Unsubscribe()
 	rt.queue.ShutDownWithDrain()
 
 	stop := make(chan struct{})
 	go func() {
-		wg.Wait()
+		rt.wg.Wait()
 		close(stop)
 	}()
 
@@ -220,36 +221,38 @@ func (rt *Runtime) publishError(err error, taskID uuid.UUID) {
 	})
 }
 
-func (rt *Runtime) processEvent(ctx context.Context) bool {
-	defer func() {
-		if r := recover(); r != nil {
-			slog.Error("panic in processEvent", "error", r)
+func (rt *Runtime) worker(ctx context.Context) {
+	defer rt.wg.Done()
+
+	for {
+		taskID, shutdown := rt.queue.Get()
+		if shutdown {
+			return
 		}
-	}()
 
-	taskID, shutdown := rt.queue.Get()
-	if shutdown {
-		return true
+		result, err := rt.processTask(ctx, taskID)
+		if err != nil {
+			rt.publishError(err, taskID)
+		}
+
+		switch {
+		case result.RetryAfter > 0:
+			rt.queue.AddAfter(taskID, result.RetryAfter)
+		case result.Retry:
+			rt.queue.Add(taskID)
+		}
+
+		rt.queue.Done(taskID)
 	}
-	defer rt.queue.Done(taskID)
-
-	result, err := rt.processTask(ctx, taskID)
-	if err != nil {
-		rt.publishError(err, taskID)
-	}
-
-	switch {
-	case result.RetryAfter > 0:
-		rt.queue.AddAfter(taskID, result.RetryAfter)
-		return false
-	case result.Retry:
-		rt.queue.Add(taskID)
-	}
-
-	return false
 }
 
 func (rt *Runtime) processTask(ctx context.Context, taskID uuid.UUID) (Result, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("panic in processTask", "error", r)
+		}
+	}()
+
 	ctx, cancel := context.WithCancel(ctx)
 	rt.runningTasks.Set(taskID, cancel)
 	defer rt.runningTasks.Delete(taskID)
@@ -545,7 +548,6 @@ func (rt *Runtime) assembleSystemPrompt(agentInstruction string, cwd string) (st
 		Tools            string
 		DevTools         *DevTools
 	}{
-		CurrentTime:      time.Now().Format("2006-01-02 15:04:05 MST"),
 		WorkingDirectory: cwd,
 		OperatingSystem:  runtime.GOOS,
 		DefaultShell:     shell.Name,
@@ -792,11 +794,7 @@ func (rt *Runtime) Memory() *memory.Client {
 	return rt.memory
 }
 
-func (rt *Runtime) TriggerReconciliation(taskID uuid.UUID) {
-	rt.queue.Add(taskID)
-}
-
-func (rt *Runtime) EventHub() *stream.EventHub {
+func (rt *Runtime) EventHub() *event.MessageHub {
 	return rt.eventHub
 }
 

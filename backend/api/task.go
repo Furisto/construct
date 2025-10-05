@@ -10,32 +10,34 @@ import (
 	"github.com/furisto/construct/api/go/v1/v1connect"
 	"github.com/furisto/construct/backend/analytics"
 	"github.com/furisto/construct/backend/api/conv"
+	"github.com/furisto/construct/backend/event"
 	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/memory/agent"
 	"github.com/furisto/construct/backend/memory/extension"
 	"github.com/furisto/construct/backend/memory/message"
 	"github.com/furisto/construct/backend/memory/task"
-	"github.com/furisto/construct/backend/stream"
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var _ v1connect.TaskServiceHandler = (*TaskHandler)(nil)
 
-func NewTaskHandler(db *memory.Client, eventHub *stream.EventHub, runtime AgentRuntime, analytics analytics.Client) *TaskHandler {
+func NewTaskHandler(db *memory.Client, messageHub *event.MessageHub, eventBus *event.Bus, runtime AgentRuntime, analytics analytics.Client) *TaskHandler {
 	return &TaskHandler{
-		db:        db,
-		eventHub:  eventHub,
-		runtime:   runtime,
-		analytics: analytics,
+		db:         db,
+		messageHub: messageHub,
+		eventBus:   eventBus,
+		runtime:    runtime,
+		analytics:  analytics,
 	}
 }
 
 type TaskHandler struct {
-	db        *memory.Client
-	eventHub  *stream.EventHub
-	runtime   AgentRuntime
-	analytics analytics.Client
+	db         *memory.Client
+	messageHub *event.MessageHub
+	eventBus   *event.Bus
+	runtime    AgentRuntime
+	analytics  analytics.Client
 	v1connect.UnimplementedTaskServiceHandler
 }
 
@@ -230,7 +232,7 @@ func (h *TaskHandler) UpdateTask(ctx context.Context, req *connect.Request[v1.Up
 				TaskId:    updatedTask.ID.String(),
 				Timestamp: timestamppb.Now(),
 			}
-			h.eventHub.Publish(updatedTask.ID, &v1.SubscribeResponse{
+			h.messageHub.Publish(updatedTask.ID, &v1.SubscribeResponse{
 				Event: &v1.SubscribeResponse_TaskEvent{
 					TaskEvent: taskEvent,
 				},
@@ -268,9 +270,11 @@ func (h *TaskHandler) Subscribe(ctx context.Context, req *connect.Request[v1.Sub
 		return apiError(err)
 	}
 
-	h.runtime.TriggerReconciliation(taskID)
+	event.Publish(h.eventBus, event.TaskEvent{
+		TaskID: taskID,
+	})
 
-	for response, err := range h.eventHub.Subscribe(ctx, taskID) {
+	for response, err := range h.messageHub.Subscribe(ctx, taskID) {
 		if err != nil {
 			return apiError(err)
 		}
@@ -279,7 +283,6 @@ func (h *TaskHandler) Subscribe(ctx context.Context, req *connect.Request[v1.Sub
 			return err
 		}
 	}
-
 	return nil
 }
 

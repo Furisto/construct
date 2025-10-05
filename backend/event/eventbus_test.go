@@ -1,4 +1,4 @@
-package stream_test
+package event_test
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/furisto/construct/backend/stream"
+	"github.com/furisto/construct/backend/event"
 	"github.com/google/uuid"
 )
 
@@ -35,17 +35,17 @@ func (TaskFailedEvent) Event() {}
 func TestEventBus_BasicPublishSubscribe(t *testing.T) {
 	t.Parallel()
 
-	bus := stream.NewBus(nil)
+	bus := event.NewBus(nil)
 	defer bus.Close()
 
 	done := make(chan struct{})
-	sub := stream.Subscribe(bus, func(ctx context.Context, e TaskStartedEvent) {
+	sub := event.Subscribe(bus, func(ctx context.Context, e TaskStartedEvent) {
 		close(done)
-	})
+	}, nil)
 	defer sub.Unsubscribe()
 
 	taskID := uuid.New()
-	stream.Publish(bus, TaskStartedEvent{TaskID: taskID})
+	event.Publish(bus, TaskStartedEvent{TaskID: taskID})
 
 	select {
 	case <-done:
@@ -57,16 +57,16 @@ func TestEventBus_BasicPublishSubscribe(t *testing.T) {
 func TestEventBus_MultipleSubscribers(t *testing.T) {
 	t.Parallel()
 
-	bus := stream.NewBus(nil)
+	bus := event.NewBus(nil)
 	defer bus.Close()
 
 	done := make(chan struct{})
 	var wg sync.WaitGroup
 	wg.Add(5)
 	for range 5 {
-		sub := stream.Subscribe(bus, func(ctx context.Context, e TaskStartedEvent) {
+		sub := event.Subscribe(bus, func(ctx context.Context, e TaskStartedEvent) {
 			wg.Done()
-		})
+		}, nil)
 		defer sub.Unsubscribe()
 	}
 	go func() {
@@ -74,7 +74,7 @@ func TestEventBus_MultipleSubscribers(t *testing.T) {
 		close(done)
 	}()
 
-	stream.Publish(bus, TaskStartedEvent{TaskID: uuid.New()})
+	event.Publish(bus, TaskStartedEvent{TaskID: uuid.New()})
 
 	select {
 	case <-done:
@@ -86,7 +86,7 @@ func TestEventBus_MultipleSubscribers(t *testing.T) {
 func TestEventBus_DifferentEventTypes(t *testing.T) {
 	t.Parallel()
 
-	bus := stream.NewBus(nil)
+	bus := event.NewBus(nil)
 	defer bus.Close()
 
 	done := make(chan struct{})
@@ -96,29 +96,29 @@ func TestEventBus_DifferentEventTypes(t *testing.T) {
 	var completedReceived atomic.Bool
 	var failedReceived atomic.Bool
 
-	sub1 := stream.Subscribe(bus, func(ctx context.Context, e TaskStartedEvent) {
+	sub1 := event.Subscribe(bus, func(ctx context.Context, e TaskStartedEvent) {
 		defer wg.Done()
 		startedReceived.Store(true)
-	})
+	}, nil)
 	defer sub1.Unsubscribe()
 
-	sub2 := stream.Subscribe(bus, func(ctx context.Context, e TaskCompletedEvent) {
+	sub2 := event.Subscribe(bus, func(ctx context.Context, e TaskCompletedEvent) {
 		defer wg.Done()
 		completedReceived.Store(true)
-	})
+	}, nil)
 	defer sub2.Unsubscribe()
 
-	sub3 := stream.Subscribe(bus, func(ctx context.Context, e TaskFailedEvent) {
+	sub3 := event.Subscribe(bus, func(ctx context.Context, e TaskFailedEvent) {
 		defer wg.Done()
 		failedReceived.Store(true)
-	})
+	}, nil)
 	defer sub3.Unsubscribe()
 
 	taskID := uuid.New()
 
-	stream.Publish(bus, TaskStartedEvent{TaskID: taskID})
-	stream.Publish(bus, TaskCompletedEvent{TaskID: taskID, Duration: time.Second})
-	stream.Publish(bus, TaskFailedEvent{TaskID: taskID, Error: "test error"})
+	event.Publish(bus, TaskStartedEvent{TaskID: taskID})
+	event.Publish(bus, TaskCompletedEvent{TaskID: taskID, Duration: time.Second})
+	event.Publish(bus, TaskFailedEvent{TaskID: taskID, Error: "test error"})
 
 	go func() {
 		wg.Wait()
@@ -145,7 +145,7 @@ func TestEventBus_DifferentEventTypes(t *testing.T) {
 func TestEventBus_ThreadSafety(t *testing.T) {
 	t.Parallel()
 
-	bus := stream.NewBus(nil)
+	bus := event.NewBus(nil)
 	defer bus.Close()
 
 	var count atomic.Int32
@@ -156,9 +156,9 @@ func TestEventBus_ThreadSafety(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			stream.Subscribe(bus, func(ctx context.Context, e TaskStartedEvent) {
+			event.Subscribe(bus, func(ctx context.Context, e TaskStartedEvent) {
 				count.Add(1)
-			})
+			}, nil)
 		}()
 	}
 
@@ -170,7 +170,7 @@ func TestEventBus_ThreadSafety(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			stream.Publish(bus, TaskStartedEvent{TaskID: uuid.New()})
+			event.Publish(bus, TaskStartedEvent{TaskID: uuid.New()})
 		}()
 	}
 
@@ -189,23 +189,23 @@ func TestEventBus_ThreadSafety(t *testing.T) {
 func TestEventBus_SubscriberCount(t *testing.T) {
 	t.Parallel()
 
-	bus := stream.NewBus(nil)
+	bus := event.NewBus(nil)
 	defer bus.Close()
 
-	if count := stream.SubscriberCount[TaskStartedEvent](bus); count != 0 {
+	if count := event.SubscriberCount[TaskStartedEvent](bus); count != 0 {
 		t.Errorf("Expected 0 subscribers initially, got %d", count)
 	}
 
-	stream.Subscribe(bus, func(ctx context.Context, e TaskStartedEvent) {})
-	stream.Subscribe(bus, func(ctx context.Context, e TaskStartedEvent) {})
-	stream.Subscribe(bus, func(ctx context.Context, e TaskStartedEvent) {})
+	event.Subscribe(bus, func(ctx context.Context, e TaskStartedEvent) {}, nil)
+	event.Subscribe(bus, func(ctx context.Context, e TaskStartedEvent) {}, nil)
+	event.Subscribe(bus, func(ctx context.Context, e TaskStartedEvent) {}, nil)
 
-	if count := stream.SubscriberCount[TaskStartedEvent](bus); count != 3 {
+	if count := event.SubscriberCount[TaskStartedEvent](bus); count != 3 {
 		t.Errorf("Expected 3 subscribers, got %d", count)
 	}
 
 	// Different event type should have 0 subscribers
-	if count := stream.SubscriberCount[TaskCompletedEvent](bus); count != 0 {
+	if count := event.SubscriberCount[TaskCompletedEvent](bus); count != 0 {
 		t.Errorf("Expected 0 subscribers for TaskCompletedEvent, got %d", count)
 	}
 }
@@ -213,18 +213,18 @@ func TestEventBus_SubscriberCount(t *testing.T) {
 func TestEventBus_Close_DiscardEvents(t *testing.T) {
 	t.Parallel()
 
-	bus := stream.NewBus(nil)
+	bus := event.NewBus(nil)
 
 	var processed atomic.Int32
 	numEvents := 1000
 
-	stream.Subscribe(bus, func(ctx context.Context, e TaskStartedEvent) {
+	event.Subscribe(bus, func(ctx context.Context, e TaskStartedEvent) {
 		time.Sleep(100 * time.Millisecond) // Simulate work
 		processed.Add(1)
-	})
+	}, nil)
 
 	for range numEvents {
-		stream.Publish(bus, TaskStartedEvent{TaskID: uuid.New()})
+		event.Publish(bus, TaskStartedEvent{TaskID: uuid.New()})
 	}
 	bus.Close()
 
@@ -237,14 +237,14 @@ func TestEventBus_Close_DiscardEvents(t *testing.T) {
 func TestEventBus_ChannelSubscription(t *testing.T) {
 	t.Parallel()
 
-	bus := stream.NewBus(nil)
+	bus := event.NewBus(nil)
 	defer bus.Close()
 
-	ch, sub := stream.SubscribeChannel[TaskStartedEvent](bus, 10)
+	ch, sub := event.SubscribeChannel[TaskStartedEvent](bus, 10, nil)
 	defer sub.Unsubscribe()
 
 	taskID := uuid.New()
-	stream.Publish(bus, TaskStartedEvent{TaskID: taskID})
+	event.Publish(bus, TaskStartedEvent{TaskID: taskID})
 
 	select {
 	case event := <-ch:
@@ -259,17 +259,17 @@ func TestEventBus_ChannelSubscription(t *testing.T) {
 func TestEventBus_ChannelSubscriptionMultipleEvents(t *testing.T) {
 	t.Parallel()
 
-	bus := stream.NewBus(nil)
+	bus := event.NewBus(nil)
 	defer bus.Close()
 
-	ch, sub := stream.SubscribeChannel[TaskStartedEvent](bus, 10)
+	ch, sub := event.SubscribeChannel[TaskStartedEvent](bus, 10, nil)
 	defer sub.Unsubscribe()
 
 	numEvents := 5
 	taskIDs := make([]uuid.UUID, numEvents)
 	for i := range numEvents {
 		taskIDs[i] = uuid.New()
-		stream.Publish(bus, TaskStartedEvent{TaskID: taskIDs[i]})
+		event.Publish(bus, TaskStartedEvent{TaskID: taskIDs[i]})
 	}
 
 	receivedIDs := make(map[uuid.UUID]bool)
@@ -292,13 +292,13 @@ func TestEventBus_ChannelSubscriptionMultipleEvents(t *testing.T) {
 func TestEventBus_ChannelSubscriptionUnsubscribe(t *testing.T) {
 	t.Parallel()
 
-	bus := stream.NewBus(nil)
+	bus := event.NewBus(nil)
 	defer bus.Close()
 
-	ch, sub := stream.SubscribeChannel[TaskStartedEvent](bus, 10)
+	ch, sub := event.SubscribeChannel[TaskStartedEvent](bus, 10, nil)
 
 	taskID1 := uuid.New()
-	stream.Publish(bus, TaskStartedEvent{TaskID: taskID1})
+	event.Publish(bus, TaskStartedEvent{TaskID: taskID1})
 
 	select {
 	case event := <-ch:
@@ -312,7 +312,7 @@ func TestEventBus_ChannelSubscriptionUnsubscribe(t *testing.T) {
 	sub.Unsubscribe()
 
 	taskID2 := uuid.New()
-	stream.Publish(bus, TaskStartedEvent{TaskID: taskID2})
+	event.Publish(bus, TaskStartedEvent{TaskID: taskID2})
 
 	select {
 	case _, ok := <-ch:
@@ -327,19 +327,19 @@ func TestEventBus_ChannelSubscriptionUnsubscribe(t *testing.T) {
 func TestEventBus_ChannelAndHandlerMixed(t *testing.T) {
 	t.Parallel()
 	
-	bus := stream.NewBus(nil)
+	bus := event.NewBus(nil)
 	defer bus.Close()
 
 	done := make(chan struct{})
-	stream.Subscribe(bus, func(ctx context.Context, e TaskStartedEvent) {
+	event.Subscribe(bus, func(ctx context.Context, e TaskStartedEvent) {
 		close(done)
-	})
+	}, nil)
 
-	ch, sub := stream.SubscribeChannel[TaskStartedEvent](bus, 10)
+	ch, sub := event.SubscribeChannel[TaskStartedEvent](bus, 10, nil)
 	defer sub.Unsubscribe()
 
 	taskID := uuid.New()
-	stream.Publish(bus, TaskStartedEvent{TaskID: taskID})
+	event.Publish(bus, TaskStartedEvent{TaskID: taskID})
 
 	// Both handler and channel should receive the event
 	select {
@@ -356,4 +356,26 @@ func TestEventBus_ChannelAndHandlerMixed(t *testing.T) {
 	case <-time.After(100 * time.Millisecond):
 		t.Error("Timeout waiting for handler to be called")
 	}
+}
+
+// Mock database for testing MessageStreamProvider
+type MockMessageDB struct {
+	messages []MockMessage
+}
+
+type MockMessage struct {
+	ID            uuid.UUID
+	TaskID        uuid.UUID
+	Content       string
+	ProcessedTime *time.Time
+}
+
+func (db *MockMessageDB) GetMessagesForTask(taskID uuid.UUID) []MockMessage {
+	var result []MockMessage
+	for _, msg := range db.messages {
+		if msg.TaskID == taskID && msg.ProcessedTime != nil {
+			result = append(result, msg)
+		}
+	}
+	return result
 }

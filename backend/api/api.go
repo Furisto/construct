@@ -11,17 +11,16 @@ import (
 
 	"github.com/furisto/construct/api/go/v1/v1connect"
 	"github.com/furisto/construct/backend/analytics"
+	"github.com/furisto/construct/backend/event"
 	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/secret"
-	"github.com/furisto/construct/backend/stream"
 	"github.com/google/uuid"
 )
 
 type AgentRuntime interface {
 	Memory() *memory.Client
 	Encryption() *secret.Client
-	TriggerReconciliation(id uuid.UUID)
-	EventHub() *stream.EventHub
+	EventHub() *event.MessageHub
 	CancelTask(id uuid.UUID)
 }
 
@@ -31,19 +30,23 @@ type Server struct {
 	listener net.Listener
 }
 
-func NewServer(runtime AgentRuntime, listener net.Listener, analyticsClient analytics.Client) *Server {
+func NewServer(runtime AgentRuntime, listener net.Listener, eventBus *event.Bus, analyticsClient analytics.Client) *Server {
 	apiHandler := NewHandler(
 		HandlerOptions{
 			DB:           runtime.Memory(),
 			Encryption:   runtime.Encryption(),
 			AgentRuntime: runtime,
 			MessageHub:   runtime.EventHub(),
+			EventBus:     eventBus,
 			Analytics:    analyticsClient,
 		},
 	)
 
 	mux := http.NewServeMux()
 	mux.Handle("/api/", http.StripPrefix("/api", apiHandler))
+	mux.Handle("/healthz", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("{\"status\":\"ok\"}"))
+	}))
 
 	return &Server{
 		mux:      mux,
@@ -67,12 +70,15 @@ func (s *Server) Shutdown(ctx context.Context) error {
 }
 
 type HandlerOptions struct {
-	DB             *memory.Client
-	Encryption     *secret.Client
+	DB           *memory.Client
+	Encryption   *secret.Client
+	AgentRuntime AgentRuntime
+
+	EventBus   *event.Bus
+	MessageHub *event.MessageHub
+	Analytics  analytics.Client
+
 	RequestOptions []connect.HandlerOption
-	AgentRuntime   AgentRuntime
-	MessageHub     *stream.EventHub
-	Analytics      analytics.Client
 }
 
 type Handler struct {
@@ -93,10 +99,10 @@ func NewHandler(opts HandlerOptions) *Handler {
 	agentHandler := NewAgentHandler(opts.DB, opts.Analytics)
 	handler.mux.Handle(v1connect.NewAgentServiceHandler(agentHandler, opts.RequestOptions...))
 
-	taskHandler := NewTaskHandler(opts.DB, opts.MessageHub, opts.AgentRuntime, opts.Analytics)
+	taskHandler := NewTaskHandler(opts.DB, opts.MessageHub, opts.EventBus, opts.AgentRuntime, opts.Analytics)
 	handler.mux.Handle(v1connect.NewTaskServiceHandler(taskHandler, opts.RequestOptions...))
 
-	messageHandler := NewMessageHandler(opts.DB, opts.AgentRuntime, opts.MessageHub)
+	messageHandler := NewMessageHandler(opts.DB, opts.AgentRuntime, opts.MessageHub, opts.EventBus)
 	handler.mux.Handle(v1connect.NewMessageServiceHandler(messageHandler, opts.RequestOptions...))
 
 	return handler
