@@ -5,8 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
-	"github.com/furisto/construct/frontend/cli/pkg/terminal"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/getsentry/sentry-go"
 )
 
@@ -28,12 +29,13 @@ type UserFacingError struct {
 	Troubleshooting Troubleshooting
 	TechDetails     string
 	HelpURLs        []string
+	Time            time.Time
 }
 
 func (e *UserFacingError) Error() string {
 	var msg strings.Builder
 
-	msg.WriteString(fmt.Sprintf("%s\n\n", terminal.Bold(e.UserMessage)))
+	msg.WriteString(fmt.Sprintf("%s\n\n", lipgloss.NewStyle().Bold(true).Render(e.UserMessage)))
 
 	if len(e.Troubleshooting.Solutions) > 0 {
 		msg.WriteString("Troubleshooting steps:\n")
@@ -66,7 +68,7 @@ func (e *UserFacingError) Error() string {
 	if len(e.HelpURLs) > 0 {
 		msg.WriteString("If the problem persists:\n")
 		for _, url := range e.HelpURLs {
-			msg.WriteString(fmt.Sprintf("%s %s\n", terminal.LinkSymbol, url))
+			msg.WriteString(fmt.Sprintf("%s %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color("75")).SetString("→").Render(), url))
 		}
 	}
 
@@ -207,6 +209,19 @@ func TransformError(err error) error {
 	}
 
 	errStr := err.Error()
+	if strings.HasPrefix(errStr, "unavailable") {
+		return &UserFacingError{
+			Cause:       err,
+			UserMessage: "Agent runtime unavailable. Retrying...",
+			Troubleshooting: Troubleshooting{
+				Format: UserFacingSolutionFormatSingleline,
+				Solutions: []string{
+					"Wait a few seconds for the agent runtime to become available",
+					"Try again later",
+				},
+			},
+		}
+	}
 	if strings.Contains(errStr, "no such file or directory") {
 		return &UserFacingError{
 			Cause:       err,

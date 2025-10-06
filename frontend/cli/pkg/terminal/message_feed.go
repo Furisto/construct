@@ -10,6 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	v1 "github.com/furisto/construct/api/go/v1"
+	"github.com/furisto/construct/frontend/cli/pkg/fail"
 )
 
 type MessageFeedKeybindings struct {
@@ -86,6 +87,10 @@ func (m *MessageFeed) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case *v1.Message:
 		m.processMessage(msg)
 		m.updateViewportContent()
+
+	case *Error:
+		m.upsertErrorMessage(msg)
+		m.updateViewportContent()
 	}
 
 	return m, tea.Batch(cmds...)
@@ -155,6 +160,17 @@ func (m *MessageFeed) updateViewportContent() {
 	}
 }
 
+func (m *MessageFeed) upsertErrorMessage(errMsg *Error) {
+	if len(m.messages) > 0 {
+		if lastMsg, ok := m.messages[len(m.messages)-1].(*Error); ok {
+			lastMsg.Error = errMsg.Error
+			return
+		}
+	}
+
+	m.messages = append(m.messages, errMsg)
+}
+
 func (m *MessageFeed) processMessage(msg *v1.Message) {
 	for _, part := range msg.Spec.Content {
 		switch data := part.Data.(type) {
@@ -179,11 +195,6 @@ func (m *MessageFeed) processMessage(msg *v1.Message) {
 			m.messages = append(m.messages, m.createToolCallMessage(data.ToolCall, msg.Metadata.CreatedAt.AsTime()))
 		case *v1.MessagePart_ToolResult:
 			m.messages = append(m.messages, m.createToolResultMessage(data.ToolResult, msg.Metadata.CreatedAt.AsTime()))
-		case *v1.MessagePart_Error_:
-			m.messages = append(m.messages, &errorMessage{
-				content:   data.Error.Message,
-				timestamp: msg.Metadata.CreatedAt.AsTime(),
-			})
 		}
 	}
 }
@@ -372,7 +383,7 @@ func formatMessages(messages []message, partialMessage string, width int) string
 			}
 
 			renderedMessages = append(renderedMessages,
-				renderToolCallMessage("Find", fmt.Sprintf("%s(pattern: %s, path: %s, exclude: %s)", boldStyle.Render("Find"), msg.Input.Pattern, pathInfo, excludeArg), width, addBottomMargin(i, messages)))
+				renderToolCallMessage("Find", fmt.Sprintf("(pattern: %s, path: %s, exclude: %s)", msg.Input.Pattern, pathInfo, excludeArg), width, addBottomMargin(i, messages)))
 
 		case *grepToolCall:
 			searchInfo := msg.Input.Query
@@ -403,8 +414,17 @@ func formatMessages(messages []message, partialMessage string, width int) string
 			renderedMessages = append(renderedMessages, renderToolCallMessage("Interpreter", "Output", width, addBottomMargin(i, messages)))
 			renderedMessages = append(renderedMessages, formatCodeInterpreterContent(msg.Result.Output))
 
-		case *errorMessage:
-			renderedMessages = append(renderedMessages, errorStyle.Render("❌ Error: ")+msg.content)
+		case *Error:
+			var message string
+			if msg != nil && msg.Error != nil {
+				if err, ok := msg.Error.(*fail.UserFacingError); ok {
+					message = err.UserMessage
+				} else {
+					message = msg.Error.Error()
+				}
+
+				renderedMessages = append(renderedMessages, errorStyle.Render("❌ Error: ")+message)
+			}
 		}
 	}
 

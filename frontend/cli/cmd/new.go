@@ -54,8 +54,12 @@ code reviews.`,
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			apiClient := getAPIClient(cmd.Context())
-			verbose := getGlobalOptions(cmd.Context()).Verbose
+			endpointContext := getEndpointContext(cmd.Context())
+			if endpointContext.Address == "" {
+				return fmt.Errorf("endpoint context not found")
+			}
+			apiClient := api.NewClient(endpointContext, api.WithConnectOptions())
+			verbose := getGlobalOptions(cmd.Context()).LogLevel == LogLevelDebug
 
 			return fail.HandleError(handleNewCommand(cmd.Context(), apiClient, options, verbose))
 		},
@@ -86,7 +90,6 @@ func handleNewCommand(ctx context.Context, apiClient *api.Client, options *newOp
 	resp, err := apiClient.Task().CreateTask(ctx, &connect.Request[v1.CreateTaskRequest]{
 		Msg: &v1.CreateTaskRequest{
 			AgentId:          agent.Metadata.Id,
-			Description:      "Build a Go-based coding agent with Anthropic and OpenAI API integration",
 			ProjectDirectory: options.workspace,
 		},
 	})
@@ -94,8 +97,6 @@ func handleNewCommand(ctx context.Context, apiClient *api.Client, options *newOp
 	if err != nil {
 		return err
 	}
-
-	fmt.Println("Created task", resp.Msg.Task.Metadata.Id)
 
 	model := terminal.NewSession(ctx, apiClient, resp.Msg.Task, agent)
 	if verbose {
@@ -115,7 +116,7 @@ func handleNewCommand(ctx context.Context, apiClient *api.Client, options *newOp
 			},
 		})
 		if err != nil {
-			fmt.Println("error subscribing to task:", err)
+			program.Send(terminal.NewError(err))
 			return
 		}
 
@@ -132,17 +133,14 @@ func handleNewCommand(ctx context.Context, apiClient *api.Client, options *newOp
 		}
 
 		if err := watch.Err(); err != nil {
-			fmt.Println("error watching task:", err)
+			program.Send(terminal.NewError(err))
 		}
 	}()
-	fmt.Println("Running program", resp.Msg.Task.Metadata.Id)
 
 	tempFile, err := os.CreateTemp("", "construct-new-*")
 	if err != nil {
 		return err
 	}
-
-	fmt.Println("Temp file created", tempFile.Name())
 
 	tea.LogToFile(tempFile.Name(), "debug")
 
@@ -151,4 +149,25 @@ func handleNewCommand(ctx context.Context, apiClient *api.Client, options *newOp
 	}
 
 	return nil
+}
+
+type ErrorInterceptor struct {
+}
+
+func (e *ErrorInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
+	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
+		resp, err := next(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		return resp, nil
+	}
+}
+
+func (e *ErrorInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
+	return next
+}
+
+func (e *ErrorInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
+	return next
 }

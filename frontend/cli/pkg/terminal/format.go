@@ -65,10 +65,6 @@ func trimTrailingWhitespaceWithANSI(s string) string {
 	return re.ReplaceAllString(s, "")
 }
 
-func containsCodeBlock(content string) bool {
-	return strings.Contains(content, "```")
-}
-
 func Max(a, b int) int {
 	if a > b {
 		return a

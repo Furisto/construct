@@ -110,3 +110,11 @@ func getConfigStore(ctx context.Context) *config.Store {
 func setConfigStore(ctx context.Context, configStore *config.Store) context.Context {
 	return context.WithValue(ctx, ContextKeyConfigStore, configStore)
 }
+
+func getEndpointContext(ctx context.Context) api.EndpointContext {
+	if endpointContext := ctx.Value(ContextKeyEndpointContext); endpointContext != nil {
+		return endpointContext.(api.EndpointContext)
+	}
+
+	return api.EndpointContext{}
+}

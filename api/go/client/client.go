@@ -10,6 +10,7 @@ import (
 
 	"github.com/furisto/construct/api/go/client/mocks"
 	"github.com/furisto/construct/api/go/v1/v1connect"
+	"connectrpc.com/connect"
 	"go.uber.org/mock/gomock"
 )
 
@@ -23,14 +24,34 @@ type Client struct {
 
 type ClientOptions struct {
 	HTTPClient *http.Client
+	ConnectOptions []connect.ClientOption
 }
 
-func NewClient(endpointContext EndpointContext) *Client {
-	httpClient := &http.Client{}
+type ClientOption func(*ClientOptions)
+
+func WithHTTPClient(client *http.Client) ClientOption {
+	return func(o *ClientOptions) {
+		o.HTTPClient = client
+	}
+}
+
+func WithConnectOptions(options ...connect.ClientOption) ClientOption {
+	return func(o *ClientOptions) {
+		o.ConnectOptions = append(o.ConnectOptions, options...)
+	}
+}
+
+func NewClient(endpointContext EndpointContext, options ...ClientOption) *Client {
+	opts := ClientOptions{
+		HTTPClient: &http.Client{},
+	}
+	for _, option := range options {
+		option(&opts)
+	}
 
 	baseURL := endpointContext.Address
 	if endpointContext.Kind == "unix" {
-		httpClient.Transport = &http.Transport{
+		opts.HTTPClient.Transport = &http.Transport{
 			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 				return net.Dial("unix", endpointContext.Address)
 			},
@@ -40,11 +61,11 @@ func NewClient(endpointContext EndpointContext) *Client {
 	baseURL, _ = url.JoinPath(baseURL, "api")
 
 	return &Client{
-		modelProvider: v1connect.NewModelProviderServiceClient(httpClient, baseURL),
-		model:         v1connect.NewModelServiceClient(httpClient, baseURL),
-		agent:         v1connect.NewAgentServiceClient(httpClient, baseURL),
-		task:          v1connect.NewTaskServiceClient(httpClient, baseURL),
-		message:       v1connect.NewMessageServiceClient(httpClient, baseURL),
+		modelProvider: v1connect.NewModelProviderServiceClient(opts.HTTPClient, baseURL, opts.ConnectOptions...),
+		model:         v1connect.NewModelServiceClient(opts.HTTPClient, baseURL, opts.ConnectOptions...),
+		agent:         v1connect.NewAgentServiceClient(opts.HTTPClient, baseURL, opts.ConnectOptions...),
+		task:          v1connect.NewTaskServiceClient(opts.HTTPClient, baseURL, opts.ConnectOptions...),
+		message:       v1connect.NewMessageServiceClient(opts.HTTPClient, baseURL, opts.ConnectOptions...),
 	}
 }
 

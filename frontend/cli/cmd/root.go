@@ -161,6 +161,7 @@ func setAPIClient(ctx context.Context, cmd *cobra.Command) error {
 
 	apiClient := api.NewClient(endpointContext)
 	cmd.SetContext(context.WithValue(cmd.Context(), ContextKeyAPIClient, apiClient))
+	cmd.SetContext(context.WithValue(cmd.Context(), ContextKeyEndpointContext, endpointContext))
 
 	return nil
 }

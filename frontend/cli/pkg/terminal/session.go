@@ -16,7 +16,13 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	api_client "github.com/furisto/construct/api/go/client"
 	v1 "github.com/furisto/construct/api/go/v1"
+	"github.com/furisto/construct/frontend/cli/pkg/fail"
 )
+
+type modelInfo struct {
+	name          string
+	contextWindow int64
+}
 
 type SessionKeyBindings struct {
 	Help        key.Binding
@@ -73,14 +79,15 @@ type Session struct {
 	ctx     context.Context
 	Verbose bool
 
-	state           appState
-	mode            uiMode
 	showHelp        bool
 	waitingForAgent bool
 	lastUsage       *v1.TaskUsage
 	workspacePath   string
 	lastCtrlC       time.Time
 	keyBindings     SessionKeyBindings
+
+	modelInfoCache   map[string]*modelInfo
+	currentModelInfo *modelInfo
 }
 
 var _ tea.Model = (*Session)(nil)
@@ -104,30 +111,25 @@ func NewSession(ctx context.Context, apiClient *api_client.Client, task *v1.Task
 
 	workspacePath := getWorkspacePath(task)
 
-	agents, err := apiClient.Agent().ListAgents(ctx, &connect.Request[v1.ListAgentsRequest]{})
-	if err != nil {
-		slog.Error("failed to list agents", "error", err)
-	}
-
 	return &Session{
-		width:           80,
-		height:          20,
-		input:           ta,
-		messageFeed:     NewMessageFeed(),
-		spinner:         sp,
-		apiClient:       apiClient,
-		messages:        []message{},
-		activeAgent:     agent,
-		agents:          agents.Msg.Agents,
-		task:            task,
-		ctx:             ctx,
-		state:           StateNormal,
-		mode:            ModeInput,
-		showHelp:        false,
-		waitingForAgent: false,
-		lastUsage:       task.Status.Usage,
-		workspacePath:   workspacePath,
-		keyBindings:     NewSessionKeyBindings(),
+		width:            80,
+		height:           20,
+		input:            ta,
+		messageFeed:      NewMessageFeed(),
+		spinner:          sp,
+		apiClient:        apiClient,
+		messages:         []message{},
+		activeAgent:      agent,
+		agents:           []*v1.Agent{},
+		task:             task,
+		ctx:              ctx,
+		showHelp:         false,
+		waitingForAgent:  false,
+		lastUsage:        task.Status.Usage,
+		workspacePath:    workspacePath,
+		keyBindings:      NewSessionKeyBindings(),
+		modelInfoCache:   make(map[string]*modelInfo),
+		currentModelInfo: nil,
 	}
 }
 
@@ -139,6 +141,14 @@ func (m Session) Init() tea.Cmd {
 
 	return tea.Batch(
 		tea.SetWindowTitle(windowTitle),
+		func() tea.Msg {
+			return listAgentsCmd{}
+		},
+		func() tea.Msg {
+			return getModelCmd{
+				modelId: m.activeAgent.Spec.ModelId,
+			}
+		},
 	)
 }
 
@@ -163,7 +173,19 @@ func (m *Session) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.onWindowResize(msg)
 
 	case *v1.TaskEvent:
-		m.processTaskEvent(msg)
+		cmds = append(cmds, m.processTaskEvent(msg))
+
+	// Handle API commands
+	case suspendTaskCmd:
+		cmds = append(cmds, m.executeSuspendTask())
+	case sendMessageCmd:
+		cmds = append(cmds, m.executeSendMessage(msg.content))
+	case getTaskCmd:
+		cmds = append(cmds, m.executeGetTask(msg.taskId))
+	case getModelCmd:
+		cmds = append(cmds, m.executeGetModel(msg.modelId))
+	case listAgentsCmd:
+		cmds = append(cmds, m.executeListAgents())
 	}
 
 	if !m.showHelp {
@@ -225,7 +247,9 @@ func (m *Session) handleMessageSend() tea.Cmd {
 		m.input.Reset()
 
 		m.waitingForAgent = true
-		return m.sendMessage(userInput)
+		return func() tea.Msg {
+			return sendMessageCmd{content: userInput}
+		}
 	}
 
 	return nil
@@ -256,7 +280,11 @@ func (m *Session) handleSwitchAgent() tea.Cmd {
 	}
 
 	m.activeAgent = m.agents[currentIdx]
-	return nil
+
+	// Fetch model info for the new agent
+	return func() tea.Msg {
+		return getModelCmd{modelId: m.activeAgent.Spec.ModelId}
+	}
 }
 
 func (m *Session) handleClearOrQuit() tea.Cmd {
@@ -275,20 +303,34 @@ func (m *Session) handleClearOrQuit() tea.Cmd {
 }
 
 func (m *Session) handleSuspendTask() tea.Cmd {
-	_, err := m.apiClient.Task().SuspendTask(m.ctx, &connect.Request[v1.SuspendTaskRequest]{
-		Msg: &v1.SuspendTaskRequest{
-			TaskId: m.task.Metadata.Id,
-		},
-	})
-
-	if err != nil {
-		slog.Error("failed to suspend task", "error", err)
+	return func() tea.Msg {
+		return suspendTaskCmd{}
 	}
+}
 
+func (m *Session) processTaskEvent(msg *v1.TaskEvent) tea.Cmd {
+	if msg.TaskId == m.task.Metadata.Id {
+		return func() tea.Msg {
+			return getTaskCmd{taskId: msg.TaskId}
+		}
+	}
 	return nil
 }
 
-func (m *Session) sendMessage(userInput string) tea.Cmd {
+// API execution methods
+func (m *Session) executeSuspendTask() tea.Cmd {
+	return func() tea.Msg {
+		_, err := m.apiClient.Task().SuspendTask(m.ctx, &connect.Request[v1.SuspendTaskRequest]{
+			Msg: &v1.SuspendTaskRequest{
+				TaskId: m.task.Metadata.Id,
+			},
+		})
+
+		return handleAPIError(err)
+	}
+}
+
+func (m *Session) executeSendMessage(userInput string) tea.Cmd {
 	return func() tea.Msg {
 		_, err := m.apiClient.Message().CreateMessage(context.Background(), &connect.Request[v1.CreateMessageRequest]{
 			Msg: &v1.CreateMessageRequest{
@@ -305,33 +347,64 @@ func (m *Session) sendMessage(userInput string) tea.Cmd {
 			},
 		})
 
-		if err != nil {
-			slog.Error("failed to send message", "error", err)
-			m.waitingForAgent = false
-
-			return &errorMessage{
-				content:   fmt.Sprintf("Error sending message: %v", err),
-				timestamp: time.Now(),
-			}
-		}
-		return nil
+		return handleAPIError(err)
 	}
 }
 
-func (m *Session) processTaskEvent(msg *v1.TaskEvent) {
-	if msg.TaskId == m.task.Metadata.Id {
+func (m *Session) executeGetTask(taskId string) tea.Cmd {
+	return func() tea.Msg {
 		resp, err := m.apiClient.Task().GetTask(m.ctx, &connect.Request[v1.GetTaskRequest]{
 			Msg: &v1.GetTaskRequest{
-				Id: msg.TaskId,
+				Id: taskId,
 			},
 		})
 		if err != nil {
-			slog.Error("failed to get task", "error", err)
-			return
+			return handleAPIError(err)
 		}
 
 		m.task = resp.Msg.Task
 		m.lastUsage = resp.Msg.Task.Status.Usage
+		return nil
+	}
+}
+
+func (m *Session) executeGetModel(modelId string) tea.Cmd {
+	return func() tea.Msg {
+		// Check cache first
+		if cached, exists := m.modelInfoCache[modelId]; exists {
+			m.currentModelInfo = cached
+			return nil
+		}
+
+		resp, err := m.apiClient.Model().GetModel(m.ctx, &connect.Request[v1.GetModelRequest]{
+			Msg: &v1.GetModelRequest{
+				Id: modelId,
+			},
+		})
+		if err != nil {
+			return handleAPIError(err)
+		}
+
+		// Cache the result
+		info := &modelInfo{
+			name:          resp.Msg.Model.Spec.Name,
+			contextWindow: resp.Msg.Model.Spec.ContextWindow,
+		}
+		m.modelInfoCache[modelId] = info
+		m.currentModelInfo = info
+		return nil
+	}
+}
+
+func (m *Session) executeListAgents() tea.Cmd {
+	return func() tea.Msg {
+		agents, err := m.apiClient.Agent().ListAgents(m.ctx, &connect.Request[v1.ListAgentsRequest]{})
+		if err != nil {
+			return handleAPIError(err)
+		}
+
+		m.agents = agents.Msg.Agents
+		return nil
 	}
 }
 
@@ -389,21 +462,17 @@ func (m *Session) headerView() string {
 		statusText = taskStatusStyle.Render(taskStatus)
 	}
 
-	modelName, contextWindowSize, err := m.getAgentModelInfo(m.activeAgent)
-	if err != nil {
-		slog.Error("failed to get model info", "error", err)
-	}
-
 	agentSection := lipgloss.JoinHorizontal(lipgloss.Left,
 		agentDiamondStyle.Render("» "),
 		agentNameStyle.Render(agentName),
 	)
 
-	if modelName != "" {
+	// Use cached model info
+	if m.currentModelInfo != nil && m.currentModelInfo.name != "" {
 		agentSection = lipgloss.JoinHorizontal(lipgloss.Left,
 			agentSection,
 			bulletSeparatorStyle.Render(" • "),
-			agentModelStyle.Render(abbreviateModelName(modelName)),
+			agentModelStyle.Render(abbreviateModelName(m.currentModelInfo.name)),
 		)
 	}
 
@@ -422,7 +491,7 @@ func (m *Session) headerView() string {
 			tokenDisplay += fmt.Sprintf(" (Cache: %d↑ %d↓)", m.lastUsage.CacheReadTokens, m.lastUsage.CacheWriteTokens)
 		}
 
-		contextUsage := m.calculateContextUsage(contextWindowSize)
+		contextUsage := m.calculateContextUsage()
 		if contextUsage >= 0 {
 			tokenDisplay += fmt.Sprintf(" | Context: %d%%", contextUsage)
 		}
@@ -443,35 +512,18 @@ func (m *Session) inputView() string {
 	return inputStyle.Render(m.input.View())
 }
 
-func (m *Session) getAgentModelInfo(agent *v1.Agent) (string, int64, error) {
-	if agent.Spec.ModelId == "" {
-		return "", 0, fmt.Errorf("agent %s has no model", agent.Metadata.Id)
-	}
-
-	resp, err := m.apiClient.Model().GetModel(m.ctx, &connect.Request[v1.GetModelRequest]{
-		Msg: &v1.GetModelRequest{
-			Id: agent.Spec.ModelId,
-		},
-	})
-	if err != nil {
-		return "", 0, fmt.Errorf("failed to retrieve model %s: %w", agent.Spec.ModelId, err)
-	}
-
-	return resp.Msg.Model.Spec.Name, resp.Msg.Model.Spec.ContextWindow, nil
-}
-
-func (m *Session) calculateContextUsage(contextWindowSize int64) int {
-	if m.lastUsage == nil || m.activeAgent == nil {
+func (m *Session) calculateContextUsage() int {
+	if m.lastUsage == nil || m.activeAgent == nil || m.currentModelInfo == nil {
 		return -1
 	}
 
-	if contextWindowSize <= 0 {
-		slog.Error("invalid context window size", "contextWindowSize", contextWindowSize)
+	if m.currentModelInfo.contextWindow <= 0 {
+		slog.Error("invalid context window size", "contextWindowSize", m.currentModelInfo.contextWindow)
 		return -1
 	}
 
 	totalTokens := m.lastUsage.InputTokens + m.lastUsage.OutputTokens + m.lastUsage.CacheReadTokens + m.lastUsage.CacheWriteTokens
-	percentage := int((float64(totalTokens) / float64(contextWindowSize)) * 100)
+	percentage := int((float64(totalTokens) / float64(m.currentModelInfo.contextWindow)) * 100)
 	if percentage > 100 {
 		percentage = 100
 	}
@@ -505,4 +557,17 @@ func abbreviateModelName(name string) string {
 		return name[:12] + "..."
 	}
 	return name
+}
+
+func handleAPIError(err error) *Error {
+	if err == nil {
+		return nil
+	}
+
+	cause := fail.HandleError(err)
+	if cause == nil {
+		return nil
+	}
+
+	return NewError(cause)
 }

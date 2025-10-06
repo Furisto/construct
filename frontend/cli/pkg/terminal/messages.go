@@ -62,19 +62,6 @@ func (m *assistantTextMessage) Render(writer io.Writer) string {
 
 var _ message = (*assistantTextMessage)(nil)
 
-type errorMessage struct {
-	content   string
-	timestamp time.Time
-}
-
-func (m *errorMessage) Type() messageType {
-	return MessageTypeError
-}
-
-func (m *errorMessage) Timestamp() time.Time {
-	return m.timestamp
-}
-
 // TOOL CALL MESSAGES
 type createFileToolCall struct {
 	ID        string
