@@ -232,6 +232,7 @@ func (rt *Runtime) worker(ctx context.Context) {
 
 		result, err := rt.processTask(ctx, taskID)
 		if err != nil {
+			slog.ErrorContext(ctx, "task could not be processed", "error", err, "task_id", taskID)
 			rt.publishError(err, taskID)
 		}
 
@@ -249,9 +250,10 @@ func (rt *Runtime) worker(ctx context.Context) {
 func (rt *Runtime) processTask(ctx context.Context, taskID uuid.UUID) (Result, error) {
 	defer func() {
 		if r := recover(); r != nil {
-			slog.Error("panic in processTask", "error", r)
+			slog.ErrorContext(ctx, "panic in processTask", "error", r)
 		}
 	}()
+	slog.DebugContext(ctx, "processing task", "task_id", taskID)
 
 	ctx, cancel := context.WithCancel(ctx)
 	rt.runningTasks.Set(taskID, cancel)
@@ -262,7 +264,7 @@ func (rt *Runtime) processTask(ctx context.Context, taskID uuid.UUID) (Result, e
 	if err != nil {
 		return Result{}, err
 	}
-
+	
 	processedMessages, nextMessage, err := rt.fetchTaskMessages(ctx, task.ID)
 	if err != nil {
 		return Result{}, err
@@ -272,8 +274,8 @@ func (rt *Runtime) processTask(ctx context.Context, taskID uuid.UUID) (Result, e
 		slog.DebugContext(ctx, "no unprocessed messages, skipping", "task_id", taskID)
 		return Result{}, nil
 	}
-
-	rt.publishTaskEvent(taskID)
+	rt.setTaskPhaseAndPublish(ctx, taskID, types.TaskPhaseRunning)
+	defer rt.setTaskPhaseAndPublish(ctx, taskID, types.TaskPhaseAwaiting)
 
 	if nextMessage.Source == types.MessageSourceUser {
 		msg, err := ConvertMemoryMessageToProto(nextMessage)
@@ -293,11 +295,12 @@ func (rt *Runtime) processTask(ctx context.Context, taskID uuid.UUID) (Result, e
 		return Result{}, err
 	}
 
-	systemPrompt, err := rt.assembleSystemPrompt(agent.Instructions, task.ProjectDirectory)
+	systemPrompt, err := rt.assembleSystemPrompt(ctx, agent.Instructions, task.ProjectDirectory)
 	if err != nil {
 		return Result{}, err
 	}
 
+	slog.DebugContext(ctx, "invoking model", "task_id", taskID, "model", agent.Edges.Model.Name, "agent_id", agent.ID)
 	message, err := modelProvider.InvokeModel(
 		ctx,
 		agent.Edges.Model.Name,
@@ -347,11 +350,9 @@ func (rt *Runtime) processTask(ctx context.Context, taskID uuid.UUID) (Result, e
 		},
 	})
 
-	rt.publishTaskEvent(taskID)
-
 	toolResults, toolStats, err := rt.callTools(ctx, task, message.Content)
 	if err != nil {
-		slog.Error("failed to call tools", "error", err)
+		slog.ErrorContext(ctx, "failed to call tools", "error", err)
 	}
 
 	if len(toolResults) > 0 {
@@ -374,8 +375,6 @@ func (rt *Runtime) processTask(ctx context.Context, taskID uuid.UUID) (Result, e
 	if err != nil {
 		return Result{}, err
 	}
-
-	rt.publishTaskEvent(taskID)
 
 	return Result{Retry: true}, nil
 }
@@ -410,13 +409,15 @@ func (rt *Runtime) saveToolResults(ctx context.Context, taskID uuid.UUID, toolRe
 		}
 	}
 
-	return rt.memory.Message.Create().
-		SetTaskID(taskID).
-		SetSource(types.MessageSourceSystem).
-		SetContent(&types.MessageContent{
-			Blocks: toolBlocks,
-		}).
-		Save(ctx)
+	return memory.Transaction(ctx, rt.memory, func(tx *memory.Client) (*memory.Message, error) {
+		return tx.Message.Create().
+			SetTaskID(taskID).
+			SetSource(types.MessageSourceSystem).
+			SetContent(&types.MessageContent{
+				Blocks: toolBlocks,
+			}).
+			Save(ctx)
+	})
 }
 
 func (rt *Runtime) fetchTaskWithAgent(ctx context.Context, taskID uuid.UUID) (*memory.Task, *memory.Agent, error) {
@@ -514,7 +515,7 @@ func (rt *Runtime) prepareModelData(
 	return modelMessages, nil
 }
 
-func (rt *Runtime) assembleSystemPrompt(agentInstruction string, cwd string) (string, error) {
+func (rt *Runtime) assembleSystemPrompt(ctx context.Context, agentInstruction string, cwd string) (string, error) {
 	var toolInstruction string
 	if len(rt.interpreter.Tools) != 0 {
 		toolInstruction = prompt.ToolInstructions()
@@ -527,12 +528,12 @@ func (rt *Runtime) assembleSystemPrompt(agentInstruction string, cwd string) (st
 
 	projectStructure, err := ProjectStructure(cwd)
 	if err != nil {
-		slog.Error("failed to get project structure", "error", err)
+		slog.ErrorContext(ctx, "failed to get project structure", "error", err)
 	}
 
 	shell, err := DefaultShell()
 	if err != nil {
-		slog.Error("failed to get user shell", "error", err)
+		slog.ErrorContext(ctx, "failed to get user shell", "error", err)
 	}
 
 	devTools := AvailableDevTools()
@@ -571,44 +572,52 @@ func (rt *Runtime) assembleSystemPrompt(agentInstruction string, cwd string) (st
 }
 
 func (rt *Runtime) saveResponse(ctx context.Context, taskID uuid.UUID, processedMessage *memory.Message, msg *model.Message, m *memory.Model) (*memory.Message, error) {
-	_, err := processedMessage.Update().SetProcessedTime(time.Now()).Save(ctx)
-	if err != nil {
-		return nil, err
-	}
+	newMessage, err := memory.Transaction(ctx, rt.memory, func(tx *memory.Client) (*memory.Message, error) {
+		_, err := processedMessage.Update().SetProcessedTime(time.Now()).Save(ctx)
+		if err != nil {
+			return nil, err
+		}
 
-	memoryContent, err := ConvertModelContentBlocksToMemory(msg.Content)
-	if err != nil {
-		return nil, err
-	}
+		memoryContent, err := ConvertModelContentBlocksToMemory(msg.Content)
+		if err != nil {
+			return nil, err
+		}
 
-	cost := calculateCost(msg.Usage, m)
+		cost := calculateCost(msg.Usage, m)
 
-	t := time.Now()
-	newMessage, err := rt.memory.Message.Create().
-		SetTaskID(taskID).
-		SetSource(types.MessageSourceAssistant).
-		SetContent(memoryContent).
-		SetProcessedTime(t).
-		SetUsage(&types.MessageUsage{
-			InputTokens:      msg.Usage.InputTokens,
-			OutputTokens:     msg.Usage.OutputTokens,
-			CacheWriteTokens: msg.Usage.CacheWriteTokens,
-			CacheReadTokens:  msg.Usage.CacheReadTokens,
-			Cost:             cost,
-		}).
-		Save(ctx)
+		t := time.Now()
+		message, err := tx.Message.Create().
+			SetTaskID(taskID).
+			SetSource(types.MessageSourceAssistant).
+			SetContent(memoryContent).
+			SetProcessedTime(t).
+			SetUsage(&types.MessageUsage{
+				InputTokens:      msg.Usage.InputTokens,
+				OutputTokens:     msg.Usage.OutputTokens,
+				CacheWriteTokens: msg.Usage.CacheWriteTokens,
+				CacheReadTokens:  msg.Usage.CacheReadTokens,
+				Cost:             cost,
+			}).
+			Save(ctx)
 
-	if err != nil {
-		return nil, err
-	}
+		if err != nil {
+			return nil, err
+		}
 
-	_, err = rt.memory.Task.UpdateOneID(taskID).
-		AddInputTokens(msg.Usage.InputTokens).
-		AddOutputTokens(msg.Usage.OutputTokens).
-		AddCacheWriteTokens(msg.Usage.CacheWriteTokens).
-		AddCacheReadTokens(msg.Usage.CacheReadTokens).
-		AddCost(cost).
-		Save(ctx)
+		_, err = tx.Task.UpdateOneID(taskID).
+			AddInputTokens(msg.Usage.InputTokens).
+			AddOutputTokens(msg.Usage.OutputTokens).
+			AddCacheWriteTokens(msg.Usage.CacheWriteTokens).
+			AddCacheReadTokens(msg.Usage.CacheReadTokens).
+			AddCost(cost).
+			Save(ctx)
+
+		if err != nil {
+			return nil, err
+		}
+
+		return message, nil
+	})
 
 	if err != nil {
 		return nil, err
@@ -629,7 +638,7 @@ func (rt *Runtime) callTools(ctx context.Context, task *memory.Task, content []m
 
 		switch toolCall.Tool {
 		case base.ToolNameCodeInterpreter:
-			logInterpreterArgs(task.ID, toolCall.Args)
+			logInterpreterArgs(ctx, task.ID, toolCall.Args)
 			result, err := rt.interpreter.Interpret(ctx, afero.NewOsFs(), toolCall.Args, &codeact.Task{
 				ID:               task.ID,
 				ProjectDirectory: task.ProjectDirectory,
@@ -644,7 +653,7 @@ func (rt *Runtime) callTools(ctx context.Context, task *memory.Task, content []m
 			for tool, count := range result.ToolStats {
 				toolStats[tool] += count
 			}
-			logInterpreterResult(task.ID, result)
+			logInterpreterResult(ctx, task.ID, result)
 		default:
 			slog.WarnContext(ctx, "model requested unknown tool", "tool", toolCall.Tool)
 			continue
@@ -654,47 +663,47 @@ func (rt *Runtime) callTools(ctx context.Context, task *memory.Task, content []m
 	return toolResults, toolStats, nil
 }
 
-func logInterpreterArgs(taskID uuid.UUID, args json.RawMessage) {
+func logInterpreterArgs(ctx context.Context, taskID uuid.UUID, args json.RawMessage) {
 	var a codeact.InterpreterArgs
 	err := json.Unmarshal(args, &a)
 	if err != nil {
-		slog.Error("failed to unmarshal interpreter args", "error", err)
+		slog.ErrorContext(ctx, "failed to unmarshal interpreter args", "error", err)
 		return
 	}
 
-	logInterpreter(taskID, a.Script, "args_interpreter")
+	logInterpreter(ctx, taskID, a.Script, "args_interpreter")
 }
 
-func logInterpreterResult(taskID uuid.UUID, result *codeact.InterpreterResult) {
+func logInterpreterResult(ctx context.Context, taskID uuid.UUID, result *codeact.InterpreterResult) {
 	jsonResult, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
-		slog.Error("failed to marshal interpreter result", "error", err)
+		slog.ErrorContext(ctx, "failed to marshal interpreter result", "error", err)
 		return
 	}
 
-	logInterpreter(taskID, string(jsonResult), "result_interpreter")
+	logInterpreter(ctx, taskID, string(jsonResult), "result_interpreter")
 }
 
-func logInterpreter(taskID uuid.UUID, content string, operation string) {
+func logInterpreter(ctx context.Context, taskID uuid.UUID, content string, operation string) {
 	taskDir := fmt.Sprintf("/tmp/tool_call/%s", taskID.String())
 	if _, err := os.Stat(taskDir); os.IsNotExist(err) {
 		err = os.MkdirAll(taskDir, 0755)
 		if err != nil {
-			slog.Error("failed to create task directory", "error", err)
+			slog.ErrorContext(ctx, "failed to create task directory", "error", err)
 			return
 		}
 	}
 
 	fp, err := os.OpenFile(fmt.Sprintf("%s/%s.json", taskDir, operation), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
-		slog.Error("failed to open file", "error", err)
+		slog.ErrorContext(ctx, "failed to open file", "error", err)
 		return
 	}
 	defer fp.Close()
 
 	_, err = fp.WriteString(content + "\n\n" + strings.Repeat("-", 100) + "\n\n")
 	if err != nil {
-		slog.Error("failed to write interpreter args", "error", err)
+		slog.ErrorContext(ctx, "failed to write interpreter args", "error", err)
 	}
 }
 
@@ -783,6 +792,18 @@ func (rt *Runtime) publishTaskEvent(taskID uuid.UUID) {
 			TaskEvent: taskEvent,
 		},
 	})
+}
+
+func (rt *Runtime) setTaskPhaseAndPublish(ctx context.Context, taskID uuid.UUID, phase types.TaskPhase) {
+	_, err := memory.Transaction(ctx, rt.memory, func(tx *memory.Client) (*memory.Task, error) {
+		return tx.Task.UpdateOneID(taskID).SetPhase(types.TaskPhase(phase)).Save(ctx)
+	})
+
+	if err != nil {
+		slog.Error("failed to set task phase", "error", err)
+	}
+
+	rt.publishTaskEvent(taskID)
 }
 
 func (rt *Runtime) Encryption() *secret.Client {

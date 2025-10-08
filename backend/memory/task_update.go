@@ -235,6 +235,20 @@ func (tu *TaskUpdate) SetNillableDesiredPhase(tp *types.TaskPhase) *TaskUpdate {
 	return tu
 }
 
+// SetPhase sets the "phase" field.
+func (tu *TaskUpdate) SetPhase(tp types.TaskPhase) *TaskUpdate {
+	tu.mutation.SetPhase(tp)
+	return tu
+}
+
+// SetNillablePhase sets the "phase" field if the given value is not nil.
+func (tu *TaskUpdate) SetNillablePhase(tp *types.TaskPhase) *TaskUpdate {
+	if tp != nil {
+		tu.SetPhase(*tp)
+	}
+	return tu
+}
+
 // SetAgentID sets the "agent_id" field.
 func (tu *TaskUpdate) SetAgentID(u uuid.UUID) *TaskUpdate {
 	tu.mutation.SetAgentID(u)
@@ -350,6 +364,11 @@ func (tu *TaskUpdate) check() error {
 			return &ValidationError{Name: "desired_phase", err: fmt.Errorf(`memory: validator failed for field "Task.desired_phase": %w`, err)}
 		}
 	}
+	if v, ok := tu.mutation.Phase(); ok {
+		if err := task.PhaseValidator(v); err != nil {
+			return &ValidationError{Name: "phase", err: fmt.Errorf(`memory: validator failed for field "Task.phase": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -436,6 +455,9 @@ func (tu *TaskUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if value, ok := tu.mutation.DesiredPhase(); ok {
 		_spec.SetField(task.FieldDesiredPhase, field.TypeEnum, value)
+	}
+	if value, ok := tu.mutation.Phase(); ok {
+		_spec.SetField(task.FieldPhase, field.TypeEnum, value)
 	}
 	if tu.mutation.MessagesCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -735,6 +757,20 @@ func (tuo *TaskUpdateOne) SetNillableDesiredPhase(tp *types.TaskPhase) *TaskUpda
 	return tuo
 }
 
+// SetPhase sets the "phase" field.
+func (tuo *TaskUpdateOne) SetPhase(tp types.TaskPhase) *TaskUpdateOne {
+	tuo.mutation.SetPhase(tp)
+	return tuo
+}
+
+// SetNillablePhase sets the "phase" field if the given value is not nil.
+func (tuo *TaskUpdateOne) SetNillablePhase(tp *types.TaskPhase) *TaskUpdateOne {
+	if tp != nil {
+		tuo.SetPhase(*tp)
+	}
+	return tuo
+}
+
 // SetAgentID sets the "agent_id" field.
 func (tuo *TaskUpdateOne) SetAgentID(u uuid.UUID) *TaskUpdateOne {
 	tuo.mutation.SetAgentID(u)
@@ -863,6 +899,11 @@ func (tuo *TaskUpdateOne) check() error {
 			return &ValidationError{Name: "desired_phase", err: fmt.Errorf(`memory: validator failed for field "Task.desired_phase": %w`, err)}
 		}
 	}
+	if v, ok := tuo.mutation.Phase(); ok {
+		if err := task.PhaseValidator(v); err != nil {
+			return &ValidationError{Name: "phase", err: fmt.Errorf(`memory: validator failed for field "Task.phase": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -966,6 +1007,9 @@ func (tuo *TaskUpdateOne) sqlSave(ctx context.Context) (_node *Task, err error) 
 	}
 	if value, ok := tuo.mutation.DesiredPhase(); ok {
 		_spec.SetField(task.FieldDesiredPhase, field.TypeEnum, value)
+	}
+	if value, ok := tuo.mutation.Phase(); ok {
+		_spec.SetField(task.FieldPhase, field.TypeEnum, value)
 	}
 	if tuo.mutation.MessagesCleared() {
 		edge := &sqlgraph.EdgeSpec{

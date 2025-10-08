@@ -32,6 +32,8 @@ type getModelCmd struct {
 }
 type listAgentsCmd struct{}
 
+type taskUpdatedMsg struct{}
+
 type Error struct {
 	Error error
 	Time  time.Time

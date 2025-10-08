@@ -43,6 +43,8 @@ type Task struct {
 	ToolUses map[string]int64 `json:"tool_uses,omitempty"`
 	// DesiredPhase holds the value of the "desired_phase" field.
 	DesiredPhase types.TaskPhase `json:"desired_phase,omitempty"`
+	// Phase holds the value of the "phase" field.
+	Phase types.TaskPhase `json:"phase,omitempty"`
 	// AgentID holds the value of the "agent_id" field.
 	AgentID uuid.UUID `json:"agent_id,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -93,7 +95,7 @@ func (*Task) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullFloat64)
 		case task.FieldInputTokens, task.FieldOutputTokens, task.FieldCacheWriteTokens, task.FieldCacheReadTokens, task.FieldTurns:
 			values[i] = new(sql.NullInt64)
-		case task.FieldProjectDirectory, task.FieldDesiredPhase:
+		case task.FieldProjectDirectory, task.FieldDesiredPhase, task.FieldPhase:
 			values[i] = new(sql.NullString)
 		case task.FieldCreateTime, task.FieldUpdateTime:
 			values[i] = new(sql.NullTime)
@@ -188,6 +190,12 @@ func (t *Task) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				t.DesiredPhase = types.TaskPhase(value.String)
 			}
+		case task.FieldPhase:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field phase", values[i])
+			} else if value.Valid {
+				t.Phase = types.TaskPhase(value.String)
+			}
 		case task.FieldAgentID:
 			if value, ok := values[i].(*uuid.UUID); !ok {
 				return fmt.Errorf("unexpected type %T for field agent_id", values[i])
@@ -272,6 +280,9 @@ func (t *Task) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("desired_phase=")
 	builder.WriteString(fmt.Sprintf("%v", t.DesiredPhase))
+	builder.WriteString(", ")
+	builder.WriteString("phase=")
+	builder.WriteString(fmt.Sprintf("%v", t.Phase))
 	builder.WriteString(", ")
 	builder.WriteString("agent_id=")
 	builder.WriteString(fmt.Sprintf("%v", t.AgentID))

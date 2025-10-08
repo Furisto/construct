@@ -170,6 +170,20 @@ func (tc *TaskCreate) SetNillableDesiredPhase(tp *types.TaskPhase) *TaskCreate {
 	return tc
 }
 
+// SetPhase sets the "phase" field.
+func (tc *TaskCreate) SetPhase(tp types.TaskPhase) *TaskCreate {
+	tc.mutation.SetPhase(tp)
+	return tc
+}
+
+// SetNillablePhase sets the "phase" field if the given value is not nil.
+func (tc *TaskCreate) SetNillablePhase(tp *types.TaskPhase) *TaskCreate {
+	if tp != nil {
+		tc.SetPhase(*tp)
+	}
+	return tc
+}
+
 // SetAgentID sets the "agent_id" field.
 func (tc *TaskCreate) SetAgentID(u uuid.UUID) *TaskCreate {
 	tc.mutation.SetAgentID(u)
@@ -273,6 +287,10 @@ func (tc *TaskCreate) defaults() {
 		v := task.DefaultDesiredPhase
 		tc.mutation.SetDesiredPhase(v)
 	}
+	if _, ok := tc.mutation.Phase(); !ok {
+		v := task.DefaultPhase
+		tc.mutation.SetPhase(v)
+	}
 	if _, ok := tc.mutation.ID(); !ok {
 		v := task.DefaultID()
 		tc.mutation.SetID(v)
@@ -299,6 +317,14 @@ func (tc *TaskCreate) check() error {
 	if v, ok := tc.mutation.DesiredPhase(); ok {
 		if err := task.DesiredPhaseValidator(v); err != nil {
 			return &ValidationError{Name: "desired_phase", err: fmt.Errorf(`memory: validator failed for field "Task.desired_phase": %w`, err)}
+		}
+	}
+	if _, ok := tc.mutation.Phase(); !ok {
+		return &ValidationError{Name: "phase", err: errors.New(`memory: missing required field "Task.phase"`)}
+	}
+	if v, ok := tc.mutation.Phase(); ok {
+		if err := task.PhaseValidator(v); err != nil {
+			return &ValidationError{Name: "phase", err: fmt.Errorf(`memory: validator failed for field "Task.phase": %w`, err)}
 		}
 	}
 	return nil
@@ -379,6 +405,10 @@ func (tc *TaskCreate) createSpec() (*Task, *sqlgraph.CreateSpec) {
 	if value, ok := tc.mutation.DesiredPhase(); ok {
 		_spec.SetField(task.FieldDesiredPhase, field.TypeEnum, value)
 		_node.DesiredPhase = value
+	}
+	if value, ok := tc.mutation.Phase(); ok {
+		_spec.SetField(task.FieldPhase, field.TypeEnum, value)
+		_node.Phase = value
 	}
 	if nodes := tc.mutation.MessagesIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

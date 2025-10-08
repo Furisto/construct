@@ -3,6 +3,7 @@ package conv
 import (
 	v1 "github.com/furisto/construct/api/go/v1"
 	"github.com/furisto/construct/backend/memory"
+	"github.com/furisto/construct/backend/memory/schema/types"
 )
 
 func ConvertTaskToProto(t *memory.Task) (*v1.Task, error) {
@@ -30,7 +31,7 @@ func ConvertTaskSpecToProto(t *memory.Task) (*v1.TaskSpec, error) {
 	return &v1.TaskSpec{
 		AgentId:      strPtr(t.AgentID.String()),
 		Workspace:    t.ProjectDirectory,
-		DesiredPhase: v1.TaskPhase_TASK_PHASE_AWAITING,
+		DesiredPhase: ConvertTaskPhaseToProto(t.DesiredPhase),
 	}, nil
 }
 
@@ -46,6 +47,19 @@ func ConvertTaskStatusToProto(t *memory.Task) *v1.TaskStatus {
 
 	return &v1.TaskStatus{
 		Usage: usage,
-		Phase: v1.TaskPhase_TASK_PHASE_AWAITING,
+		Phase: ConvertTaskPhaseToProto(t.Phase),
+	}
+}
+
+func ConvertTaskPhaseToProto(p types.TaskPhase) v1.TaskPhase {
+	switch p {
+	case types.TaskPhaseAwaiting:
+		return v1.TaskPhase_TASK_PHASE_AWAITING
+	case types.TaskPhaseRunning:
+		return v1.TaskPhase_TASK_PHASE_RUNNING
+	case types.TaskPhaseSuspended:
+		return v1.TaskPhase_TASK_PHASE_SUSPENDED
+	default:
+		return v1.TaskPhase_TASK_PHASE_UNSPECIFIED
 	}
 }

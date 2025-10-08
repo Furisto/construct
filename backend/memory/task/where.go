@@ -582,6 +582,36 @@ func DesiredPhaseNotIn(vs ...types.TaskPhase) predicate.Task {
 	return predicate.Task(sql.FieldNotIn(FieldDesiredPhase, v...))
 }
 
+// PhaseEQ applies the EQ predicate on the "phase" field.
+func PhaseEQ(v types.TaskPhase) predicate.Task {
+	vc := v
+	return predicate.Task(sql.FieldEQ(FieldPhase, vc))
+}
+
+// PhaseNEQ applies the NEQ predicate on the "phase" field.
+func PhaseNEQ(v types.TaskPhase) predicate.Task {
+	vc := v
+	return predicate.Task(sql.FieldNEQ(FieldPhase, vc))
+}
+
+// PhaseIn applies the In predicate on the "phase" field.
+func PhaseIn(vs ...types.TaskPhase) predicate.Task {
+	v := make([]any, len(vs))
+	for i := range v {
+		v[i] = vs[i]
+	}
+	return predicate.Task(sql.FieldIn(FieldPhase, v...))
+}
+
+// PhaseNotIn applies the NotIn predicate on the "phase" field.
+func PhaseNotIn(vs ...types.TaskPhase) predicate.Task {
+	v := make([]any, len(vs))
+	for i := range v {
+		v[i] = vs[i]
+	}
+	return predicate.Task(sql.FieldNotIn(FieldPhase, v...))
+}
+
 // AgentIDEQ applies the EQ predicate on the "agent_id" field.
 func AgentIDEQ(v uuid.UUID) predicate.Task {
 	return predicate.Task(sql.FieldEQ(FieldAgentID, v))

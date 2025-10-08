@@ -104,10 +104,10 @@ func NewSession(ctx context.Context, apiClient *api_client.Client, task *v1.Task
 
 	sp := spinner.New()
 	sp.Spinner = spinner.Spinner{
-		Frames: []string{"※", "⁂", "⁕", "⁜"},
-		FPS:    time.Second / 10, //nolint:gomnd
+		Frames: spinner.MiniDot.Frames,
+		FPS:    time.Second / 6,
 	}
-	sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("39"))
+	sp.Style = taskStatusStyle
 
 	workspacePath := getWorkspacePath(task)
 
@@ -149,6 +149,7 @@ func (m Session) Init() tea.Cmd {
 				modelId: m.activeAgent.Spec.ModelId,
 			}
 		},
+		m.spinner.Tick,
 	)
 }
 
@@ -186,6 +187,8 @@ func (m *Session) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, m.executeGetModel(msg.modelId))
 	case listAgentsCmd:
 		cmds = append(cmds, m.executeListAgents())
+	case taskUpdatedMsg:
+		// task was already updated, just trigger re-render
 	}
 
 	if !m.showHelp {
@@ -317,7 +320,6 @@ func (m *Session) processTaskEvent(msg *v1.TaskEvent) tea.Cmd {
 	return nil
 }
 
-// API execution methods
 func (m *Session) executeSuspendTask() tea.Cmd {
 	return func() tea.Msg {
 		_, err := m.apiClient.Task().SuspendTask(m.ctx, &connect.Request[v1.SuspendTaskRequest]{
@@ -364,7 +366,8 @@ func (m *Session) executeGetTask(taskId string) tea.Cmd {
 
 		m.task = resp.Msg.Task
 		m.lastUsage = resp.Msg.Task.Status.Usage
-		return nil
+
+		return taskUpdatedMsg{}
 	}
 }
 
@@ -443,23 +446,14 @@ func (m *Session) headerView() string {
 		agentName = m.activeAgent.Spec.Name
 	}
 
-	taskStatus := "Unknown"
+	var statusText string
 	if m.task != nil {
 		switch m.task.Status.Phase {
-		case v1.TaskPhase_TASK_PHASE_AWAITING:
-			taskStatus = "Idle"
 		case v1.TaskPhase_TASK_PHASE_RUNNING:
-			taskStatus = "Thinking"
+			statusText = m.spinner.View() + " " + taskStatusStyle.Render("Thinking")
 		case v1.TaskPhase_TASK_PHASE_SUSPENDED:
-			taskStatus = "Suspended"
+			statusText = taskStatusStyle.Render("Suspended")
 		}
-	}
-
-	statusText := ""
-	if m.task.Status.Phase == v1.TaskPhase_TASK_PHASE_RUNNING {
-		statusText = m.spinner.View() + taskStatusStyle.Render(taskStatus)
-	} else {
-		statusText = taskStatusStyle.Render(taskStatus)
 	}
 
 	agentSection := lipgloss.JoinHorizontal(lipgloss.Left,

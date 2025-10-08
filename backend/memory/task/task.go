@@ -39,6 +39,8 @@ const (
 	FieldToolUses = "tool_uses"
 	// FieldDesiredPhase holds the string denoting the desired_phase field in the database.
 	FieldDesiredPhase = "desired_phase"
+	// FieldPhase holds the string denoting the phase field in the database.
+	FieldPhase = "phase"
 	// FieldAgentID holds the string denoting the agent_id field in the database.
 	FieldAgentID = "agent_id"
 	// EdgeMessages holds the string denoting the messages edge name in mutations.
@@ -77,6 +79,7 @@ var Columns = []string{
 	FieldTurns,
 	FieldToolUses,
 	FieldDesiredPhase,
+	FieldPhase,
 	FieldAgentID,
 }
 
@@ -114,6 +117,18 @@ func DesiredPhaseValidator(dp types.TaskPhase) error {
 		return nil
 	default:
 		return fmt.Errorf("task: invalid enum value for desired_phase field: %q", dp)
+	}
+}
+
+const DefaultPhase types.TaskPhase = "unspecified"
+
+// PhaseValidator is a validator for the "phase" field enum values. It is called by the builders before save.
+func PhaseValidator(ph types.TaskPhase) error {
+	switch ph {
+	case "unspecified", "running", "awaiting", "suspended":
+		return nil
+	default:
+		return fmt.Errorf("task: invalid enum value for phase field: %q", ph)
 	}
 }
 
@@ -173,6 +188,11 @@ func ByTurns(opts ...sql.OrderTermOption) OrderOption {
 // ByDesiredPhase orders the results by the desired_phase field.
 func ByDesiredPhase(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldDesiredPhase, opts...).ToFunc()
+}
+
+// ByPhase orders the results by the phase field.
+func ByPhase(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPhase, opts...).ToFunc()
 }
 
 // ByAgentID orders the results by the agent_id field.
