@@ -3,7 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
+	"log/slog"
 
 	"connectrpc.com/connect"
 	tea "github.com/charmbracelet/bubbletea"
@@ -54,11 +54,7 @@ code reviews.`,
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			endpointContext := getEndpointContext(cmd.Context())
-			if endpointContext.Address == "" {
-				return fmt.Errorf("endpoint context not found")
-			}
-			apiClient := api.NewClient(endpointContext, api.WithConnectOptions())
+			apiClient := getAPIClient(cmd.Context())
 			verbose := getGlobalOptions(cmd.Context()).LogLevel == LogLevelDebug
 
 			return fail.HandleError(handleNewCommand(cmd.Context(), apiClient, options, verbose))
@@ -72,8 +68,10 @@ code reviews.`,
 }
 
 func handleNewCommand(ctx context.Context, apiClient *api.Client, options *newOptions, verbose bool) error {
+	slog.Info("starting new command", "agent", options.agent, "workspace", options.workspace)
 	agentID, err := getAgentID(ctx, apiClient, options.agent)
 	if err != nil {
+		slog.Error("failed to get agent ID", "error", err, "agent", options.agent)
 		return err
 	}
 
@@ -83,6 +81,7 @@ func handleNewCommand(ctx context.Context, apiClient *api.Client, options *newOp
 		},
 	})
 	if err != nil {
+		slog.Error("failed to retrieve agent", "error", err, "agent", options.agent)
 		return err
 	}
 
@@ -95,6 +94,7 @@ func handleNewCommand(ctx context.Context, apiClient *api.Client, options *newOp
 	})
 
 	if err != nil {
+		slog.Error("failed to create task", "error", err, "agent", options.agent)
 		return err
 	}
 
@@ -108,7 +108,6 @@ func handleNewCommand(ctx context.Context, apiClient *api.Client, options *newOp
 		tea.WithAltScreen(),
 	)
 
-	fmt.Println("Subscribed to task", resp.Msg.Task.Metadata.Id)
 	go func() {
 		watch, err := apiClient.Task().Subscribe(ctx, &connect.Request[v1.SubscribeRequest]{
 			Msg: &v1.SubscribeRequest{
@@ -137,37 +136,9 @@ func handleNewCommand(ctx context.Context, apiClient *api.Client, options *newOp
 		}
 	}()
 
-	tempFile, err := os.CreateTemp("", "construct-new-*")
-	if err != nil {
-		return err
-	}
-
-	tea.LogToFile(tempFile.Name(), "debug")
-
 	if _, err := program.Run(); err != nil {
 		fmt.Printf("Error running program: %v\n", err)
 	}
 
 	return nil
-}
-
-type ErrorInterceptor struct {
-}
-
-func (e *ErrorInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
-	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
-		resp, err := next(ctx, req)
-		if err != nil {
-			return nil, err
-		}
-		return resp, nil
-	}
-}
-
-func (e *ErrorInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
-	return next
-}
-
-func (e *ErrorInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
-	return next
 }
