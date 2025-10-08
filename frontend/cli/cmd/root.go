@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"github.com/getsentry/sentry-go"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/spf13/cobra"
+	"gopkg.in/natefinch/lumberjack.v2"
 
 	api "github.com/furisto/construct/api/go/client"
 	"github.com/furisto/construct/shared"
@@ -45,14 +47,16 @@ func NewRootCmd() *cobra.Command {
 		Short: "Construct: Build intelligent agents.",
 		Long:  figure.NewColorFigure("construct", "standard", "blue", true).String(),
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			userInfo := getUserInfo(cmd.Context())
+
 			options.LogLevel = resolveLogLevel(cmd, &options)
-			slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+			slog.SetDefault(slog.New(slog.NewJSONHandler(setupLogSink(userInfo, cmd.OutOrStdout()), &slog.HandlerOptions{
 				Level: options.LogLevel.SlogLevel(),
 			})))
 
 			cmd.SetContext(setGlobalOptions(cmd.Context(), &options))
 
-			configStore, err := config.NewStore(getFileSystem(cmd.Context()), getUserInfo(cmd.Context()))
+			configStore, err := config.NewStore(getFileSystem(cmd.Context()), userInfo)
 			if err != nil {
 				return err
 			}
@@ -159,7 +163,10 @@ func setAPIClient(ctx context.Context, cmd *cobra.Command) error {
 		return fmt.Errorf("no current context found. please run `construct config context set` to set a current context")
 	}
 
-	apiClient := api.NewClient(endpointContext)
+	apiClient, err := api.NewClient(endpointContext)
+	if err != nil {
+		return fmt.Errorf("failed to create api client: %w", err)
+	}
 	cmd.SetContext(context.WithValue(cmd.Context(), ContextKeyAPIClient, apiClient))
 	cmd.SetContext(context.WithValue(cmd.Context(), ContextKeyEndpointContext, endpointContext))
 
@@ -272,4 +279,20 @@ func resolveLogLevel(cmd *cobra.Command, options *globalOptions) LogLevel {
 		}
 	}
 	return LogLevelInfo
+}
+
+func setupLogSink(userInfo shared.UserInfo, stdout io.Writer) io.Writer {
+	dataDir, err := userInfo.ConstructDataDir()
+	if err != nil {
+		return stdout
+	}
+
+	fileLogger := &lumberjack.Logger{
+		Filename: filepath.Join(dataDir, "construct.log"),
+		MaxSize:  50, 
+		MaxAge:   7, 
+		MaxBackups: 3,
+		Compress: true,
+	}
+	return io.MultiWriter(stdout, fileLogger)
 }
