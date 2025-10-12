@@ -39,8 +39,9 @@ func NewAnthropicProvider(apiKey string, opts ...ProviderOption) (*AnthropicProv
 		clientOptions = append(clientOptions, option.WithBaseURL(providerOptions.URL))
 	}
 
+	client := anthropic.NewClient(clientOptions...)
 	provider := &AnthropicProvider{
-		client:         anthropic.NewClient(clientOptions...),
+		client:         &client,
 		retryConfig:    providerOptions.RetryConfig,
 		circuitBreaker: providerOptions.CircuitBreaker,
 		metrics:        providerOptions.Metrics,
@@ -75,24 +76,21 @@ func (p *AnthropicProvider) InvokeModel(ctx context.Context, model, systemPrompt
 	}
 
 	request := anthropic.MessageNewParams{
-		Model:       anthropic.F(model),
-		MaxTokens:   anthropic.F(modelProfile.MaxTokens),
-		Temperature: anthropic.F(modelProfile.Temperature),
-		System: anthropic.F([]anthropic.TextBlockParam{
+		Model:       anthropic.ModelClaudeSonnet4_5_20250929,
+		MaxTokens:   modelProfile.MaxTokens,
+		// Thinking:    anthropic.ThinkingConfigParamOfEnabled(int64(float64(modelProfile.MaxTokens) * 0.8)),
+		System: []anthropic.TextBlockParam{
 			{
-				Type: anthropic.F(anthropic.TextBlockParamTypeText),
-				Text: anthropic.F(systemPrompt),
-				CacheControl: anthropic.F(anthropic.CacheControlEphemeralParam{
-					Type: anthropic.F(anthropic.CacheControlEphemeralTypeEphemeral),
-				}),
+				Text:         systemPrompt,
+				CacheControl: anthropic.NewCacheControlEphemeralParam(),
 			},
-		}),
-		Messages: anthropic.F(anthropicMessages),
+		},
+		Messages: anthropicMessages,
 	}
 
 	if len(anthropicTools) > 0 {
-		request.ToolChoice = anthropic.F(anthropic.ToolChoiceUnionParam(anthropic.ToolChoiceAutoParam{Type: anthropic.F(anthropic.ToolChoiceAutoTypeAuto)}))
-		request.Tools = anthropic.F(anthropicTools)
+		request.ToolChoice = anthropic.ToolChoiceUnionParam{OfAuto: &anthropic.ToolChoiceAutoParam{}}
+		request.Tools = anthropicTools
 	}
 
 	return p.invokeInternal(ctx, request, options)
@@ -121,10 +119,9 @@ func (p *AnthropicProvider) invokeInternal(ctx context.Context, request anthropi
 			event := stream.Current()
 			anthropicMessage.Accumulate(event)
 
-			switch delta := event.Delta.(type) {
-			case anthropic.ContentBlockDeltaEventDelta:
-				if delta.Text != "" && options.StreamCallback != nil {
-					options.StreamCallback(ctx, delta.Text)
+			if event.Type == "content_block_delta" && event.Delta.Type == "text_delta" {
+				if event.Delta.Text != "" && options.StreamCallback != nil {
+					options.StreamCallback(ctx, event.Delta.Text)
 				}
 			}
 		}
@@ -140,12 +137,12 @@ func (p *AnthropicProvider) invokeInternal(ctx context.Context, request anthropi
 
 		content := make([]ContentBlock, len(anthropicMessage.Content))
 		for i, block := range anthropicMessage.Content {
-			switch block := block.AsUnion().(type) {
-			case anthropic.TextBlock:
+			switch block.Type {
+			case "text":
 				content[i] = &TextBlock{
 					Text: block.Text,
 				}
-			case anthropic.ToolUseBlock:
+			case "tool_use":
 				content[i] = &ToolCallBlock{
 					ID:   block.ID,
 					Tool: block.Name,
@@ -234,23 +231,32 @@ func (p *AnthropicProvider) transformMessages(messages []*Message) ([]anthropic.
 		for j, b := range message.Content {
 			switch block := b.(type) {
 			case *TextBlock:
-				textBlock := anthropic.NewTextBlock(block.Text)
-				if (i == lastUserMessageIndex || i == secondToLastUserMessageIndex) && j == len(message.Content)-1 {
-					textBlock.CacheControl = anthropic.F(anthropic.CacheControlEphemeralParam{
-						Type: anthropic.F(anthropic.CacheControlEphemeralTypeEphemeral),
-					})
+				textBlockParam := anthropic.TextBlockParam{
+					Text: block.Text,
 				}
-				anthropicBlocks[j] = textBlock
+				if (i == lastUserMessageIndex || i == secondToLastUserMessageIndex) && j == len(message.Content)-1 {
+					textBlockParam.CacheControl = anthropic.NewCacheControlEphemeralParam()
+				}
+				anthropicBlocks[j] = anthropic.ContentBlockParamUnion{OfText: &textBlockParam}
 			case *ToolCallBlock:
-				anthropicBlocks[j] = anthropic.NewToolUseBlockParam(block.ID, block.Tool, block.Args)
-			case *ToolResultBlock:
-				toolResultBlock := anthropic.NewToolResultBlock(block.ID, block.Result, !block.Succeeded)
-				if (i == lastUserMessageIndex || i == secondToLastUserMessageIndex) && j == len(message.Content)-1 {
-					toolResultBlock.CacheControl = anthropic.F(anthropic.CacheControlEphemeralParam{
-						Type: anthropic.F(anthropic.CacheControlEphemeralTypeEphemeral),
-					})
+				toolUseBlock := anthropic.ToolUseBlockParam{
+					ID:    block.ID,
+					Name:  block.Tool,
+					Input: block.Args,
 				}
-				anthropicBlocks[j] = toolResultBlock
+				anthropicBlocks[j] = anthropic.ContentBlockParamUnion{OfToolUse: &toolUseBlock}
+			case *ToolResultBlock:
+				toolResultBlockParam := anthropic.ToolResultBlockParam{
+					ToolUseID: block.ID,
+					Content: []anthropic.ToolResultBlockParamContentUnion{
+						{OfText: &anthropic.TextBlockParam{Text: block.Result}},
+					},
+					IsError: anthropic.Bool(!block.Succeeded),
+				}
+				if (i == lastUserMessageIndex || i == secondToLastUserMessageIndex) && j == len(message.Content)-1 {
+					toolResultBlockParam.CacheControl = anthropic.NewCacheControlEphemeralParam()
+				}
+				anthropicBlocks[j] = anthropic.ContentBlockParamUnion{OfToolResult: &toolResultBlockParam}
 			}
 		}
 
@@ -267,20 +273,37 @@ func (p *AnthropicProvider) transformMessages(messages []*Message) ([]anthropic.
 	return anthropicMessages, nil
 }
 
-func (p *AnthropicProvider) transformTools(tools []native.Tool) ([]anthropic.ToolUnionUnionParam, error) {
-	var anthropicTools []anthropic.ToolUnionUnionParam
+func (p *AnthropicProvider) transformTools(tools []native.Tool) ([]anthropic.ToolUnionParam, error) {
+	var anthropicTools []anthropic.ToolUnionParam
 	for i, tool := range tools {
+		schema := tool.Schema()
+		inputSchema := anthropic.ToolInputSchemaParam{
+			ExtraFields: schema,
+		}
+
+		if props, ok := schema["properties"].(map[string]any); ok {
+			inputSchema.Properties = props
+		}
+		if req, ok := schema["required"].([]any); ok {
+			required := make([]string, len(req))
+			for i, r := range req {
+				if s, ok := r.(string); ok {
+					required[i] = s
+				}
+			}
+			inputSchema.Required = required
+		}
+
 		toolParam := anthropic.ToolParam{
-			Name:        anthropic.F(tool.Name()),
-			Description: anthropic.F(tool.Description()),
-			InputSchema: anthropic.F(any(tool.Schema())),
+			Name:        tool.Name(),
+			Description: anthropic.String(tool.Description()),
+			InputSchema: inputSchema,
 		}
 
 		if i == len(tools)-1 {
-			toolParam.CacheControl = anthropic.F(
-				anthropic.CacheControlEphemeralParam{Type: anthropic.F(anthropic.CacheControlEphemeralTypeEphemeral)})
+			toolParam.CacheControl = anthropic.NewCacheControlEphemeralParam()
 		}
-		anthropicTools = append(anthropicTools, toolParam)
+		anthropicTools = append(anthropicTools, anthropic.ToolUnionParam{OfTool: &toolParam})
 	}
 
 	return anthropicTools, nil
