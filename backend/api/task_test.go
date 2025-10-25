@@ -12,7 +12,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/google/uuid"
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -71,7 +71,7 @@ func TestCreateTask(t *testing.T) {
 						Spec: &v1.TaskSpec{
 							AgentId:      strPtr(agentID.String()),
 							Workspace:    "/tmp/test",
-							DesiredPhase: v1.TaskPhase_TASK_PHASE_AWAITING,
+							DesiredPhase: v1.TaskPhase_TASK_PHASE_RUNNING,
 						},
 						Status: &v1.TaskStatus{
 							Usage: &v1.TaskUsage{},
@@ -139,7 +139,7 @@ func TestGetTask(t *testing.T) {
 						},
 						Spec: &v1.TaskSpec{
 							AgentId:      strPtr(agentID.String()),
-							DesiredPhase: v1.TaskPhase_TASK_PHASE_AWAITING,
+							DesiredPhase: v1.TaskPhase_TASK_PHASE_RUNNING,
 						},
 						Status: &v1.TaskStatus{
 							Usage: &v1.TaskUsage{},
@@ -209,7 +209,7 @@ func TestListTasks(t *testing.T) {
 							},
 							Spec: &v1.TaskSpec{
 								AgentId:      strPtr(agentID.String()),
-								DesiredPhase: v1.TaskPhase_TASK_PHASE_AWAITING,
+								DesiredPhase: v1.TaskPhase_TASK_PHASE_RUNNING,
 							},
 							Status: &v1.TaskStatus{
 								Usage: &v1.TaskUsage{},
@@ -301,7 +301,7 @@ func TestListTasks(t *testing.T) {
 							},
 							Spec: &v1.TaskSpec{
 								AgentId:      strPtr(agentID.String()),
-								DesiredPhase: v1.TaskPhase_TASK_PHASE_AWAITING,
+								DesiredPhase: v1.TaskPhase_TASK_PHASE_RUNNING,
 							},
 							Status: &v1.TaskStatus{
 								Usage: &v1.TaskUsage{},
@@ -412,7 +412,7 @@ func TestUpdateTask(t *testing.T) {
 						},
 						Spec: &v1.TaskSpec{
 							AgentId:      strPtr(agentID2.String()),
-							DesiredPhase: v1.TaskPhase_TASK_PHASE_AWAITING,
+							DesiredPhase: v1.TaskPhase_TASK_PHASE_RUNNING,
 						},
 						Status: &v1.TaskStatus{
 							Usage: &v1.TaskUsage{},

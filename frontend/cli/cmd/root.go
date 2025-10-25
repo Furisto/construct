@@ -16,7 +16,7 @@ import (
 
 	"github.com/common-nighthawk/go-figure"
 	"github.com/getsentry/sentry-go"
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 	"github.com/spf13/cobra"
 	"gopkg.in/natefinch/lumberjack.v2"
 

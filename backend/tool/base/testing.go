@@ -13,7 +13,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/spf13/afero"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 type ToolTestSetup[ToolInput any, ToolResult any] struct {
@@ -105,7 +105,7 @@ func (s *ToolTestSetup[ToolInput, ToolResult]) RunToolTests(t *testing.T, scenar
 func (s *ToolTestSetup[ToolInput, ToolOutput]) SetupDatabase(t *testing.T) *memory.Client {
 	t.Helper()
 
-	db, err := memory.Open(dialect.SQLite, "file:construct_test?mode=memory&cache=private&_fk=1")
+	db, err := memory.Open(dialect.SQLite, "file:construct_test?mode=memory&cache=private&_pragma=foreign_keys(1)")
 	if err != nil {
 		t.Fatalf("failed opening connection to sqlite: %v", err)
 	}

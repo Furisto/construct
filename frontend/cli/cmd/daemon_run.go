@@ -44,7 +44,7 @@ debugging and development. For normal use, 'construct daemon install' is recomme
 				return err
 			}
 
-			db, err := memory.Open(dialect.SQLite, "file:"+filepath.Join(dataDir, "construct.db")+"?_fk=1&_journal=WAL&_busy_timeout=5000")
+			db, err := memory.Open(dialect.SQLite, "file:"+filepath.Join(dataDir, "construct.db")+"?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)")
 			if err != nil {
 				return err
 			}
