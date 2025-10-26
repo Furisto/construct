@@ -8,7 +8,6 @@ type TaskEvent struct {
 
 func (TaskEvent) Event() {}
 
-
 type MessageEvent struct {
 	MessageID uuid.UUID
 	TaskID    uuid.UUID

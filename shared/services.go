@@ -198,5 +198,3 @@ func (u *DefaultUserInfo) Cwd() (string, error) {
 }
 
 var _ UserInfo = (*DefaultUserInfo)(nil)
-
-

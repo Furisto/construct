@@ -9,4 +9,3 @@ var Architect string
 
 //go:embed coder.md
 var Coder string
-

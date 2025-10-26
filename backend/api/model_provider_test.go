@@ -13,8 +13,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/google/uuid"
-	_ "modernc.org/sqlite"
 	"google.golang.org/protobuf/testing/protocmp"
+	_ "modernc.org/sqlite"
 )
 
 func TestCreateModelProvider(t *testing.T) {
@@ -80,11 +80,11 @@ func TestCreateModelProvider(t *testing.T) {
 					},
 					Agents: []*memory.Agent{
 						{
-							Name: "coder",
+							Name:    "coder",
 							Builtin: true,
 						},
 						{
-							Name: "architect",
+							Name:    "architect",
 							Builtin: true,
 						},
 					},

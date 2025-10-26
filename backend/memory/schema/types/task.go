@@ -5,7 +5,7 @@ type TaskSpec struct {
 }
 
 type TaskStatus struct {
-	Turns int64 `json:"turns,omitempty"`
+	Turns    int64            `json:"turns,omitempty"`
 	ToolUses map[string]int64 `json:"tool_uses,omitempty"`
 }
 

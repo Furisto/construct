@@ -13,8 +13,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/google/uuid"
-	_ "modernc.org/sqlite"
 	"google.golang.org/protobuf/testing/protocmp"
+	_ "modernc.org/sqlite"
 )
 
 func TestCreateMessage(t *testing.T) {
@@ -319,12 +319,12 @@ func TestListMessages(t *testing.T) {
 				modelProvider := test.NewModelProviderBuilder(t, uuid.New(), db).Build(ctx)
 				model := test.NewModelBuilder(t, modelID, db, modelProvider).Build(ctx)
 
-			agent1 := test.NewAgentBuilder(t, agentID1, db, model).
-				WithName("agent-1").
-				Build(ctx)
-			agent2 := test.NewAgentBuilder(t, agentID2, db, model).
-				WithName("agent-2").
-				Build(ctx)
+				agent1 := test.NewAgentBuilder(t, agentID1, db, model).
+					WithName("agent-1").
+					Build(ctx)
+				agent2 := test.NewAgentBuilder(t, agentID2, db, model).
+					WithName("agent-2").
+					Build(ctx)
 				task1 := test.NewTaskBuilder(t, taskID1, db, agent1).Build(ctx)
 
 				test.NewMessageBuilder(t, messageID1, db, task1).

@@ -2,12 +2,12 @@ package api
 
 import (
 	"context"
-	"log/slog"
+	"github.com/furisto/construct/backend/event"
 	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/memory/message"
 	"github.com/furisto/construct/shared/conv"
 	"github.com/google/uuid"
-	"github.com/furisto/construct/backend/event"
+	"log/slog"
 )
 
 // MessageStreamProvider wraps the generic EventBus and provides message-specific

@@ -46,7 +46,6 @@ func (p *UnixSocketProvider) ActivationType() string {
 	return "unix"
 }
 
-
 type TCPProvider struct {
 	httpAddress string
 }
@@ -75,4 +74,3 @@ func (p *TCPProvider) Close() error {
 func (p *TCPProvider) ActivationType() string {
 	return "tcp"
 }
-

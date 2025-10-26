@@ -13,8 +13,8 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/google/uuid"
 	"github.com/googleapis/go-type-adapters/adapters"
-	_ "modernc.org/sqlite"
 	"google.golang.org/protobuf/testing/protocmp"
+	_ "modernc.org/sqlite"
 )
 
 func TestCreateModel(t *testing.T) {

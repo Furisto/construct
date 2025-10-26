@@ -22,7 +22,7 @@ func NewMessageListCmd() *cobra.Command {
 		Use:     "list [flags]",
 		Short:   "List messages",
 		Aliases: []string{"ls"},
-		Long:    `List messages.
+		Long: `List messages.
 
 Lists messages, typically filtered by a specific task. Useful for reviewing or 
 exporting a conversation history.`,

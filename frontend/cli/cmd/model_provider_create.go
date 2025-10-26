@@ -26,7 +26,7 @@ func NewModelProviderCreateCmd() *cobra.Command {
 		Use:   "create <name> [flags]",
 		Short: "Configure a new model provider integration",
 		Args:  cobra.ExactArgs(1),
-		Long:  `Configure a new model provider integration.
+		Long: `Configure a new model provider integration.
 
 Connects construct to an external AI model provider. This step is required to 
 gain access to models. API credentials can be provided interactively, via flags

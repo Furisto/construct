@@ -20,7 +20,7 @@ func NewModelCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create <name> [flags]",
 		Short: "Register a new large language model for use by agents",
-		Long:  `Register a new large language model for use by agents.
+		Long: `Register a new large language model for use by agents.
 
 Makes a specific model from a provider (like gpt-4o from OpenAI) available to 
 construct. You must configure a provider before you can create a model.`,

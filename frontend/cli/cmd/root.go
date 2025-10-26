@@ -16,9 +16,9 @@ import (
 
 	"github.com/common-nighthawk/go-figure"
 	"github.com/getsentry/sentry-go"
-	_ "modernc.org/sqlite"
 	"github.com/spf13/cobra"
 	"gopkg.in/natefinch/lumberjack.v2"
+	_ "modernc.org/sqlite"
 
 	api "github.com/furisto/construct/api/go/client"
 	"github.com/furisto/construct/shared"

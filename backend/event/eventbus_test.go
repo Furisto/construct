@@ -31,7 +31,6 @@ type TaskFailedEvent struct {
 
 func (TaskFailedEvent) Event() {}
 
-
 func TestEventBus_BasicPublishSubscribe(t *testing.T) {
 	t.Parallel()
 
@@ -326,7 +325,7 @@ func TestEventBus_ChannelSubscriptionUnsubscribe(t *testing.T) {
 
 func TestEventBus_ChannelAndHandlerMixed(t *testing.T) {
 	t.Parallel()
-	
+
 	bus := event.NewBus(nil)
 	defer bus.Close()
 

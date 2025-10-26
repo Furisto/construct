@@ -13,8 +13,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/google/uuid"
-	_ "modernc.org/sqlite"
 	"google.golang.org/protobuf/testing/protocmp"
+	_ "modernc.org/sqlite"
 )
 
 func TestCreateAgent(t *testing.T) {
@@ -219,13 +219,13 @@ func TestListAgents(t *testing.T) {
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
 				modelProvider := test.NewModelProviderBuilder(t, uuid.New(), db).Build(ctx)
 
-			model1 := test.NewModelBuilder(t, model1ID, db, modelProvider).
-				WithName("claude-3-7-sonnet-model-1").
-				Build(ctx)
+				model1 := test.NewModelBuilder(t, model1ID, db, modelProvider).
+					WithName("claude-3-7-sonnet-model-1").
+					Build(ctx)
 
-			model2 := test.NewModelBuilder(t, model2ID, db, modelProvider).
-				WithName("claude-3-7-sonnet-model-2").
-				Build(ctx)
+				model2 := test.NewModelBuilder(t, model2ID, db, modelProvider).
+					WithName("claude-3-7-sonnet-model-2").
+					Build(ctx)
 				test.NewAgentBuilder(t, agent1ID, db, model1).
 					WithName("architect-agent-1").
 					WithDescription("Architect agent 1 description").
@@ -433,14 +433,14 @@ func TestUpdateAgent(t *testing.T) {
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
 				modelProvider := test.NewModelProviderBuilder(t, uuid.New(), db).Build(ctx)
 
-			model1 := test.NewModelBuilder(t, modelID, db, modelProvider).
-				WithName("claude-3-7-sonnet-original").
-				Build(ctx)
+				model1 := test.NewModelBuilder(t, modelID, db, modelProvider).
+					WithName("claude-3-7-sonnet-original").
+					Build(ctx)
 
-			// Create the new model that will be used in the update
-			test.NewModelBuilder(t, newModelID, db, modelProvider).
-				WithName("claude-3-7-sonnet-new").
-				Build(ctx)
+				// Create the new model that will be used in the update
+				test.NewModelBuilder(t, newModelID, db, modelProvider).
+					WithName("claude-3-7-sonnet-new").
+					Build(ctx)
 				test.NewAgentBuilder(t, agentID, db, model1).
 					WithName("architect-agent").
 					WithDescription("Architect agent description").

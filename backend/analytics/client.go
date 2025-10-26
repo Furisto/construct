@@ -58,7 +58,6 @@ func (c *InMemoryClient) Close() {
 
 var _ Client = (*InMemoryClient)(nil)
 
-
 type NoopClient struct {
 }
 

@@ -18,7 +18,7 @@ func NewMessageCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create <task-id> <content> [flags]",
 		Short: "Add a message to a task programmatically",
-		Long:  `Add a message to a task programmatically.
+		Long: `Add a message to a task programmatically.
 
 Appends a new message to a task's history. This is an advanced command, typically 
 used for scripting or integrating external tools with Construct tasks.`,

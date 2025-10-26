@@ -45,8 +45,6 @@ func NewModelListCmd() *cobra.Command {
 				filter.Enabled = &enabled
 			}
 
-
-
 			req := &connect.Request[v1.ListModelsRequest]{
 				Msg: &v1.ListModelsRequest{
 					Filter: filter,

@@ -376,7 +376,7 @@ func SupportedOpenAIModels() []Model {
 
 func DefaultOpenAIModelOptions() *InvokeModelOptions {
 	return &InvokeModelOptions{
-		Tools:       []native.Tool{},
+		Tools: []native.Tool{},
 		ModelProfile: &OpenAIModelProfile{
 			APIURL:                "",
 			Organization:          "",

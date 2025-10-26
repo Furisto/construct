@@ -112,7 +112,7 @@ func (e *ToolError) Error() string {
 			result.WriteString(suggestion)
 		}
 	}
-	
+
 	if len(e.Details) > 0 {
 		result.WriteString("\n\nDetails:")
 		for key, value := range e.Details {
@@ -122,7 +122,7 @@ func (e *ToolError) Error() string {
 			result.WriteString(fmt.Sprintf("%v", value))
 		}
 	}
-	
+
 	return result.String()
 }
 

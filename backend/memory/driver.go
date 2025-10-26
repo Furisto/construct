@@ -2,7 +2,7 @@ package memory
 
 import (
 	"database/sql"
-	
+
 	"modernc.org/sqlite"
 )
 

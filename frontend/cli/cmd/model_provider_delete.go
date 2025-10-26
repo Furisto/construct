@@ -19,7 +19,7 @@ func NewModelProviderDeleteCmd() *cobra.Command {
 		Short:   "Permanently delete one or more model providers",
 		Args:    cobra.MinimumNArgs(1),
 		Aliases: []string{"rm"},
-		Long:    `Permanently delete one or more model providers.
+		Long: `Permanently delete one or more model providers.
 
 Deletes a provider configuration. **Warning**: This action will also delete all 
 models that depend on this provider.`,
