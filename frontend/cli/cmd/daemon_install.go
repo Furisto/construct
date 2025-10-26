@@ -53,7 +53,7 @@ func NewDaemonInstallCmd() *cobra.Command {
 		Use:   "install [flags]",
 		Short: "Install and enable the Construct daemon as a system service",
 		Args:  cobra.NoArgs,
-		Long:  `Install and enable the Construct daemon as a system service.
+		Long: `Install and enable the Construct daemon as a system service.
 
 Installs the daemon using the appropriate service manager for your OS (e.g., launchd 
 on macOS, systemd on Linux). The daemon is required for most construct operations.`,
@@ -77,7 +77,8 @@ on macOS, systemd on Linux). The daemon is required for most construct operation
 				return err
 			}
 
-			setupComplete, err := checkConnectionAndSetupStatus(cmd.Context(), out, *endpointContext)
+			client := getAPIClient(cmd.Context())
+			setupComplete, err := checkConnectionAndSetupStatus(cmd.Context(), out, *endpointContext, client)
 			if err != nil {
 				troubleshooting := buildTroubleshootingMessage(cmd.Context(), endpointContext)
 				return fail.NewUserFacingError(fmt.Sprintf("Connection to daemon failed: %s", err), err, troubleshooting, "",
@@ -87,9 +88,9 @@ on macOS, systemd on Linux). The daemon is required for most construct operation
 			fmt.Fprintf(out, "%s Daemon installed successfully\n", terminal.SuccessSymbol)
 
 			if setupComplete {
-				cmd.Printf("%s Ready to use! Try 'construct new' to start a conversation\n", terminal.ContinueSymbol)
+				fmt.Fprintf(out, "%s Ready to use! Try 'construct new' to start a conversation\n", terminal.ContinueSymbol)
 			} else {
-				cmd.Printf("%s Next: Create a model provider with 'construct modelprovider create'\n", terminal.ContinueSymbol)
+				fmt.Fprintf(out, "%s Next: Create a model provider with 'construct modelprovider create'\n", terminal.ContinueSymbol)
 			}
 
 			return nil
@@ -339,16 +340,11 @@ func createOrUpdateContext(ctx context.Context, out io.Writer, socketType string
 	return &endpointContext, nil
 }
 
-func checkConnectionAndSetupStatus(ctx context.Context, out io.Writer, endpoint api.EndpointContext) (bool, error) {
+func checkConnectionAndSetupStatus(ctx context.Context, out io.Writer, endpoint api.EndpointContext, client *api.Client) (bool, error) {
 	canConnect, err := terminal.SpinnerFunc(
 		out,
 		"Checking connection to daemon",
 		func() (bool, error) {
-			client, err := api.NewClient(endpoint)
-			if err != nil {
-				return false, fmt.Errorf("failed to create api client: %w", err)
-			}
-
 			ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			defer cancel()
 			resp, err := client.ModelProvider().ListModelProviders(ctx, &connect.Request[v1.ListModelProvidersRequest]{

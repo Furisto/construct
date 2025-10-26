@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/anthropics/anthropic-sdk-go"
@@ -76,9 +77,8 @@ func (p *AnthropicProvider) InvokeModel(ctx context.Context, model, systemPrompt
 	}
 
 	request := anthropic.MessageNewParams{
-		Model:       anthropic.ModelClaudeSonnet4_5_20250929,
-		MaxTokens:   modelProfile.MaxTokens,
-		// Thinking:    anthropic.ThinkingConfigParamOfEnabled(int64(float64(modelProfile.MaxTokens) * 0.8)),
+		Model:     anthropic.Model(model),
+		MaxTokens: modelProfile.MaxTokens,
 		System: []anthropic.TextBlockParam{
 			{
 				Text:         systemPrompt,
@@ -127,6 +127,7 @@ func (p *AnthropicProvider) invokeInternal(ctx context.Context, request anthropi
 		}
 
 		if stream.Err() != nil {
+			slog.ErrorContext(ctx, "failed to invoke model", "error", stream.Err(), "provider", "anthropic")
 			p.circuitBreaker.RecordResult(stream.Err())
 			err := p.mapError(stream.Err())
 			if err.retryableInternal() {

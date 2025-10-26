@@ -173,6 +173,10 @@ func linesFromBottom(vp viewport.Model) int {
 }
 
 func (m *MessageFeed) upsertErrorMessage(errMsg *Error) {
+	if errMsg.Error == nil {
+		return
+	}
+
 	if len(m.messages) > 0 {
 		if lastMsg, ok := m.messages[len(m.messages)-1].(*Error); ok {
 			lastMsg.Error = errMsg.Error
@@ -374,7 +378,7 @@ func formatMessages(messages []message, partialMessage string, width int) string
 		case *editFileToolCall:
 			renderedMessages = append(renderedMessages, renderToolCallMessage("Edit", msg.Input.Path, width, addBottomMargin(i, messages)))
 
-		case *executeCommandToolCall:		
+		case *executeCommandToolCall:
 			renderedMessages = append(renderedMessages, renderToolCallMessage("Execute", msg.Input.Command, width, addBottomMargin(i, messages)))
 
 		case *findFileToolCall:

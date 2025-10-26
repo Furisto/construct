@@ -41,23 +41,23 @@ debugging and development. For normal use, 'construct daemon install' is recomme
 
 			dataDir, err := userInfo.ConstructDataDir()
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to get construct data directory: %w", err)
 			}
 
 			db, err := memory.Open(dialect.SQLite, "file:"+filepath.Join(dataDir, "construct.db")+"?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)")
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to open database: %w", err)
 			}
 			defer db.Close()
-			
+
 			err = setupMemory(cmd.Context(), db)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to setup memory/database schema: %w", err)
 			}
 
 			encryption, err := getEncryptionClient()
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to get encryption client: %w", err)
 			}
 
 			provider, err := listener.DetectProvider(options.HTTPAddress, options.UnixSocket)
@@ -81,7 +81,7 @@ debugging and development. For normal use, 'construct daemon install' is recomme
 
 			analytics, err := analytics.NewPostHogClient()
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to create analytics client: %w", err)
 			}
 
 			runtime, err := agent.NewRuntime(
@@ -103,11 +103,15 @@ debugging and development. For normal use, 'construct daemon install' is recomme
 			)
 
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to create agent runtime: %w", err)
 			}
 
 			fmt.Fprintf(cmd.OutOrStdout(), "🤖 Starting Agent Runtime...\n")
-			return runtime.Run(cmd.Context())
+			err = runtime.Run(cmd.Context())
+			if err != nil {
+				return fmt.Errorf("failed to run agent runtime: %w", err)
+			}
+			return nil
 		},
 	}
 
@@ -131,28 +135,28 @@ func getEncryptionClient() (*secret.Client, error) {
 	keyHandleJson, err := secret.GetSecret[string](secret.ModelProviderEncryptionKey())
 	if err != nil {
 		if !errors.Is(err, &secret.ErrSecretNotFound{}) {
-			return nil, err
+			return nil, fmt.Errorf("failed to get encryption key secret: %w", err)
 		}
 
 		slog.Debug("generating new encryption key")
 		keyHandle, err = secret.GenerateKeyset()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to generate encryption keyset: %w", err)
 		}
 		keysetJson, err := secret.KeysetToJSON(keyHandle)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to convert keyset to JSON: %w", err)
 		}
 
 		err = secret.SetSecret(secret.ModelProviderEncryptionKey(), &keysetJson)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to store encryption key secret: %w", err)
 		}
 	} else {
 		slog.Debug("loading encryption key")
 		keyHandle, err = secret.KeysetFromJSON(*keyHandleJson)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to load encryption keyset from JSON: %w", err)
 		}
 	}
 
