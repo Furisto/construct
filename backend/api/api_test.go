@@ -118,7 +118,7 @@ func (s *ServiceTestSetup[Request, Response]) RunServiceTests(t *testing.T, scen
 }
 
 func DefaultTestHandlerOptions(t *testing.T) HandlerOptions {
-	db, err := memory.Open(dialect.SQLite, "file:construct_test?mode=memory&cache=private&_fk=1")
+	db, err := memory.Open(dialect.SQLite, "file:construct_test?mode=memory&cache=private&_pragma=foreign_keys(1)")
 	if err != nil {
 		t.Fatalf("failed opening connection to sqlite: %v", err)
 	}
@@ -135,10 +135,18 @@ func DefaultTestHandlerOptions(t *testing.T) HandlerOptions {
 
 	runtime := &MockAgentRuntime{}
 
+	eventBus := event.NewBus(nil)
+	messageHub, err := event.NewMessageHub(db)
+	if err != nil {
+		t.Fatalf("failed creating message hub: %v", err)
+	}
+
 	return HandlerOptions{
 		DB:           db,
 		Encryption:   encryption,
 		AgentRuntime: runtime,
+		EventBus:     eventBus,
+		MessageHub:   messageHub,
 		Analytics:    analytics.NewInMemoryClient(),
 	}
 }

@@ -13,7 +13,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/google/uuid"
 	"github.com/googleapis/go-type-adapters/adapters"
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
