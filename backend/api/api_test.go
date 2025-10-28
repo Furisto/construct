@@ -298,7 +298,7 @@ func (m *MockAgentRuntime) Memory() *memory.Client {
 	return nil
 }
 
-func (m *MockAgentRuntime) Encryption() *secret.Client {
+func (m *MockAgentRuntime) Encryption() *secret.Encryption {
 	return nil
 }
 

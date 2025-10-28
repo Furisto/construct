@@ -17,7 +17,9 @@ import (
 	"github.com/furisto/construct/backend/secret"
 	"github.com/furisto/construct/backend/tool/codeact"
 	"github.com/furisto/construct/shared"
+	"github.com/furisto/construct/shared/config"
 	"github.com/furisto/construct/shared/listener"
+	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/tink-crypto/tink-go/keyset"
 )
@@ -38,6 +40,8 @@ Starts the daemon process directly in the current terminal. This is useful for
 debugging and development. For normal use, 'construct daemon install' is recommended.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			userInfo := getUserInfo(cmd.Context())
+			config := getConfigStore(cmd.Context())
+			fs := getFileSystem(cmd.Context())
 
 			dataDir, err := userInfo.ConstructDataDir()
 			if err != nil {
@@ -55,7 +59,12 @@ debugging and development. For normal use, 'construct daemon install' is recomme
 				return fmt.Errorf("failed to setup memory/database schema: %w", err)
 			}
 
-			encryption, err := getEncryptionClient()
+			secretProvider, err := getSecretProvider(config, userInfo, fs)
+			if err != nil {
+				return fmt.Errorf("failed to get secret provider: %w", err)
+			}
+
+			encryption, err := getEncryptionClient(secretProvider)
 			if err != nil {
 				return fmt.Errorf("failed to get encryption client: %w", err)
 			}
@@ -130,9 +139,9 @@ func generateContextName(kind string, listener net.Listener) string {
 	return fmt.Sprintf("%s-%x", kind, hash[:3])
 }
 
-func getEncryptionClient() (*secret.Client, error) {
+func getEncryptionClient(secretProvider secret.Provider) (*secret.Encryption, error) {
 	var keyHandle *keyset.Handle
-	keyHandleJson, err := secret.GetSecret[string](secret.ModelProviderEncryptionKey())
+	keyHandleJson, err := secretProvider.Get(secret.EncryptionKeySecret())
 	if err != nil {
 		if !errors.Is(err, &secret.ErrSecretNotFound{}) {
 			return nil, fmt.Errorf("failed to get encryption key secret: %w", err)
@@ -148,19 +157,34 @@ func getEncryptionClient() (*secret.Client, error) {
 			return nil, fmt.Errorf("failed to convert keyset to JSON: %w", err)
 		}
 
-		err = secret.SetSecret(secret.ModelProviderEncryptionKey(), &keysetJson)
+		err = secretProvider.Set(secret.EncryptionKeySecret(), keysetJson)
 		if err != nil {
 			return nil, fmt.Errorf("failed to store encryption key secret: %w", err)
 		}
 	} else {
 		slog.Debug("loading encryption key")
-		keyHandle, err = secret.KeysetFromJSON(*keyHandleJson)
+		keyHandle, err = secret.KeysetFromJSON(keyHandleJson)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load encryption keyset from JSON: %w", err)
 		}
 	}
 
 	return secret.NewClient(keyHandle)
+}
+
+func getSecretProvider(cfg *config.Store, userInfo shared.UserInfo, fs afero.Fs) (secret.Provider, error) {
+	provider, _ := cfg.Get("secret.provider")
+	value, _ := provider.String()
+
+	if value == "file" {
+		dataDir, err := userInfo.ConstructDataDir()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get construct data directory: %w", err)
+		}
+		return secret.NewFileProvider(filepath.Join(dataDir, "secrets"), fs)
+	}
+
+	return secret.NewKeyringProvider(), nil
 }
 
 func setupMemory(ctx context.Context, db *memory.Client) error {

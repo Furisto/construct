@@ -7,6 +7,11 @@ import (
 
 func SupportedKeys() []string {
 	return []string{
+		// Secret storage
+		"secret",
+		"secret.provider",
+		"secret.path",
+
 		// Command
 		"cmd",
 		"cmd.new",

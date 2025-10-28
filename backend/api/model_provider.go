@@ -22,7 +22,7 @@ import (
 
 var _ v1connect.ModelProviderServiceHandler = (*ModelProviderHandler)(nil)
 
-func NewModelProviderHandler(db *memory.Client, encryption *secret.Client) *ModelProviderHandler {
+func NewModelProviderHandler(db *memory.Client, encryption *secret.Encryption) *ModelProviderHandler {
 	return &ModelProviderHandler{
 		db:         db,
 		encryption: encryption,
@@ -31,7 +31,7 @@ func NewModelProviderHandler(db *memory.Client, encryption *secret.Client) *Mode
 
 type ModelProviderHandler struct {
 	db         *memory.Client
-	encryption *secret.Client
+	encryption *secret.Encryption
 	v1connect.UnimplementedModelProviderServiceHandler
 }
 
@@ -47,7 +47,7 @@ func (h *ModelProviderHandler) CreateModelProvider(ctx context.Context, req *con
 	}
 
 	modelProviderID := uuid.New()
-	encryptedSecret, err := h.encryption.Encrypt(jsonSecret, []byte(secret.ModelProviderSecret(modelProviderID)))
+	encryptedSecret, err := h.encryption.Encrypt(jsonSecret, []byte(secret.ModelProviderAssociated(modelProviderID)))
 	if err != nil {
 		return nil, apiError(fmt.Errorf("failed to encrypt API key"))
 	}
@@ -211,7 +211,7 @@ func (h *ModelProviderHandler) UpdateModelProvider(ctx context.Context, req *con
 				return nil, apiError(fmt.Errorf("failed to marshal API key: %w", err))
 			}
 
-			encryptedSecret, err := h.encryption.Encrypt(jsonSecret, []byte(secret.ModelProviderSecret(id)))
+			encryptedSecret, err := h.encryption.Encrypt(jsonSecret, []byte(secret.ModelProviderAssociated(id)))
 			if err != nil {
 				return nil, apiError(fmt.Errorf("failed to encrypt API key: %w", err))
 			}

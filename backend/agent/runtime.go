@@ -61,7 +61,7 @@ func WithAnalytics(analytics analytics.Client) RuntimeOption {
 type Runtime struct {
 	api            *api.Server
 	memory         *memory.Client
-	encryption     *secret.Client
+	encryption     *secret.Encryption
 	eventHub       *event.MessageHub
 	bus            *event.Bus
 	taskReconciler *TaskReconciler
@@ -71,7 +71,7 @@ type Runtime struct {
 	metrics   *prometheus.Registry
 }
 
-func NewRuntime(memory *memory.Client, encryption *secret.Client, listener net.Listener, opts ...RuntimeOption) (*Runtime, error) {
+func NewRuntime(memory *memory.Client, encryption *secret.Encryption, listener net.Listener, opts ...RuntimeOption) (*Runtime, error) {
 	options := DefaultRuntimeOptions()
 	for _, opt := range opts {
 		opt(options)
@@ -154,7 +154,7 @@ func (rt *Runtime) Run(ctx context.Context) error {
 	}
 }
 
-func (rt *Runtime) Encryption() *secret.Client {
+func (rt *Runtime) Encryption() *secret.Encryption {
 	return rt.encryption
 }
 

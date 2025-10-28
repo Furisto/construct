@@ -14,24 +14,24 @@ func GenerateKeyset() (*keyset.Handle, error) {
 	return keyset.NewHandle(aead.AES256GCMKeyTemplate())
 }
 
-type Client struct {
+type Encryption struct {
 	keyset *keyset.Handle
 	aead   tink.AEAD
 }
 
-func NewClient(keysetHandle *keyset.Handle) (*Client, error) {
+func NewClient(keysetHandle *keyset.Handle) (*Encryption, error) {
 	aeadPrimitive, err := aead.New(keysetHandle)
 	if err != nil {
 		return nil, fmt.Errorf("aead.New failed: %v", err)
 	}
 
-	return &Client{
+	return &Encryption{
 		keyset: keysetHandle,
 		aead:   aeadPrimitive,
 	}, nil
 }
 
-func (c *Client) Encrypt(plaintext []byte, associatedData []byte) ([]byte, error) {
+func (c *Encryption) Encrypt(plaintext []byte, associatedData []byte) ([]byte, error) {
 	if plaintext == nil {
 		return nil, fmt.Errorf("plaintext cannot be nil")
 	}
@@ -44,7 +44,7 @@ func (c *Client) Encrypt(plaintext []byte, associatedData []byte) ([]byte, error
 	return ciphertext, nil
 }
 
-func (c *Client) Decrypt(ciphertext []byte, associatedData []byte) ([]byte, error) {
+func (c *Encryption) Decrypt(ciphertext []byte, associatedData []byte) ([]byte, error) {
 	if ciphertext == nil {
 		return nil, fmt.Errorf("ciphertext cannot be nil")
 	}

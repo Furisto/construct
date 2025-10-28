@@ -13,11 +13,11 @@ import (
 )
 
 type ModelProviderFactory struct {
-	encryption *secret.Client
+	encryption *secret.Encryption
 	memory     *memory.Client
 }
 
-func NewModelProviderFactory(encryption *secret.Client, memory *memory.Client) *ModelProviderFactory {
+func NewModelProviderFactory(encryption *secret.Encryption, memory *memory.Client) *ModelProviderFactory {
 	return &ModelProviderFactory{
 		encryption: encryption,
 		memory:     memory,
@@ -33,7 +33,7 @@ func (f *ModelProviderFactory) CreateClient(
 		return nil, fmt.Errorf("failed to fetch model provider: %w", err)
 	}
 
-	providerAuth, err := f.encryption.Decrypt(provider.Secret, []byte(secret.ModelProviderSecret(provider.ID)))
+	providerAuth, err := f.encryption.Decrypt(provider.Secret, []byte(secret.ModelProviderAssociated(provider.ID)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt model provider secret: %w", err)
 	}
