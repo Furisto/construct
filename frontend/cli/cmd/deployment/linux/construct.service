@@ -1,12 +1,12 @@
 [Unit]
 Description=Construct Daemon
-Documentation=https;//docs.construct.sh
+Documentation=https://docs.construct.sh
 Requires=construct.socket
 After=construct.socket
 
 [Service]
-Type=notify
-ExecStart={{ .ExecPath }}
+Type=simple
+ExecStart={{ .ExecPath }} daemon run
 Restart=on-failure
 RestartSec=2s
 

@@ -25,7 +25,7 @@ func ExecuteCommand(input *ExecuteCommandInput) (*ExecuteCommandResult, error) {
 	}
 
 	script := fmt.Sprintf(`#!/bin/sh
-		set -euo pipefail
+		set -eu
 		%s
 		`,
 		input.Command,

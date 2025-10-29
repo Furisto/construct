@@ -326,15 +326,23 @@ func installSystemdService(ctx context.Context, cmd *cobra.Command, out io.Write
 	}
 	fmt.Fprintf(out, "%s Systemd daemon reloaded\n", terminal.SuccessSymbol)
 
-	enableArgs := []string{"enable", "construct.socket"}
+	enableSocketArgs := []string{"enable", "construct.socket"}
 	if !options.System {
-		enableArgs = append([]string{"--user"}, enableArgs...)
+		enableSocketArgs = append([]string{"--user"}, enableSocketArgs...)
 	}
-	if output, err := command.Run(ctx, "systemctl", enableArgs...); err != nil {
-		return fail.NewCommandError("systemctl enable construct.socket", err, output)
+	if output, err := command.Run(ctx, "systemctl", enableSocketArgs...); err != nil {
+		return fail.NewCommandError("systemctl", err, output, enableSocketArgs...)
 	}
 	fmt.Fprintf(out, "%s Socket enabled\n", terminal.SuccessSymbol)
 
+	enableServiceArgs := []string{"enable", "construct.service"}
+	if !options.System {
+		enableServiceArgs = append([]string{"--user"}, enableServiceArgs...)
+	}
+	if output, err := command.Run(ctx, "systemctl", enableServiceArgs...); err != nil {
+		return fail.NewCommandError("systemctl", err, output, enableServiceArgs...)
+	}
+	
 	return nil
 }
 
@@ -359,10 +367,11 @@ func prepareSystemdPaths(fs *afero.Afero, userInfo shared.UserInfo, options daem
 		socketPath = "/etc/systemd/system/construct.socket"
 		servicePath = "/etc/systemd/system/construct.service"
 	} else {
-		configDir, err := userInfo.ConstructConfigDir()
+		homeDir, err := userInfo.HomeDir()
 		if err != nil {
-			return "", "", fmt.Errorf("failed to determine config directory: %w", err)
+			return "", "", fmt.Errorf("failed to determine home directory: %w", err)
 		}
+		configDir := filepath.Join(homeDir, ".config")
 		socketPath = filepath.Join(configDir, "systemd/user/construct.socket")
 		servicePath = filepath.Join(configDir, "systemd/user/construct.service")
 
