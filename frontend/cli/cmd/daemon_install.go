@@ -74,7 +74,7 @@ on macOS, systemd on Linux). The daemon is required for most construct operation
 				socketType = "unix"
 			}
 
-			endpointContext, err := installDaemon(cmd.Context(), out, socketType, options)
+			endpointContext, err := installDaemon(cmd.Context(), cmd, out, socketType, options)
 			if err != nil {
 				return err
 			}
@@ -108,8 +108,8 @@ on macOS, systemd on Linux). The daemon is required for most construct operation
 	return cmd
 }
 
-func installDaemon(ctx context.Context, out io.Writer, socketType string, options daemonInstallOptions) (*api.EndpointContext, error) {
-	execPath, err := executableInfo()
+func installDaemon(ctx context.Context, cmd *cobra.Command, out io.Writer, socketType string, options daemonInstallOptions) (*api.EndpointContext, error) {
+	execPath, err := executableInfo(cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get executable info: %w", err)
 	}
@@ -117,9 +117,9 @@ func installDaemon(ctx context.Context, out io.Writer, socketType string, option
 	runtimeInfo := getRuntimeInfo(ctx)
 	switch runtimeInfo.GOOS() {
 	case "darwin":
-		err = installLaunchdService(ctx, out, socketType, execPath, options)
+		err = installLaunchdService(ctx, cmd, out, socketType, execPath, options)
 	case "linux":
-		err = installSystemdService(ctx, out, socketType, execPath, options)
+		err = installSystemdService(ctx, cmd, out, socketType, execPath, options)
 	default:
 		return nil, fmt.Errorf("unsupported operating system: %s", runtimeInfo.GOOS())
 	}
@@ -128,7 +128,7 @@ func installDaemon(ctx context.Context, out io.Writer, socketType string, option
 		return nil, err
 	}
 
-	endpointContext, err := createOrUpdateContext(ctx, out, socketType, options)
+	endpointContext, err := createOrUpdateContext(ctx, cmd, out, socketType, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create context: %w", err)
 	}
@@ -145,14 +145,14 @@ type serviceTemplateData struct {
 	SockPath    string
 }
 
-func installLaunchdService(ctx context.Context, out io.Writer, socketType, execPath string, options daemonInstallOptions) error {
+func installLaunchdService(ctx context.Context, cmd *cobra.Command, out io.Writer, socketType, execPath string, options daemonInstallOptions) error {
 	fs := getFileSystem(ctx)
 	command := getCommandRunner(ctx)
 	userInfo := getUserInfo(ctx)
 
 	root, err := userInfo.IsRoot()
 	if err != nil {
-		return fail.HandleError(err)
+		return fail.HandleError(cmd, err)
 	}
 	if options.System && !root {
 		return fmt.Errorf("system service installation requires root privileges")
@@ -160,7 +160,7 @@ func installLaunchdService(ctx context.Context, out io.Writer, socketType, execP
 
 	homeDir, err := userInfo.HomeDir()
 	if err != nil {
-		return fail.HandleError(err)
+		return fail.HandleError(cmd, err)
 	}
 
 	var launchPlistDir, logDir, sockPath string
@@ -172,19 +172,19 @@ func installLaunchdService(ctx context.Context, out io.Writer, socketType, execP
 		launchPlistDir = filepath.Join(homeDir, "Library", "LaunchAgents")
 		logDir, err = userInfo.ConstructLogDir()
 		if err != nil {
-			return fail.HandleError(err)
+			return fail.HandleError(cmd, err)
 		}
 
 		runtimeDir, err := userInfo.ConstructRuntimeDir()
 		if err != nil {
-			return fail.HandleError(err)
+			return fail.HandleError(cmd, err)
 		}
 		sockPath = filepath.Join(runtimeDir, "construct.sock")
 	}
 
 	if err := fs.MkdirAll(launchPlistDir, 0755); err != nil {
 		if os.IsPermission(err) {
-			return fail.NewPermissionError(launchPlistDir, err)
+			return fail.HandleError(cmd, fail.NewPermissionError(launchPlistDir, err))
 		}
 		return fmt.Errorf("failed to create LaunchAgents directory %s: %w", launchPlistDir, err)
 	}
@@ -200,18 +200,18 @@ func installLaunchdService(ctx context.Context, out io.Writer, socketType, execP
 	}
 	filename := fmt.Sprintf("construct-%s.plist", options.Name)
 
-	content, err := parseServiceTemplate(options, execPath, macosTemplate, logDir, sockPath)
+	content, err := parseServiceTemplate(options, cmd, execPath, macosTemplate, logDir, sockPath)
 	if err != nil {
-		return fail.HandleError(err)
+		return fail.HandleError(cmd, err)
 	}
 
 	plistPath := filepath.Join(launchPlistDir, filename)
 	exists, err := fs.Exists(plistPath)
 	if err != nil {
-		return fail.HandleError(err)
+		return fail.HandleError(cmd, err)
 	}
 	if !options.Force && exists {
-		return fail.NewAlreadyInstalledError(plistPath)
+		return fail.HandleError(cmd, fail.NewAlreadyInstalledError(plistPath))
 	}
 
 	if exists {
@@ -220,17 +220,17 @@ func installLaunchdService(ctx context.Context, out io.Writer, socketType, execP
 			SocketType:  socketType,
 			Files:       []string{plistPath},
 		}); err != nil {
-			return fail.HandleError(err)
+			return fail.HandleError(cmd, err)
 		}
 	}
 
 	if err := fs.WriteFile(plistPath, content, 0644); err != nil {
 		if os.IsPermission(err) {
-			return fail.NewPermissionError(plistPath, err)
+			return fail.HandleError(cmd, fail.NewPermissionError(plistPath, err))
 		}
 		return fmt.Errorf("failed to write plist file to %s: %w", plistPath, err)
 	}
-	fmt.Fprintf(out, " %s Service file written to %s\n", terminal.SuccessSymbol, plistPath)
+	fmt.Fprintf(out, "%s Service file written to %s\n", terminal.SuccessSymbol, plistPath)
 
 	launchctlArgs := []string{"bootstrap"}
 	if options.System {
@@ -238,28 +238,28 @@ func installLaunchdService(ctx context.Context, out io.Writer, socketType, execP
 	} else {
 		userID, err := userInfo.UserID()
 		if err != nil {
-			return fail.HandleError(err)
+			return fail.HandleError(cmd, err)
 		}
 		launchctlArgs = append(launchctlArgs, "gui/"+userID)
 	}
 	launchctlArgs = append(launchctlArgs, plistPath)
 
 	if output, err := command.Run(ctx, "launchctl", launchctlArgs...); err != nil {
-		return fail.NewCommandError("launchctl", err, output, launchctlArgs...)
+		return fail.HandleError(cmd, fail.NewCommandError("launchctl", err, output, launchctlArgs...))
 	}
 
-	fmt.Fprintf(out, " %s Launchd service loaded\n", terminal.SuccessSymbol)
+	fmt.Fprintf(out, "%s Launchd service loaded\n", terminal.SuccessSymbol)
 	return nil
 }
 
-func installSystemdService(ctx context.Context, out io.Writer, socketType, execPath string, options daemonInstallOptions) error {
+func installSystemdService(ctx context.Context, cmd *cobra.Command, out io.Writer, socketType, execPath string, options daemonInstallOptions) error {
 	fs := getFileSystem(ctx)
 	command := getCommandRunner(ctx)
 	userInfo := getUserInfo(ctx)
 
 	root, err := userInfo.IsRoot()
 	if err != nil {
-		return fail.HandleError(err)
+		return fail.HandleError(cmd, err)
 	}
 	if options.System && !root {
 		return fmt.Errorf("system service installation requires root privileges")
@@ -278,7 +278,7 @@ func installSystemdService(ctx context.Context, out io.Writer, socketType, execP
 
 	socketPath, servicePath, err := prepareSystemdPaths(fs, userInfo, options)
 	if err != nil {
-		return fail.HandleError(err)
+		return fail.HandleError(cmd, err)
 	}
 
 	if !options.Force {
@@ -291,9 +291,9 @@ func installSystemdService(ctx context.Context, out io.Writer, socketType, execP
 		}
 	}
 
-	socketContent, err := parseServiceTemplate(options, execPath, systemdTemplate, "", "")
+	socketContent, err := parseServiceTemplate(options, cmd, execPath, systemdTemplate, "", "")
 	if err != nil {
-		return fail.HandleError(err)
+		return fail.HandleError(cmd, err)
 	}
 
 	if err := fs.WriteFile(socketPath, socketContent, 0644); err != nil {
@@ -304,9 +304,9 @@ func installSystemdService(ctx context.Context, out io.Writer, socketType, execP
 	}
 	fmt.Fprintf(out, "%s Socket file written to %s\n", terminal.SuccessSymbol, socketPath)
 
-	serviceContent, err := parseServiceTemplate(options, execPath, linuxServiceTemplate, "", "")
+	serviceContent, err := parseServiceTemplate(options, cmd, execPath, linuxServiceTemplate, "", "")
 	if err != nil {
-		return fail.HandleError(err)
+		return fail.HandleError(cmd, err)
 	}
 
 	if err := fs.WriteFile(servicePath, serviceContent, 0644); err != nil {
@@ -338,10 +338,10 @@ func installSystemdService(ctx context.Context, out io.Writer, socketType, execP
 	return nil
 }
 
-func executableInfo() (execPath string, err error) {
+func executableInfo(cmd *cobra.Command) (execPath string, err error) {
 	execPath, err = os.Executable()
 	if err != nil {
-		return "", fail.HandleError(err)
+		return "", fail.HandleError(cmd, err)
 	}
 
 	realPath, err := filepath.EvalSymlinks(execPath)
@@ -376,10 +376,10 @@ func prepareSystemdPaths(fs *afero.Afero, userInfo shared.UserInfo, options daem
 	return socketPath, servicePath, nil
 }
 
-func parseServiceTemplate(options daemonInstallOptions, execPath string, serviceTemplate string, logDir string, sockPath string) ([]byte, error) {
+func parseServiceTemplate(options daemonInstallOptions, cmd *cobra.Command, execPath string, serviceTemplate string, logDir string, sockPath string) ([]byte, error) {
 	tmpl, err := template.New("daemon-install").Parse(serviceTemplate)
 	if err != nil {
-		return nil, fail.HandleError(err)
+		return nil, fail.HandleError(cmd, err)
 	}
 
 	var content bytes.Buffer
@@ -392,13 +392,13 @@ func parseServiceTemplate(options daemonInstallOptions, execPath string, service
 		SockPath:    sockPath,
 	})
 	if err != nil {
-		return nil, fail.HandleError(err)
+		return nil, fail.HandleError(cmd, err)
 	}
 
 	return content.Bytes(), nil
 }
 
-func createOrUpdateContext(ctx context.Context, out io.Writer, socketType string, options daemonInstallOptions) (*api.EndpointContext, error) {
+func createOrUpdateContext(ctx context.Context, cmd *cobra.Command, out io.Writer, socketType string, options daemonInstallOptions) (*api.EndpointContext, error) {
 	fs := getFileSystem(ctx)
 	userInfo := getUserInfo(ctx)
 
@@ -412,7 +412,7 @@ func createOrUpdateContext(ctx context.Context, out io.Writer, socketType string
 		} else {
 			runtimeDir, err := userInfo.ConstructRuntimeDir()
 			if err != nil {
-				return nil, fail.HandleError(err)
+				return nil, fail.HandleError(cmd, err)
 			}
 			address = filepath.Join(runtimeDir, "construct.sock")
 		}
@@ -423,18 +423,18 @@ func createOrUpdateContext(ctx context.Context, out io.Writer, socketType string
 	contextManager := shared.NewContextManager(fs, userInfo)
 	exists, err := contextManager.UpsertContext(options.Name, socketType, address, true)
 	if err != nil {
-		return nil, fail.HandleError(err)
+		return nil, fail.HandleError(cmd, err)
 	}
 
 	if exists {
-		fmt.Fprintf(out, " %s Context '%s' updated\n", terminal.SuccessSymbol, options.Name)
+		fmt.Fprintf(out, "%s Context '%s' updated\n", terminal.SuccessSymbol, options.Name)
 	} else {
-		fmt.Fprintf(out, " %s Context '%s' created\n", terminal.SuccessSymbol, options.Name)
+		fmt.Fprintf(out, "%s Context '%s' created\n", terminal.SuccessSymbol, options.Name)
 	}
 
 	endpointContexts, err := contextManager.LoadContext()
 	if err != nil {
-		return nil, fail.HandleError(err)
+		return nil, fail.HandleError(cmd, err)
 	}
 
 	endpointContext, _ := endpointContexts.Current()

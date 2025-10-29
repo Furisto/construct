@@ -47,7 +47,7 @@ choose from. Partial ID matching is supported.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			apiClient := getAPIClient(cmd.Context())
 
-			return fail.HandleError(handleResumeCommand(cmd.Context(), apiClient, options, args))
+			return fail.HandleError(cmd, handleResumeCommand(cmd.Context(), apiClient, options, args))
 		},
 	}
 

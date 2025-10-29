@@ -9,6 +9,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/getsentry/sentry-go"
+	"github.com/spf13/cobra"
 )
 
 type UserFacingSolutionFormat string
@@ -190,9 +191,13 @@ func NewConnectionError(address string, err error) *UserFacingError {
 	}
 }
 
-func HandleError(err error) error {
+func HandleError(cmd *cobra.Command, err error) error {
 	if err == nil {
 		return nil
+	}
+
+	if cmd != nil {
+		cmd.SilenceUsage = true
 	}
 
 	sentry.CaptureException(err)

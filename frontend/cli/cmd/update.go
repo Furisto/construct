@@ -47,7 +47,7 @@ func NewUpdateCmd() *cobra.Command {
 			httpClient := getHttpClient(cmd.Context())
 			configStore := getConfigStore(cmd.Context())
 
-			return fail.HandleError(update(httpClient, configStore, cmd.OutOrStdout()))
+			return fail.HandleError(cmd, update(httpClient, configStore, cmd.OutOrStdout()))
 		},
 	}
 }

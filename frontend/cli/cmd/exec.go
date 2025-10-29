@@ -97,7 +97,7 @@ inspected or resumed later with construct resume.`,
 			if len(args) > 0 {
 				question = args[0]
 			}
-			return fail.HandleError(handleExec(cmd.Context(), cmd, options, question))
+			return fail.HandleError(cmd, handleExec(cmd.Context(), cmd, options, question))
 		},
 	}
 

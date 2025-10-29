@@ -538,7 +538,7 @@ func handleAPIError(err error) *Error {
 		return nil
 	}
 
-	cause := fail.HandleError(err)
+	cause := fail.HandleError(nil, err)
 	if cause == nil {
 		return nil
 	}

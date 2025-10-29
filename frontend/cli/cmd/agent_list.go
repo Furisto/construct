@@ -36,7 +36,7 @@ func NewAgentListCmd() *cobra.Command {
 
 			agents, err := agentList(cmd.Context(), options, client)
 			if err != nil {
-				return fail.HandleError(err)
+				return fail.HandleError(cmd, err)
 			}
 
 			return getRenderer(cmd.Context()).Render(agents, &options.RenderOptions)

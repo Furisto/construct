@@ -57,7 +57,7 @@ code reviews.`,
 			apiClient := getAPIClient(cmd.Context())
 			verbose := getGlobalOptions(cmd.Context()).LogLevel == LogLevelDebug
 
-			return fail.HandleError(handleNewCommand(cmd.Context(), apiClient, options, verbose))
+			return fail.HandleError(cmd, handleNewCommand(cmd.Context(), apiClient, options, verbose))
 		},
 	}
 
