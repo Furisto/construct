@@ -1,12 +1,12 @@
 [Unit]
 Description=Construct Unix Socket
-Documentation=https;//docs.construct.sh
+Documentation=https://docs.construct.sh
 PartOf=construct.service
 Before=construct.service
 
 [Socket]
 # socket path
-ListenStream=/run/construct/construct.sock
+ListenStream=%t/construct/construct.sock
 SocketMode=0660
 
 # Misc

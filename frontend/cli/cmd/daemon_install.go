@@ -19,6 +19,7 @@ import (
 	"github.com/furisto/construct/frontend/cli/pkg/fail"
 	"github.com/furisto/construct/frontend/cli/pkg/terminal"
 	"github.com/furisto/construct/shared"
+	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 )
 
@@ -45,6 +46,7 @@ type daemonInstallOptions struct {
 	AlwaysRunning bool
 	HTTPAddress   string
 	Quiet         bool
+	System        bool
 }
 
 func NewDaemonInstallCmd() *cobra.Command {
@@ -77,8 +79,7 @@ on macOS, systemd on Linux). The daemon is required for most construct operation
 				return err
 			}
 
-			client := getAPIClient(cmd.Context())
-			setupComplete, err := checkConnectionAndSetupStatus(cmd.Context(), out, *endpointContext, client)
+			setupComplete, err := checkConnectionAndSetupStatus(cmd.Context(), out, *endpointContext)
 			if err != nil {
 				troubleshooting := buildTroubleshootingMessage(cmd.Context(), endpointContext)
 				return fail.NewUserFacingError(fmt.Sprintf("Connection to daemon failed: %s", err), err, troubleshooting, "",
@@ -102,6 +103,7 @@ on macOS, systemd on Linux). The daemon is required for most construct operation
 	cmd.Flags().StringVarP(&options.HTTPAddress, "listen-http", "", "", "HTTP address to listen on")
 	cmd.Flags().BoolVarP(&options.Quiet, "quiet", "q", false, "Silent installation")
 	cmd.Flags().StringVarP(&options.Name, "name", "n", "default", "Name of the daemon (used for socket activation and context)")
+	cmd.Flags().BoolVarP(&options.System, "system", "s", false, "Install the daemon as a system service")
 
 	return cmd
 }
@@ -139,24 +141,52 @@ type serviceTemplateData struct {
 	Name        string
 	HTTPAddress string
 	KeepAlive   bool
+	LogDir      string
+	SockPath    string
 }
 
 func installLaunchdService(ctx context.Context, out io.Writer, socketType, execPath string, options daemonInstallOptions) error {
 	fs := getFileSystem(ctx)
 	command := getCommandRunner(ctx)
-
 	userInfo := getUserInfo(ctx)
+
+	root, err := userInfo.IsRoot()
+	if err != nil {
+		return fail.HandleError(err)
+	}
+	if options.System && !root {
+		return fmt.Errorf("system service installation requires root privileges")
+	}
+
 	homeDir, err := userInfo.HomeDir()
 	if err != nil {
 		return fail.HandleError(err)
 	}
 
-	launchAgentsDir := filepath.Join(homeDir, "Library", "LaunchAgents")
-	if err := fs.MkdirAll(launchAgentsDir, 0755); err != nil {
-		if os.IsPermission(err) {
-			return fail.NewPermissionError(launchAgentsDir, err)
+	var launchPlistDir, logDir, sockPath string
+	if options.System {
+		launchPlistDir = "/Library/LaunchDaemons"
+		logDir = "/var/log"
+		sockPath = "/var/run/construct/construct.sock"
+	} else {
+		launchPlistDir = filepath.Join(homeDir, "Library", "LaunchAgents")
+		logDir, err = userInfo.ConstructLogDir()
+		if err != nil {
+			return fail.HandleError(err)
 		}
-		return fmt.Errorf("failed to create LaunchAgents directory %s: %w", launchAgentsDir, err)
+
+		runtimeDir, err := userInfo.ConstructRuntimeDir()
+		if err != nil {
+			return fail.HandleError(err)
+		}
+		sockPath = filepath.Join(runtimeDir, "construct.sock")
+	}
+
+	if err := fs.MkdirAll(launchPlistDir, 0755); err != nil {
+		if os.IsPermission(err) {
+			return fail.NewPermissionError(launchPlistDir, err)
+		}
+		return fmt.Errorf("failed to create LaunchAgents directory %s: %w", launchPlistDir, err)
 	}
 
 	var macosTemplate string
@@ -170,15 +200,27 @@ func installLaunchdService(ctx context.Context, out io.Writer, socketType, execP
 	}
 	filename := fmt.Sprintf("construct-%s.plist", options.Name)
 
-	content, err := parseServiceTemplate(options, execPath, macosTemplate)
+	content, err := parseServiceTemplate(options, execPath, macosTemplate, logDir, sockPath)
 	if err != nil {
 		return fail.HandleError(err)
 	}
 
-	plistPath := filepath.Join(launchAgentsDir, filename)
-	if !options.Force {
-		if exists, _ := fs.Exists(plistPath); exists {
-			return fail.NewAlreadyInstalledError(plistPath)
+	plistPath := filepath.Join(launchPlistDir, filename)
+	exists, err := fs.Exists(plistPath)
+	if err != nil {
+		return fail.HandleError(err)
+	}
+	if !options.Force && exists {
+		return fail.NewAlreadyInstalledError(plistPath)
+	}
+
+	if exists {
+		if err := uninstallLaunchdService(ctx, out, fs, command, installedService{
+			ServiceType: "launchd",
+			SocketType:  socketType,
+			Files:       []string{plistPath},
+		}); err != nil {
+			return fail.HandleError(err)
 		}
 	}
 
@@ -190,13 +232,20 @@ func installLaunchdService(ctx context.Context, out io.Writer, socketType, execP
 	}
 	fmt.Fprintf(out, " %s Service file written to %s\n", terminal.SuccessSymbol, plistPath)
 
-	userID, err := userInfo.UserID()
-	if err != nil {
-		return fail.HandleError(err)
+	launchctlArgs := []string{"bootstrap"}
+	if options.System {
+		launchctlArgs = append(launchctlArgs, "system")
+	} else {
+		userID, err := userInfo.UserID()
+		if err != nil {
+			return fail.HandleError(err)
+		}
+		launchctlArgs = append(launchctlArgs, "gui/"+userID)
 	}
+	launchctlArgs = append(launchctlArgs, plistPath)
 
-	if output, err := command.Run(ctx, "launchctl", "bootstrap", "gui/"+userID, plistPath); err != nil {
-		return fail.NewCommandError("launchctl bootstrap", err, output, "gui/"+userID, plistPath)
+	if output, err := command.Run(ctx, "launchctl", launchctlArgs...); err != nil {
+		return fail.NewCommandError("launchctl", err, output, launchctlArgs...)
 	}
 
 	fmt.Fprintf(out, " %s Launchd service loaded\n", terminal.SuccessSymbol)
@@ -206,6 +255,15 @@ func installLaunchdService(ctx context.Context, out io.Writer, socketType, execP
 func installSystemdService(ctx context.Context, out io.Writer, socketType, execPath string, options daemonInstallOptions) error {
 	fs := getFileSystem(ctx)
 	command := getCommandRunner(ctx)
+	userInfo := getUserInfo(ctx)
+
+	root, err := userInfo.IsRoot()
+	if err != nil {
+		return fail.HandleError(err)
+	}
+	if options.System && !root {
+		return fmt.Errorf("system service installation requires root privileges")
+	}
 
 	var systemdTemplate string
 
@@ -218,8 +276,10 @@ func installSystemdService(ctx context.Context, out io.Writer, socketType, execP
 		return fmt.Errorf("invalid socket type: %s", socketType)
 	}
 
-	socketPath := "/etc/systemd/system/construct.socket"
-	servicePath := "/etc/systemd/system/construct.service"
+	socketPath, servicePath, err := prepareSystemdPaths(fs, userInfo, options)
+	if err != nil {
+		return fail.HandleError(err)
+	}
 
 	if !options.Force {
 		if exists, _ := fs.Exists(socketPath); exists {
@@ -231,7 +291,7 @@ func installSystemdService(ctx context.Context, out io.Writer, socketType, execP
 		}
 	}
 
-	socketContent, err := parseServiceTemplate(options, execPath, systemdTemplate)
+	socketContent, err := parseServiceTemplate(options, execPath, systemdTemplate, "", "")
 	if err != nil {
 		return fail.HandleError(err)
 	}
@@ -244,7 +304,7 @@ func installSystemdService(ctx context.Context, out io.Writer, socketType, execP
 	}
 	fmt.Fprintf(out, "%s Socket file written to %s\n", terminal.SuccessSymbol, socketPath)
 
-	serviceContent, err := parseServiceTemplate(options, execPath, linuxServiceTemplate)
+	serviceContent, err := parseServiceTemplate(options, execPath, linuxServiceTemplate, "", "")
 	if err != nil {
 		return fail.HandleError(err)
 	}
@@ -257,12 +317,20 @@ func installSystemdService(ctx context.Context, out io.Writer, socketType, execP
 	}
 	fmt.Fprintf(out, "%s Service file written to %s\n", terminal.SuccessSymbol, servicePath)
 
-	if output, err := command.Run(ctx, "systemctl", "daemon-reload"); err != nil {
+	reloadArgs := []string{"daemon-reload"}
+	if !options.System {
+		reloadArgs = append([]string{"--user"}, reloadArgs...)
+	}
+	if output, err := command.Run(ctx, "systemctl", reloadArgs...); err != nil {
 		return fail.NewCommandError("systemctl daemon-reload", err, output)
 	}
 	fmt.Fprintf(out, "%s Systemd daemon reloaded\n", terminal.SuccessSymbol)
 
-	if output, err := command.Run(ctx, "systemctl", "enable", "construct.socket"); err != nil {
+	enableArgs := []string{"enable", "construct.socket"}
+	if !options.System {
+		enableArgs = append([]string{"--user"}, enableArgs...)
+	}
+	if output, err := command.Run(ctx, "systemctl", enableArgs...); err != nil {
 		return fail.NewCommandError("systemctl enable construct.socket", err, output)
 	}
 	fmt.Fprintf(out, "%s Socket enabled\n", terminal.SuccessSymbol)
@@ -285,7 +353,30 @@ func executableInfo() (execPath string, err error) {
 	return realPath, nil
 }
 
-func parseServiceTemplate( options daemonInstallOptions, execPath string, serviceTemplate string) ([]byte, error) {
+func prepareSystemdPaths(fs *afero.Afero, userInfo shared.UserInfo, options daemonInstallOptions) (string, string, error) {
+	var socketPath, servicePath string
+	if options.System {
+		socketPath = "/etc/systemd/system/construct.socket"
+		servicePath = "/etc/systemd/system/construct.service"
+	} else {
+		configDir, err := userInfo.ConstructConfigDir()
+		if err != nil {
+			return "", "", fmt.Errorf("failed to determine config directory: %w", err)
+		}
+		socketPath = filepath.Join(configDir, "systemd/user/construct.socket")
+		servicePath = filepath.Join(configDir, "systemd/user/construct.service")
+
+		// Create user systemd directories if they don't exist
+		userSystemdDir := filepath.Join(configDir, "systemd/user")
+		if err := fs.MkdirAll(userSystemdDir, 0700); err != nil {
+			return "", "", fmt.Errorf("failed to create systemd user directory: %w", err)
+		}
+	}
+
+	return socketPath, servicePath, nil
+}
+
+func parseServiceTemplate(options daemonInstallOptions, execPath string, serviceTemplate string, logDir string, sockPath string) ([]byte, error) {
 	tmpl, err := template.New("daemon-install").Parse(serviceTemplate)
 	if err != nil {
 		return nil, fail.HandleError(err)
@@ -297,6 +388,8 @@ func parseServiceTemplate( options daemonInstallOptions, execPath string, servic
 		Name:        options.Name,
 		HTTPAddress: options.HTTPAddress,
 		KeepAlive:   options.AlwaysRunning,
+		LogDir:      logDir,
+		SockPath:    sockPath,
 	})
 	if err != nil {
 		return nil, fail.HandleError(err)
@@ -314,7 +407,15 @@ func createOrUpdateContext(ctx context.Context, out io.Writer, socketType string
 	case "http":
 		address = options.HTTPAddress
 	case "unix":
-		address = fmt.Sprintf("/tmp/construct-%s.sock", options.Name)
+		if options.System {
+			address = "/var/run/construct/construct.sock"
+		} else {
+			runtimeDir, err := userInfo.ConstructRuntimeDir()
+			if err != nil {
+				return nil, fail.HandleError(err)
+			}
+			address = filepath.Join(runtimeDir, "construct.sock")
+		}
 	default:
 		return nil, fmt.Errorf("invalid socket type: %s", socketType)
 	}
@@ -340,7 +441,11 @@ func createOrUpdateContext(ctx context.Context, out io.Writer, socketType string
 	return &endpointContext, nil
 }
 
-func checkConnectionAndSetupStatus(ctx context.Context, out io.Writer, endpoint api.EndpointContext, client *api.Client) (bool, error) {
+func checkConnectionAndSetupStatus(ctx context.Context, out io.Writer, endpoint api.EndpointContext) (bool, error) {
+	client, err := api.NewClient(endpoint)
+	if err != nil {
+		return false, fmt.Errorf("failed to create api client: %w", err)
+	}
 	canConnect, err := terminal.SpinnerFunc(
 		out,
 		"Checking connection to daemon",

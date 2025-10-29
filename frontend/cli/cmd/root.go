@@ -285,7 +285,7 @@ func setupLogSink(ctx context.Context, userInfo shared.UserInfo, stdout io.Write
 		return stdout
 	}
 
-	dataDir, err := userInfo.ConstructStateDir()
+	dataDir, err := userInfo.ConstructLogDir()
 	if err != nil {
 		return stdout
 	}

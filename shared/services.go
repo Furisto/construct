@@ -127,8 +127,10 @@ type UserInfo interface {
 	HomeDir() (string, error)
 	ConstructConfigDir() (string, error)
 	ConstructDataDir() (string, error)
-	ConstructStateDir() (string, error)
+	ConstructLogDir() (string, error)
+	ConstructRuntimeDir() (string, error)
 	Cwd() (string, error)
+	IsRoot() (bool, error)
 }
 
 type DefaultCommandRunner struct{}
@@ -185,16 +187,49 @@ func (u *DefaultUserInfo) ConstructDataDir() (string, error) {
 	return dataDir, nil
 }
 
-func (u *DefaultUserInfo) ConstructStateDir() (string, error) {
-	stateDir := filepath.Join(xdg.StateHome, "construct")
-	if err := u.fs.MkdirAll(stateDir, 0700); err != nil {
-		return "", fmt.Errorf("failed to create state directory: %w", err)
+func (u *DefaultUserInfo) ConstructLogDir() (string, error) {
+	var logDir string
+	switch runtime.GOOS {
+	case "darwin":
+		homeDir, err := u.HomeDir()
+		if err != nil {
+			return "", err
+		}
+		logDir = filepath.Join(homeDir, "Library", "Logs", "construct")
+	default:
+		logDir = filepath.Join(xdg.StateHome, "construct")
 	}
-	return stateDir, nil
+	
+	if err := u.fs.MkdirAll(logDir, 0700); err != nil {
+		return "", fmt.Errorf("failed to create log directory: %w", err)
+	}
+	return logDir, nil
+}
+
+func (u *DefaultUserInfo) ConstructRuntimeDir() (string, error) {
+	var runtimeDir string
+	if runtime.GOOS == "darwin" {
+		runtimeDir = filepath.Join("/tmp", "construct")
+	} else {
+		runtimeDir = filepath.Join(xdg.RuntimeDir, "construct")
+	}
+
+	if err := u.fs.MkdirAll(runtimeDir, 0700); err != nil {
+		return "", fmt.Errorf("failed to create runtime directory: %w", err)
+	}
+	return runtimeDir, nil
 }
 
 func (u *DefaultUserInfo) Cwd() (string, error) {
 	return os.Getwd()
+}
+
+func (u *DefaultUserInfo) IsRoot() (bool, error) {
+	userID, err := u.UserID()
+	if err != nil {
+		return false, err
+	}
+	return userID == "0", nil
 }
 
 var _ UserInfo = (*DefaultUserInfo)(nil)

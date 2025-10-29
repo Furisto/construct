@@ -17,7 +17,7 @@
             <key>Listeners</key>
             <dict>
                 <key>SockPathName</key>
-                <string>/tmp/construct-{{ .Name }}.sock</string>
+                <string>{{ .SockPath }}</string>
                 <key>SockType</key>
                 <string>stream</string>
             </dict>
@@ -30,8 +30,8 @@
         <integer>60</integer>
 
         <key>StandardOutPath</key>
-        <string>/var/log/construct-{{ .Name }}.out</string>
+        <string>{{ .LogDir }}/construct-{{ .Name }}.out</string>
         <key>StandardErrorPath</key>
-        <string>/var/log/construct-{{ .Name }}.err</string>
+        <string>{{ .LogDir }}/construct-{{ .Name }}.err</string>
     </dict>
 </plist>
