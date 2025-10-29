@@ -1,11 +1,19 @@
-# myservice-http.socket
 [Unit]
-Description=My Service HTTP Socket
+Description=Construct HTTP Socket
+Documentation=https;//docs.construct.sh
+After=network.target
+PartOf=construct.service
+Before=construct.service
 
 [Socket]
-ListenStream=8080
-BindIPv6Only=both
+ListenStream={{ .HTTPAddress }}
+Accept=false
 ReusePort=true
+RemoveOnStop=true
+
+MaxConnections=4096
+MaxConnectionsPerSource=100
 
 [Install]
 WantedBy=sockets.target
+

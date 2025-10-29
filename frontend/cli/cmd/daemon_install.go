@@ -170,7 +170,7 @@ func installLaunchdService(ctx context.Context, out io.Writer, socketType, execP
 	}
 	filename := fmt.Sprintf("construct-%s.plist", options.Name)
 
-	content, err := parseServiceTemplate(ctx, options, execPath, macosTemplate)
+	content, err := parseServiceTemplate(options, execPath, macosTemplate)
 	if err != nil {
 		return fail.HandleError(err)
 	}
@@ -231,7 +231,7 @@ func installSystemdService(ctx context.Context, out io.Writer, socketType, execP
 		}
 	}
 
-	socketContent, err := parseServiceTemplate(ctx, options, execPath, systemdTemplate)
+	socketContent, err := parseServiceTemplate(options, execPath, systemdTemplate)
 	if err != nil {
 		return fail.HandleError(err)
 	}
@@ -244,7 +244,7 @@ func installSystemdService(ctx context.Context, out io.Writer, socketType, execP
 	}
 	fmt.Fprintf(out, "%s Socket file written to %s\n", terminal.SuccessSymbol, socketPath)
 
-	serviceContent, err := parseServiceTemplate(ctx, options, execPath, linuxServiceTemplate)
+	serviceContent, err := parseServiceTemplate(options, execPath, linuxServiceTemplate)
 	if err != nil {
 		return fail.HandleError(err)
 	}
@@ -285,7 +285,7 @@ func executableInfo() (execPath string, err error) {
 	return realPath, nil
 }
 
-func parseServiceTemplate(ctx context.Context, options daemonInstallOptions, execPath string, serviceTemplate string) ([]byte, error) {
+func parseServiceTemplate( options daemonInstallOptions, execPath string, serviceTemplate string) ([]byte, error) {
 	tmpl, err := template.New("daemon-install").Parse(serviceTemplate)
 	if err != nil {
 		return nil, fail.HandleError(err)

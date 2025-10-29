@@ -1,10 +1,22 @@
-# myservice-http.service
 [Unit]
-Description=My Service (HTTP)
-Requires=myservice-http.socket
+Description=Construct Daemon
+Documentation=https;//docs.construct.sh
+Requires=construct.socket
+After=construct.socket
 
 [Service]
-Type=simple
-ExecStart=/usr/local/bin/myservice --http=:0
+Type=notify
+ExecStart={{ .ExecPath }}
+Restart=on-failure
+RestartSec=2s
+
+RuntimeDirectory=construct
+LogsDirectory=construct
+ProtectSystem=true
+
+# Logging
 StandardOutput=journal
 StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,11 +1,16 @@
-# myservice-http.socket
 [Unit]
-Description=My Service HTTP Socket
+Description=Construct Unix Socket
+Documentation=https;//docs.construct.sh
+PartOf=construct.service
+Before=construct.service
 
 [Socket]
-ListenStream=8080
-BindIPv6Only=both
-ReusePort=true
+# socket path
+ListenStream=/run/construct/construct.sock
+SocketMode=0660
+
+# Misc
+RemoveOnStop=true
 
 [Install]
 WantedBy=sockets.target
