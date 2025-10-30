@@ -342,7 +342,7 @@ func installSystemdService(ctx context.Context, cmd *cobra.Command, out io.Write
 	if output, err := command.Run(ctx, "systemctl", enableServiceArgs...); err != nil {
 		return fail.NewCommandError("systemctl", err, output, enableServiceArgs...)
 	}
-	
+
 	return nil
 }
 

@@ -20,7 +20,7 @@ import (
 
 type AgentRuntime interface {
 	Memory() *memory.Client
-	Encryption() *secret.Client
+	Encryption() *secret.Encryption
 	EventHub() *event.MessageHub
 }
 
@@ -71,7 +71,7 @@ func (s *Server) Shutdown(ctx context.Context) error {
 
 type HandlerOptions struct {
 	DB           *memory.Client
-	Encryption   *secret.Client
+	Encryption   *secret.Encryption
 	AgentRuntime AgentRuntime
 
 	EventBus   *event.Bus

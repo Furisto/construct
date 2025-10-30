@@ -173,7 +173,7 @@ func linesFromBottom(vp viewport.Model) int {
 }
 
 func (m *MessageFeed) upsertErrorMessage(errMsg *Error) {
-	if errMsg.Error == nil {
+	if errMsg == nil {
 		return
 	}
 
