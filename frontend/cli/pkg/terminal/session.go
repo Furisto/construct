@@ -77,13 +77,21 @@ type Session struct {
 
 	showHelp        bool
 	waitingForAgent bool
-	lastUsage       *v1.TaskUsage
+	lastUsage       Usage
 	workspacePath   string
 	lastCtrlC       time.Time
 	keyBindings     SessionKeyBindings
 
 	modelInfoCache   map[string]*modelInfo
 	currentModelInfo *modelInfo
+}
+
+type Usage struct {
+	InputTokens      int64
+	OutputTokens     int64
+	CacheWriteTokens int64
+	CacheReadTokens  int64
+	Cost             float64
 }
 
 var _ tea.Model = (*Session)(nil)
@@ -123,7 +131,7 @@ func NewSession(ctx context.Context, apiClient *api_client.Client, task *v1.Task
 		ctx:              ctx,
 		showHelp:         false,
 		waitingForAgent:  false,
-		lastUsage:        task.Status.Usage,
+		lastUsage:        Usage{},
 		workspacePath:    workspacePath,
 		keyBindings:      NewSessionKeyBindings(),
 		modelInfoCache:   make(map[string]*modelInfo),
@@ -194,6 +202,8 @@ func (m *Session) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, cmd)
 	}
 
+	m.updateUsage(msg)
+
 	messageFeed, cmd := m.messageFeed.Update(msg)
 	m.messageFeed = messageFeed.(*MessageFeed)
 	cmds = append(cmds, cmd)
@@ -202,6 +212,17 @@ func (m *Session) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	cmds = append(cmds, cmd)
 
 	return m, tea.Batch(cmds...)
+}
+
+func (m *Session) updateUsage(msg tea.Msg) {
+	if msg, ok := msg.(*v1.Message); ok {
+		if msg.Metadata.Role == v1.MessageRole_MESSAGE_ROLE_ASSISTANT && msg.Status != nil && msg.Status.Usage != nil {
+			m.lastUsage.InputTokens = msg.Status.Usage.InputTokens
+			m.lastUsage.OutputTokens = msg.Status.Usage.OutputTokens
+			m.lastUsage.CacheWriteTokens = msg.Status.Usage.CacheWriteTokens
+			m.lastUsage.CacheReadTokens = msg.Status.Usage.CacheReadTokens
+		}
+	}
 }
 
 func (m *Session) onKeyEvent(msg tea.KeyMsg) tea.Cmd {
@@ -345,7 +366,7 @@ func (m *Session) executeGetTask(taskId string) tea.Cmd {
 		}
 
 		m.task = resp.Msg.Task
-		m.lastUsage = resp.Msg.Task.Status.Usage
+		m.lastUsage.Cost = resp.Msg.Task.Status.Usage.Cost
 
 		return taskUpdatedMsg{}
 	}
@@ -458,20 +479,18 @@ func (m *Session) headerView() string {
 
 	// usage section
 	usageText := ""
-	if m.lastUsage != nil {
-		tokenDisplay := fmt.Sprintf("Tokens: %d↑ %d↓", m.lastUsage.InputTokens, m.lastUsage.OutputTokens)
+	tokenDisplay := fmt.Sprintf("Tokens: %d↑ %d↓", m.lastUsage.InputTokens, m.lastUsage.OutputTokens)
 
-		if m.lastUsage.CacheReadTokens > 0 || m.lastUsage.CacheWriteTokens > 0 {
-			tokenDisplay += fmt.Sprintf(" (Cache: %d↑ %d↓)", m.lastUsage.CacheReadTokens, m.lastUsage.CacheWriteTokens)
-		}
-
-		contextUsage := m.calculateContextUsage()
-		if contextUsage >= 0 {
-			tokenDisplay += fmt.Sprintf(" | Context: %d%%", contextUsage)
-		}
-
-		usageText = usageStyle.Render(fmt.Sprintf("%s | Cost: $%.2f", tokenDisplay, m.lastUsage.Cost))
+	if m.lastUsage.CacheReadTokens > 0 || m.lastUsage.CacheWriteTokens > 0 {
+		tokenDisplay += fmt.Sprintf(" (Cache: %d↑ %d↓)", m.lastUsage.CacheReadTokens, m.lastUsage.CacheWriteTokens)
 	}
+
+	contextUsage := m.calculateContextUsage()
+	if contextUsage >= 0 {
+		tokenDisplay += fmt.Sprintf(" | Context: %d%%", contextUsage)
+	}
+
+	usageText = usageStyle.Render(fmt.Sprintf("%s | Cost: $%.2f", tokenDisplay, m.lastUsage.Cost))
 
 	headerContent := lipgloss.JoinHorizontal(lipgloss.Left,
 		left,
@@ -487,7 +506,7 @@ func (m *Session) inputView() string {
 }
 
 func (m *Session) calculateContextUsage() int {
-	if m.lastUsage == nil || m.activeAgent == nil || m.currentModelInfo == nil {
+	if m.activeAgent == nil || m.currentModelInfo == nil {
 		return -1
 	}
 
