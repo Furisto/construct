@@ -159,7 +159,7 @@ func setAPIClient(ctx context.Context, cmd *cobra.Command) error {
 
 	endpointContext, ok := endpointContexts.Current()
 	if !ok {
-		return fmt.Errorf("no current context found. please run `construct config context set` to set a current context")
+		return fmt.Errorf("no context configured\n\nTo get started:\n  • Run 'construct daemon run' to start the daemon (first-time setup)\n  • Or run 'construct config context set' to configure an existing context")
 	}
 
 	apiClient, err := api.NewClient(endpointContext)
