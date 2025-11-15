@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/furisto/construct/shared"
 	"github.com/grafana/sobek"
@@ -65,11 +67,24 @@ func (c *Interpreter) Run(ctx context.Context, fsys afero.Fs, input json.RawMess
 }
 
 func (c *Interpreter) Interpret(ctx context.Context, fsys afero.Fs, input json.RawMessage, task *Task) (*InterpreterOutput, error) {
+	logger := slog.With(
+		"component", "code_interpreter",
+		"task_id", task.ID,
+	)
+
+	interpretStart := time.Now()
+
 	var args InterpreterInput
 	err := json.Unmarshal(input, &args)
 	if err != nil {
+		logger.Error("failed to unmarshal interpreter input", "error", err)
 		return nil, err
 	}
+
+	scriptLines := strings.Count(args.Script, "\n") + 1
+	logger.Debug("script execution started",
+		"script_lines", scriptLines,
+	)
 
 	vm := sobek.New()
 	vm.SetFieldNameMapper(sobek.TagFieldNameMapper("json", true))
@@ -95,6 +110,7 @@ func (c *Interpreter) Interpret(ctx context.Context, fsys afero.Fs, input json.R
 
 	if err != nil {
 		err = c.handleScriptError(err)
+		logger.Error("script execution failed", "error", err)
 	}
 
 	callState, ok := GetValue[*FunctionCallState](session, "function_call_state")
@@ -107,8 +123,16 @@ func (c *Interpreter) Interpret(ctx context.Context, fsys afero.Fs, input json.R
 		toolStats = make(map[string]int64)
 	}
 
+	consoleOutput := stdout.String()
+	logger.Info("script execution completed",
+		"duration_ms", time.Since(interpretStart).Milliseconds(),
+		"tool_call_count", len(callState.Calls),
+		"console_output_size", len(consoleOutput),
+		"tool_stats", toolStats,
+	)
+
 	return &InterpreterOutput{
-		ConsoleOutput: stdout.String(),
+		ConsoleOutput: consoleOutput,
 		FunctionCalls: callState.Calls,
 		ToolStats:     toolStats,
 	}, err

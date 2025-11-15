@@ -65,6 +65,7 @@ type TaskReconciler struct {
 	runningTasks    *SyncMap[uuid.UUID, context.CancelFunc]
 	titleGenGroup   singleflight.Group
 	wg              sync.WaitGroup
+	logger          *slog.Logger
 }
 
 func NewTaskReconciler(
@@ -76,7 +77,6 @@ func NewTaskReconciler(
 	providerFactory *ModelProviderFactory,
 	metricsRegistry prometheus.Registerer,
 ) *TaskReconciler {
-
 	wqProvider := newWorkqueueMetricsProvider(metricsRegistry)
 	workqueue.SetProvider(wqProvider)
 
@@ -92,10 +92,15 @@ func NewTaskReconciler(
 		queue:           queue,
 		concurrency:     concurrency,
 		runningTasks:    NewSyncMap[uuid.UUID, context.CancelFunc](),
+		logger:          slog.With(KeyComponent, "task_reconciler"),
 	}
 }
 
 func (r *TaskReconciler) Run(ctx context.Context) error {
+	LogComponentStartup(r.logger, "task reconciler",
+		KeyConcurrency, r.concurrency,
+	)
+
 	for range r.concurrency {
 		r.wg.Add(1)
 		go func() {
@@ -110,15 +115,23 @@ func (r *TaskReconciler) Run(ctx context.Context) error {
 	taskSuspendedEventSub := event.Subscribe(r.bus, func(ctx context.Context, e event.TaskSuspendedEvent) {
 		cancel, ok := r.runningTasks.Get(e.TaskID)
 		if ok {
+			r.logger.DebugContext(ctx, "task suspension signal received",
+				KeyTaskID, e.TaskID,
+			)
 			cancel()
 		}
 	}, nil)
 
+	r.logger.InfoContext(ctx, "task reconciler initialization complete")
 	<-ctx.Done()
+	r.logger.InfoContext(ctx, "task reconciler shutdown initiated")
+	shutdownStart := time.Now()
+
 	taskEventSub.Unsubscribe()
 	taskSuspendedEventSub.Unsubscribe()
 
 	r.queue.ShutDownWithDrain()
+	r.logger.DebugContext(ctx, "task queue shutdown with drain complete")
 
 	stop := make(chan struct{})
 	go func() {
@@ -131,9 +144,12 @@ func (r *TaskReconciler) Run(ctx context.Context) error {
 
 	select {
 	case <-stop:
+		LogComponentShutdown(r.logger, "task reconciler", shutdownStart)
 		return nil
 	case <-shutdownCtx.Done():
-		return shutdownCtx.Err()
+		err := shutdownCtx.Err()
+		r.logger.Error("task reconciler shutdown timeout", "error", err)
+		return err
 	}
 }
 
@@ -143,19 +159,30 @@ func (r *TaskReconciler) worker(ctx context.Context) {
 	for {
 		taskID, shutdown := r.queue.Get()
 		if shutdown {
+			r.logger.DebugContext(ctx, "worker shutdown signal received")
 			return
 		}
 
 		result, err := r.reconcile(ctx, taskID)
 		if err != nil {
-			slog.ErrorContext(ctx, "task could not be processed", "error", err, "task_id", taskID)
-			r.publishError(err, taskID)
+			r.logger.ErrorContext(ctx, "task reconciliation failed",
+				KeyTaskID, taskID,
+				"error", err,
+			)
+			r.publishError(ctx, err, taskID)
 		}
 
 		switch {
 		case result.RetryAfter > 0:
+			r.logger.DebugContext(ctx, "scheduling task retry",
+				KeyTaskID, taskID,
+				"retry_after_ms", result.RetryAfter.Milliseconds(),
+			)
 			r.queue.AddAfter(taskID, result.RetryAfter)
 		case result.Retry:
+			r.logger.DebugContext(ctx, "scheduling immediate retry",
+				KeyTaskID, taskID,
+			)
 			r.queue.Add(taskID)
 		}
 
@@ -163,14 +190,15 @@ func (r *TaskReconciler) worker(ctx context.Context) {
 	}
 }
 
-func (r *TaskReconciler) publishError(err error, taskID uuid.UUID) {
-	if err != nil {
-		slog.Error("failed to process task", "error", err, "task_id", taskID)
-	}
-
+func (r *TaskReconciler) publishError(ctx context.Context, err error, taskID uuid.UUID) {
 	if errors.Is(err, context.Canceled) {
 		return
 	}
+
+	r.logger.InfoContext(ctx, "publishing error message",
+		KeyTaskID, taskID,
+		KeyError, err.Error(),
+	)
 
 	msg := NewSystemMessage(taskID, WithContent(&v1.MessagePart{
 		Data: &v1.MessagePart_Error_{Error: &v1.MessagePart_Error{Message: err.Error()}},
@@ -185,12 +213,18 @@ func (r *TaskReconciler) publishError(err error, taskID uuid.UUID) {
 
 // Reconcile is the main entry point for reconciling a task's conversation state
 func (r *TaskReconciler) reconcile(ctx context.Context, taskID uuid.UUID) (Result, error) {
+	logger := r.logger.With(KeyTaskID, taskID)
+
 	defer func() {
 		if rec := recover(); rec != nil {
-			slog.ErrorContext(ctx, "panic in reconcile", "error", rec)
+			logger.Error("panic in reconcile",
+				"error", rec,
+			)
 		}
 	}()
-	slog.DebugContext(ctx, "reconciling task", "task_id", taskID)
+
+	reconcileStart := time.Now()
+	logger.DebugContext(ctx, "reconciliation started")
 
 	ctx, cancel := context.WithCancel(ctx)
 	r.runningTasks.Set(taskID, cancel)
@@ -199,36 +233,54 @@ func (r *TaskReconciler) reconcile(ctx context.Context, taskID uuid.UUID) (Resul
 
 	task, agent, err := r.fetchTaskWithAgent(ctx, taskID)
 	if err != nil {
+		LogError(logger, "failed to fetch task with agent", err)
 		return Result{}, fmt.Errorf("failed to fetch task: %w", err)
 	}
+	logger.DebugContext(ctx, "task and agent fetched",
+		KeyAgentID, agent.ID,
+		KeyModel, agent.Edges.Model.Name,
+	)
 
 	messages, err := r.memory.Message.Query().
 		Where(memory_message.TaskIDEQ(taskID)).
 		Order(memory_message.ByCreateTime()).
 		All(ctx)
 	if err != nil {
+		LogError(logger, "failed to fetch messages", err)
 		return Result{}, fmt.Errorf("failed to fetch messages: %w", err)
 	}
+	logger.DebugContext(ctx, "messages fetched",
+		KeyMessageCount, len(messages),
+	)
 
 	if shouldGenerateTitle(task, messages) {
-		go r.generateTitleAsync(taskID)
+		logger.DebugContext(ctx, "scheduling async title generation")
+		go r.generateTitle(taskID)
 	}
 
 	status, err := r.computeStatus(task, messages)
 	if err != nil {
+		LogError(logger, "failed to compute status", err)
 		return Result{}, fmt.Errorf("failed to compute status: %w", err)
 	}
+
+	logger.DebugContext(ctx, "task status computed",
+		KeyPhase, string(status.Phase),
+		KeyProcessedCount, len(status.ProcessedMessages),
+	)
 
 	r.setTaskPhaseAndPublish(ctx, taskID, status.Phase)
 	defer r.setTaskPhaseAndPublish(ctx, taskID, TaskPhaseAwaitInput)
 
 	switch status.Phase {
 	case TaskPhaseAwaitInput:
-		slog.DebugContext(ctx, "no unprocessed messages", "task_id", taskID, "phase", status.Phase)
+		logger.DebugContext(ctx, "no unprocessed messages, awaiting input")
+		LogOperationEnd(logger, "reconciliation (await_input)", reconcileStart)
 		return Result{}, nil
 
 	case TaskPhaseSuspended:
-		slog.DebugContext(ctx, "task is suspended", "task_id", taskID, "phase", status.Phase)
+		logger.DebugContext(ctx, "task is suspended")
+		LogOperationEnd(logger, "reconciliation (suspended)", reconcileStart)
 		return Result{}, nil
 
 	case TaskPhaseInvokeModel:
@@ -238,6 +290,9 @@ func (r *TaskReconciler) reconcile(ctx context.Context, taskID uuid.UUID) (Resul
 		return r.reconcileExecuteTools(ctx, taskID, task, status)
 
 	default:
+		logger.ErrorContext(ctx, "unknown phase",
+			KeyPhase, string(status.Phase),
+		)
 		return Result{}, fmt.Errorf("unknown phase: %s", status.Phase)
 	}
 }
@@ -321,33 +376,53 @@ func hasUnprocessedMessages(categorized map[string][]*memory.Message) bool {
 }
 
 func (r *TaskReconciler) reconcileInvokeModel(ctx context.Context, taskID uuid.UUID, task *memory.Task, agent *memory.Agent, status *TaskStatus) (Result, error) {
-	logger := slog.With("task_id", taskID, "message_id", status.NextMessage.ID, "model", agent.Edges.Model.Name, "agent_id", agent.ID)
-	logger.DebugContext(ctx, "reconciling model invocation")
+	logger := r.logger.With(
+		KeyTaskID, taskID,
+		KeyMessageID, status.NextMessage.ID,
+		KeyModel, agent.Edges.Model.Name,
+		KeyAgentID, agent.ID,
+	)
+	LogOperationStart(logger, "reconciliation (invoke_model)")
+
+	reconcileStart := time.Now()
+	logger.InfoContext(ctx, "model invocation phase started")
 
 	if status.NextMessage.Source == types.MessageSourceUser {
 		msg, err := ConvertMemoryMessageToProto(status.NextMessage)
 		if err != nil {
+			LogError(logger, "failed to convert user message", err)
 			return Result{}, err
 		}
 		r.publishMessage(taskID, msg)
+		logger.DebugContext(ctx, "user message published")
 	}
 
 	modelMessages, err := r.buildMessageHistory(status.ProcessedMessages, status.NextMessage)
 	if err != nil {
+		LogError(logger, "failed to build message history", err)
 		return Result{}, fmt.Errorf("failed to prepare model messages: %w", err)
 	}
+	logger.DebugContext(ctx, "message history built",
+		"history_length", len(modelMessages),
+	)
 
 	modelProvider, err := r.providerFactory.CreateClient(ctx, agent.Edges.Model.ModelProviderID)
 	if err != nil {
+		LogError(logger, "failed to create model provider", err)
 		return Result{}, fmt.Errorf("failed to create model provider: %w", err)
 	}
 
 	systemPrompt, err := r.assembleSystemPrompt(ctx, agent.Instructions, task.ProjectDirectory)
 	if err != nil {
+		LogError(logger, "failed to assemble system prompt", err)
 		return Result{}, fmt.Errorf("failed to assemble system prompt: %w", err)
 	}
+	logger.DebugContext(ctx, "system prompt assembled",
+		"prompt_length", len(systemPrompt),
+	)
 
-	slog.DebugContext(ctx, "invoking model", "task_id", taskID, "model", agent.Edges.Model.Name, "agent_id", agent.ID)
+	LogOperationStart(logger, "invoke model")
+	invokeStart := time.Now()
 	message, err := modelProvider.InvokeModel(
 		ctx,
 		agent.Edges.Model.Name,
@@ -367,18 +442,20 @@ func (r *TaskReconciler) reconcileInvokeModel(ctx context.Context, taskID uuid.U
 			))
 		}),
 	)
+	LogOperationEnd(logger, "invoke model", invokeStart)
 
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
-			slog.InfoContext(ctx, "model invocation was cancelled", "task_id", taskID)
+			logger.InfoContext(ctx, "model invocation cancelled by user")
 			_, err = memory.Transaction(ctx, r.memory, func(tx *memory.Client) (*memory.Message, error) {
 				err := r.markMessageAsProcessed(ctx, status.NextMessage)
 				if err != nil {
-					return nil, fmt.Errorf("failed to mark message with cancellation: %w", err)
+					return nil, err
 				}
 				return nil, nil
 			})
 			if err != nil {
+				LogError(logger, "failed to mark message with cancellation", err)
 				return Result{}, fmt.Errorf("failed to mark message with cancellation: %w", err)
 			}
 			return Result{Retry: false}, nil
@@ -387,6 +464,7 @@ func (r *TaskReconciler) reconcileInvokeModel(ctx context.Context, taskID uuid.U
 		var providerError *model.ProviderError
 		if errors.As(err, &providerError) {
 			if retryable, retryAfter := providerError.Retryable(); retryable {
+				LogError(logger, "model invocation failed with retryable error", err, KeyRetryAfter, retryAfter.Milliseconds())
 				return Result{RetryAfter: retryAfter}, err
 			}
 		}
@@ -395,6 +473,15 @@ func (r *TaskReconciler) reconcileInvokeModel(ctx context.Context, taskID uuid.U
 	}
 
 	cost := calculateCost(message.Usage, agent.Edges.Model)
+
+	LogTokenUsage(logger, slog.LevelInfo,
+		message.Usage.InputTokens,
+		message.Usage.OutputTokens,
+		message.Usage.CacheWriteTokens,
+		message.Usage.CacheReadTokens,
+		cost,
+		time.Since(invokeStart),
+	)
 
 	modelMessage, err := memory.Transaction(ctx, r.memory, func(tx *memory.Client) (*memory.Message, error) {
 		err = r.markMessageAsProcessed(ctx, status.NextMessage)
@@ -410,16 +497,20 @@ func (r *TaskReconciler) reconcileInvokeModel(ctx context.Context, taskID uuid.U
 	})
 
 	if err != nil {
+		LogError(logger, "failed to persist model response", err)
 		return Result{}, fmt.Errorf("failed to persist model response: %w", err)
 	}
 
 	protoMessage, err := ConvertMemoryMessageToProto(modelMessage)
 	if err != nil {
+		LogError(logger, "failed to convert model message to proto", err)
 		return Result{}, err
 	}
 	protoMessage.Status.IsFinalResponse = !hasToolCalls(message.Content)
 	protoMessage.Status.ContentState = v1.ContentStatus_CONTENT_STATUS_COMPLETE
 	r.publishMessage(taskID, protoMessage)
+
+	LogOperationEnd(logger, "reconciliation (invoke_model)", reconcileStart)
 
 	return Result{Retry: true}, nil
 }
@@ -548,11 +639,18 @@ func (r *TaskReconciler) persistModelResponse(ctx context.Context, taskID uuid.U
 }
 
 func (r *TaskReconciler) reconcileExecuteTools(ctx context.Context, taskID uuid.UUID, task *memory.Task, status *TaskStatus) (Result, error) {
-	slog.DebugContext(ctx, "reconciling tool execution", "task_id", taskID, "message_id", status.NextMessage.ID)
+	logger := r.logger.With(
+		KeyTaskID, taskID,
+		KeyMessageID, status.NextMessage.ID,
+	)
+	LogOperationStart(logger, "reconciliation (execute_tools)")
+
+	toolStart := time.Now()
+	logger.DebugContext(ctx, "tool execution phase started")
 
 	toolResults, toolStats, err := r.callTools(ctx, task, status.NextMessage)
 	if err != nil {
-		slog.ErrorContext(ctx, "tool execution failed", "error", err)
+		LogError(logger, "failed to call tools", err)
 	}
 
 	_, err = memory.Transaction(ctx, r.memory, func(tx *memory.Client) (*memory.Message, error) {
@@ -562,11 +660,15 @@ func (r *TaskReconciler) reconcileExecuteTools(ctx context.Context, taskID uuid.
 		}
 
 		if len(toolResults) > 0 {
-			msg, err := r.persistToolResults(ctx, taskID, toolResults, tx)
-			if err != nil {
-				return nil, fmt.Errorf("failed to update message with results: %w", err)
+			_, persistErr := r.persistToolResults(ctx, taskID, toolResults, tx)
+			if persistErr != nil {
+				LogError(logger, "failed to persist tool results", persistErr)
+				return nil, fmt.Errorf("failed to update message with results: %w", persistErr)
 			}
-			fmt.Printf("msg.Content.Blocks: %+v\n", msg.Content.Blocks)
+
+			logger.DebugContext(ctx, "tool results persisted",
+				"result_count", len(toolResults),
+			)
 
 			// Update task tool usage statistics
 			for tool, count := range toolStats {
@@ -578,16 +680,31 @@ func (r *TaskReconciler) reconcileExecuteTools(ctx context.Context, taskID uuid.
 				return nil, fmt.Errorf("failed to update task tool usage: %w", err)
 			}
 
+			logger.DebugContext(ctx, "task tool usage updated",
+				KeyToolStats, toolStats,
+			)
+
 			return nil, nil
 		}
 
 		return nil, nil
 	})
 
+	logger.InfoContext(ctx, "tool execution completed",
+		"result_count", len(toolResults),
+	)
+	LogOperationEnd(logger, "tool execution", toolStart)
+
 	return Result{Retry: true}, nil
 }
 
 func (r *TaskReconciler) callTools(ctx context.Context, task *memory.Task, message *memory.Message) ([]base.ToolResult, map[string]int64, error) {
+	logger := r.logger.With(
+		KeyTaskID, task.ID,
+		KeyMessageID, message.ID,
+	)
+	LogOperationStart(logger, "call tools")
+
 	var toolResults []base.ToolResult
 	toolStats := make(map[string]int64)
 
@@ -597,18 +714,31 @@ func (r *TaskReconciler) callTools(ctx context.Context, task *memory.Task, messa
 			var toolCall model.ToolCallBlock
 			err := json.Unmarshal([]byte(block.Payload), &toolCall)
 			if err != nil {
+				logger.ErrorContext(ctx, "failed to unmarshal tool call", "error", err)
 				return nil, nil, fmt.Errorf("failed to unmarshal tool call: %w", err)
 			}
 			logInterpreterArgs(ctx, task.ID, toolCall.Args)
 
+			toolStart := time.Now()
 			result, err := r.interpreter.Interpret(ctx, afero.NewOsFs(), toolCall.Args, &codeact.Task{
 				ID:               task.ID,
 				ProjectDirectory: task.ProjectDirectory,
 			})
+			toolDuration := time.Since(toolStart)
+
 			if errors.Is(ctx.Err(), context.Canceled) {
 				err = errors.New("tool execution was cancelled by user. Wait for further instructions")
 			}
 
+			success := err == nil
+			if !success {
+				LogError(logger, "code interpreter execution failed", err, KeyToolDuration, toolDuration.Milliseconds())
+			} else {
+				logger.DebugContext(ctx, "code interpreter execution completed",
+					"duration_ms", toolDuration.Milliseconds(),
+					"success", true,
+				)
+			}
 			toolResults = append(toolResults, &codeact.InterpreterToolResult{
 				ID:            toolCall.ID,
 				Output:        result.ConsoleOutput,
@@ -618,10 +748,19 @@ func (r *TaskReconciler) callTools(ctx context.Context, task *memory.Task, messa
 
 			for tool, count := range result.ToolStats {
 				toolStats[tool] += count
+				logger.DebugContext(ctx, "tool invoked",
+					KeyToolName, tool,
+					"count", count,
+				)
 			}
 			logInterpreterResult(ctx, task.ID, result)
 		}
 	}
+
+	logger.DebugContext(ctx, "all tools executed",
+		"result_count", len(toolResults),
+		KeyToolStats, toolStats,
+	)
 
 	return toolResults, toolStats, nil
 }
@@ -754,8 +893,15 @@ func (r *TaskReconciler) setTaskPhaseAndPublish(ctx context.Context, taskID uuid
 	})
 
 	if err != nil {
-		slog.Error("failed to set task phase", "error", err)
+		r.logger.ErrorContext(ctx, "failed to set task phase",
+			"error", err,
+			KeyPhase, string(phase),
+		)
 	}
+
+	r.logger.DebugContext(ctx, "task phase updated",
+		KeyPhase, string(phase),
+	)
 
 	r.publishTaskEvent(taskID)
 }
@@ -772,14 +918,17 @@ func shouldGenerateTitle(task *memory.Task, messages []*memory.Message) bool {
 	return true
 }
 
-func (r *TaskReconciler) generateTitleAsync(taskID uuid.UUID) {
+func (r *TaskReconciler) generateTitle(taskID uuid.UUID) {
+	LogOperationStart(r.logger, "generate title")
 	_, err, _ := r.titleGenGroup.Do(taskID.String(), func() (interface{}, error) {
 		ctx := context.Background()
 		generator := NewTitleGenerator(r.memory, r.providerFactory)
 		return nil, generator.GenerateTitle(ctx, taskID)
 	})
+	LogOperationEnd(r.logger, "generate title", time.Now())
 
 	if err != nil {
-		slog.Error("failed to generate title", "error", err, "task_id", taskID)
+		LogError(r.logger, "failed to generate title", err)
+		r.logger.ErrorContext(context.Background(), "failed to generate title", "error", err)
 	}
 }

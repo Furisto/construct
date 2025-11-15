@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
+	"time"
 
 	"github.com/furisto/construct/backend/tool/native"
 	"github.com/openai/openai-go"
@@ -16,9 +18,13 @@ type OpenAICompletionProvider struct {
 }
 
 func NewOpenAICompletionProvider(apiKey string, opts ...ProviderOption) (*OpenAICompletionProvider, error) {
+	logger := slog.With("component", "openai_provider")
+
 	if apiKey == "" {
+		logger.Error("openai API key is required")
 		return nil, fmt.Errorf("openai API key is required")
 	}
+	logger.Debug("initializing OpenAI provider")
 
 	providerOptions := DefaultProviderOptions("openai")
 	for _, opt := range opts {
@@ -29,8 +35,13 @@ func NewOpenAICompletionProvider(apiKey string, opts ...ProviderOption) (*OpenAI
 		option.WithAPIKey(apiKey),
 	}
 	if providerOptions.URL != "" {
+		logger.Debug("using custom OpenAI URL",
+			"url", providerOptions.URL,
+		)
 		options = append(options, option.WithBaseURL(providerOptions.URL))
 	}
+
+	logger.Info("OpenAI provider initialized successfully")
 
 	return &OpenAICompletionProvider{
 		client: openai.NewClient(options...),
@@ -38,7 +49,14 @@ func NewOpenAICompletionProvider(apiKey string, opts ...ProviderOption) (*OpenAI
 }
 
 func (p *OpenAICompletionProvider) InvokeModel(ctx context.Context, model, systemPrompt string, messages []*Message, opts ...InvokeModelOption) (*Message, error) {
+	logger := slog.With(
+		"component", "openai_provider",
+		"model", model,
+		"message_count", len(messages),
+	)
+
 	if err := p.validateInput(model, systemPrompt, messages); err != nil {
+		logger.Error("validation failed", "error", err)
 		return nil, err
 	}
 
@@ -49,19 +67,31 @@ func (p *OpenAICompletionProvider) InvokeModel(ctx context.Context, model, syste
 
 	modelProfile, err := ensureModelProfile[*OpenAIModelProfile](options.ModelProfile)
 	if err != nil {
+		logger.Error("failed to ensure model profile", "error", err)
 		return nil, err
 	}
 
 	openaiMessages, err := p.transformMessages(messages)
 	if err != nil {
+		logger.Error("failed to transform messages", "error", err)
 		return nil, err
 	}
+	logger.Debug("messages transformed",
+		"transformed_count", len(openaiMessages),
+	)
 
 	openaiTools := p.transformTools(options.Tools)
 	toolChoice := "auto"
 	if !modelProfile.EnableFunctionCalling {
 		toolChoice = "none"
 	}
+	logger.Debug("tools transformed",
+		"tool_count", len(openaiTools),
+		"tool_choice", toolChoice,
+	)
+
+	invokeStart := time.Now()
+	logger.Debug("invoking OpenAI API")
 
 	stream := p.client.Chat.Completions.NewStreaming(ctx, openai.ChatCompletionNewParams{
 		Model:               model,
@@ -90,6 +120,10 @@ func (p *OpenAICompletionProvider) InvokeModel(ctx context.Context, model, syste
 	}
 
 	if err := stream.Err(); err != nil {
+		logger.Error("openai stream error",
+			"error", err,
+			"duration_ms", time.Since(invokeStart).Milliseconds(),
+		)
 		return nil, err
 	}
 
@@ -104,6 +138,19 @@ func (p *OpenAICompletionProvider) InvokeModel(ctx context.Context, model, syste
 			}
 		}
 	}
+
+	cacheHitRatio := 0.0
+	if accumulator.Usage.PromptTokens+accumulator.Usage.PromptTokensDetails.CachedTokens > 0 {
+		cacheHitRatio = float64(accumulator.Usage.PromptTokensDetails.CachedTokens) / float64(accumulator.Usage.PromptTokens+accumulator.Usage.PromptTokensDetails.CachedTokens)
+	}
+
+	logger.Info("openai invocation successful",
+		"input_tokens", accumulator.Usage.PromptTokens,
+		"output_tokens", accumulator.Usage.CompletionTokens,
+		"cache_read_tokens", accumulator.Usage.PromptTokensDetails.CachedTokens,
+		"cache_hit_ratio", fmt.Sprintf("%.1f%%", cacheHitRatio*100),
+		"duration_ms", time.Since(invokeStart).Milliseconds(),
+	)
 
 	return NewModelMessage(content, Usage{
 		InputTokens:      accumulator.Usage.PromptTokens,

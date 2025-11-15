@@ -2,6 +2,7 @@ package filesystem
 
 import (
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -35,11 +36,14 @@ func ListFiles(fsys afero.Fs, input *ListFilesInput) (*ListFilesResult, error) {
 	fileInfo, err := fsys.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
+			slog.Warn("directory not found", "path", path)
 			return nil, base.NewError(base.DirectoryNotFound, "path", path)
 		}
 		if os.IsPermission(err) {
+			slog.Warn("permission denied listing directory", "path", path)
 			return nil, base.NewError(base.PermissionDenied, "path", path)
 		}
+		slog.Error("failed to stat path", "path", path, "error", err)
 		return nil, base.NewError(base.CannotStatFile, "path", path)
 	}
 
@@ -68,16 +72,20 @@ func ListFiles(fsys afero.Fs, input *ListFilesInput) (*ListFilesResult, error) {
 
 		if err != nil {
 			if os.IsPermission(err) {
+				slog.Warn("permission denied walking directory", "path", path)
 				return nil, base.NewError(base.PermissionDenied, "path", path)
 			}
+			slog.Error("error walking directory", "path", path, "error", err)
 			return nil, base.NewError(base.GenericFileError, "path", path, "error", err)
 		}
 	} else {
 		dirEntries, err := afero.ReadDir(fsys, path)
 		if err != nil {
 			if os.IsPermission(err) {
+				slog.Warn("permission denied reading directory", "path", path)
 				return nil, base.NewError(base.PermissionDenied, "path", path)
 			}
+			slog.Error("error reading directory", "path", path, "error", err)
 			return nil, base.NewError(base.GenericFileError, "path", path, "error", err)
 		}
 
@@ -90,6 +98,8 @@ func ListFiles(fsys afero.Fs, input *ListFilesInput) (*ListFilesResult, error) {
 			entries = append(entries, *dirEntry)
 		}
 	}
+
+	slog.Debug("directory listing completed", "path", path, "recursive", input.Recursive, "entry_count", len(entries))
 
 	return &ListFilesResult{
 		Path:    path,

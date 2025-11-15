@@ -3,6 +3,7 @@ package filesystem
 import (
 	"bufio"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -65,11 +66,14 @@ func ReadFile(fsys afero.Fs, input *ReadFileInput) (*ReadFileResult, error) {
 	stat, err := fsys.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
+			slog.Warn("file not found", "path", path)
 			return nil, base.NewError(base.FileNotFound, "path", path)
 		}
 		if os.IsPermission(err) {
+			slog.Warn("permission denied reading file", "path", path)
 			return nil, base.NewError(base.PermissionDenied, "path", path)
 		}
+		slog.Error("failed to stat file", "path", path, "error", err)
 		return nil, base.NewError(base.CannotStatFile, "path", path)
 	}
 
@@ -79,6 +83,7 @@ func ReadFile(fsys afero.Fs, input *ReadFileInput) (*ReadFileResult, error) {
 
 	file, err := fsys.Open(path)
 	if err != nil {
+		slog.Error("failed to open file", "path", path, "error", err)
 		return nil, base.NewCustomError("error reading file", []string{
 			"Verify that you have the permission to read the file",
 		}, "path", path, "error", err)
@@ -86,7 +91,13 @@ func ReadFile(fsys afero.Fs, input *ReadFileInput) (*ReadFileResult, error) {
 	defer file.Close()
 
 	// All reading uses range logic (entire file is just range from 1 to end)
-	return readFileRange(path, file, input.StartLine, input.EndLine)
+	result, err := readFileRange(path, file, input.StartLine, input.EndLine)
+	if err != nil {
+		return nil, err
+	}
+
+	slog.Debug("file read successfully", "path", path, "content_size", len(result.Content), "has_range", input.StartLine != nil || input.EndLine != nil)
+	return result, nil
 }
 
 func readFileRange(path string, file afero.File, startLine, endLine *int) (*ReadFileResult, error) {

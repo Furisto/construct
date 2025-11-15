@@ -1,6 +1,7 @@
 package filesystem
 
 import (
+	"log/slog"
 	"path/filepath"
 
 	"github.com/furisto/construct/backend/tool/base"
@@ -32,6 +33,7 @@ func CreateFile(fsys afero.Fs, input *CreateFileInput) (*CreateFileResult, error
 
 	err := fsys.MkdirAll(filepath.Dir(path), 0644)
 	if err != nil {
+		slog.Error("failed to create parent directory", "path", path, "error", err)
 		return nil, base.NewCustomError("could not create the parent directory", []string{
 			"Verify that you have the permissions to create the parent directories",
 			"Create the missing parent directories manually",
@@ -40,10 +42,12 @@ func CreateFile(fsys afero.Fs, input *CreateFileInput) (*CreateFileResult, error
 
 	err = afero.WriteFile(fsys, path, []byte(input.Content), 0644)
 	if err != nil {
+		slog.Error("failed to write file", "path", path, "size_bytes", len(input.Content), "error", err)
 		return nil, base.NewCustomError("error writing file", []string{
 			"Ensure that you have the permission to write to the file",
 		}, "path", path, "error", err)
 	}
 
+	slog.Info("file written", "path", path, "overwritten", existed, "size_bytes", len(input.Content))
 	return &CreateFileResult{Overwritten: existed}, nil
 }

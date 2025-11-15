@@ -26,9 +26,14 @@ type AnthropicProvider struct {
 var _ ModelProvider = (*AnthropicProvider)(nil)
 
 func NewAnthropicProvider(apiKey string, opts ...ProviderOption) (*AnthropicProvider, error) {
+	logger := slog.With("component", "anthropic_provider")
+
 	if apiKey == "" {
+		logger.Error("anthropic API key is required")
 		return nil, fmt.Errorf("anthropic API key is required")
 	}
+	logger.Debug("initializing Anthropic provider")
+
 	clientOptions := []option.RequestOption{
 		option.WithAPIKey(apiKey),
 	}
@@ -39,6 +44,9 @@ func NewAnthropicProvider(apiKey string, opts ...ProviderOption) (*AnthropicProv
 	}
 
 	if providerOptions.URL != "" {
+		logger.Debug("using custom Anthropic URL",
+			"url", providerOptions.URL,
+		)
 		clientOptions = append(clientOptions, option.WithBaseURL(providerOptions.URL))
 	}
 
@@ -50,11 +58,22 @@ func NewAnthropicProvider(apiKey string, opts ...ProviderOption) (*AnthropicProv
 		metrics:        providerOptions.Metrics,
 	}
 
+	logger.Info("Anthropic provider initialized successfully",
+		"max_retries", providerOptions.RetryConfig.MaxAttempts,
+	)
+
 	return provider, nil
 }
 
 func (p *AnthropicProvider) InvokeModel(ctx context.Context, model, systemPrompt string, messages []*Message, opts ...InvokeModelOption) (*Message, error) {
+	logger := slog.With(
+		"component", "anthropic_provider",
+		"model", model,
+		"message_count", len(messages),
+	)
+
 	if err := p.validateInput(model, systemPrompt, messages); err != nil {
+		logger.Error("validation failed", "error", err)
 		return nil, err
 	}
 
@@ -65,18 +84,27 @@ func (p *AnthropicProvider) InvokeModel(ctx context.Context, model, systemPrompt
 
 	modelProfile, err := ensureModelProfile[*AnthropicModelProfile](options.ModelProfile)
 	if err != nil {
+		logger.Error("failed to ensure model profile", "error", err)
 		return nil, err
 	}
 
 	anthropicMessages, err := p.transformMessages(messages)
 	if err != nil {
+		logger.Error("failed to transform messages", "error", err)
 		return nil, err
 	}
+	logger.Debug("messages transformed",
+		"transformed_count", len(anthropicMessages),
+	)
 
 	anthropicTools, err := p.transformTools(options.Tools)
 	if err != nil {
+		logger.Error("failed to transform tools", "error", err)
 		return nil, err
 	}
+	logger.Debug("tools transformed",
+		"tool_count", len(anthropicTools),
+	)
 
 	request := anthropic.MessageNewParams{
 		Model:     anthropic.Model(model),
@@ -95,24 +123,38 @@ func (p *AnthropicProvider) InvokeModel(ctx context.Context, model, systemPrompt
 		request.Tools = anthropicTools
 	}
 
+	logger.Debug("invoking Anthropic API")
 	return p.invokeInternal(ctx, request, options)
 }
 
 func (p *AnthropicProvider) invokeInternal(ctx context.Context, request anthropic.MessageNewParams, options *InvokeModelOptions) (*Message, error) {
+	logger := slog.With(
+		"component", "anthropic_provider",
+		"model", request.Model,
+	)
+
 	retryOptions := []backoff.RetryOption{
 		backoff.WithMaxTries(p.retryConfig.MaxAttempts),
 		backoff.WithMaxElapsedTime(p.retryConfig.MaxDelay),
 		backoff.WithBackOff(backoff.NewExponentialBackOff()),
 		backoff.WithNotify(func(err error, next time.Duration) {
+			logger.Warn("anthropic invocation retry",
+				"error", err,
+				"retry_after_ms", next.Milliseconds(),
+			)
 			options.RetryCallback(ctx, err, next)
 		}),
 	}
 
+	invokeStart := time.Now()
+
 	return backoff.Retry(ctx, func() (*Message, error) {
 		if !p.circuitBreaker.Allow() {
+			logger.Error("circuit breaker open - too many errors")
 			return nil, backoff.Permanent(fmt.Errorf("too many errors from anthropic provider, circuit breaker open"))
 		}
 
+		streamStart := time.Now()
 		stream := p.client.Messages.NewStreaming(ctx, request)
 		defer stream.Close()
 
@@ -129,7 +171,10 @@ func (p *AnthropicProvider) invokeInternal(ctx context.Context, request anthropi
 		}
 
 		if stream.Err() != nil {
-			slog.ErrorContext(ctx, "failed to invoke model", "error", stream.Err(), "provider", "anthropic")
+			logger.Error("anthropic stream error",
+				"error", stream.Err(),
+				"duration_ms", time.Since(streamStart).Milliseconds(),
+			)
 			p.circuitBreaker.RecordResult(stream.Err())
 			err := p.mapError(stream.Err())
 			if err.retryableInternal() {
@@ -155,6 +200,21 @@ func (p *AnthropicProvider) invokeInternal(ctx context.Context, request anthropi
 		}
 
 		p.circuitBreaker.RecordResult(nil)
+
+		cacheHitRatio := 0.0
+		if anthropicMessage.Usage.InputTokens+anthropicMessage.Usage.CacheReadInputTokens > 0 {
+			cacheHitRatio = float64(anthropicMessage.Usage.CacheReadInputTokens) / float64(anthropicMessage.Usage.InputTokens+anthropicMessage.Usage.CacheReadInputTokens)
+		}
+
+		logger.Info("anthropic invocation successful",
+			"input_tokens", anthropicMessage.Usage.InputTokens,
+			"output_tokens", anthropicMessage.Usage.OutputTokens,
+			"cache_write_tokens", anthropicMessage.Usage.CacheCreationInputTokens,
+			"cache_read_tokens", anthropicMessage.Usage.CacheReadInputTokens,
+			"cache_hit_ratio", fmt.Sprintf("%.1f%%", cacheHitRatio*100),
+			"duration_ms", time.Since(invokeStart).Milliseconds(),
+		)
+
 		return NewModelMessage(content, Usage{
 			InputTokens:      anthropicMessage.Usage.InputTokens,
 			OutputTokens:     anthropicMessage.Usage.OutputTokens,

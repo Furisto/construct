@@ -26,15 +26,17 @@ import (
 const DefaultServerPort = 29333
 
 type RuntimeOptions struct {
-	Tools       []codeact.Tool
-	Concurrency int
-	Analytics   analytics.Client
+	Tools        []codeact.Tool
+	Concurrency  int
+	Analytics    analytics.Client
+	LoggerConfig *LoggerConfig
 }
 
 func DefaultRuntimeOptions() *RuntimeOptions {
 	return &RuntimeOptions{
-		Tools:       []codeact.Tool{},
-		Concurrency: 50,
+		Tools:        []codeact.Tool{},
+		Concurrency:  50,
+		LoggerConfig: DefaultLoggerConfig(),
 	}
 }
 
@@ -58,6 +60,12 @@ func WithAnalytics(analytics analytics.Client) RuntimeOption {
 	}
 }
 
+func WithLoggerConfig(config *LoggerConfig) RuntimeOption {
+	return func(o *RuntimeOptions) {
+		o.LoggerConfig = config
+	}
+}
+
 type Runtime struct {
 	api            *api.Server
 	memory         *memory.Client
@@ -65,6 +73,7 @@ type Runtime struct {
 	eventHub       *event.MessageHub
 	bus            *event.Bus
 	taskReconciler *TaskReconciler
+	logger         *slog.Logger
 
 	wg        sync.WaitGroup
 	analytics analytics.Client
@@ -77,6 +86,15 @@ func NewRuntime(memory *memory.Client, encryption *secret.Encryption, listener n
 		opt(options)
 	}
 
+	logger := slog.With(
+		KeyComponent, "agent_runtime",
+	)
+
+	LogComponentStartup(logger, "agent_runtime",
+		KeyConcurrency, options.Concurrency,
+		KeyToolsRegistered, len(options.Tools),
+	)
+
 	metricsRegistry := prometheus.NewRegistry()
 	metricsRegistry.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
 	metricsRegistry.MustRegister(collectors.NewGoCollector())
@@ -85,6 +103,7 @@ func NewRuntime(memory *memory.Client, encryption *secret.Encryption, listener n
 
 	messageHub, err := event.NewMessageHub(memory)
 	if err != nil {
+		LogError(logger, "initialize message hub", err)
 		return nil, err
 	}
 	eventBus := event.NewBus(metricsRegistry)
@@ -105,40 +124,61 @@ func NewRuntime(memory *memory.Client, encryption *secret.Encryption, listener n
 		bus:            eventBus,
 		taskReconciler: NewTaskReconciler(memory, codeact.NewInterpreter(options.Tools, interceptors), options.Concurrency, eventBus, messageHub, clientFactory, metricsRegistry),
 		analytics:      options.Analytics,
+		logger:         logger,
 		metrics:        metricsRegistry,
 	}
 
 	api := api.NewServer(runtime, listener, runtime.bus, runtime.analytics)
 	runtime.api = api
 
+	listenerAddr := listener.Addr().String()
+	listenerType := listener.Addr().Network()
+	runtime.logger.Info("API server configured",
+		KeyListenerAddress, listenerAddr,
+		KeyListenerType, listenerType,
+	)
+
 	return runtime, nil
 }
 
 func (rt *Runtime) Run(ctx context.Context) error {
+	rt.logger.Info("agent runtime starting")
+
 	rt.wg.Add(1)
 	go func() {
 		defer rt.wg.Done()
+		LogComponentStartup(rt.logger, "API server")
 		err := rt.api.ListenAndServe(ctx)
 		if err != nil && err != http.ErrServerClosed {
-			slog.Error("API server failed", "error", err)
+			LogError(rt.logger, "API server listen and serve", err)
 		}
 	}()
 
 	rt.wg.Add(1)
 	go func() {
 		defer rt.wg.Done()
-		rt.taskReconciler.Run(ctx)
+		LogComponentStartup(rt.logger, "task reconciler")
+		err := rt.taskReconciler.Run(ctx)
+		if err != nil {
+			LogError(rt.logger, "task reconciler run", err)
+		}
 	}()
 
+	rt.logger.Info("agent runtime fully initialized, waiting for shutdown signal")
 	<-ctx.Done()
+
+	rt.logger.Info("agent runtime shutdown initiated")
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	shutdownStart := time.Now()
+	rt.logger.Debug("shutting down API server")
 	err := rt.api.Shutdown(shutdownCtx)
 	if err != nil {
-		slog.Error("failed to shutdown API server", "error", err)
+		LogError(rt.logger, "API server shutdown", err)
 	}
+	LogComponentShutdown(rt.logger, "API server", shutdownStart)
 
 	stop := make(chan struct{})
 	go func() {
@@ -148,9 +188,11 @@ func (rt *Runtime) Run(ctx context.Context) error {
 
 	select {
 	case <-stop:
+		rt.logger.Info("agent runtime shutdown complete")
 		return nil
 	case <-shutdownCtx.Done():
-		return fmt.Errorf("timed out while shutting down runtime")
+		rt.logger.Error("shutdown timeout", "error", fmt.Errorf("timed out while shutting down runtime"))
+		return err
 	}
 }
 

@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
+	"time"
 
 	"github.com/furisto/construct/backend/tool/native"
 	"github.com/google/uuid"
@@ -50,20 +52,35 @@ func (g *GeminiModelProfile) Validate() error {
 }
 
 func NewGeminiProvider(apiKey string) (*GeminiProvider, error) {
+	logger := slog.With("component", "gemini_provider")
+
 	if apiKey == "" {
+		logger.Error("gemini API key is required")
 		return nil, fmt.Errorf("gemini API key is required")
 	}
+	logger.Debug("initializing Gemini provider")
+
 	client, err := genai.NewClient(context.Background(), &genai.ClientConfig{
 		APIKey: apiKey,
 	})
 	if err != nil {
+		logger.Error("failed to create gemini client", "error", err)
 		return nil, fmt.Errorf("failed to create gemini client: %w", err)
 	}
+
+	logger.Info("Gemini provider initialized successfully")
 	return &GeminiProvider{client: client}, nil
 }
 
 func (p *GeminiProvider) InvokeModel(ctx context.Context, model, systemPrompt string, messages []*Message, opts ...InvokeModelOption) (*Message, error) {
+	logger := slog.With(
+		"component", "gemini_provider",
+		"model", model,
+		"message_count", len(messages),
+	)
+
 	if err := p.validateInput(model, systemPrompt, messages); err != nil {
+		logger.Error("validation failed", "error", err)
 		return nil, err
 	}
 
@@ -74,13 +91,18 @@ func (p *GeminiProvider) InvokeModel(ctx context.Context, model, systemPrompt st
 
 	_, err := ensureModelProfile[*GeminiModelProfile](options.ModelProfile)
 	if err != nil {
+		logger.Error("failed to ensure model profile", "error", err)
 		return nil, err
 	}
 
 	history, currentMsg, err := p.transformMessages(messages)
 	if err != nil {
+		logger.Error("failed to transform messages", "error", err)
 		return nil, err
 	}
+	logger.Debug("messages transformed",
+		"history_count", len(history),
+	)
 
 	geminiConfig := &genai.GenerateContentConfig{
 		SystemInstruction: &genai.Content{Parts: []*genai.Part{
@@ -91,10 +113,17 @@ func (p *GeminiProvider) InvokeModel(ctx context.Context, model, systemPrompt st
 	tools := p.transformTools(options.Tools)
 	if len(tools) > 0 {
 		geminiConfig.Tools = tools
+		logger.Debug("tools configured",
+			"tool_count", len(tools),
+		)
 	}
+
+	invokeStart := time.Now()
+	logger.Debug("invoking Gemini API")
 
 	chat, err := p.client.Chats.Create(ctx, model, geminiConfig, history)
 	if err != nil {
+		logger.Error("failed to create chat", "error", err)
 		return nil, err
 	}
 
@@ -105,6 +134,10 @@ func (p *GeminiProvider) InvokeModel(ctx context.Context, model, systemPrompt st
 
 	for m, err := range stream {
 		if err != nil {
+			logger.Error("gemini stream error",
+				"error", err,
+				"duration_ms", time.Since(invokeStart).Milliseconds(),
+			)
 			return nil, err
 		}
 
@@ -132,6 +165,7 @@ func (p *GeminiProvider) InvokeModel(ctx context.Context, model, systemPrompt st
 	}
 
 	if finalResp == nil || len(finalResp.Candidates) == 0 || finalResp.Candidates[0].Content == nil {
+		logger.Error("no response from gemini")
 		return nil, fmt.Errorf("no response from gemini")
 	}
 
@@ -144,6 +178,12 @@ func (p *GeminiProvider) InvokeModel(ctx context.Context, model, systemPrompt st
 			content = append(content, &ToolCallBlock{ID: uuid.NewString(), Tool: part.FunctionCall.Name, Args: argsJSON})
 		}
 	}
+
+	logger.Info("gemini invocation successful",
+		"input_tokens", inputTokens,
+		"output_tokens", outputTokens,
+		"duration_ms", time.Since(invokeStart).Milliseconds(),
+	)
 
 	return NewModelMessage(content, Usage{
 		InputTokens:  inputTokens,

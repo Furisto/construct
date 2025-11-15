@@ -2,6 +2,7 @@ package filesystem
 
 import (
 	"fmt"
+	"log/slog"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -66,6 +67,7 @@ func performRipgrepFind(input *FindFileInput) (*FindFileResult, error) {
 				TruncatedCount: 0,
 			}, nil
 		}
+		slog.Error("ripgrep failed", "pattern", input.Pattern, "path", input.Path, "error", err)
 		return nil, fmt.Errorf("ripgrep error: %v", err)
 	}
 
@@ -80,16 +82,19 @@ func performRipgrepFind(input *FindFileInput) (*FindFileResult, error) {
 		if filePath != "" {
 			if len(files) >= input.MaxResults {
 				totalMatches := len(filePaths)
+				truncated := totalMatches - len(files)
+				slog.Debug("ripgrep find completed", "pattern", input.Pattern, "path", input.Path, "results", len(files), "truncated", truncated)
 				return &FindFileResult{
 					Files:          files,
 					TotalFiles:     len(files),
-					TruncatedCount: totalMatches - len(files),
+					TruncatedCount: truncated,
 				}, nil
 			}
 			files = append(files, filePath)
 		}
 	}
 
+	slog.Debug("ripgrep find completed", "pattern", input.Pattern, "path", input.Path, "results", len(files), "truncated", 0)
 	return &FindFileResult{
 		Files:          files,
 		TotalFiles:     len(files),
@@ -103,6 +108,7 @@ func performDoublestarFind(fsys afero.Fs, input *FindFileInput) (*FindFileResult
 
 	matches, err := doublestar.Glob(afero.NewIOFS(fsys), searchPattern)
 	if err != nil {
+		slog.Warn("glob pattern error", "pattern", input.Pattern, "path", input.Path, "error", err)
 		return nil, base.NewCustomError("glob pattern error", []string{
 			"Check that your glob pattern is valid",
 		}, "pattern", input.Pattern, "error", err)
@@ -131,6 +137,7 @@ func performDoublestarFind(fsys afero.Fs, input *FindFileInput) (*FindFileResult
 		files = validFiles
 	}
 
+	slog.Debug("doublestar find completed", "pattern", input.Pattern, "path", input.Path, "results", len(files), "truncated", truncatedCount)
 	return &FindFileResult{
 		Files:          files,
 		TotalFiles:     len(files),

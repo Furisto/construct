@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -94,13 +95,18 @@ func performRipgrep(ctx context.Context, input *GrepInput, cmdRunner shared.Comm
 				SearchedFiles:    0,
 			}, nil
 		}
+		slog.Error("ripgrep failed", "query", input.Query, "path", input.Path, "error", err)
 		return nil, base.NewCustomError("ripgrep error", []string{
 			"Check that your regex pattern is valid",
 			"Verify that the search path exists and is accessible",
 		}, "error", err)
 	}
 
-	return parseRipgrepOutput(string(output), input.MaxResults, input.Context)
+	result, err := parseRipgrepOutput(string(output), input.MaxResults, input.Context)
+	if err == nil {
+		slog.Debug("ripgrep search completed", "query", input.Query, "path", input.Path, "matches", result.TotalMatches, "truncated", result.TruncatedMatches, "files_searched", result.SearchedFiles)
+	}
+	return result, err
 }
 
 func performRegularGrep(ctx context.Context, input *GrepInput, cmdRunner shared.CommandRunner) (*GrepResult, error) {
@@ -136,13 +142,18 @@ func performRegularGrep(ctx context.Context, input *GrepInput, cmdRunner shared.
 				SearchedFiles:    0,
 			}, nil
 		}
+		slog.Error("grep failed", "query", input.Query, "path", input.Path, "error", err)
 		return nil, base.NewCustomError("grep error", []string{
 			"Check that your regex pattern is valid",
 			"Verify that the search path exists and is accessible",
 		}, "error", err)
 	}
 
-	return parseGrepOutput(string(output), input.MaxResults, input.Context)
+	result, err := parseGrepOutput(string(output), input.MaxResults, input.Context)
+	if err == nil {
+		slog.Debug("grep search completed", "query", input.Query, "path", input.Path, "matches", result.TotalMatches, "truncated", result.TruncatedMatches, "files_searched", result.SearchedFiles)
+	}
+	return result, err
 }
 
 type ripgrepEntry struct {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 
 	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/memory/schema/types"
@@ -27,55 +28,61 @@ func NewModelProviderFactory(encryption *secret.Encryption, memory *memory.Clien
 func (f *ModelProviderFactory) CreateClient(
 	ctx context.Context,
 	modelProviderID uuid.UUID,
-) (model.ModelProvider, error) {
+) (providerClient model.ModelProvider, err error) {
+	logger := slog.With(
+		KeyComponent, "model_provider_factory",
+		KeyModelProvider, modelProviderID,
+	)
+
 	provider, err := f.memory.ModelProvider.Get(ctx, modelProviderID)
 	if err != nil {
+		LogError(logger, "fetch model provider", err)
 		return nil, fmt.Errorf("failed to fetch model provider: %w", err)
 	}
+	logger = logger.With(KeyProvider, string(provider.ProviderType))
 
 	providerAuth, err := f.encryption.Decrypt(provider.Secret, []byte(secret.ModelProviderAssociated(provider.ID)))
 	if err != nil {
+		LogError(logger, "decrypt model provider secret", err)
 		return nil, fmt.Errorf("failed to decrypt model provider secret: %w", err)
 	}
+	logger.Debug("model provider secret decrypted")
 
 	var auth struct {
 		APIKey string `json:"apiKey"`
 	}
+
 	err = json.Unmarshal(providerAuth, &auth)
 	if err != nil {
+		LogError(logger, "unmarshal model provider auth", err)
 		return nil, fmt.Errorf("failed to unmarshal model provider auth: %w", err)
 	}
 
+	logger.Debug("creating model provider client")
 	switch provider.ProviderType {
 	case types.ModelProviderTypeAnthropic:
-		apiProvider, err := model.NewAnthropicProvider(auth.APIKey)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create Anthropic provider: %w", err)
-		}
-		return apiProvider, nil
+		providerClient, err = model.NewAnthropicProvider(auth.APIKey)
 
 	case types.ModelProviderTypeOpenAI:
-		apiProvider, err := model.NewOpenAICompletionProvider(auth.APIKey)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create OpenAI provider: %w", err)
-		}
-		return apiProvider, nil
+		providerClient, err = model.NewOpenAICompletionProvider(auth.APIKey)
 
 	case types.ModelProviderTypeGemini:
-		apiProvider, err := model.NewGeminiProvider(auth.APIKey)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create Gemini provider: %w", err)
-		}
-		return apiProvider, nil
+		providerClient, err = model.NewGeminiProvider(auth.APIKey)
 
 	case types.ModelProviderTypeXAI:
-		apiProvider, err := model.NewOpenAICompletionProvider(auth.APIKey, model.WithURL("https://api.xai.com/v1"))
-		if err != nil {
-			return nil, fmt.Errorf("failed to create XAI provider: %w", err)
-		}
-		return apiProvider, nil
+		providerClient, err = model.NewOpenAICompletionProvider(auth.APIKey, model.WithURL("https://api.xai.com/v1"))
 
 	default:
+		logger.Error("unknown model provider type",
+			KeyProvider, string(provider.ProviderType),
+		)
 		return nil, fmt.Errorf("unknown model provider type: %s", provider.ProviderType)
 	}
+
+	if err != nil {
+		LogError(logger, "create provider", err)
+		return nil, fmt.Errorf("failed to create Anthropic provider: %w", err)
+	}
+
+	return providerClient, nil
 }
