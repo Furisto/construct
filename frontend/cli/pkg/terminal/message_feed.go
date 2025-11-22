@@ -31,24 +31,24 @@ func NewMessageFeedKeybindings() MessageFeedKeybindings {
 			key.WithHelp("ctrl+d", "½ page down"),
 		),
 		Up: key.NewBinding(
-			key.WithKeys("up", "k"),
+			key.WithKeys("up"),
 			key.WithHelp("↑", "up"),
 		),
 		Down: key.NewBinding(
-			key.WithKeys("down", "j"),
+			key.WithKeys("down"),
 			key.WithHelp("↓", "down"),
 		),
 	}
 }
 
 type MessageFeed struct {
-	width           int
-	height          int
-	viewport        viewport.Model
-	messages        []message
-	partialMessage  string
-	keyBindings     MessageFeedKeybindings
-	userHasScrolled bool
+	width            int
+	height           int
+	viewport         viewport.Model
+	messages         []message
+	partialMessage   string
+	keyBindings      MessageFeedKeybindings
+	userIsScrolledUp bool
 }
 
 var _ tea.Model = (*MessageFeed)(nil)
@@ -69,9 +69,10 @@ func (m *MessageFeed) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		if key.Matches(msg, m.keyBindings.Up) || key.Matches(msg, m.keyBindings.Down) || key.Matches(msg, m.keyBindings.HalfPageUp) || key.Matches(msg, m.keyBindings.HalfPageDown) {
-			m.userHasScrolled = true
+		if key.Matches(msg, m.keyBindings.Up) || key.Matches(msg, m.keyBindings.HalfPageUp) {
+			m.userIsScrolledUp = true
 		}
+
 		switch {
 		case key.Matches(msg, m.keyBindings.HalfPageUp):
 			m.viewport.HalfViewUp()
@@ -81,6 +82,11 @@ func (m *MessageFeed) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.viewport.LineUp(1)
 		case key.Matches(msg, m.keyBindings.Down):
 			m.viewport.LineDown(1)
+		}
+
+		// If user scrolled to the bottom, resume auto-scrolling
+		if linesFromBottom(m.viewport) == 0 {
+			m.userIsScrolledUp = false
 		}
 
 	case tea.MouseMsg:
@@ -157,12 +163,15 @@ func (m *MessageFeed) updateViewportContent() {
 	formatted := formatMessages(m.messages, m.partialMessage, m.viewport.Width)
 	m.viewport.SetContent(formatted)
 
-	// scroll if user hasn't manually scrolled (e.g. when a conversation is resumed)
-	// OR they're near bottom OR the last message is a user message
-	shouldScroll := !m.userHasScrolled || linesFromBottom(m.viewport) < 12 || lastMessageIsUserMessage(m.messages)
+	// Auto-scroll if user hasn't scrolled up OR if last message is from user
+	shouldScroll := !m.userIsScrolledUp || lastMessageIsUserMessage(m.messages, m.partialMessage)
 
 	if shouldScroll {
 		m.viewport.GotoBottom()
+		// Reset scroll state when user sends a message
+		if lastMessageIsUserMessage(m.messages, m.partialMessage) {
+			m.userIsScrolledUp = false
+		}
 	}
 }
 
@@ -173,8 +182,12 @@ func linesFromBottom(vp viewport.Model) int {
 	return vp.TotalLineCount() - vp.YOffset - vp.Height
 }
 
-func lastMessageIsUserMessage(messages []message) bool {
+func lastMessageIsUserMessage(messages []message, partialMessage string) bool {
 	if len(messages) == 0 {
+		return false
+	}
+
+	if partialMessage != "" {
 		return false
 	}
 
