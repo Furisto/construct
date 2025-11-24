@@ -7,21 +7,19 @@
 </p>
 
 <p align="center">
-  API-first • Superior tool calling • Multi-agent workflows • Complete transparency
+  API-first • CodeMode tool calling • Multi-agent workflows • Self-hostable
 </p>
 
 ---
 
 ## Why Construct?
 
-Most AI coding tools are black boxes. You interact through a web interface or thin CLI wrapper, with limited visibility and minimal control over the system.
+Most AI coding tools lock you into their interface and workflows. Construct is built for integration and automation. Construct gives you full programmatic control.
 
-Construct is different:
-
-- **Full transparency**: See every tool call, export all data, understand costs
 - **Programmatic control**: Script every operation, integrate with existing workflows
 - **Extensibility**: Build custom agents, access everything via API
 - **Vendor independence**: Self-host, switch models, no lock-in
+- **Full visibility**: Export all data, track costs, inspect every operation
 
 ## Overview
 
@@ -69,28 +67,34 @@ for (const file of routeFiles.files) {
 }
 ```
 
-One execution instead of dozens of separate tool calls. Research shows this approach achieves 20% higher success rates vs JSON tool calling.
+One execution instead of dozens of separate tool calls. Research by Wang et al. (2024) demonstrates that code-based tool calling achieves up to 20% higher success rates compared to JSON and text-based approaches across 17 different language models.
 
-See [Tool Calling in Construct](docs/tool_calling.md) for a detailed technical analysis.
+See [Tool Calling in Construct](docs/tool_calling.md) for a detailed technical analysis and full citation.
 
 ### API-First Architecture
 
 The CLI is just one client. The daemon exposes every operation via ConnectRPC.
 
-**Example:** Trigger code reviews from CI:
+Build your own IDE plugins, Slack bots, or automation scripts. Full programmatic control over agents, tasks, messages, models, and providers.
 
-```python
-from construct import Client
+#### Agent-as-a-Service (Coming Soon)
 
-client = Client()
-task = client.tasks.create(agent="reviewer", workspace=".")
-result = client.messages.create(
-    task_id=task.id,
-    content="Review this PR for security issues"
-)
+Construct's daemon can run anywhere - locally, on a remote server, or in cloud sandboxes. The architecture supports connecting to remote daemons, enabling:
+
+**Deploy daemon to cloud sandbox:**
+```bash
+# Run daemon in isolated environment (Docker, E2B, Fly.io, etc.)
+construct daemon run --listen-http 0.0.0.0:8080
 ```
 
-Build your own IDE plugins, Slack bots, or automation scripts. Full programmatic control over agents, tasks, messages, models, and providers.
+**Use cases enabled by remote daemon support:**
+- **Isolated execution**: Run agents in sandboxed environments separate from your development machine
+- **Persistent agents**: Long-running tasks that continue even when you disconnect
+- **Multi-client control**: Multiple CLI instances can interact with the same daemon
+- **Cloud integration**: Deploy on serverless platforms, Kubernetes, or container services
+- **HTTP/2 streaming**: Real-time updates via ConnectRPC for interruptible agent runs
+
+Unlike AI tools designed only for local use, Construct's API-first design makes it a natural fit for remote agent orchestration. Remote context switching and management commands coming soon.
 
 Language SDKs for Python, TypeScript, and Go coming soon.
 
@@ -128,20 +132,47 @@ construct agent create reviewer \
 
 ## Architecture
 
-Construct is built with a modular architecture that separates concerns between:
+Construct follows a daemon-based, client-server architecture designed for extensibility and programmatic access:
 
-- **Backend**: Handles agent runtime, model providers, and tool execution
-- **API Layer**: Provides a consistent interface for all operations
-- **Frontend CLI**: Offers an intuitive terminal interface for interacting with the system
+```mermaid
+graph TD
+    CLI[CLI Client] -->|HTTP/2| API[API Layer<br/>ConnectRPC]
+    Custom[Custom Clients] -.->|HTTP/2| API
+    API --> TR[Task Reconciler]
+    TR --> INT[CodeAct Interpreter<br/>Sobek VM]
+    TR --> Provider[Model Providers<br/>Anthropic/OpenAI/etc]
+    TR --> DB[(SQLite Database)]
+    INT --> Tools[Tool Execution<br/>read_file, edit_file, grep, etc]
+```
 
-The multi-agent system allows for specialized agents to collaborate on tasks, with the runtime managing message passing and coordination between agents.
+**Key components:**
+- **Daemon**: Background service managing agent execution, state, and coordination
+- **ConnectRPC API**: HTTP/2-based RPC exposing all operations via Protocol Buffers
+- **Task Reconciler**: Orchestrates conversation flows between models and tool execution
+- **CodeAct Interpreter**: Executes JavaScript-based tool calls in sandboxed environment
+- **Storage**: SQLite database for persisting all state
+
+See [Architecture Documentation](docs/architecture.md) for detailed technical deep dive.
 
 ## Quick Start
 
+> [!WARNING]
+> Construct is in preview. Expect bugs and missing features as we actively develop toward a stable release. [Report issues](https://github.com/furisto/construct/issues) to help us improve.
+
 ### Installation
 
+**macOS (Homebrew):**
 ```bash
-# Clone and build
+brew tap furisto/tap
+brew install construct
+```
+
+**Download pre-built binary:**
+
+Download the latest release for your platform from [GitHub Releases](https://github.com/furisto/construct/releases).
+
+**Build from source:**
+```bash
 git clone https://github.com/furisto/construct
 cd construct/frontend/cli
 go build -o construct
@@ -150,7 +181,7 @@ go build -o construct
 sudo mv construct /usr/local/bin/
 ```
 
-### Setup (5 minutes)
+### Setup
 
 ```bash
 # 1. Install daemon
@@ -160,25 +191,7 @@ construct daemon install
 export ANTHROPIC_API_KEY="sk-ant-..."
 construct modelprovider create anthropic --type anthropic
 
-# 3. Register models
-construct model create claude-sonnet-4 \
-  --provider anthropic \
-  --context-window 200000
-
-construct model create claude-haiku-3.5 \
-  --provider anthropic \
-  --context-window 200000
-
-# 4. Create agents
-construct agent create edit \
-  --model claude-sonnet-4 \
-  --prompt "You are a coding assistant who writes clean, well-documented code"
-
-construct agent create quick \
-  --model claude-haiku-3.5 \
-  --prompt "You are a fast coding assistant for quick tasks"
-
-# 5. Start coding
+# 3. Start coding
 construct new --agent edit
 ```
 
@@ -188,13 +201,13 @@ construct new --agent edit
 
 ```bash
 # Start a new interactive session
-construct new --agent coder
+construct new --agent plan
 
 # Resume a previous conversation
 construct resume --last
 
 # Work in a specific directory
-construct new --agent coder --workspace /path/to/project
+construct new --agent edit --workspace /path/to/project
 ```
 
 ### Non-Interactive Mode
@@ -232,62 +245,53 @@ construct agent create "reviewer" \
   --model "claude-3-5-sonnet"
 
 # Edit agent configuration
-construct agent edit coder
+construct agent edit reviewer
 
 # Get agent details
-construct agent get coder --output json
+construct agent get reviewer --output json
 ```
 
-### Task and Message Management
+### Task Management & Configuration
 
 ```bash
-# Create a new task
-construct task create --agent coder --workspace /project
-
-# List recent tasks
+# List and manage tasks
 construct task list --agent coder
-
-# View task details
 construct task get <task-id>
 
-# List messages in a conversation
-construct message list --task <task-id>
+# Export conversation history
+construct message list --task <task-id> -o json
 
-# View specific message
-construct message get <message-id> --output yaml
-```
-
-### Configuration
-
-```bash
-# Set default agent for new conversations
+# Configure defaults
 construct config set cmd.new.agent "coder"
-
-# Set default output format
-construct config set output.format "json"
-
-# Configure max turns for ask command
-construct config set cmd.ask.max-turns 10
-
-# View current configuration
-construct config get cmd.new.agent
 ```
 
 ## Roadmap
 
-Construct is actively developed. Planned features:
+Construct is under active development. Planned features grouped by category:
 
-- **MCP support** - Model Context Protocol integration
-- **More providers** - Bedrock, Gemini, and additional model providers
-- **Agent delegation** - Agents can send messages to and delegate work to other agents
-- **Fine-grained permissions** - Control which tools each agent can use
-- **Complete privacy mode** - No analytics, no telemetry
+**Integration & APIs**
 - **Language SDKs** - Python, TypeScript, and Go client libraries
+- **Remote daemon support** - CLI commands for managing and switching between remote contexts
+- **MCP support** - Model Context Protocol integration
+
+**Model Providers**
+- **More providers** - Bedrock, Gemini, and additional model providers
+- **Complete privacy mode** - Use local models with zero telemetry
+
+**Agent Capabilities**
+- **Agent delegation** - Agents can collaborate and delegate work to specialized agents
+- **Virtual agents** - Agents that adapt behavior based on the model they use
+- **Long-horizon tasks** - Enhanced support for complex, multi-day tasks
+
+**Security & Safety**
+- **Fine-grained permissions** - Control which tools each agent can access
+- **Sandboxing** - Isolate agent execution in secure containers
+- **Checkpoints** - Create snapshots of repository state before agent modifications
 
 See [GitHub Issues](https://github.com/furisto/construct/issues) for detailed feature requests and progress tracking.
 
 ## Documentation
-
+- [Architecture Documentation](docs/architecture.md) - Detailed technical deep dive into Construct's design
 - [Tool Calling in Construct](docs/tool_calling.md) - Technical deep dive on JavaScript-based tool calling
 - [CLI Reference](docs/cli_reference.md) - Complete reference for all CLI commands
 - [API Reference](https://docs.construct.sh/api) (Coming soon)
