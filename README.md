@@ -191,7 +191,7 @@ construct daemon install
 export ANTHROPIC_API_KEY="sk-ant-..."
 construct modelprovider create anthropic --type anthropic
 
-# 5. Start coding
+# 3. Start coding
 construct new --agent edit
 ```
 
