@@ -67,9 +67,9 @@ for (const file of routeFiles.files) {
 }
 ```
 
-One execution instead of dozens of separate tool calls. Research shows this approach achieves 20% higher success rates vs JSON tool calling.
+One execution instead of dozens of separate tool calls. Research by Wang et al. (2024) demonstrates that code-based tool calling achieves up to 20% higher success rates compared to JSON and text-based approaches across 17 different language models.
 
-See [Tool Calling in Construct](docs/tool_calling.md) for a detailed technical analysis.
+See [Tool Calling in Construct](docs/tool_calling.md) for a detailed technical analysis and full citation.
 
 ### API-First Architecture
 
@@ -161,8 +161,18 @@ See [Architecture Documentation](docs/architecture.md) for detailed technical de
 
 ### Installation
 
+**macOS (Homebrew):**
 ```bash
-# Clone and build
+brew tap furisto/tap
+brew install construct
+```
+
+**Download pre-built binary:**
+
+Download the latest release for your platform from [GitHub Releases](https://github.com/furisto/construct/releases).
+
+**Build from source:**
+```bash
 git clone https://github.com/furisto/construct
 cd construct/frontend/cli
 go build -o construct
@@ -180,24 +190,6 @@ construct daemon install
 # 2. Configure provider (Anthropic example)
 export ANTHROPIC_API_KEY="sk-ant-..."
 construct modelprovider create anthropic --type anthropic
-
-# 3. Register models
-construct model create claude-sonnet-4 \
-  --provider anthropic \
-  --context-window 200000
-
-construct model create claude-haiku-3.5 \
-  --provider anthropic \
-  --context-window 200000
-
-# 4. Create agents
-construct agent create edit \
-  --model claude-sonnet-4 \
-  --prompt "You are a coding assistant who writes clean, well-documented code"
-
-construct agent create quick \
-  --model claude-haiku-3.5 \
-  --prompt "You are a fast coding assistant for quick tasks"
 
 # 5. Start coding
 construct new --agent edit
