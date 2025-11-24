@@ -2,6 +2,7 @@ package filesystem
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,6 +28,10 @@ type DiffValidationError struct {
 	ErrorType    string `json:"error_type"`
 	ErrorMessage string `json:"error_message"`
 	SuggestedFix string `json:"suggested_fix,omitempty"`
+}
+
+func (e *DiffValidationError) Error() string {
+	return fmt.Sprintf("diff_index: %d, error_type: %s, error_message: %s, suggested_fix: %s", e.DiffIndex, e.ErrorType, e.ErrorMessage, e.SuggestedFix)
 }
 
 type ConflictWarning struct {
@@ -77,6 +82,7 @@ func EditFile(fsys afero.Fs, input *EditFileInput) (*EditFileResult, error) {
 	// Read file content
 	content, err := afero.ReadFile(fsys, path)
 	if err != nil {
+		slog.Error("failed to read file for editing", "path", path, "error", err)
 		return nil, base.NewCustomError("error reading file", []string{
 			"Verify that you have the permission to read the file",
 		}, "path", path, "error", err)
@@ -89,6 +95,7 @@ func EditFile(fsys afero.Fs, input *EditFileInput) (*EditFileResult, error) {
 
 	newContent, replacementsMade, validationErrors := processEdits(originalContent, input.Diffs)
 	if len(validationErrors) > 0 {
+		slog.Warn("edit validation failed", "path", path, "error_count", len(validationErrors))
 		return nil, base.NewCustomError("validation failed", []string{
 			"Please fix the validation errors and try again",
 		}, "path", path, "validation_errors", validationErrors)
@@ -102,13 +109,24 @@ func EditFile(fsys afero.Fs, input *EditFileInput) (*EditFileResult, error) {
 
 		err = afero.WriteFile(fsys, path, []byte(newContent), stat.Mode())
 		if err != nil {
+			slog.Error("failed to write file after edits", "path", path, "error", err)
 			return nil, base.NewCustomError("error writing file", []string{
 				"Verify that you have the permission to write to the file",
 			}, "path", path, "error", err)
 		}
+
+		slog.Debug("file edits applied", "path", path, "replacements", replacementsMade, "expected", expectedReplacements, "lines_added", patchInfo.LinesAdded, "lines_removed", patchInfo.LinesRemoved)
+	} else {
+		slog.Debug("no changes needed", "path", path, "expected_replacements", expectedReplacements)
+	}
+
+	success := replacementsMade == expectedReplacements
+	if !success {
+		slog.Warn("edit partial success", "path", path, "replacements", replacementsMade, "expected", expectedReplacements)
 	}
 
 	return &EditFileResult{
+		Success:              success,
 		Path:                 path,
 		ReplacementsMade:     replacementsMade,
 		ExpectedReplacements: expectedReplacements,
@@ -201,6 +219,13 @@ func processEdits(fileContent string, diffs []DiffPair) (string, int, []DiffVali
 		if diff.Old == "" && diff.New == "" {
 			continue
 		}
+
+		// Normalize escape sequences in diff.Old before any matching
+		// This converts actual newlines/tabs inside strings to their literal forms (\\n, \\t)
+		// while preserving real line breaks between code lines
+		// diffs[i].Old = normalizeEscapesInString(diff.Old)
+		// diffs[i].New = normalizeEscapesInString(diff.New)
+		// diff.Old = diffs[i].Old
 
 		if diff.Old == diff.New {
 			validationErrors = append(validationErrors, DiffValidationError{
@@ -339,4 +364,57 @@ func parseDiffStats(patch string) (linesAdded, linesRemoved int) {
 	}
 
 	return linesAdded, linesRemoved
+}
+
+func normalizeEscapesInString(s string) string {
+	var result strings.Builder
+	inString := false
+	var stringDelim rune
+	runes := []rune(s)
+	i := 0
+
+	for i < len(runes) {
+		ch := runes[i]
+
+		// Handle escape sequences (backslash followed by another char)
+		if ch == '\\' && i+1 < len(runes) && inString {
+			// Inside a string, backslash escapes the next character
+			// Copy both the backslash and next char as-is (don't process further)
+			result.WriteRune(ch)
+			result.WriteRune(runes[i+1])
+			i += 2
+			continue
+		}
+
+		// Handle string delimiters
+		if ch == '"' || ch == '\'' || ch == '`' {
+			if !inString {
+				inString = true
+				stringDelim = ch
+			} else if ch == stringDelim {
+				inString = false
+			}
+			result.WriteRune(ch)
+			i++
+			continue
+		}
+
+		// Convert actual escape characters to literals ONLY inside strings
+		if inString {
+			if ch == '\n' {
+				result.WriteString("\\n")
+			} else if ch == '\t' {
+				result.WriteString("\\t")
+			} else if ch == '\r' {
+				result.WriteString("\\r")
+			} else {
+				result.WriteRune(ch)
+			}
+		} else {
+			result.WriteRune(ch)
+		}
+		i++
+	}
+
+	return result.String()
 }
