@@ -296,19 +296,26 @@ construct config get cmd.new.agent
 
 ## Roadmap
 
-Construct is actively developed. Planned features:
+Construct is under active development. Planned features grouped by category:
 
-- **MCP support** - Model Context Protocol integration
-- **More providers** - Bedrock, Gemini, and additional model providers
-- **Agent delegation** - Agents can send messages to and delegate work to other agents
-- **Fine-grained permissions** - Control which tools each agent can use
-- **Complete privacy mode** - Use local models, no analytics, no telemetry
+**Integration & APIs**
 - **Language SDKs** - Python, TypeScript, and Go client libraries
-- **Checkpoints** - Create snapshots of the repository state before agent modifications
-- **Long Horizon tasks** - Support for complex, multi-step tasks
-- **Agent.MD support** - Integration with Agent.MD specification for standardized agent configuration and behavior
-- **Sandboxing** - Isolate agents in secure containers
-- **Virtual Agents** - Agents that adapt their behavior and capabilities based on the model they're using
+- **Remote daemon support** - CLI commands for managing and switching between remote contexts
+- **MCP support** - Model Context Protocol integration
+
+**Model Providers**
+- **More providers** - Bedrock, Gemini, and additional model providers
+- **Complete privacy mode** - Use local models with zero telemetry
+
+**Agent Capabilities**
+- **Agent delegation** - Agents can collaborate and delegate work to specialized agents
+- **Virtual agents** - Agents that adapt behavior based on the model they use
+- **Long-horizon tasks** - Enhanced support for complex, multi-day tasks
+
+**Security & Safety**
+- **Fine-grained permissions** - Control which tools each agent can access
+- **Sandboxing** - Isolate agent execution in secure containers
+- **Checkpoints** - Create snapshots of repository state before agent modifications
 
 See [GitHub Issues](https://github.com/furisto/construct/issues) for detailed feature requests and progress tracking.
 
