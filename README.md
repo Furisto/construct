@@ -7,21 +7,19 @@
 </p>
 
 <p align="center">
-  API-first • Superior tool calling • Multi-agent workflows • Complete transparency
+  API-first • CodeMode tool calling • Multi-agent workflows • Self-hostable
 </p>
 
 ---
 
 ## Why Construct?
 
-Most AI coding tools are black boxes. You interact through a web interface or thin CLI wrapper, with limited visibility and minimal control over the system.
+Most AI coding tools lock you into their interface and workflows. Construct is built for integration and automation. Construct gives you full programmatic control.
 
-Construct is different:
-
-- **Full transparency**: See every tool call, export all data, understand costs
 - **Programmatic control**: Script every operation, integrate with existing workflows
 - **Extensibility**: Build custom agents, access everything via API
 - **Vendor independence**: Self-host, switch models, no lock-in
+- **Full visibility**: Export all data, track costs, inspect every operation
 
 ## Overview
 
@@ -77,20 +75,26 @@ See [Tool Calling in Construct](docs/tool_calling.md) for a detailed technical a
 
 The CLI is just one client. The daemon exposes every operation via ConnectRPC.
 
-**Example:** Trigger code reviews from CI:
+Build your own IDE plugins, Slack bots, or automation scripts. Full programmatic control over agents, tasks, messages, models, and providers.
 
-```python
-from construct import Client
+#### Agent-as-a-Service (Coming Soon)
 
-client = Client()
-task = client.tasks.create(agent="reviewer", workspace=".")
-result = client.messages.create(
-    task_id=task.id,
-    content="Review this PR for security issues"
-)
+Construct's daemon can run anywhere - locally, on a remote server, or in cloud sandboxes. The architecture supports connecting to remote daemons, enabling:
+
+**Deploy daemon to cloud sandbox:**
+```bash
+# Run daemon in isolated environment (Docker, E2B, Fly.io, etc.)
+construct daemon run --listen-http 0.0.0.0:8080
 ```
 
-Build your own IDE plugins, Slack bots, or automation scripts. Full programmatic control over agents, tasks, messages, models, and providers.
+**Use cases enabled by remote daemon support:**
+- **Isolated execution**: Run agents in sandboxed environments separate from your development machine
+- **Persistent agents**: Long-running tasks that continue even when you disconnect
+- **Multi-client control**: Multiple CLI instances can interact with the same daemon
+- **Cloud integration**: Deploy on serverless platforms, Kubernetes, or container services
+- **HTTP/2 streaming**: Real-time updates via ConnectRPC for interruptible agent runs
+
+Unlike AI tools designed only for local use, Construct's API-first design makes it a natural fit for remote agent orchestration. Remote context switching and management commands coming soon.
 
 Language SDKs for Python, TypeScript, and Go coming soon.
 
@@ -128,15 +132,32 @@ construct agent create reviewer \
 
 ## Architecture
 
-Construct is built with a modular architecture that separates concerns between:
+Construct follows a daemon-based, client-server architecture designed for extensibility and programmatic access:
 
-- **Backend**: Handles agent runtime, model providers, and tool execution
-- **API Layer**: Provides a consistent interface for all operations
-- **Frontend CLI**: Offers an intuitive terminal interface for interacting with the system
+```mermaid
+graph TD
+    CLI[CLI Client] -->|HTTP/2| API[API Layer<br/>ConnectRPC]
+    Custom[Custom Clients] -.->|HTTP/2| API
+    API --> TR[Task Reconciler]
+    TR --> INT[CodeAct Interpreter<br/>Sobek VM]
+    TR --> Provider[Model Providers<br/>Anthropic/OpenAI/etc]
+    TR --> DB[(SQLite Database)]
+    INT --> Tools[Tool Execution<br/>read_file, edit_file, grep, etc]
+```
 
-The multi-agent system allows for specialized agents to collaborate on tasks, with the runtime managing message passing and coordination between agents.
+**Key components:**
+- **Daemon**: Background service managing agent execution, state, and coordination
+- **ConnectRPC API**: HTTP/2-based RPC exposing all operations via Protocol Buffers
+- **Task Reconciler**: Orchestrates conversation flows between models and tool execution
+- **CodeAct Interpreter**: Executes JavaScript-based tool calls in sandboxed environment
+- **Storage**: SQLite database for persisting all state
+
+See [Architecture Documentation](docs/architecture.md) for detailed technical deep dive.
 
 ## Quick Start
+
+> [!WARNING]
+> Construct is in preview. Expect bugs and missing features as we actively develop toward a stable release. [Report issues](https://github.com/furisto/construct/issues) to help us improve.
 
 ### Installation
 
@@ -281,8 +302,13 @@ Construct is actively developed. Planned features:
 - **More providers** - Bedrock, Gemini, and additional model providers
 - **Agent delegation** - Agents can send messages to and delegate work to other agents
 - **Fine-grained permissions** - Control which tools each agent can use
-- **Complete privacy mode** - No analytics, no telemetry
+- **Complete privacy mode** - Use local models, no analytics, no telemetry
 - **Language SDKs** - Python, TypeScript, and Go client libraries
+- **Checkpoints** - Create snapshots of the repository state before agent modifications
+- **Long Horizon tasks** - Support for complex, multi-step tasks
+- **Agent.MD support** - Integration with Agent.MD specification for standardized agent configuration and behavior
+- **Sandboxing** - Isolate agents in secure containers
+- **Virtual Agents** - Agents that adapt their behavior and capabilities based on the model they're using
 
 See [GitHub Issues](https://github.com/furisto/construct/issues) for detailed feature requests and progress tracking.
 
