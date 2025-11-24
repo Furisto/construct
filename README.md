@@ -291,7 +291,7 @@ Construct is under active development. Planned features grouped by category:
 See [GitHub Issues](https://github.com/furisto/construct/issues) for detailed feature requests and progress tracking.
 
 ## Documentation
-
+- [Architecture Documentation](docs/architecture.md) - Detailed technical deep dive into Construct's design
 - [Tool Calling in Construct](docs/tool_calling.md) - Technical deep dive on JavaScript-based tool calling
 - [CLI Reference](docs/cli_reference.md) - Complete reference for all CLI commands
 - [API Reference](https://docs.construct.sh/api) (Coming soon)
