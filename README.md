@@ -171,7 +171,7 @@ go build -o construct
 sudo mv construct /usr/local/bin/
 ```
 
-### Setup (5 minutes)
+### Setup
 
 ```bash
 # 1. Install daemon
@@ -209,13 +209,13 @@ construct new --agent edit
 
 ```bash
 # Start a new interactive session
-construct new --agent coder
+construct new --agent plan
 
 # Resume a previous conversation
 construct resume --last
 
 # Work in a specific directory
-construct new --agent coder --workspace /path/to/project
+construct new --agent edit --workspace /path/to/project
 ```
 
 ### Non-Interactive Mode
@@ -253,45 +253,24 @@ construct agent create "reviewer" \
   --model "claude-3-5-sonnet"
 
 # Edit agent configuration
-construct agent edit coder
+construct agent edit reviewer
 
 # Get agent details
-construct agent get coder --output json
+construct agent get reviewer --output json
 ```
 
-### Task and Message Management
+### Task Management & Configuration
 
 ```bash
-# Create a new task
-construct task create --agent coder --workspace /project
-
-# List recent tasks
+# List and manage tasks
 construct task list --agent coder
-
-# View task details
 construct task get <task-id>
 
-# List messages in a conversation
-construct message list --task <task-id>
+# Export conversation history
+construct message list --task <task-id> -o json
 
-# View specific message
-construct message get <message-id> --output yaml
-```
-
-### Configuration
-
-```bash
-# Set default agent for new conversations
+# Configure defaults
 construct config set cmd.new.agent "coder"
-
-# Set default output format
-construct config set output.format "json"
-
-# Configure max turns for ask command
-construct config set cmd.ask.max-turns 10
-
-# View current configuration
-construct config get cmd.new.agent
 ```
 
 ## Roadmap
