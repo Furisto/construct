@@ -11,8 +11,6 @@ import (
 )
 
 func TestCreateFile(t *testing.T) {
-	t.Parallel()
-
 	setup := &base.ToolTestSetup[*CreateFileInput, *CreateFileResult]{
 		Call: func(ctx context.Context, services *base.ToolTestServices, input *CreateFileInput) (*CreateFileResult, error) {
 			return CreateFile(services.FS, input)

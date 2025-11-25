@@ -26,8 +26,7 @@ Returns an object containing the file content as a string:
 }
 %[1]s
 
-If the file doesn't exist or cannot be read, it will throw an exception describing the issue. The content will be returned with line numbers prefixed to each line. 
-The line numbers are not part of the actual file content, they are just for you to understand the file structure.
+If the file doesn't exist or cannot be read, it will throw an exception describing the issue.
 
 When reading a specific line range, the content will include context comments:
 - %[2]s// skipped X lines%[2]s at the beginning if start_line > 1

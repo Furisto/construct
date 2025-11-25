@@ -11,8 +11,6 @@ import (
 )
 
 func TestEditFile(t *testing.T) {
-	t.Parallel()
-
 	setup := &base.ToolTestSetup[*EditFileInput, *EditFileResult]{
 		Call: func(ctx context.Context, services *base.ToolTestServices, input *EditFileInput) (*EditFileResult, error) {
 			return EditFile(services.FS, input)

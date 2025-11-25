@@ -7,7 +7,7 @@ import (
 	"connectrpc.com/connect"
 	api_client "github.com/furisto/construct/api/go/client"
 	v1 "github.com/furisto/construct/api/go/v1"
-	"github.com/furisto/construct/frontend/cli/cmd/mocks"
+	"github.com/furisto/construct/shared/mocks"
 	"github.com/furisto/construct/shared/conv"
 	"github.com/spf13/afero"
 	"go.uber.org/mock/gomock"

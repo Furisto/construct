@@ -80,11 +80,15 @@ func TestCreateModelProvider(t *testing.T) {
 					},
 					Agents: []*memory.Agent{
 						{
-							Name:    "coder",
+							Name:    "edit",
 							Builtin: true,
 						},
 						{
-							Name:    "architect",
+							Name:    "quick",
+							Builtin: true,
+						},
+						{
+							Name:    "plan",
 							Builtin: true,
 						},
 					},

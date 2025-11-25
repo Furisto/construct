@@ -7,8 +7,11 @@ import (
 	"connectrpc.com/connect"
 	api_client "github.com/furisto/construct/api/go/client"
 	v1 "github.com/furisto/construct/api/go/v1"
+	"github.com/furisto/construct/shared/conv"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/google/uuid"
 	"go.uber.org/mock/gomock"
+	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -187,6 +190,7 @@ func TestTaskList(t *testing.T) {
 					&connect.Request[v1.ListTasksRequest]{
 						Msg: &v1.ListTasksRequest{
 							Filter: &v1.ListTasksRequest_Filter{},
+							PageSize: conv.Ptr(int32(0)),
 						},
 					},
 				).Return(nil, connect.NewError(connect.CodeInternal, nil))
@@ -206,11 +210,15 @@ func setupTaskListMock(mockClient *api_client.MockClient, agentID *string, tasks
 
 	mockClient.Task.EXPECT().ListTasks(
 		gomock.Any(),
-		&connect.Request[v1.ListTasksRequest]{
+		CmpEqual(&connect.Request[v1.ListTasksRequest]{
 			Msg: &v1.ListTasksRequest{
-				Filter: filter,
+				Filter:   filter,
+				PageSize: conv.Ptr(int32(0)),
 			},
-		},
+		}, protocmp.Transform(),
+			cmpopts.IgnoreUnexported(connect.Request[v1.ListTasksRequest]{}),
+			cmpopts.IgnoreFields(v1.ListTasksRequest{}, "state"),
+		),
 	).Return(&connect.Response[v1.ListTasksResponse]{
 		Msg: &v1.ListTasksResponse{
 			Tasks: tasks,
@@ -221,13 +229,16 @@ func setupTaskListMock(mockClient *api_client.MockClient, agentID *string, tasks
 func setupAgentLookupForTaskListMock(mockClient *api_client.MockClient, agentName, agentID string) {
 	mockClient.Agent.EXPECT().ListAgents(
 		gomock.Any(),
-		&connect.Request[v1.ListAgentsRequest]{
+		CmpEqual(&connect.Request[v1.ListAgentsRequest]{
 			Msg: &v1.ListAgentsRequest{
 				Filter: &v1.ListAgentsRequest_Filter{
 					Names: []string{agentName},
 				},
 			},
-		},
+		}, protocmp.Transform(),
+			cmpopts.IgnoreUnexported(connect.Request[v1.ListAgentsRequest]{}),
+			cmpopts.IgnoreFields(v1.ListAgentsRequest{}, "state"),
+		),
 	).Return(&connect.Response[v1.ListAgentsResponse]{
 		Msg: &v1.ListAgentsResponse{
 			Agents: []*v1.Agent{

@@ -417,9 +417,6 @@ func (r *TaskReconciler) reconcileInvokeModel(ctx context.Context, taskID uuid.U
 		LogError(logger, "failed to assemble system prompt", err)
 		return Result{}, fmt.Errorf("failed to assemble system prompt: %w", err)
 	}
-	logger.DebugContext(ctx, "system prompt assembled",
-		"prompt_length", len(systemPrompt),
-	)
 
 	LogOperationStart(logger, "invoke model")
 	invokeStart := time.Now()
@@ -717,7 +714,7 @@ func (r *TaskReconciler) callTools(ctx context.Context, task *memory.Task, messa
 				logger.ErrorContext(ctx, "failed to unmarshal tool call", "error", err)
 				return nil, nil, fmt.Errorf("failed to unmarshal tool call: %w", err)
 			}
-			logInterpreterArgs(ctx, task.ID, toolCall.Args)
+			logInterpreterArgs(ctx, task.ID, toolCall.ID, toolCall.Args)
 
 			toolStart := time.Now()
 			result, err := r.interpreter.Interpret(ctx, afero.NewOsFs(), toolCall.Args, &codeact.Task{
@@ -739,12 +736,13 @@ func (r *TaskReconciler) callTools(ctx context.Context, task *memory.Task, messa
 					"success", true,
 				)
 			}
-			toolResults = append(toolResults, &codeact.InterpreterToolResult{
+			interpreterResult := &codeact.InterpreterToolResult{
 				ID:            toolCall.ID,
 				Output:        result.ConsoleOutput,
 				FunctionCalls: result.FunctionCalls,
 				Error:         conv.ErrorToString(err),
-			})
+			}
+			toolResults = append(toolResults, interpreterResult)
 
 			for tool, count := range result.ToolStats {
 				toolStats[tool] += count
@@ -753,7 +751,7 @@ func (r *TaskReconciler) callTools(ctx context.Context, task *memory.Task, messa
 					"count", count,
 				)
 			}
-			logInterpreterResult(ctx, task.ID, result)
+			logInterpreterResult(ctx, task.ID, toolCall.ID, interpreterResult)
 		}
 	}
 
@@ -803,7 +801,7 @@ func calculateCost(usage model.Usage, model *memory.Model) float64 {
 		(float64(usage.CacheReadTokens) * model.CacheReadCost / 1000000)
 }
 
-func logInterpreterArgs(ctx context.Context, taskID uuid.UUID, args json.RawMessage) {
+func logInterpreterArgs(ctx context.Context, taskID uuid.UUID, toolID string, args json.RawMessage) {
 	var a codeact.InterpreterInput
 	err := json.Unmarshal(args, &a)
 	if err != nil {
@@ -811,20 +809,20 @@ func logInterpreterArgs(ctx context.Context, taskID uuid.UUID, args json.RawMess
 		return
 	}
 
-	logInterpreter(ctx, taskID, a.Script, "args_interpreter")
+	logInterpreter(ctx, taskID, toolID, a.Script, "args_interpreter")
 }
 
-func logInterpreterResult(ctx context.Context, taskID uuid.UUID, result *codeact.InterpreterOutput) {
+func logInterpreterResult(ctx context.Context, taskID uuid.UUID, toolID string, result *codeact.InterpreterToolResult) {
 	jsonResult, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to marshal interpreter result", "error", err)
 		return
 	}
 
-	logInterpreter(ctx, taskID, string(jsonResult), "result_interpreter")
+	logInterpreter(ctx, taskID, toolID, string(jsonResult), "result_interpreter")
 }
 
-func logInterpreter(ctx context.Context, taskID uuid.UUID, content string, operation string) {
+func logInterpreter(ctx context.Context, taskID uuid.UUID, toolID string, content string, operation string) {
 	taskDir := fmt.Sprintf("/tmp/tool_call/%s", taskID.String())
 	if _, err := os.Stat(taskDir); os.IsNotExist(err) {
 		err = os.MkdirAll(taskDir, 0755)
@@ -841,7 +839,23 @@ func logInterpreter(ctx context.Context, taskID uuid.UUID, content string, opera
 	}
 	defer fp.Close()
 
-	_, err = fp.WriteString(content + "\n\n" + strings.Repeat("-", 100) + "\n\n")
+	type ToolOperation struct {
+		ToolID string `json:"tool_id"`
+		Content string `json:"content"`
+	}
+
+	toolOperation := ToolOperation{
+		ToolID: toolID,
+		Content: content,
+	}
+
+	jsonOperation, err := json.MarshalIndent(toolOperation, "", "  ")
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to marshal tool operation", "error", err)
+		return
+	}
+
+	_, err = fp.WriteString(string(jsonOperation) + "\n\n" + strings.Repeat("-", 100) + "\n\n")
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to write interpreter args", "error", err)
 	}
