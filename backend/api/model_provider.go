@@ -291,17 +291,17 @@ func createBuiltinAgents(ctx context.Context, tx *memory.Client, modelProvider *
 		return fmt.Errorf("failed to get budget model: %w", err)
 	}
 
-	err = createBuiltinAgent(ctx, tx, uuid.MustParse("00000001-0000-0000-0000-000000000001"), "edit", prompt.Edit, "Implements solutions based on plans or on demand", defaultModel.ID)
+	err = createBuiltinAgent(ctx, tx, uuid.MustParse("00000001-0000-0000-0000-000000000001"), "edit", prompt.Edit, "Implements code changes from plans or direct requests", defaultModel.ID)
 	if err != nil {
 		return err
 	}
 
-	err = createBuiltinAgent(ctx, tx, uuid.MustParse("00000001-0000-0000-0000-000000000002"), "fastedit", prompt.Edit, "Fast, focused edits for specific code changes", budgetModel.ID)
+	err = createBuiltinAgent(ctx, tx, uuid.MustParse("00000001-0000-0000-0000-000000000002"), "quick", prompt.Edit, "Fast, targeted edits for simple code changes", budgetModel.ID)
 	if err != nil {
 		return err
 	}
 
-	return createBuiltinAgent(ctx, tx, uuid.MustParse("00000001-0000-0000-0000-000000000003"), "plan", prompt.Plan, "Gathers requirements and designs detailed implementation plans", defaultModel.ID)
+	return createBuiltinAgent(ctx, tx, uuid.MustParse("00000001-0000-0000-0000-000000000003"), "plan", prompt.Plan, "Analyzes requirements and creates detailed implementation plans", defaultModel.ID)
 }
 
 func createBuiltinAgent(ctx context.Context, tx *memory.Client, agentID uuid.UUID, name string, instructions string, description string, modelID uuid.UUID) error {
