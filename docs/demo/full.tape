@@ -1,4 +1,5 @@
 Output demo/full.gif
+Output demo/full.mp4
 
 Set TypingSpeed 75ms
 Set Width 1700

@@ -1,4 +1,5 @@
-Output docs/images/short.gif
+Output docs/demo/short2.gif
+Output docs/demo/short2.mp4
 
 Set TypingSpeed 40ms
 Set Width 1700
