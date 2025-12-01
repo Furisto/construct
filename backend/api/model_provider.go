@@ -41,6 +41,10 @@ func (h *ModelProviderHandler) CreateModelProvider(ctx context.Context, req *con
 		return nil, apiError(connect.NewError(connect.CodeInvalidArgument, err))
 	}
 
+	if providerType != types.ModelProviderTypeAnthropic {
+		return nil, apiError(connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("only Anthropic is supported for now")))
+	}
+
 	jsonSecret, err := marshalAuthToJson(req.Msg.Authentication)
 	if err != nil {
 		return nil, apiError(fmt.Errorf("failed to marshal authentication config: %w", err))
