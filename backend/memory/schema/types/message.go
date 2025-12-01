@@ -25,6 +25,7 @@ const (
 	MessageSourceUser      MessageSource = "user"
 	MessageSourceAssistant MessageSource = "assistant"
 	MessageSourceSystem    MessageSource = "system"
+	MessageSourceTask      MessageSource = "task"
 )
 
 func (r MessageSource) Values() []string {
@@ -32,6 +33,7 @@ func (r MessageSource) Values() []string {
 		string(MessageSourceUser),
 		string(MessageSourceAssistant),
 		string(MessageSourceSystem),
+		string(MessageSourceTask),
 	}
 }
 

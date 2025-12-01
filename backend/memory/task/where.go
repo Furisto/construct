@@ -112,6 +112,11 @@ func AgentID(v uuid.UUID) predicate.Task {
 	return predicate.Task(sql.FieldEQ(FieldAgentID, v))
 }
 
+// ParentTaskID applies equality check predicate on the "parent_task_id" field. It's identical to ParentTaskIDEQ.
+func ParentTaskID(v uuid.UUID) predicate.Task {
+	return predicate.Task(sql.FieldEQ(FieldParentTaskID, v))
+}
+
 // CreateTimeEQ applies the EQ predicate on the "create_time" field.
 func CreateTimeEQ(v time.Time) predicate.Task {
 	return predicate.Task(sql.FieldEQ(FieldCreateTime, v))
@@ -722,6 +727,36 @@ func AgentIDNotNil() predicate.Task {
 	return predicate.Task(sql.FieldNotNull(FieldAgentID))
 }
 
+// ParentTaskIDEQ applies the EQ predicate on the "parent_task_id" field.
+func ParentTaskIDEQ(v uuid.UUID) predicate.Task {
+	return predicate.Task(sql.FieldEQ(FieldParentTaskID, v))
+}
+
+// ParentTaskIDNEQ applies the NEQ predicate on the "parent_task_id" field.
+func ParentTaskIDNEQ(v uuid.UUID) predicate.Task {
+	return predicate.Task(sql.FieldNEQ(FieldParentTaskID, v))
+}
+
+// ParentTaskIDIn applies the In predicate on the "parent_task_id" field.
+func ParentTaskIDIn(vs ...uuid.UUID) predicate.Task {
+	return predicate.Task(sql.FieldIn(FieldParentTaskID, vs...))
+}
+
+// ParentTaskIDNotIn applies the NotIn predicate on the "parent_task_id" field.
+func ParentTaskIDNotIn(vs ...uuid.UUID) predicate.Task {
+	return predicate.Task(sql.FieldNotIn(FieldParentTaskID, vs...))
+}
+
+// ParentTaskIDIsNil applies the IsNil predicate on the "parent_task_id" field.
+func ParentTaskIDIsNil() predicate.Task {
+	return predicate.Task(sql.FieldIsNull(FieldParentTaskID))
+}
+
+// ParentTaskIDNotNil applies the NotNil predicate on the "parent_task_id" field.
+func ParentTaskIDNotNil() predicate.Task {
+	return predicate.Task(sql.FieldNotNull(FieldParentTaskID))
+}
+
 // HasMessages applies the HasEdge predicate on the "messages" edge.
 func HasMessages() predicate.Task {
 	return predicate.Task(func(s *sql.Selector) {
@@ -760,6 +795,52 @@ func HasAgent() predicate.Task {
 func HasAgentWith(preds ...predicate.Agent) predicate.Task {
 	return predicate.Task(func(s *sql.Selector) {
 		step := newAgentStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasParent applies the HasEdge predicate on the "parent" edge.
+func HasParent() predicate.Task {
+	return predicate.Task(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, ParentTable, ParentColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasParentWith applies the HasEdge predicate on the "parent" edge with a given conditions (other predicates).
+func HasParentWith(preds ...predicate.Task) predicate.Task {
+	return predicate.Task(func(s *sql.Selector) {
+		step := newParentStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasChildren applies the HasEdge predicate on the "children" edge.
+func HasChildren() predicate.Task {
+	return predicate.Task(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, ChildrenTable, ChildrenColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasChildrenWith applies the HasEdge predicate on the "children" edge with a given conditions (other predicates).
+func HasChildrenWith(preds ...predicate.Task) predicate.Task {
+	return predicate.Task(func(s *sql.Selector) {
+		step := newChildrenStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

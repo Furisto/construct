@@ -959,25 +959,27 @@ func (m *AgentMutation) ResetEdge(name string) error {
 // MessageMutation represents an operation that mutates the Message nodes in the graph.
 type MessageMutation struct {
 	config
-	op             Op
-	typ            string
-	id             *uuid.UUID
-	create_time    *time.Time
-	update_time    *time.Time
-	source         *types.MessageSource
-	content        **types.MessageContent
-	usage          **types.MessageUsage
-	processed_time *time.Time
-	clearedFields  map[string]struct{}
-	task           *uuid.UUID
-	clearedtask    bool
-	agent          *uuid.UUID
-	clearedagent   bool
-	model          *uuid.UUID
-	clearedmodel   bool
-	done           bool
-	oldValue       func(context.Context) (*Message, error)
-	predicates     []predicate.Message
+	op               Op
+	typ              string
+	id               *uuid.UUID
+	create_time      *time.Time
+	update_time      *time.Time
+	source           *types.MessageSource
+	content          **types.MessageContent
+	usage            **types.MessageUsage
+	processed_time   *time.Time
+	clearedFields    map[string]struct{}
+	task             *uuid.UUID
+	clearedtask      bool
+	agent            *uuid.UUID
+	clearedagent     bool
+	model            *uuid.UUID
+	clearedmodel     bool
+	from_task        *uuid.UUID
+	clearedfrom_task bool
+	done             bool
+	oldValue         func(context.Context) (*Message, error)
+	predicates       []predicate.Message
 }
 
 var _ ent.Mutation = (*MessageMutation)(nil)
@@ -1460,6 +1462,55 @@ func (m *MessageMutation) ResetModelID() {
 	delete(m.clearedFields, message.FieldModelID)
 }
 
+// SetFromTaskID sets the "from_task_id" field.
+func (m *MessageMutation) SetFromTaskID(u uuid.UUID) {
+	m.from_task = &u
+}
+
+// FromTaskID returns the value of the "from_task_id" field in the mutation.
+func (m *MessageMutation) FromTaskID() (r uuid.UUID, exists bool) {
+	v := m.from_task
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFromTaskID returns the old "from_task_id" field's value of the Message entity.
+// If the Message object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MessageMutation) OldFromTaskID(ctx context.Context) (v *uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFromTaskID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFromTaskID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFromTaskID: %w", err)
+	}
+	return oldValue.FromTaskID, nil
+}
+
+// ClearFromTaskID clears the value of the "from_task_id" field.
+func (m *MessageMutation) ClearFromTaskID() {
+	m.from_task = nil
+	m.clearedFields[message.FieldFromTaskID] = struct{}{}
+}
+
+// FromTaskIDCleared returns if the "from_task_id" field was cleared in this mutation.
+func (m *MessageMutation) FromTaskIDCleared() bool {
+	_, ok := m.clearedFields[message.FieldFromTaskID]
+	return ok
+}
+
+// ResetFromTaskID resets all changes to the "from_task_id" field.
+func (m *MessageMutation) ResetFromTaskID() {
+	m.from_task = nil
+	delete(m.clearedFields, message.FieldFromTaskID)
+}
+
 // ClearTask clears the "task" edge to the Task entity.
 func (m *MessageMutation) ClearTask() {
 	m.clearedtask = true
@@ -1541,6 +1592,33 @@ func (m *MessageMutation) ResetModel() {
 	m.clearedmodel = false
 }
 
+// ClearFromTask clears the "from_task" edge to the Task entity.
+func (m *MessageMutation) ClearFromTask() {
+	m.clearedfrom_task = true
+	m.clearedFields[message.FieldFromTaskID] = struct{}{}
+}
+
+// FromTaskCleared reports if the "from_task" edge to the Task entity was cleared.
+func (m *MessageMutation) FromTaskCleared() bool {
+	return m.FromTaskIDCleared() || m.clearedfrom_task
+}
+
+// FromTaskIDs returns the "from_task" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// FromTaskID instead. It exists only for internal usage by the builders.
+func (m *MessageMutation) FromTaskIDs() (ids []uuid.UUID) {
+	if id := m.from_task; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetFromTask resets all changes to the "from_task" edge.
+func (m *MessageMutation) ResetFromTask() {
+	m.from_task = nil
+	m.clearedfrom_task = false
+}
+
 // Where appends a list predicates to the MessageMutation builder.
 func (m *MessageMutation) Where(ps ...predicate.Message) {
 	m.predicates = append(m.predicates, ps...)
@@ -1575,7 +1653,7 @@ func (m *MessageMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *MessageMutation) Fields() []string {
-	fields := make([]string, 0, 9)
+	fields := make([]string, 0, 10)
 	if m.create_time != nil {
 		fields = append(fields, message.FieldCreateTime)
 	}
@@ -1603,6 +1681,9 @@ func (m *MessageMutation) Fields() []string {
 	if m.model != nil {
 		fields = append(fields, message.FieldModelID)
 	}
+	if m.from_task != nil {
+		fields = append(fields, message.FieldFromTaskID)
+	}
 	return fields
 }
 
@@ -1629,6 +1710,8 @@ func (m *MessageMutation) Field(name string) (ent.Value, bool) {
 		return m.AgentID()
 	case message.FieldModelID:
 		return m.ModelID()
+	case message.FieldFromTaskID:
+		return m.FromTaskID()
 	}
 	return nil, false
 }
@@ -1656,6 +1739,8 @@ func (m *MessageMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldAgentID(ctx)
 	case message.FieldModelID:
 		return m.OldModelID(ctx)
+	case message.FieldFromTaskID:
+		return m.OldFromTaskID(ctx)
 	}
 	return nil, fmt.Errorf("unknown Message field %s", name)
 }
@@ -1728,6 +1813,13 @@ func (m *MessageMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetModelID(v)
 		return nil
+	case message.FieldFromTaskID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFromTaskID(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Message field %s", name)
 }
@@ -1770,6 +1862,9 @@ func (m *MessageMutation) ClearedFields() []string {
 	if m.FieldCleared(message.FieldModelID) {
 		fields = append(fields, message.FieldModelID)
 	}
+	if m.FieldCleared(message.FieldFromTaskID) {
+		fields = append(fields, message.FieldFromTaskID)
+	}
 	return fields
 }
 
@@ -1795,6 +1890,9 @@ func (m *MessageMutation) ClearField(name string) error {
 		return nil
 	case message.FieldModelID:
 		m.ClearModelID()
+		return nil
+	case message.FieldFromTaskID:
+		m.ClearFromTaskID()
 		return nil
 	}
 	return fmt.Errorf("unknown Message nullable field %s", name)
@@ -1831,13 +1929,16 @@ func (m *MessageMutation) ResetField(name string) error {
 	case message.FieldModelID:
 		m.ResetModelID()
 		return nil
+	case message.FieldFromTaskID:
+		m.ResetFromTaskID()
+		return nil
 	}
 	return fmt.Errorf("unknown Message field %s", name)
 }
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *MessageMutation) AddedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.task != nil {
 		edges = append(edges, message.EdgeTask)
 	}
@@ -1846,6 +1947,9 @@ func (m *MessageMutation) AddedEdges() []string {
 	}
 	if m.model != nil {
 		edges = append(edges, message.EdgeModel)
+	}
+	if m.from_task != nil {
+		edges = append(edges, message.EdgeFromTask)
 	}
 	return edges
 }
@@ -1866,13 +1970,17 @@ func (m *MessageMutation) AddedIDs(name string) []ent.Value {
 		if id := m.model; id != nil {
 			return []ent.Value{*id}
 		}
+	case message.EdgeFromTask:
+		if id := m.from_task; id != nil {
+			return []ent.Value{*id}
+		}
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *MessageMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	return edges
 }
 
@@ -1884,7 +1992,7 @@ func (m *MessageMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *MessageMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.clearedtask {
 		edges = append(edges, message.EdgeTask)
 	}
@@ -1893,6 +2001,9 @@ func (m *MessageMutation) ClearedEdges() []string {
 	}
 	if m.clearedmodel {
 		edges = append(edges, message.EdgeModel)
+	}
+	if m.clearedfrom_task {
+		edges = append(edges, message.EdgeFromTask)
 	}
 	return edges
 }
@@ -1907,6 +2018,8 @@ func (m *MessageMutation) EdgeCleared(name string) bool {
 		return m.clearedagent
 	case message.EdgeModel:
 		return m.clearedmodel
+	case message.EdgeFromTask:
+		return m.clearedfrom_task
 	}
 	return false
 }
@@ -1924,6 +2037,9 @@ func (m *MessageMutation) ClearEdge(name string) error {
 	case message.EdgeModel:
 		m.ClearModel()
 		return nil
+	case message.EdgeFromTask:
+		m.ClearFromTask()
+		return nil
 	}
 	return fmt.Errorf("unknown Message unique edge %s", name)
 }
@@ -1940,6 +2056,9 @@ func (m *MessageMutation) ResetEdge(name string) error {
 		return nil
 	case message.EdgeModel:
 		m.ResetModel()
+		return nil
+	case message.EdgeFromTask:
+		m.ResetFromTask()
 		return nil
 	}
 	return fmt.Errorf("unknown Message edge %s", name)
@@ -4121,6 +4240,11 @@ type TaskMutation struct {
 	clearedmessages       bool
 	agent                 *uuid.UUID
 	clearedagent          bool
+	parent                *uuid.UUID
+	clearedparent         bool
+	children              map[uuid.UUID]struct{}
+	removedchildren       map[uuid.UUID]struct{}
+	clearedchildren       bool
 	done                  bool
 	oldValue              func(context.Context) (*Task, error)
 	predicates            []predicate.Task
@@ -4963,6 +5087,55 @@ func (m *TaskMutation) ResetAgentID() {
 	delete(m.clearedFields, task.FieldAgentID)
 }
 
+// SetParentTaskID sets the "parent_task_id" field.
+func (m *TaskMutation) SetParentTaskID(u uuid.UUID) {
+	m.parent = &u
+}
+
+// ParentTaskID returns the value of the "parent_task_id" field in the mutation.
+func (m *TaskMutation) ParentTaskID() (r uuid.UUID, exists bool) {
+	v := m.parent
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldParentTaskID returns the old "parent_task_id" field's value of the Task entity.
+// If the Task object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TaskMutation) OldParentTaskID(ctx context.Context) (v *uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldParentTaskID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldParentTaskID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldParentTaskID: %w", err)
+	}
+	return oldValue.ParentTaskID, nil
+}
+
+// ClearParentTaskID clears the value of the "parent_task_id" field.
+func (m *TaskMutation) ClearParentTaskID() {
+	m.parent = nil
+	m.clearedFields[task.FieldParentTaskID] = struct{}{}
+}
+
+// ParentTaskIDCleared returns if the "parent_task_id" field was cleared in this mutation.
+func (m *TaskMutation) ParentTaskIDCleared() bool {
+	_, ok := m.clearedFields[task.FieldParentTaskID]
+	return ok
+}
+
+// ResetParentTaskID resets all changes to the "parent_task_id" field.
+func (m *TaskMutation) ResetParentTaskID() {
+	m.parent = nil
+	delete(m.clearedFields, task.FieldParentTaskID)
+}
+
 // AddMessageIDs adds the "messages" edge to the Message entity by ids.
 func (m *TaskMutation) AddMessageIDs(ids ...uuid.UUID) {
 	if m.messages == nil {
@@ -5044,6 +5217,100 @@ func (m *TaskMutation) ResetAgent() {
 	m.clearedagent = false
 }
 
+// SetParentID sets the "parent" edge to the Task entity by id.
+func (m *TaskMutation) SetParentID(id uuid.UUID) {
+	m.parent = &id
+}
+
+// ClearParent clears the "parent" edge to the Task entity.
+func (m *TaskMutation) ClearParent() {
+	m.clearedparent = true
+	m.clearedFields[task.FieldParentTaskID] = struct{}{}
+}
+
+// ParentCleared reports if the "parent" edge to the Task entity was cleared.
+func (m *TaskMutation) ParentCleared() bool {
+	return m.ParentTaskIDCleared() || m.clearedparent
+}
+
+// ParentID returns the "parent" edge ID in the mutation.
+func (m *TaskMutation) ParentID() (id uuid.UUID, exists bool) {
+	if m.parent != nil {
+		return *m.parent, true
+	}
+	return
+}
+
+// ParentIDs returns the "parent" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ParentID instead. It exists only for internal usage by the builders.
+func (m *TaskMutation) ParentIDs() (ids []uuid.UUID) {
+	if id := m.parent; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetParent resets all changes to the "parent" edge.
+func (m *TaskMutation) ResetParent() {
+	m.parent = nil
+	m.clearedparent = false
+}
+
+// AddChildIDs adds the "children" edge to the Task entity by ids.
+func (m *TaskMutation) AddChildIDs(ids ...uuid.UUID) {
+	if m.children == nil {
+		m.children = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.children[ids[i]] = struct{}{}
+	}
+}
+
+// ClearChildren clears the "children" edge to the Task entity.
+func (m *TaskMutation) ClearChildren() {
+	m.clearedchildren = true
+}
+
+// ChildrenCleared reports if the "children" edge to the Task entity was cleared.
+func (m *TaskMutation) ChildrenCleared() bool {
+	return m.clearedchildren
+}
+
+// RemoveChildIDs removes the "children" edge to the Task entity by IDs.
+func (m *TaskMutation) RemoveChildIDs(ids ...uuid.UUID) {
+	if m.removedchildren == nil {
+		m.removedchildren = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.children, ids[i])
+		m.removedchildren[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedChildren returns the removed IDs of the "children" edge to the Task entity.
+func (m *TaskMutation) RemovedChildrenIDs() (ids []uuid.UUID) {
+	for id := range m.removedchildren {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ChildrenIDs returns the "children" edge IDs in the mutation.
+func (m *TaskMutation) ChildrenIDs() (ids []uuid.UUID) {
+	for id := range m.children {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetChildren resets all changes to the "children" edge.
+func (m *TaskMutation) ResetChildren() {
+	m.children = nil
+	m.clearedchildren = false
+	m.removedchildren = nil
+}
+
 // Where appends a list predicates to the TaskMutation builder.
 func (m *TaskMutation) Where(ps ...predicate.Task) {
 	m.predicates = append(m.predicates, ps...)
@@ -5078,7 +5345,7 @@ func (m *TaskMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *TaskMutation) Fields() []string {
-	fields := make([]string, 0, 14)
+	fields := make([]string, 0, 15)
 	if m.create_time != nil {
 		fields = append(fields, task.FieldCreateTime)
 	}
@@ -5121,6 +5388,9 @@ func (m *TaskMutation) Fields() []string {
 	if m.agent != nil {
 		fields = append(fields, task.FieldAgentID)
 	}
+	if m.parent != nil {
+		fields = append(fields, task.FieldParentTaskID)
+	}
 	return fields
 }
 
@@ -5157,6 +5427,8 @@ func (m *TaskMutation) Field(name string) (ent.Value, bool) {
 		return m.Description()
 	case task.FieldAgentID:
 		return m.AgentID()
+	case task.FieldParentTaskID:
+		return m.ParentTaskID()
 	}
 	return nil, false
 }
@@ -5194,6 +5466,8 @@ func (m *TaskMutation) OldField(ctx context.Context, name string) (ent.Value, er
 		return m.OldDescription(ctx)
 	case task.FieldAgentID:
 		return m.OldAgentID(ctx)
+	case task.FieldParentTaskID:
+		return m.OldParentTaskID(ctx)
 	}
 	return nil, fmt.Errorf("unknown Task field %s", name)
 }
@@ -5300,6 +5574,13 @@ func (m *TaskMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetAgentID(v)
+		return nil
+	case task.FieldParentTaskID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetParentTaskID(v)
 		return nil
 	}
 	return fmt.Errorf("unknown Task field %s", name)
@@ -5430,6 +5711,9 @@ func (m *TaskMutation) ClearedFields() []string {
 	if m.FieldCleared(task.FieldAgentID) {
 		fields = append(fields, task.FieldAgentID)
 	}
+	if m.FieldCleared(task.FieldParentTaskID) {
+		fields = append(fields, task.FieldParentTaskID)
+	}
 	return fields
 }
 
@@ -5467,6 +5751,9 @@ func (m *TaskMutation) ClearField(name string) error {
 		return nil
 	case task.FieldAgentID:
 		m.ClearAgentID()
+		return nil
+	case task.FieldParentTaskID:
+		m.ClearParentTaskID()
 		return nil
 	}
 	return fmt.Errorf("unknown Task nullable field %s", name)
@@ -5518,18 +5805,27 @@ func (m *TaskMutation) ResetField(name string) error {
 	case task.FieldAgentID:
 		m.ResetAgentID()
 		return nil
+	case task.FieldParentTaskID:
+		m.ResetParentTaskID()
+		return nil
 	}
 	return fmt.Errorf("unknown Task field %s", name)
 }
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *TaskMutation) AddedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 4)
 	if m.messages != nil {
 		edges = append(edges, task.EdgeMessages)
 	}
 	if m.agent != nil {
 		edges = append(edges, task.EdgeAgent)
+	}
+	if m.parent != nil {
+		edges = append(edges, task.EdgeParent)
+	}
+	if m.children != nil {
+		edges = append(edges, task.EdgeChildren)
 	}
 	return edges
 }
@@ -5548,15 +5844,28 @@ func (m *TaskMutation) AddedIDs(name string) []ent.Value {
 		if id := m.agent; id != nil {
 			return []ent.Value{*id}
 		}
+	case task.EdgeParent:
+		if id := m.parent; id != nil {
+			return []ent.Value{*id}
+		}
+	case task.EdgeChildren:
+		ids := make([]ent.Value, 0, len(m.children))
+		for id := range m.children {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *TaskMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 4)
 	if m.removedmessages != nil {
 		edges = append(edges, task.EdgeMessages)
+	}
+	if m.removedchildren != nil {
+		edges = append(edges, task.EdgeChildren)
 	}
 	return edges
 }
@@ -5571,18 +5880,30 @@ func (m *TaskMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case task.EdgeChildren:
+		ids := make([]ent.Value, 0, len(m.removedchildren))
+		for id := range m.removedchildren {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *TaskMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 4)
 	if m.clearedmessages {
 		edges = append(edges, task.EdgeMessages)
 	}
 	if m.clearedagent {
 		edges = append(edges, task.EdgeAgent)
+	}
+	if m.clearedparent {
+		edges = append(edges, task.EdgeParent)
+	}
+	if m.clearedchildren {
+		edges = append(edges, task.EdgeChildren)
 	}
 	return edges
 }
@@ -5595,6 +5916,10 @@ func (m *TaskMutation) EdgeCleared(name string) bool {
 		return m.clearedmessages
 	case task.EdgeAgent:
 		return m.clearedagent
+	case task.EdgeParent:
+		return m.clearedparent
+	case task.EdgeChildren:
+		return m.clearedchildren
 	}
 	return false
 }
@@ -5605,6 +5930,9 @@ func (m *TaskMutation) ClearEdge(name string) error {
 	switch name {
 	case task.EdgeAgent:
 		m.ClearAgent()
+		return nil
+	case task.EdgeParent:
+		m.ClearParent()
 		return nil
 	}
 	return fmt.Errorf("unknown Task unique edge %s", name)
@@ -5619,6 +5947,12 @@ func (m *TaskMutation) ResetEdge(name string) error {
 		return nil
 	case task.EdgeAgent:
 		m.ResetAgent()
+		return nil
+	case task.EdgeParent:
+		m.ResetParent()
+		return nil
+	case task.EdgeChildren:
+		m.ResetChildren()
 		return nil
 	}
 	return fmt.Errorf("unknown Task edge %s", name)

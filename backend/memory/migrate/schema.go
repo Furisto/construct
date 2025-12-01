@@ -46,13 +46,14 @@ var (
 		{Name: "id", Type: field.TypeUUID, Unique: true},
 		{Name: "create_time", Type: field.TypeTime},
 		{Name: "update_time", Type: field.TypeTime},
-		{Name: "source", Type: field.TypeEnum, Enums: []string{"user", "assistant", "system"}},
+		{Name: "source", Type: field.TypeEnum, Enums: []string{"user", "assistant", "system", "task"}},
 		{Name: "content", Type: field.TypeJSON},
 		{Name: "usage", Type: field.TypeJSON, Nullable: true},
 		{Name: "processed_time", Type: field.TypeTime, Nullable: true},
 		{Name: "task_id", Type: field.TypeUUID},
 		{Name: "agent_id", Type: field.TypeUUID, Nullable: true},
 		{Name: "model_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "from_task_id", Type: field.TypeUUID, Nullable: true},
 	}
 	// MessagesTable holds the schema information for the "messages" table.
 	MessagesTable = &schema.Table{
@@ -76,6 +77,12 @@ var (
 				Symbol:     "messages_models_model",
 				Columns:    []*schema.Column{MessagesColumns[9]},
 				RefColumns: []*schema.Column{ModelsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+			{
+				Symbol:     "messages_tasks_from_task",
+				Columns:    []*schema.Column{MessagesColumns[10]},
+				RefColumns: []*schema.Column{TasksColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 		},
@@ -168,6 +175,7 @@ var (
 		{Name: "phase", Type: field.TypeEnum, Enums: []string{"unspecified", "running", "awaiting", "suspended"}, Default: "awaiting"},
 		{Name: "description", Type: field.TypeString, Nullable: true},
 		{Name: "agent_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "parent_task_id", Type: field.TypeUUID, Nullable: true},
 	}
 	// TasksTable holds the schema information for the "tasks" table.
 	TasksTable = &schema.Table{
@@ -179,6 +187,12 @@ var (
 				Symbol:     "tasks_agents_agent",
 				Columns:    []*schema.Column{TasksColumns[14]},
 				RefColumns: []*schema.Column{AgentsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+			{
+				Symbol:     "tasks_tasks_parent",
+				Columns:    []*schema.Column{TasksColumns[15]},
+				RefColumns: []*schema.Column{TasksColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 		},
@@ -210,10 +224,12 @@ func init() {
 	MessagesTable.ForeignKeys[0].RefTable = TasksTable
 	MessagesTable.ForeignKeys[1].RefTable = AgentsTable
 	MessagesTable.ForeignKeys[2].RefTable = ModelsTable
+	MessagesTable.ForeignKeys[3].RefTable = TasksTable
 	MessagesTable.Annotation = &entsql.Annotation{}
 	MessagesTable.Annotation.Checks = map[string]string{
 		"agent_model": "(agent_id IS NULL OR agent_id IS NOT NULL AND model_id IS NOT NULL)",
 	}
 	ModelsTable.ForeignKeys[0].RefTable = ModelProvidersTable
 	TasksTable.ForeignKeys[0].RefTable = AgentsTable
+	TasksTable.ForeignKeys[1].RefTable = TasksTable
 }

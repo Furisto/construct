@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 
+	"github.com/furisto/construct/backend/event"
 	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/shared"
 	"github.com/google/uuid"
@@ -21,6 +22,7 @@ type Session struct {
 	User          io.Writer
 	FS            afero.Fs
 	Memory        *memory.Client
+	Bus           *event.Bus
 	CommandRunner shared.CommandRunner
 
 	CurrentTool string
@@ -35,6 +37,22 @@ func NewSession(ctx context.Context, task *Task, vm *sobek.Runtime, system io.Wr
 		System:        system,
 		User:          user,
 		FS:            fs,
+		CommandRunner: commandRunner,
+
+		values: make(map[string]any),
+	}
+}
+
+func NewSessionWithBus(ctx context.Context, task *Task, vm *sobek.Runtime, system io.Writer, user io.Writer, fs afero.Fs, memory *memory.Client, bus *event.Bus, commandRunner shared.CommandRunner) *Session {
+	return &Session{
+		Context:       ctx,
+		Task:          task,
+		VM:            vm,
+		System:        system,
+		User:          user,
+		FS:            fs,
+		Memory:        memory,
+		Bus:           bus,
 		CommandRunner: commandRunner,
 
 		values: make(map[string]any),

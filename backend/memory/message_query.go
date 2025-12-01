@@ -22,14 +22,15 @@ import (
 // MessageQuery is the builder for querying Message entities.
 type MessageQuery struct {
 	config
-	ctx        *QueryContext
-	order      []message.OrderOption
-	inters     []Interceptor
-	predicates []predicate.Message
-	withTask   *TaskQuery
-	withAgent  *AgentQuery
-	withModel  *ModelQuery
-	modifiers  []func(*sql.Selector)
+	ctx          *QueryContext
+	order        []message.OrderOption
+	inters       []Interceptor
+	predicates   []predicate.Message
+	withTask     *TaskQuery
+	withAgent    *AgentQuery
+	withModel    *ModelQuery
+	withFromTask *TaskQuery
+	modifiers    []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -125,6 +126,28 @@ func (mq *MessageQuery) QueryModel() *ModelQuery {
 			sqlgraph.From(message.Table, message.FieldID, selector),
 			sqlgraph.To(model.Table, model.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, false, message.ModelTable, message.ModelColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(mq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryFromTask chains the current query on the "from_task" edge.
+func (mq *MessageQuery) QueryFromTask() *TaskQuery {
+	query := (&TaskClient{config: mq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := mq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := mq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(message.Table, message.FieldID, selector),
+			sqlgraph.To(task.Table, task.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, message.FromTaskTable, message.FromTaskColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(mq.driver.Dialect(), step)
 		return fromU, nil
@@ -319,14 +342,15 @@ func (mq *MessageQuery) Clone() *MessageQuery {
 		return nil
 	}
 	return &MessageQuery{
-		config:     mq.config,
-		ctx:        mq.ctx.Clone(),
-		order:      append([]message.OrderOption{}, mq.order...),
-		inters:     append([]Interceptor{}, mq.inters...),
-		predicates: append([]predicate.Message{}, mq.predicates...),
-		withTask:   mq.withTask.Clone(),
-		withAgent:  mq.withAgent.Clone(),
-		withModel:  mq.withModel.Clone(),
+		config:       mq.config,
+		ctx:          mq.ctx.Clone(),
+		order:        append([]message.OrderOption{}, mq.order...),
+		inters:       append([]Interceptor{}, mq.inters...),
+		predicates:   append([]predicate.Message{}, mq.predicates...),
+		withTask:     mq.withTask.Clone(),
+		withAgent:    mq.withAgent.Clone(),
+		withModel:    mq.withModel.Clone(),
+		withFromTask: mq.withFromTask.Clone(),
 		// clone intermediate query.
 		sql:       mq.sql.Clone(),
 		path:      mq.path,
@@ -364,6 +388,17 @@ func (mq *MessageQuery) WithModel(opts ...func(*ModelQuery)) *MessageQuery {
 		opt(query)
 	}
 	mq.withModel = query
+	return mq
+}
+
+// WithFromTask tells the query-builder to eager-load the nodes that are connected to
+// the "from_task" edge. The optional arguments are used to configure the query builder of the edge.
+func (mq *MessageQuery) WithFromTask(opts ...func(*TaskQuery)) *MessageQuery {
+	query := (&TaskClient{config: mq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	mq.withFromTask = query
 	return mq
 }
 
@@ -445,10 +480,11 @@ func (mq *MessageQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Mess
 	var (
 		nodes       = []*Message{}
 		_spec       = mq.querySpec()
-		loadedTypes = [3]bool{
+		loadedTypes = [4]bool{
 			mq.withTask != nil,
 			mq.withAgent != nil,
 			mq.withModel != nil,
+			mq.withFromTask != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -487,6 +523,12 @@ func (mq *MessageQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Mess
 	if query := mq.withModel; query != nil {
 		if err := mq.loadModel(ctx, query, nodes, nil,
 			func(n *Message, e *Model) { n.Edges.Model = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := mq.withFromTask; query != nil {
+		if err := mq.loadFromTask(ctx, query, nodes, nil,
+			func(n *Message, e *Task) { n.Edges.FromTask = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -580,6 +622,38 @@ func (mq *MessageQuery) loadModel(ctx context.Context, query *ModelQuery, nodes 
 	}
 	return nil
 }
+func (mq *MessageQuery) loadFromTask(ctx context.Context, query *TaskQuery, nodes []*Message, init func(*Message), assign func(*Message, *Task)) error {
+	ids := make([]uuid.UUID, 0, len(nodes))
+	nodeids := make(map[uuid.UUID][]*Message)
+	for i := range nodes {
+		if nodes[i].FromTaskID == nil {
+			continue
+		}
+		fk := *nodes[i].FromTaskID
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(task.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "from_task_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
+}
 
 func (mq *MessageQuery) sqlCount(ctx context.Context) (int, error) {
 	_spec := mq.querySpec()
@@ -617,6 +691,9 @@ func (mq *MessageQuery) querySpec() *sqlgraph.QuerySpec {
 		}
 		if mq.withModel != nil {
 			_spec.Node.AddColumnOnce(message.FieldModelID)
+		}
+		if mq.withFromTask != nil {
+			_spec.Node.AddColumnOnce(message.FieldFromTaskID)
 		}
 	}
 	if ps := mq.predicates; len(ps) > 0 {

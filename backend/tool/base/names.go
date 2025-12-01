@@ -13,4 +13,7 @@ const (
 	ToolNameGrep            = "grep"
 	ToolNamePrint           = "print"
 	ToolNameAskUser         = "ask_user"
+	ToolNameSpawnTask       = "spawn_task"
+	ToolNameSendMessage     = "send_message"
+	ToolNameAwaitTasks      = "await_tasks"
 )

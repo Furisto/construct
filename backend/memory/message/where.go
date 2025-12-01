@@ -87,6 +87,11 @@ func ModelID(v uuid.UUID) predicate.Message {
 	return predicate.Message(sql.FieldEQ(FieldModelID, v))
 }
 
+// FromTaskID applies equality check predicate on the "from_task_id" field. It's identical to FromTaskIDEQ.
+func FromTaskID(v uuid.UUID) predicate.Message {
+	return predicate.Message(sql.FieldEQ(FieldFromTaskID, v))
+}
+
 // CreateTimeEQ applies the EQ predicate on the "create_time" field.
 func CreateTimeEQ(v time.Time) predicate.Message {
 	return predicate.Message(sql.FieldEQ(FieldCreateTime, v))
@@ -337,6 +342,36 @@ func ModelIDNotNil() predicate.Message {
 	return predicate.Message(sql.FieldNotNull(FieldModelID))
 }
 
+// FromTaskIDEQ applies the EQ predicate on the "from_task_id" field.
+func FromTaskIDEQ(v uuid.UUID) predicate.Message {
+	return predicate.Message(sql.FieldEQ(FieldFromTaskID, v))
+}
+
+// FromTaskIDNEQ applies the NEQ predicate on the "from_task_id" field.
+func FromTaskIDNEQ(v uuid.UUID) predicate.Message {
+	return predicate.Message(sql.FieldNEQ(FieldFromTaskID, v))
+}
+
+// FromTaskIDIn applies the In predicate on the "from_task_id" field.
+func FromTaskIDIn(vs ...uuid.UUID) predicate.Message {
+	return predicate.Message(sql.FieldIn(FieldFromTaskID, vs...))
+}
+
+// FromTaskIDNotIn applies the NotIn predicate on the "from_task_id" field.
+func FromTaskIDNotIn(vs ...uuid.UUID) predicate.Message {
+	return predicate.Message(sql.FieldNotIn(FieldFromTaskID, vs...))
+}
+
+// FromTaskIDIsNil applies the IsNil predicate on the "from_task_id" field.
+func FromTaskIDIsNil() predicate.Message {
+	return predicate.Message(sql.FieldIsNull(FieldFromTaskID))
+}
+
+// FromTaskIDNotNil applies the NotNil predicate on the "from_task_id" field.
+func FromTaskIDNotNil() predicate.Message {
+	return predicate.Message(sql.FieldNotNull(FieldFromTaskID))
+}
+
 // HasTask applies the HasEdge predicate on the "task" edge.
 func HasTask() predicate.Message {
 	return predicate.Message(func(s *sql.Selector) {
@@ -398,6 +433,29 @@ func HasModel() predicate.Message {
 func HasModelWith(preds ...predicate.Model) predicate.Message {
 	return predicate.Message(func(s *sql.Selector) {
 		step := newModelStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasFromTask applies the HasEdge predicate on the "from_task" edge.
+func HasFromTask() predicate.Message {
+	return predicate.Message(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, FromTaskTable, FromTaskColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasFromTaskWith applies the HasEdge predicate on the "from_task" edge with a given conditions (other predicates).
+func HasFromTaskWith(preds ...predicate.Task) predicate.Message {
+	return predicate.Message(func(s *sql.Selector) {
+		step := newFromTaskStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

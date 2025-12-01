@@ -119,6 +119,20 @@ func (mc *MessageCreate) SetNillableModelID(u *uuid.UUID) *MessageCreate {
 	return mc
 }
 
+// SetFromTaskID sets the "from_task_id" field.
+func (mc *MessageCreate) SetFromTaskID(u uuid.UUID) *MessageCreate {
+	mc.mutation.SetFromTaskID(u)
+	return mc
+}
+
+// SetNillableFromTaskID sets the "from_task_id" field if the given value is not nil.
+func (mc *MessageCreate) SetNillableFromTaskID(u *uuid.UUID) *MessageCreate {
+	if u != nil {
+		mc.SetFromTaskID(*u)
+	}
+	return mc
+}
+
 // SetID sets the "id" field.
 func (mc *MessageCreate) SetID(u uuid.UUID) *MessageCreate {
 	mc.mutation.SetID(u)
@@ -146,6 +160,11 @@ func (mc *MessageCreate) SetAgent(a *Agent) *MessageCreate {
 // SetModel sets the "model" edge to the Model entity.
 func (mc *MessageCreate) SetModel(m *Model) *MessageCreate {
 	return mc.SetModelID(m.ID)
+}
+
+// SetFromTask sets the "from_task" edge to the Task entity.
+func (mc *MessageCreate) SetFromTask(t *Task) *MessageCreate {
+	return mc.SetFromTaskID(t.ID)
 }
 
 // Mutation returns the MessageMutation object of the builder.
@@ -330,6 +349,23 @@ func (mc *MessageCreate) createSpec() (*Message, *sqlgraph.CreateSpec) {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.ModelID = nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := mc.mutation.FromTaskIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   message.FromTaskTable,
+			Columns: []string{message.FromTaskColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(task.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.FromTaskID = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

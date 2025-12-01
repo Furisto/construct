@@ -41,6 +41,8 @@ type Message struct {
 	AgentID uuid.UUID `json:"agent_id,omitempty"`
 	// ModelID holds the value of the "model_id" field.
 	ModelID uuid.UUID `json:"model_id,omitempty"`
+	// FromTaskID holds the value of the "from_task_id" field.
+	FromTaskID *uuid.UUID `json:"from_task_id,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the MessageQuery when eager-loading is set.
 	Edges        MessageEdges `json:"edges"`
@@ -55,9 +57,11 @@ type MessageEdges struct {
 	Agent *Agent `json:"agent,omitempty"`
 	// Model holds the value of the model edge.
 	Model *Model `json:"model,omitempty"`
+	// FromTask holds the value of the from_task edge.
+	FromTask *Task `json:"from_task,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [3]bool
+	loadedTypes [4]bool
 }
 
 // TaskOrErr returns the Task value or an error if the edge
@@ -93,11 +97,24 @@ func (e MessageEdges) ModelOrErr() (*Model, error) {
 	return nil, &NotLoadedError{edge: "model"}
 }
 
+// FromTaskOrErr returns the FromTask value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e MessageEdges) FromTaskOrErr() (*Task, error) {
+	if e.FromTask != nil {
+		return e.FromTask, nil
+	} else if e.loadedTypes[3] {
+		return nil, &NotFoundError{label: task.Label}
+	}
+	return nil, &NotLoadedError{edge: "from_task"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*Message) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case message.FieldFromTaskID:
+			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case message.FieldContent, message.FieldUsage:
 			values[i] = new([]byte)
 		case message.FieldSource:
@@ -185,6 +202,13 @@ func (m *Message) assignValues(columns []string, values []any) error {
 			} else if value != nil {
 				m.ModelID = *value
 			}
+		case message.FieldFromTaskID:
+			if value, ok := values[i].(*sql.NullScanner); !ok {
+				return fmt.Errorf("unexpected type %T for field from_task_id", values[i])
+			} else if value.Valid {
+				m.FromTaskID = new(uuid.UUID)
+				*m.FromTaskID = *value.S.(*uuid.UUID)
+			}
 		default:
 			m.selectValues.Set(columns[i], values[i])
 		}
@@ -211,6 +235,11 @@ func (m *Message) QueryAgent() *AgentQuery {
 // QueryModel queries the "model" edge of the Message entity.
 func (m *Message) QueryModel() *ModelQuery {
 	return NewMessageClient(m.config).QueryModel(m)
+}
+
+// QueryFromTask queries the "from_task" edge of the Message entity.
+func (m *Message) QueryFromTask() *TaskQuery {
+	return NewMessageClient(m.config).QueryFromTask(m)
 }
 
 // Update returns a builder for updating this Message.
@@ -262,6 +291,11 @@ func (m *Message) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("model_id=")
 	builder.WriteString(fmt.Sprintf("%v", m.ModelID))
+	builder.WriteString(", ")
+	if v := m.FromTaskID; v != nil {
+		builder.WriteString("from_task_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteByte(')')
 	return builder.String()
 }

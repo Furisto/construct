@@ -35,12 +35,16 @@ const (
 	FieldAgentID = "agent_id"
 	// FieldModelID holds the string denoting the model_id field in the database.
 	FieldModelID = "model_id"
+	// FieldFromTaskID holds the string denoting the from_task_id field in the database.
+	FieldFromTaskID = "from_task_id"
 	// EdgeTask holds the string denoting the task edge name in mutations.
 	EdgeTask = "task"
 	// EdgeAgent holds the string denoting the agent edge name in mutations.
 	EdgeAgent = "agent"
 	// EdgeModel holds the string denoting the model edge name in mutations.
 	EdgeModel = "model"
+	// EdgeFromTask holds the string denoting the from_task edge name in mutations.
+	EdgeFromTask = "from_task"
 	// Table holds the table name of the message in the database.
 	Table = "messages"
 	// TaskTable is the table that holds the task relation/edge.
@@ -64,6 +68,13 @@ const (
 	ModelInverseTable = "models"
 	// ModelColumn is the table column denoting the model relation/edge.
 	ModelColumn = "model_id"
+	// FromTaskTable is the table that holds the from_task relation/edge.
+	FromTaskTable = "messages"
+	// FromTaskInverseTable is the table name for the Task entity.
+	// It exists in this package in order to avoid circular dependency with the "task" package.
+	FromTaskInverseTable = "tasks"
+	// FromTaskColumn is the table column denoting the from_task relation/edge.
+	FromTaskColumn = "from_task_id"
 )
 
 // Columns holds all SQL columns for message fields.
@@ -78,6 +89,7 @@ var Columns = []string{
 	FieldTaskID,
 	FieldAgentID,
 	FieldModelID,
+	FieldFromTaskID,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -104,7 +116,7 @@ var (
 // SourceValidator is a validator for the "source" field enum values. It is called by the builders before save.
 func SourceValidator(s types.MessageSource) error {
 	switch s {
-	case "user", "assistant", "system":
+	case "user", "assistant", "system", "task":
 		return nil
 	default:
 		return fmt.Errorf("message: invalid enum value for source field: %q", s)
@@ -154,6 +166,11 @@ func ByModelID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldModelID, opts...).ToFunc()
 }
 
+// ByFromTaskID orders the results by the from_task_id field.
+func ByFromTaskID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldFromTaskID, opts...).ToFunc()
+}
+
 // ByTaskField orders the results by task field.
 func ByTaskField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -172,6 +189,13 @@ func ByAgentField(field string, opts ...sql.OrderTermOption) OrderOption {
 func ByModelField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
 		sqlgraph.OrderByNeighborTerms(s, newModelStep(), sql.OrderByField(field, opts...))
+	}
+}
+
+// ByFromTaskField orders the results by from_task field.
+func ByFromTaskField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newFromTaskStep(), sql.OrderByField(field, opts...))
 	}
 }
 func newTaskStep() *sqlgraph.Step {
@@ -193,5 +217,12 @@ func newModelStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ModelInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, false, ModelTable, ModelColumn),
+	)
+}
+func newFromTaskStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(FromTaskInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, false, FromTaskTable, FromTaskColumn),
 	)
 }

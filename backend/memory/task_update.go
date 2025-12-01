@@ -289,6 +289,26 @@ func (tu *TaskUpdate) ClearAgentID() *TaskUpdate {
 	return tu
 }
 
+// SetParentTaskID sets the "parent_task_id" field.
+func (tu *TaskUpdate) SetParentTaskID(u uuid.UUID) *TaskUpdate {
+	tu.mutation.SetParentTaskID(u)
+	return tu
+}
+
+// SetNillableParentTaskID sets the "parent_task_id" field if the given value is not nil.
+func (tu *TaskUpdate) SetNillableParentTaskID(u *uuid.UUID) *TaskUpdate {
+	if u != nil {
+		tu.SetParentTaskID(*u)
+	}
+	return tu
+}
+
+// ClearParentTaskID clears the value of the "parent_task_id" field.
+func (tu *TaskUpdate) ClearParentTaskID() *TaskUpdate {
+	tu.mutation.ClearParentTaskID()
+	return tu
+}
+
 // AddMessageIDs adds the "messages" edge to the Message entity by IDs.
 func (tu *TaskUpdate) AddMessageIDs(ids ...uuid.UUID) *TaskUpdate {
 	tu.mutation.AddMessageIDs(ids...)
@@ -307,6 +327,40 @@ func (tu *TaskUpdate) AddMessages(m ...*Message) *TaskUpdate {
 // SetAgent sets the "agent" edge to the Agent entity.
 func (tu *TaskUpdate) SetAgent(a *Agent) *TaskUpdate {
 	return tu.SetAgentID(a.ID)
+}
+
+// SetParentID sets the "parent" edge to the Task entity by ID.
+func (tu *TaskUpdate) SetParentID(id uuid.UUID) *TaskUpdate {
+	tu.mutation.SetParentID(id)
+	return tu
+}
+
+// SetNillableParentID sets the "parent" edge to the Task entity by ID if the given value is not nil.
+func (tu *TaskUpdate) SetNillableParentID(id *uuid.UUID) *TaskUpdate {
+	if id != nil {
+		tu = tu.SetParentID(*id)
+	}
+	return tu
+}
+
+// SetParent sets the "parent" edge to the Task entity.
+func (tu *TaskUpdate) SetParent(t *Task) *TaskUpdate {
+	return tu.SetParentID(t.ID)
+}
+
+// AddChildIDs adds the "children" edge to the Task entity by IDs.
+func (tu *TaskUpdate) AddChildIDs(ids ...uuid.UUID) *TaskUpdate {
+	tu.mutation.AddChildIDs(ids...)
+	return tu
+}
+
+// AddChildren adds the "children" edges to the Task entity.
+func (tu *TaskUpdate) AddChildren(t ...*Task) *TaskUpdate {
+	ids := make([]uuid.UUID, len(t))
+	for i := range t {
+		ids[i] = t[i].ID
+	}
+	return tu.AddChildIDs(ids...)
 }
 
 // Mutation returns the TaskMutation object of the builder.
@@ -339,6 +393,33 @@ func (tu *TaskUpdate) RemoveMessages(m ...*Message) *TaskUpdate {
 func (tu *TaskUpdate) ClearAgent() *TaskUpdate {
 	tu.mutation.ClearAgent()
 	return tu
+}
+
+// ClearParent clears the "parent" edge to the Task entity.
+func (tu *TaskUpdate) ClearParent() *TaskUpdate {
+	tu.mutation.ClearParent()
+	return tu
+}
+
+// ClearChildren clears all "children" edges to the Task entity.
+func (tu *TaskUpdate) ClearChildren() *TaskUpdate {
+	tu.mutation.ClearChildren()
+	return tu
+}
+
+// RemoveChildIDs removes the "children" edge to Task entities by IDs.
+func (tu *TaskUpdate) RemoveChildIDs(ids ...uuid.UUID) *TaskUpdate {
+	tu.mutation.RemoveChildIDs(ids...)
+	return tu
+}
+
+// RemoveChildren removes "children" edges to Task entities.
+func (tu *TaskUpdate) RemoveChildren(t ...*Task) *TaskUpdate {
+	ids := make([]uuid.UUID, len(t))
+	for i := range t {
+		ids[i] = t[i].ID
+	}
+	return tu.RemoveChildIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -552,6 +633,80 @@ func (tu *TaskUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if tu.mutation.ParentCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   task.ParentTable,
+			Columns: []string{task.ParentColumn},
+			Bidi:    true,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(task.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := tu.mutation.ParentIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   task.ParentTable,
+			Columns: []string{task.ParentColumn},
+			Bidi:    true,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(task.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if tu.mutation.ChildrenCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   task.ChildrenTable,
+			Columns: []string{task.ChildrenColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(task.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := tu.mutation.RemovedChildrenIDs(); len(nodes) > 0 && !tu.mutation.ChildrenCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   task.ChildrenTable,
+			Columns: []string{task.ChildrenColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(task.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := tu.mutation.ChildrenIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   task.ChildrenTable,
+			Columns: []string{task.ChildrenColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(task.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -837,6 +992,26 @@ func (tuo *TaskUpdateOne) ClearAgentID() *TaskUpdateOne {
 	return tuo
 }
 
+// SetParentTaskID sets the "parent_task_id" field.
+func (tuo *TaskUpdateOne) SetParentTaskID(u uuid.UUID) *TaskUpdateOne {
+	tuo.mutation.SetParentTaskID(u)
+	return tuo
+}
+
+// SetNillableParentTaskID sets the "parent_task_id" field if the given value is not nil.
+func (tuo *TaskUpdateOne) SetNillableParentTaskID(u *uuid.UUID) *TaskUpdateOne {
+	if u != nil {
+		tuo.SetParentTaskID(*u)
+	}
+	return tuo
+}
+
+// ClearParentTaskID clears the value of the "parent_task_id" field.
+func (tuo *TaskUpdateOne) ClearParentTaskID() *TaskUpdateOne {
+	tuo.mutation.ClearParentTaskID()
+	return tuo
+}
+
 // AddMessageIDs adds the "messages" edge to the Message entity by IDs.
 func (tuo *TaskUpdateOne) AddMessageIDs(ids ...uuid.UUID) *TaskUpdateOne {
 	tuo.mutation.AddMessageIDs(ids...)
@@ -855,6 +1030,40 @@ func (tuo *TaskUpdateOne) AddMessages(m ...*Message) *TaskUpdateOne {
 // SetAgent sets the "agent" edge to the Agent entity.
 func (tuo *TaskUpdateOne) SetAgent(a *Agent) *TaskUpdateOne {
 	return tuo.SetAgentID(a.ID)
+}
+
+// SetParentID sets the "parent" edge to the Task entity by ID.
+func (tuo *TaskUpdateOne) SetParentID(id uuid.UUID) *TaskUpdateOne {
+	tuo.mutation.SetParentID(id)
+	return tuo
+}
+
+// SetNillableParentID sets the "parent" edge to the Task entity by ID if the given value is not nil.
+func (tuo *TaskUpdateOne) SetNillableParentID(id *uuid.UUID) *TaskUpdateOne {
+	if id != nil {
+		tuo = tuo.SetParentID(*id)
+	}
+	return tuo
+}
+
+// SetParent sets the "parent" edge to the Task entity.
+func (tuo *TaskUpdateOne) SetParent(t *Task) *TaskUpdateOne {
+	return tuo.SetParentID(t.ID)
+}
+
+// AddChildIDs adds the "children" edge to the Task entity by IDs.
+func (tuo *TaskUpdateOne) AddChildIDs(ids ...uuid.UUID) *TaskUpdateOne {
+	tuo.mutation.AddChildIDs(ids...)
+	return tuo
+}
+
+// AddChildren adds the "children" edges to the Task entity.
+func (tuo *TaskUpdateOne) AddChildren(t ...*Task) *TaskUpdateOne {
+	ids := make([]uuid.UUID, len(t))
+	for i := range t {
+		ids[i] = t[i].ID
+	}
+	return tuo.AddChildIDs(ids...)
 }
 
 // Mutation returns the TaskMutation object of the builder.
@@ -887,6 +1096,33 @@ func (tuo *TaskUpdateOne) RemoveMessages(m ...*Message) *TaskUpdateOne {
 func (tuo *TaskUpdateOne) ClearAgent() *TaskUpdateOne {
 	tuo.mutation.ClearAgent()
 	return tuo
+}
+
+// ClearParent clears the "parent" edge to the Task entity.
+func (tuo *TaskUpdateOne) ClearParent() *TaskUpdateOne {
+	tuo.mutation.ClearParent()
+	return tuo
+}
+
+// ClearChildren clears all "children" edges to the Task entity.
+func (tuo *TaskUpdateOne) ClearChildren() *TaskUpdateOne {
+	tuo.mutation.ClearChildren()
+	return tuo
+}
+
+// RemoveChildIDs removes the "children" edge to Task entities by IDs.
+func (tuo *TaskUpdateOne) RemoveChildIDs(ids ...uuid.UUID) *TaskUpdateOne {
+	tuo.mutation.RemoveChildIDs(ids...)
+	return tuo
+}
+
+// RemoveChildren removes "children" edges to Task entities.
+func (tuo *TaskUpdateOne) RemoveChildren(t ...*Task) *TaskUpdateOne {
+	ids := make([]uuid.UUID, len(t))
+	for i := range t {
+		ids[i] = t[i].ID
+	}
+	return tuo.RemoveChildIDs(ids...)
 }
 
 // Where appends a list predicates to the TaskUpdate builder.
@@ -1130,6 +1366,80 @@ func (tuo *TaskUpdateOne) sqlSave(ctx context.Context) (_node *Task, err error) 
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if tuo.mutation.ParentCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   task.ParentTable,
+			Columns: []string{task.ParentColumn},
+			Bidi:    true,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(task.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := tuo.mutation.ParentIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   task.ParentTable,
+			Columns: []string{task.ParentColumn},
+			Bidi:    true,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(task.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if tuo.mutation.ChildrenCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   task.ChildrenTable,
+			Columns: []string{task.ChildrenColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(task.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := tuo.mutation.RemovedChildrenIDs(); len(nodes) > 0 && !tuo.mutation.ChildrenCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   task.ChildrenTable,
+			Columns: []string{task.ChildrenColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(task.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := tuo.mutation.ChildrenIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   task.ChildrenTable,
+			Columns: []string{task.ChildrenColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(task.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

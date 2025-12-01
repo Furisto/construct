@@ -49,6 +49,8 @@ type Task struct {
 	Description string `json:"description,omitempty"`
 	// AgentID holds the value of the "agent_id" field.
 	AgentID uuid.UUID `json:"agent_id,omitempty"`
+	// ParentTaskID holds the value of the "parent_task_id" field.
+	ParentTaskID *uuid.UUID `json:"parent_task_id,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the TaskQuery when eager-loading is set.
 	Edges        TaskEdges `json:"edges"`
@@ -61,9 +63,13 @@ type TaskEdges struct {
 	Messages []*Message `json:"messages,omitempty"`
 	// Agent holds the value of the agent edge.
 	Agent *Agent `json:"agent,omitempty"`
+	// Parent holds the value of the parent edge.
+	Parent *Task `json:"parent,omitempty"`
+	// Children holds the value of the children edge.
+	Children []*Task `json:"children,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [2]bool
+	loadedTypes [4]bool
 }
 
 // MessagesOrErr returns the Messages value or an error if the edge
@@ -86,11 +92,33 @@ func (e TaskEdges) AgentOrErr() (*Agent, error) {
 	return nil, &NotLoadedError{edge: "agent"}
 }
 
+// ParentOrErr returns the Parent value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e TaskEdges) ParentOrErr() (*Task, error) {
+	if e.Parent != nil {
+		return e.Parent, nil
+	} else if e.loadedTypes[2] {
+		return nil, &NotFoundError{label: task.Label}
+	}
+	return nil, &NotLoadedError{edge: "parent"}
+}
+
+// ChildrenOrErr returns the Children value or an error if the edge
+// was not loaded in eager-loading.
+func (e TaskEdges) ChildrenOrErr() ([]*Task, error) {
+	if e.loadedTypes[3] {
+		return e.Children, nil
+	}
+	return nil, &NotLoadedError{edge: "children"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*Task) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case task.FieldParentTaskID:
+			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case task.FieldToolUses:
 			values[i] = new([]byte)
 		case task.FieldCost:
@@ -210,6 +238,13 @@ func (t *Task) assignValues(columns []string, values []any) error {
 			} else if value != nil {
 				t.AgentID = *value
 			}
+		case task.FieldParentTaskID:
+			if value, ok := values[i].(*sql.NullScanner); !ok {
+				return fmt.Errorf("unexpected type %T for field parent_task_id", values[i])
+			} else if value.Valid {
+				t.ParentTaskID = new(uuid.UUID)
+				*t.ParentTaskID = *value.S.(*uuid.UUID)
+			}
 		default:
 			t.selectValues.Set(columns[i], values[i])
 		}
@@ -231,6 +266,16 @@ func (t *Task) QueryMessages() *MessageQuery {
 // QueryAgent queries the "agent" edge of the Task entity.
 func (t *Task) QueryAgent() *AgentQuery {
 	return NewTaskClient(t.config).QueryAgent(t)
+}
+
+// QueryParent queries the "parent" edge of the Task entity.
+func (t *Task) QueryParent() *TaskQuery {
+	return NewTaskClient(t.config).QueryParent(t)
+}
+
+// QueryChildren queries the "children" edge of the Task entity.
+func (t *Task) QueryChildren() *TaskQuery {
+	return NewTaskClient(t.config).QueryChildren(t)
 }
 
 // Update returns a builder for updating this Task.
@@ -297,6 +342,11 @@ func (t *Task) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("agent_id=")
 	builder.WriteString(fmt.Sprintf("%v", t.AgentID))
+	builder.WriteString(", ")
+	if v := t.ParentTaskID; v != nil {
+		builder.WriteString("parent_task_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteByte(')')
 	return builder.String()
 }

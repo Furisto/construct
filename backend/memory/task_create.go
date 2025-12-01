@@ -212,6 +212,20 @@ func (tc *TaskCreate) SetNillableAgentID(u *uuid.UUID) *TaskCreate {
 	return tc
 }
 
+// SetParentTaskID sets the "parent_task_id" field.
+func (tc *TaskCreate) SetParentTaskID(u uuid.UUID) *TaskCreate {
+	tc.mutation.SetParentTaskID(u)
+	return tc
+}
+
+// SetNillableParentTaskID sets the "parent_task_id" field if the given value is not nil.
+func (tc *TaskCreate) SetNillableParentTaskID(u *uuid.UUID) *TaskCreate {
+	if u != nil {
+		tc.SetParentTaskID(*u)
+	}
+	return tc
+}
+
 // SetID sets the "id" field.
 func (tc *TaskCreate) SetID(u uuid.UUID) *TaskCreate {
 	tc.mutation.SetID(u)
@@ -244,6 +258,40 @@ func (tc *TaskCreate) AddMessages(m ...*Message) *TaskCreate {
 // SetAgent sets the "agent" edge to the Agent entity.
 func (tc *TaskCreate) SetAgent(a *Agent) *TaskCreate {
 	return tc.SetAgentID(a.ID)
+}
+
+// SetParentID sets the "parent" edge to the Task entity by ID.
+func (tc *TaskCreate) SetParentID(id uuid.UUID) *TaskCreate {
+	tc.mutation.SetParentID(id)
+	return tc
+}
+
+// SetNillableParentID sets the "parent" edge to the Task entity by ID if the given value is not nil.
+func (tc *TaskCreate) SetNillableParentID(id *uuid.UUID) *TaskCreate {
+	if id != nil {
+		tc = tc.SetParentID(*id)
+	}
+	return tc
+}
+
+// SetParent sets the "parent" edge to the Task entity.
+func (tc *TaskCreate) SetParent(t *Task) *TaskCreate {
+	return tc.SetParentID(t.ID)
+}
+
+// AddChildIDs adds the "children" edge to the Task entity by IDs.
+func (tc *TaskCreate) AddChildIDs(ids ...uuid.UUID) *TaskCreate {
+	tc.mutation.AddChildIDs(ids...)
+	return tc
+}
+
+// AddChildren adds the "children" edges to the Task entity.
+func (tc *TaskCreate) AddChildren(t ...*Task) *TaskCreate {
+	ids := make([]uuid.UUID, len(t))
+	for i := range t {
+		ids[i] = t[i].ID
+	}
+	return tc.AddChildIDs(ids...)
 }
 
 // Mutation returns the TaskMutation object of the builder.
@@ -459,6 +507,39 @@ func (tc *TaskCreate) createSpec() (*Task, *sqlgraph.CreateSpec) {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.AgentID = nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := tc.mutation.ParentIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   task.ParentTable,
+			Columns: []string{task.ParentColumn},
+			Bidi:    true,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(task.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.ParentTaskID = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := tc.mutation.ChildrenIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   task.ChildrenTable,
+			Columns: []string{task.ChildrenColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(task.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

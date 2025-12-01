@@ -30,6 +30,7 @@ func (Task) Fields() []ent.Field {
 
 		field.String("description").Optional(),
 		field.UUID("agent_id", uuid.UUID{}).Optional(),
+		field.UUID("parent_task_id", uuid.UUID{}).Optional().Nillable(),
 	}
 }
 
@@ -37,6 +38,8 @@ func (Task) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.From("messages", Message.Type).Ref("task"),
 		edge.To("agent", Agent.Type).Field("agent_id").Unique(),
+		edge.To("parent", Task.Type).Field("parent_task_id").Unique(),
+		edge.From("children", Task.Type).Ref("parent"),
 	}
 }
 
