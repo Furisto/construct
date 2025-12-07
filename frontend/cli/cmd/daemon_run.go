@@ -107,6 +107,9 @@ debugging and development. For normal use, 'construct daemon install' is recomme
 					codeact.NewExecuteCommandTool(),
 					// codeact.NewSubmitReportTool(),
 					codeact.NewPrintTool(),
+					codeact.NewSpawnTaskTool(),
+					codeact.NewSendMessageTool(),
+					codeact.NewAwaitTasksTool(),
 				),
 				agent.WithAnalytics(analytics),
 			)

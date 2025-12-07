@@ -298,11 +298,26 @@ func (h *TaskHandler) SuspendTask(ctx context.Context, req *connect.Request[v1.S
 		return nil, apiError(connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid task ID format: %w", err)))
 	}
 
+	var childIDs []uuid.UUID
 	_, err = memory.Transaction(ctx, h.db, func(tx *memory.Client) (*memory.Task, error) {
 		_, err = h.db.Task.UpdateOneID(taskID).SetPhase(types.TaskPhaseSuspended).Save(ctx)
 		if err != nil {
 			return nil, err
 		}
+
+		children, err := tx.Task.Query().Where(task.ParentTaskIDEQ(taskID)).All(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, child := range children {
+			childIDs = append(childIDs, child.ID)
+			_, err = child.Update().SetDesiredPhase(types.TaskPhaseSuspended).Save(ctx)
+			if err != nil {
+				return nil, err
+			}
+		}
+
 		return nil, nil
 	})
 
@@ -313,5 +328,12 @@ func (h *TaskHandler) SuspendTask(ctx context.Context, req *connect.Request[v1.S
 	event.Publish(h.eventBus, event.TaskSuspendedEvent{
 		TaskID: taskID,
 	})
+
+	for _, childID := range childIDs {
+		event.Publish(h.eventBus, event.TaskSuspendedEvent{
+			TaskID: childID,
+		})
+	}
+
 	return connect.NewResponse(&v1.SuspendTaskResponse{}), nil
 }

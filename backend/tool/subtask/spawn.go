@@ -3,6 +3,7 @@ package subtask
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/furisto/construct/backend/event"
 	"github.com/furisto/construct/backend/memory"
@@ -18,6 +19,7 @@ func SpawnTask(ctx context.Context, db *memory.Client, bus *event.Bus, currentTa
 			"Provide the name or ID of the agent to assign to the subtask",
 		})
 	}
+
 	if input.Prompt == "" {
 		return nil, base.NewCustomError("prompt is required", []string{
 			"Provide the initial instructions for the subtask",
@@ -41,6 +43,7 @@ func SpawnTask(ctx context.Context, db *memory.Client, bus *event.Bus, currentTa
 			SetAgentID(resolvedAgent.ID).
 			SetProjectDirectory(currentTask.ProjectDirectory).
 			SetParentTaskID(currentTaskID).
+			SetDesiredPhase(types.TaskPhaseSuspended).
 			Save(ctx)
 		if err != nil {
 			return nil, base.NewCustomError(fmt.Sprintf("failed to create subtask: %v", memory.SanitizeError(err)), []string{
@@ -77,29 +80,25 @@ func SpawnTask(ctx context.Context, db *memory.Client, bus *event.Bus, currentTa
 }
 
 func resolveAgent(ctx context.Context, db *memory.Client, agentName string) (*memory.Agent, error) {
-	var resolvedAgent *memory.Agent
-	if _, err := uuid.Parse(input.Agent); err == nil {
-		agentID, _ := uuid.Parse(input.Agent)
-		resolvedAgent, err = tx.Agent.Get(ctx, agentID)
-		if err != nil {
-			if memory.IsNotFound(err) {
-				return nil, base.NewCustomError(fmt.Sprintf("agent with ID %s does not exist", input.Agent), []string{
-					"Check the agent ID and try again",
-				})
+	resolvedAgent, err := db.Agent.Query().Where(agent.NameEQ(agentName)).First(ctx)
+	if err != nil {
+		if memory.IsNotFound(err) {
+
+			var suggestions []string
+			agents, err := db.Agent.Query().Select(agent.FieldName).All(ctx)
+			if err == nil {
+				agentNames := make([]string, len(agents))
+				for i, agent := range agents {
+					agentNames[i] = agent.Name
+				}
+
+				suggestions = append(suggestions, fmt.Sprintf("Agent %s does not exist. Available agents: %s", agentName, strings.Join(agentNames, ", ")))
 			}
-			return nil, err
+
+			return nil, base.NewCustomError(fmt.Sprintf("agent with name %s does not exist", agentName), suggestions)
 		}
-	} else {
-		resolvedAgent, err = tx.Agent.Query().Where(agent.NameEQ(input.Agent)).First(ctx)
-		if err != nil {
-			if memory.IsNotFound(err) {
-				return nil, base.NewCustomError(fmt.Sprintf("agent with name %s does not exist", input.Agent), []string{
-					"Check the agent name and try again",
-					"Use 'agent list' to see available agents",
-				})
-			}
-			return nil, err
-		}
+		return nil, err
 	}
 
+	return resolvedAgent, nil
 }

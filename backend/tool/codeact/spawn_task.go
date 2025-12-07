@@ -28,10 +28,7 @@ Returns an object with the task ID:
 %[1]s
 
 ## IMPORTANT USAGE NOTES
-- **No nested subtasks**: A subtask cannot spawn its own subtasks
-- **Concurrent execution**: Subtasks run independently and don't block the parent
 - **Use await_tasks**: Call await_tasks() to wait for subtask completion and retrieve results
-- **Same workspace**: Subtasks inherit the parent's workspace directory
 
 ## When to use
 - **Task specialization**: Delegate work to agents with specific expertise
@@ -145,5 +142,4 @@ var spawnTaskSuggestions = []string{
 	"Ensure that you provide the correct input arguments as specified in the tool description",
 	"- **agent** (string, required): Agent name or ID to assign to the subtask",
 	"- **prompt** (string, required): Initial message/instructions for the subtask",
-	"For example: spawn_task({ agent: 'reviewer', prompt: 'Review the code for security issues' })",
 }

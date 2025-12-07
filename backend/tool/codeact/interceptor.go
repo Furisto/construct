@@ -8,6 +8,7 @@ import (
 	"github.com/furisto/construct/backend/tool/base"
 	"github.com/furisto/construct/backend/tool/communication"
 	"github.com/furisto/construct/backend/tool/filesystem"
+	"github.com/furisto/construct/backend/tool/subtask"
 	"github.com/furisto/construct/backend/tool/system"
 	"github.com/furisto/construct/shared"
 	"github.com/google/uuid"
@@ -42,6 +43,9 @@ type FunctionCallInput struct {
 	SubmitReport   *communication.SubmitReportInput `json:"submit_report,omitempty"`
 	AskUser        *communication.AskUserInput      `json:"ask_user,omitempty"`
 	Handoff        *communication.HandoffInput      `json:"handoff,omitempty"`
+	SpawnTask      *subtask.SpawnTaskInput          `json:"spawn_task,omitempty"`
+	SendMessage    *subtask.SendMessageInput        `json:"send_message,omitempty"`
+	AwaitTasks     *subtask.AwaitTasksInput         `json:"await_tasks,omitempty"`
 }
 
 type FunctionCallOutput struct {
@@ -54,6 +58,9 @@ type FunctionCallOutput struct {
 	ReadFile       *filesystem.ReadFileResult        `json:"read_file,omitempty"`
 	SubmitReport   *communication.SubmitReportResult `json:"submit_report,omitempty"`
 	AskUser        *communication.AskUserResult      `json:"ask_user,omitempty"`
+	SpawnTask      *subtask.SpawnTaskResult          `json:"spawn_task,omitempty"`
+	SendMessage    *subtask.SendMessageResult        `json:"send_message,omitempty"`
+	AwaitTasks     *subtask.AwaitTasksResult         `json:"await_tasks,omitempty"`
 }
 
 type FunctionCall struct {
@@ -119,6 +126,18 @@ func convertToFunctionCallInput(toolName string, input any) FunctionCallInput {
 		if v, ok := input.(*communication.HandoffInput); ok {
 			result.Handoff = v
 		}
+	case base.ToolNameSpawnTask:
+		if v, ok := input.(*subtask.SpawnTaskInput); ok {
+			result.SpawnTask = v
+		}
+	case base.ToolNameSendMessage:
+		if v, ok := input.(*subtask.SendMessageInput); ok {
+			result.SendMessage = v
+		}
+	case base.ToolNameAwaitTasks:
+		if v, ok := input.(*subtask.AwaitTasksInput); ok {
+			result.AwaitTasks = v
+		}
 	default:
 		slog.Error("unknown tool name", "tool_name", toolName)
 	}
@@ -165,6 +184,18 @@ func convertToFunctionCallOutput(toolName string, output any) FunctionCallOutput
 	case base.ToolNameAskUser:
 		if v, ok := output.(*communication.AskUserResult); ok {
 			result.AskUser = v
+		}
+	case base.ToolNameSpawnTask:
+		if v, ok := output.(*subtask.SpawnTaskResult); ok {
+			result.SpawnTask = v
+		}
+	case base.ToolNameSendMessage:
+		if v, ok := output.(*subtask.SendMessageResult); ok {
+			result.SendMessage = v
+		}
+	case base.ToolNameAwaitTasks:
+		if v, ok := output.(*subtask.AwaitTasksResult); ok {
+			result.AwaitTasks = v
 		}
 	default:
 		slog.Error("unknown tool name", "tool_name", toolName)

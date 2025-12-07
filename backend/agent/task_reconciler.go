@@ -334,6 +334,10 @@ func (r *TaskReconciler) computeStatus(task *memory.Task, messages []*memory.Mes
 	}
 
 	for _, message := range messages {
+		if message.Source == types.MessageSourceTask {
+			continue
+		}
+		
 		if message.ProcessedTime.IsZero() {
 			switch message.Source {
 			case types.MessageSourceUser:
@@ -720,7 +724,8 @@ func (r *TaskReconciler) callTools(ctx context.Context, task *memory.Task, messa
 			result, err := r.interpreter.Interpret(ctx, afero.NewOsFs(), toolCall.Args, &codeact.Task{
 				ID:               task.ID,
 				ProjectDirectory: task.ProjectDirectory,
-			})
+				ParentTaskID:     task.ParentTaskID,
+			}, r.memory, r.bus)
 			toolDuration := time.Since(toolStart)
 
 			if errors.Is(ctx.Err(), context.Canceled) {
@@ -903,7 +908,23 @@ func (r *TaskReconciler) publishTaskEvent(taskID uuid.UUID) {
 func (r *TaskReconciler) setTaskPhaseAndPublish(ctx context.Context, taskID uuid.UUID, phase TaskPhase) {
 	p := convertTaskPhaseToMemory(phase)
 	_, err := memory.Transaction(ctx, r.memory, func(tx *memory.Client) (*memory.Task, error) {
-		return tx.Task.UpdateOneID(taskID).SetPhase(p).Save(ctx)
+		task, err := tx.Task.UpdateOneID(taskID).SetPhase(p).Save(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		if phase == TaskPhaseAwaitInput && task.ParentTaskID != nil {
+			err = r.rollupCostsToParent(ctx, tx, task)
+			if err != nil {
+				r.logger.ErrorContext(ctx, "failed to rollup costs to parent",
+					"error", err,
+					KeyTaskID, taskID,
+					"parent_task_id", task.ParentTaskID,
+				)
+			}
+		}
+
+		return task, nil
 	})
 
 	if err != nil {
@@ -918,6 +939,38 @@ func (r *TaskReconciler) setTaskPhaseAndPublish(ctx context.Context, taskID uuid
 	)
 
 	r.publishTaskEvent(taskID)
+}
+
+func (r *TaskReconciler) rollupCostsToParent(ctx context.Context, tx *memory.Client, subtask *memory.Task) error {
+	if subtask.ParentTaskID == nil {
+		return nil
+	}
+
+	parent, err := tx.Task.Get(ctx, *subtask.ParentTaskID)
+	if err != nil {
+		return fmt.Errorf("failed to get parent task: %w", err)
+	}
+
+	_, err = parent.Update().
+		AddInputTokens(subtask.InputTokens).
+		AddOutputTokens(subtask.OutputTokens).
+		AddCacheWriteTokens(subtask.CacheWriteTokens).
+		AddCacheReadTokens(subtask.CacheReadTokens).
+		AddCost(subtask.Cost).
+		Save(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to update parent task: %w", err)
+	}
+
+	r.logger.DebugContext(ctx, "rolled up subtask costs to parent",
+		KeyTaskID, subtask.ID,
+		"parent_task_id", parent.ID,
+		"input_tokens", subtask.InputTokens,
+		"output_tokens", subtask.OutputTokens,
+		"cost", subtask.Cost,
+	)
+
+	return nil
 }
 
 func shouldGenerateTitle(task *memory.Task, messages []*memory.Message) bool {
