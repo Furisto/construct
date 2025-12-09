@@ -2,18 +2,18 @@ package codeact
 
 import (
 	"log/slog"
-	"time"
 
 	v1 "github.com/furisto/construct/api/go/v1"
+	"github.com/furisto/construct/backend/event"
 	"github.com/furisto/construct/backend/tool/base"
 	"github.com/furisto/construct/backend/tool/communication"
 	"github.com/furisto/construct/backend/tool/filesystem"
 	"github.com/furisto/construct/backend/tool/subtask"
 	"github.com/furisto/construct/backend/tool/system"
+	"github.com/furisto/construct/backend/tool/types"
 	"github.com/furisto/construct/shared"
 	"github.com/google/uuid"
 	"github.com/grafana/sobek"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type EventHub interface {
@@ -32,58 +32,27 @@ func (i InterceptorFunc) Intercept(session *Session, tool Tool, inner func(sobek
 
 var _ Interceptor = InterceptorFunc(nil)
 
-type FunctionCallInput struct {
-	CreateFile     *filesystem.CreateFileInput      `json:"create_file,omitempty"`
-	EditFile       *filesystem.EditFileInput        `json:"edit_file,omitempty"`
-	ExecuteCommand *system.ExecuteCommandInput      `json:"execute_command,omitempty"`
-	FindFile       *filesystem.FindFileInput        `json:"find_file,omitempty"`
-	Grep           *filesystem.GrepInput            `json:"grep,omitempty"`
-	ListFiles      *filesystem.ListFilesInput       `json:"list_files,omitempty"`
-	ReadFile       *filesystem.ReadFileInput        `json:"read_file,omitempty"`
-	SubmitReport   *communication.SubmitReportInput `json:"submit_report,omitempty"`
-	AskUser        *communication.AskUserInput      `json:"ask_user,omitempty"`
-	Handoff        *communication.HandoffInput      `json:"handoff,omitempty"`
-	SpawnTask      *subtask.SpawnTaskInput          `json:"spawn_task,omitempty"`
-	SendMessage    *subtask.SendMessageInput        `json:"send_message,omitempty"`
-	AwaitTasks     *subtask.AwaitTasksInput         `json:"await_tasks,omitempty"`
+type ToolCall struct {
+	ToolName string           `json:"tool_name"`
+	Input    types.ToolInput  `json:"input"`
+	Output   types.ToolOutput `json:"output"`
+	Index    int              `json:"index"`
 }
 
-type FunctionCallOutput struct {
-	CreateFile     *filesystem.CreateFileResult      `json:"create_file,omitempty"`
-	EditFile       *filesystem.EditFileResult        `json:"edit_file,omitempty"`
-	ExecuteCommand *system.ExecuteCommandResult      `json:"execute_command,omitempty"`
-	FindFile       *filesystem.FindFileResult        `json:"find_file,omitempty"`
-	Grep           *filesystem.GrepResult            `json:"grep,omitempty"`
-	ListFiles      *filesystem.ListFilesResult       `json:"list_files,omitempty"`
-	ReadFile       *filesystem.ReadFileResult        `json:"read_file,omitempty"`
-	SubmitReport   *communication.SubmitReportResult `json:"submit_report,omitempty"`
-	AskUser        *communication.AskUserResult      `json:"ask_user,omitempty"`
-	SpawnTask      *subtask.SpawnTaskResult          `json:"spawn_task,omitempty"`
-	SendMessage    *subtask.SendMessageResult        `json:"send_message,omitempty"`
-	AwaitTasks     *subtask.AwaitTasksResult         `json:"await_tasks,omitempty"`
-}
-
-type FunctionCall struct {
-	ToolName string             `json:"tool_name"`
-	Input    FunctionCallInput  `json:"input"`
-	Output   FunctionCallOutput `json:"output"`
-	Index    int                `json:"index"`
-}
-
-type FunctionCallState struct {
-	Calls []FunctionCall
+type ToolCallState struct {
+	Calls []ToolCall
 	Index int
 }
 
-func NewFunctionCallState() *FunctionCallState {
-	return &FunctionCallState{
-		Calls: []FunctionCall{},
+func NewToolCallState() *ToolCallState {
+	return &ToolCallState{
+		Calls: []ToolCall{},
 		Index: 0,
 	}
 }
 
-func convertToFunctionCallInput(toolName string, input any) FunctionCallInput {
-	var result FunctionCallInput
+func convertToFunctionCallInput(toolName string, input any) types.ToolInput {
+	var result types.ToolInput
 
 	switch toolName {
 	case base.ToolNameCreateFile:
@@ -145,8 +114,8 @@ func convertToFunctionCallInput(toolName string, input any) FunctionCallInput {
 	return result
 }
 
-func convertToFunctionCallOutput(toolName string, output any) FunctionCallOutput {
-	var result FunctionCallOutput
+func convertToFunctionCallOutput(toolName string, output any) types.ToolOutput {
+	var result types.ToolOutput
 
 	switch toolName {
 	case base.ToolNameCreateFile:
@@ -207,11 +176,11 @@ func convertToFunctionCallOutput(toolName string, output any) FunctionCallOutput
 func DurableFunctionInterceptor(session *Session, tool Tool, inner func(sobek.FunctionCall) sobek.Value) func(sobek.FunctionCall) sobek.Value {
 	return func(call sobek.FunctionCall) sobek.Value {
 		if tool.Name() != base.ToolNamePrint {
-			callState, ok := GetValue[*FunctionCallState](session, "function_call_state")
+			callState, ok := GetValue[*ToolCallState](session, "function_call_state")
 			if !ok {
-				callState = NewFunctionCallState()
+				callState = NewToolCallState()
 			}
-			functionCall := FunctionCall{
+			functionCall := ToolCall{
 				ToolName: tool.Name(),
 				Index:    callState.Index,
 			}
@@ -263,34 +232,21 @@ func ResetTemporarySessionValuesInterceptor(session *Session, tool Tool, inner f
 }
 
 type ToolEventPublisher struct {
-	EventHub EventHub
+	EventBus *event.Bus
 }
 
-func NewToolEventPublisher(eventHub EventHub) *ToolEventPublisher {
+func NewToolEventPublisher(eventBus *event.Bus) *ToolEventPublisher {
 	return &ToolEventPublisher{
-		EventHub: eventHub,
+		EventBus: eventBus,
 	}
 }
 
 func (p *ToolEventPublisher) Intercept(session *Session, tool Tool, inner func(sobek.FunctionCall) sobek.Value) func(sobek.FunctionCall) sobek.Value {
 	return func(call sobek.FunctionCall) sobek.Value {
 		if tool.Name() != base.ToolNamePrint {
-			toolCall, err := convertArgumentsToProtoToolCall(tool, call.Arguments, session)
-			if err != nil {
-				slog.Error("failed to convert arguments to proto tool call", "error", err)
-			}
-			p.publishToolEvent(session.Task.ID, toolCall, v1.MessageRole_MESSAGE_ROLE_ASSISTANT)
-
+			toolInput := p.publishToolCallEvent(session, tool, call.Arguments)
 			result := inner(call)
-			raw, ok := GetValue[any](session, "result")
-
-			if ok {
-				toolResult, err := convertResultToProtoToolResult(tool.Name(), raw)
-				if err != nil {
-					slog.Error("failed to convert result to proto tool result", "error", err)
-				}
-				p.publishToolEvent(session.Task.ID, toolResult, v1.MessageRole_MESSAGE_ROLE_SYSTEM)
-			}
+			p.publishToolResultEvent(session, tool, toolInput)
 			return result
 		} else {
 			return inner(call)
@@ -298,30 +254,42 @@ func (p *ToolEventPublisher) Intercept(session *Session, tool Tool, inner func(s
 	}
 }
 
-func (p *ToolEventPublisher) publishToolEvent(taskID uuid.UUID, part *v1.MessagePart, role v1.MessageRole) {
-	if part == nil {
-		return
+func (p *ToolEventPublisher) publishToolCallEvent(session *Session, tool Tool, arguments []sobek.Value) types.ToolInput {
+	input, err := tool.Input(session, arguments)
+	if err != nil {
+		slog.Error("failed to get tool input", "error", err)
 	}
 
-	p.EventHub.Publish(taskID, &v1.SubscribeResponse{
-		Event: &v1.SubscribeResponse_Message{
-			Message: &v1.Message{
-				Metadata: &v1.MessageMetadata{
-					CreatedAt: timestamppb.New(time.Now()),
-					UpdatedAt: timestamppb.New(time.Now()),
-					TaskId:    taskID.String(),
-					Role:      role,
-				},
-				Spec: &v1.MessageSpec{
-					Content: []*v1.MessagePart{
-						part,
-					},
-				},
-				Status: &v1.MessageStatus{
-					ContentState: v1.ContentStatus_CONTENT_STATUS_COMPLETE,
-				},
-			},
-		},
+	typedInput, err := types.ToolInputFromAny(input)
+	if err != nil {
+		slog.Error("failed to convert input to typed input", "error", err)
+	}
+
+	event.Publish(p.EventBus, types.ToolCallEvent{
+		TaskID:   session.Task.ID,
+		ToolName: tool.Name(),
+		Input:    typedInput,
+	})
+
+	return typedInput
+}
+
+func (p *ToolEventPublisher) publishToolResultEvent(session *Session, tool Tool, toolInput types.ToolInput) {
+	raw, ok := GetValue[any](session, "result")
+	if !ok {
+		slog.Error("failed to get tool result", "tool_name", tool.Name())
+	}
+
+	typedResult, err := types.ToolOutputFromAny(raw)
+	if err != nil {
+		slog.Error("failed to convert result to typed result", "error", err)
+	}
+
+	event.Publish(p.EventBus, types.ToolResultEvent{
+		TaskID:   session.Task.ID,
+		ToolName: tool.Name(),
+		Input:    toolInput,
+		Output:   typedResult,
 	})
 }
 

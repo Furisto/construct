@@ -21,7 +21,6 @@ import (
 type AgentRuntime interface {
 	Memory() *memory.Client
 	Encryption() *secret.Encryption
-	EventHub() *event.MessageHub
 }
 
 type Server struct {
@@ -36,7 +35,6 @@ func NewServer(runtime AgentRuntime, listener net.Listener, eventBus *event.Bus,
 			DB:           runtime.Memory(),
 			Encryption:   runtime.Encryption(),
 			AgentRuntime: runtime,
-			MessageHub:   runtime.EventHub(),
 			EventBus:     eventBus,
 			Analytics:    analyticsClient,
 		},
@@ -75,7 +73,6 @@ type HandlerOptions struct {
 	AgentRuntime AgentRuntime
 
 	EventBus   *event.Bus
-	MessageHub *event.MessageHub
 	Analytics  analytics.Client
 
 	RequestOptions []connect.HandlerOption
@@ -99,10 +96,10 @@ func NewHandler(opts HandlerOptions) *Handler {
 	agentHandler := NewAgentHandler(opts.DB, opts.Analytics)
 	handler.mux.Handle(v1connect.NewAgentServiceHandler(agentHandler, opts.RequestOptions...))
 
-	taskHandler := NewTaskHandler(opts.DB, opts.MessageHub, opts.EventBus, opts.AgentRuntime, opts.Analytics)
+	taskHandler := NewTaskHandler(opts.DB, opts.EventBus, opts.AgentRuntime, opts.Analytics)
 	handler.mux.Handle(v1connect.NewTaskServiceHandler(taskHandler, opts.RequestOptions...))
 
-	messageHandler := NewMessageHandler(opts.DB, opts.AgentRuntime, opts.MessageHub, opts.EventBus)
+	messageHandler := NewMessageHandler(opts.DB, opts.AgentRuntime, opts.EventBus)
 	handler.mux.Handle(v1connect.NewMessageServiceHandler(messageHandler, opts.RequestOptions...))
 
 	return handler

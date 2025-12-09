@@ -307,7 +307,17 @@ func createBuiltinAgents(ctx context.Context, tx *memory.Client, modelProvider *
 		return err
 	}
 
-	return createBuiltinAgent(ctx, tx, uuid.MustParse("00000001-0000-0000-0000-000000000003"), "plan", prompt.Plan, "Analyzes requirements and creates detailed implementation plans", planModel.ID)
+	err = createBuiltinAgent(ctx, tx, uuid.MustParse("00000001-0000-0000-0000-000000000003"), "plan", prompt.Plan, "Analyzes requirements and creates detailed implementation plans", planModel.ID)
+	if err != nil {
+		return err
+	}
+
+	err = createBuiltinAgent(ctx, tx, uuid.MustParse("00000001-0000-0000-0000-000000000004"), "scout", prompt.Scout, "Reviews code changes for quality and correctness", budgetModel.ID)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func createBuiltinAgent(ctx context.Context, tx *memory.Client, agentID uuid.UUID, name string, instructions string, description string, modelID uuid.UUID) error {

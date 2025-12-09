@@ -88,6 +88,7 @@ func UnsetValue(s *Session, key string) {
 
 type Task struct {
 	ID               uuid.UUID
+	ParentTaskID     *uuid.UUID
 	ProjectDirectory string
 }
 

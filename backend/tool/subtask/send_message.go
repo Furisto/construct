@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func SendMessage(ctx context.Context, db *memory.Client, currentTaskID uuid.UUID, parentTaskID *uuid.UUID, input *SendMessageInput) (*SendMessageResult, error) {
+func SendMessage(ctx context.Context, db *memory.Client, fromTaskID uuid.UUID, toTaskID *uuid.UUID, input *SendMessageInput) (*SendMessageResult, error) {
 	if input.To == "" {
 		return nil, base.NewCustomError("to is required", []string{
 			"Specify the recipient: 'parent' (only supported value currently)",
@@ -30,7 +30,7 @@ func SendMessage(ctx context.Context, db *memory.Client, currentTaskID uuid.UUID
 		})
 	}
 
-	if parentTaskID == nil {
+	if toTaskID == nil {
 		return &SendMessageResult{
 			Delivered: false,
 			Error:     "this task has no parent",
@@ -38,12 +38,12 @@ func SendMessage(ctx context.Context, db *memory.Client, currentTaskID uuid.UUID
 	}
 
 	_, err := memory.Transaction(ctx, db, func(tx *memory.Client) (*SendMessageResult, error) {
-		parentTask, err := tx.Task.Get(ctx, *parentTaskID)
+		toTask, err := tx.Task.Get(ctx, *toTaskID)
 		if err != nil {
 			if memory.IsNotFound(err) {
 				return &SendMessageResult{
 					Delivered: false,
-					Error:     fmt.Sprintf("parent task %s not found", parentTaskID.String()),
+					Error:     fmt.Sprintf("task %s not found", toTaskID.String()),
 				}, nil
 			}
 			return nil, base.NewCustomError(fmt.Sprintf("failed to get parent task: %v", memory.SanitizeError(err)), []string{
@@ -52,9 +52,9 @@ func SendMessage(ctx context.Context, db *memory.Client, currentTaskID uuid.UUID
 		}
 
 		_, err = tx.Message.Create().
-			SetTaskID(parentTask.ID).
+			SetTaskID(toTask.ID).
 			SetSource(types.MessageSourceTask).
-			SetFromTaskID(currentTaskID).
+			SetFromTaskID(fromTaskID).
 			SetContent(input.Content).
 			Save(ctx)
 		if err != nil {

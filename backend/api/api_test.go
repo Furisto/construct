@@ -136,17 +136,12 @@ func DefaultTestHandlerOptions(t *testing.T) HandlerOptions {
 	runtime := &MockAgentRuntime{}
 
 	eventBus := event.NewBus(nil)
-	messageHub, err := event.NewMessageHub(db)
-	if err != nil {
-		t.Fatalf("failed creating message hub: %v", err)
-	}
 
 	return HandlerOptions{
 		DB:           db,
 		Encryption:   encryption,
 		AgentRuntime: runtime,
 		EventBus:     eventBus,
-		MessageHub:   messageHub,
 		Analytics:    analytics.NewInMemoryClient(),
 	}
 }
@@ -299,10 +294,6 @@ func (m *MockAgentRuntime) Memory() *memory.Client {
 }
 
 func (m *MockAgentRuntime) Encryption() *secret.Encryption {
-	return nil
-}
-
-func (m *MockAgentRuntime) EventHub() *event.MessageHub {
 	return nil
 }
 

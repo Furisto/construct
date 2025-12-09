@@ -64,6 +64,9 @@ message TaskMetadata {
 
   // updated_at is the timestamp when the task was last modified.
   google.protobuf.Timestamp updated_at = 3 [(buf.validate.field).required = true];
+
+  // parent_task_id is the ID of the parent task if this is a subtask (UUID format, optional).
+  optional string parent_task_id = 4 [(buf.validate.field).string.uuid = true];
 }
 
 // TaskSpec defines the user-configurable specification of a task.

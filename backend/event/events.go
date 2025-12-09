@@ -20,3 +20,10 @@ type MessageEvent struct {
 }
 
 func (MessageEvent) Event() {}
+
+type ErrorEvent struct {
+	TaskID uuid.UUID
+	Error  error
+}
+
+func (ErrorEvent) Event() {}

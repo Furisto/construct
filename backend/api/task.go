@@ -18,27 +18,24 @@ import (
 	"github.com/furisto/construct/backend/memory/schema/types"
 	"github.com/furisto/construct/backend/memory/task"
 	"github.com/google/uuid"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var _ v1connect.TaskServiceHandler = (*TaskHandler)(nil)
 
-func NewTaskHandler(db *memory.Client, messageHub *event.MessageHub, eventBus *event.Bus, runtime AgentRuntime, analytics analytics.Client) *TaskHandler {
+func NewTaskHandler(db *memory.Client, eventBus *event.Bus, runtime AgentRuntime, analytics analytics.Client) *TaskHandler {
 	return &TaskHandler{
-		db:         db,
-		messageHub: messageHub,
-		eventBus:   eventBus,
-		runtime:    runtime,
-		analytics:  analytics,
+		memory:    db,
+		eventBus:  eventBus,
+		runtime:   runtime,
+		analytics: analytics,
 	}
 }
 
 type TaskHandler struct {
-	db         *memory.Client
-	messageHub *event.MessageHub
-	eventBus   *event.Bus
-	runtime    AgentRuntime
-	analytics  analytics.Client
+	memory    *memory.Client
+	eventBus  *event.Bus
+	runtime   AgentRuntime
+	analytics analytics.Client
 	v1connect.UnimplementedTaskServiceHandler
 }
 
@@ -48,7 +45,7 @@ func (h *TaskHandler) CreateTask(ctx context.Context, req *connect.Request[v1.Cr
 		return nil, apiError(connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid agent ID format: %w", err)))
 	}
 
-	createdTask, err := memory.Transaction(ctx, h.db, func(tx *memory.Client) (*memory.Task, error) {
+	createdTask, err := memory.Transaction(ctx, h.memory, func(tx *memory.Client) (*memory.Task, error) {
 		_, err := tx.Agent.Get(ctx, agentID)
 		if err != nil {
 			return nil, err
@@ -87,7 +84,7 @@ func (h *TaskHandler) GetTask(ctx context.Context, req *connect.Request[v1.GetTa
 		return nil, apiError(connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid task ID format: %w", err)))
 	}
 
-	task, err := h.db.Task.Query().Where(task.ID(id)).WithAgent().First(ctx)
+	task, err := h.memory.Task.Query().Where(task.ID(id)).WithAgent().First(ctx)
 	if err != nil {
 		return nil, apiError(err)
 	}
@@ -103,7 +100,7 @@ func (h *TaskHandler) GetTask(ctx context.Context, req *connect.Request[v1.GetTa
 }
 
 func (h *TaskHandler) ListTasks(ctx context.Context, req *connect.Request[v1.ListTasksRequest]) (*connect.Response[v1.ListTasksResponse], error) {
-	query := h.db.Task.Query()
+	query := h.memory.Task.Query()
 
 	if req.Msg.Filter != nil && req.Msg.Filter.AgentId != nil {
 		agentID, err := uuid.Parse(*req.Msg.Filter.AgentId)
@@ -196,7 +193,7 @@ func (h *TaskHandler) UpdateTask(ctx context.Context, req *connect.Request[v1.Up
 	}
 
 	var updatedFields []string
-	updatedTask, err := memory.Transaction(ctx, h.db, func(tx *memory.Client) (*memory.Task, error) {
+	updatedTask, err := memory.Transaction(ctx, h.memory, func(tx *memory.Client) (*memory.Task, error) {
 		t, err := tx.Task.Get(ctx, id)
 		if err != nil {
 			return nil, err
@@ -234,14 +231,8 @@ func (h *TaskHandler) UpdateTask(ctx context.Context, req *connect.Request[v1.Up
 
 	for _, field := range updatedFields {
 		if field == "agent_id" {
-			taskEvent := &v1.TaskEvent{
-				TaskId:    updatedTask.ID.String(),
-				Timestamp: timestamppb.Now(),
-			}
-			h.messageHub.Publish(updatedTask.ID, &v1.SubscribeResponse{
-				Event: &v1.SubscribeResponse_TaskEvent{
-					TaskEvent: taskEvent,
-				},
+			event.Publish(h.eventBus, event.TaskEvent{
+				TaskID: updatedTask.ID,
 			})
 			break
 		}
@@ -258,7 +249,7 @@ func (h *TaskHandler) DeleteTask(ctx context.Context, req *connect.Request[v1.De
 		return nil, apiError(connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid task ID format: %w", err)))
 	}
 
-	if err := h.db.Task.DeleteOneID(id).Exec(ctx); err != nil {
+	if err := h.memory.Task.DeleteOneID(id).Exec(ctx); err != nil {
 		return nil, apiError(err)
 	}
 
@@ -271,7 +262,7 @@ func (h *TaskHandler) Subscribe(ctx context.Context, req *connect.Request[v1.Sub
 		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid task ID format: %w", err))
 	}
 
-	_, err = h.db.Task.Get(ctx, taskID)
+	_, err = h.memory.Task.Get(ctx, taskID)
 	if err != nil {
 		return apiError(err)
 	}
@@ -280,15 +271,11 @@ func (h *TaskHandler) Subscribe(ctx context.Context, req *connect.Request[v1.Sub
 		TaskID: taskID,
 	})
 
-	for response, err := range h.messageHub.Subscribe(ctx, taskID) {
-		if err != nil {
-			return apiError(err)
-		}
-
-		if err := stream.Send(response); err != nil {
-			return err
-		}
+	err = h.publishTaskEvents(ctx, taskID, stream)
+	if err != nil {
+		return apiError(err)
 	}
+
 	return nil
 }
 
@@ -299,8 +286,8 @@ func (h *TaskHandler) SuspendTask(ctx context.Context, req *connect.Request[v1.S
 	}
 
 	var childIDs []uuid.UUID
-	_, err = memory.Transaction(ctx, h.db, func(tx *memory.Client) (*memory.Task, error) {
-		_, err = h.db.Task.UpdateOneID(taskID).SetPhase(types.TaskPhaseSuspended).Save(ctx)
+	_, err = memory.Transaction(ctx, h.memory, func(tx *memory.Client) (*memory.Task, error) {
+		_, err = h.memory.Task.UpdateOneID(taskID).SetPhase(types.TaskPhaseSuspended).Save(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -336,4 +323,62 @@ func (h *TaskHandler) SuspendTask(ctx context.Context, req *connect.Request[v1.S
 	}
 
 	return connect.NewResponse(&v1.SuspendTaskResponse{}), nil
+}
+
+func (h *TaskHandler) publishTaskEvents(ctx context.Context, taskID uuid.UUID, stream *connect.ServerStream[v1.SubscribeResponse]) error {
+	messages, err := h.memory.Message.Query().Where(message.TaskIDEQ(taskID), message.ProcessedTimeNotNil()).Order(message.ByProcessedTime(), memory.Asc()).All(ctx)
+	if err != nil {
+		return err
+	}
+
+	msgCh, msgSub := event.SubscribeChannel(h.eventBus, 10, func(event event.MessageEvent) bool {
+		return event.TaskID == taskID
+	})
+	defer msgSub.Unsubscribe()
+
+	taskCh, taskSub := event.SubscribeChannel(h.eventBus, 10, func(event event.TaskEvent) bool {
+		return event.TaskID == taskID
+	})
+	defer taskSub.Unsubscribe()
+
+	for _, m := range messages {
+		protoMessage, err := conv.ConvertMemoryMessageToProto(m)
+		if err != nil {
+			return err
+		}
+		stream.Send(&v1.SubscribeResponse{
+			Event: &v1.SubscribeResponse_Message{
+				Message: protoMessage,
+			},
+		})
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case message := <-msgCh:
+			m, err := h.memory.Message.Get(ctx, message.MessageID)
+			if err != nil {
+				return err
+			}
+			protoMessage, err := conv.ConvertMemoryMessageToProto(m)
+			if err != nil {
+				return err
+			}
+			stream.Send(&v1.SubscribeResponse{
+				Event: &v1.SubscribeResponse_Message{
+					Message: protoMessage,
+				},
+			})
+		case task := <-taskCh:
+			stream.Send(&v1.SubscribeResponse{
+				Event: &v1.SubscribeResponse_TaskEvent{
+					TaskEvent: &v1.TaskEvent{
+						TaskId: task.TaskID.String(),
+					},
+				},
+			})
+		}
+	}
 }

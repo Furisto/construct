@@ -143,10 +143,7 @@ func waitForTasksCompletion(ctx context.Context, db *memory.Client, bus *event.B
 					incompleteIDs = append(incompleteIDs, taskID.String())
 				}
 			}
-			return base.NewCustomError(fmt.Sprintf("timeout waiting for tasks: %v", incompleteIDs), []string{
-				"Increase the timeout parameter",
-				"Check if the subtasks are stuck or encountering errors",
-			})
+			return base.NewCustomError(fmt.Sprintf("timeout waiting for tasks: %v", incompleteIDs), []string{})
 		case evt := <-ch:
 			if completed[evt.TaskID] {
 				continue

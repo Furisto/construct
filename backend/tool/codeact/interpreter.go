@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/furisto/construct/backend/event"
+	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/shared"
 	"github.com/grafana/sobek"
 	"github.com/invopop/jsonschema"
@@ -20,7 +22,7 @@ type InterpreterInput struct {
 
 type InterpreterOutput struct {
 	ConsoleOutput string           `json:"console_output"`
-	FunctionCalls []FunctionCall   `json:"function_calls"`
+	FunctionCalls []ToolCall       `json:"function_calls"`
 	ToolStats     map[string]int64 `json:"tool_stats"`
 }
 
@@ -66,7 +68,7 @@ func (c *Interpreter) Run(ctx context.Context, fsys afero.Fs, input json.RawMess
 	return "", nil
 }
 
-func (c *Interpreter) Interpret(ctx context.Context, fsys afero.Fs, input json.RawMessage, task *Task) (*InterpreterOutput, error) {
+func (c *Interpreter) Interpret(ctx context.Context, fsys afero.Fs, input json.RawMessage, task *Task, db *memory.Client, bus *event.Bus) (*InterpreterOutput, error) {
 	logger := slog.With(
 		"component", "code_interpreter",
 		"task_id", task.ID,
@@ -90,7 +92,7 @@ func (c *Interpreter) Interpret(ctx context.Context, fsys afero.Fs, input json.R
 	vm.SetFieldNameMapper(sobek.TagFieldNameMapper("json", true))
 
 	var stdout bytes.Buffer
-	session := NewSession(ctx, task, vm, &stdout, &stdout, fsys, &shared.DefaultCommandRunner{})
+	session := NewSessionWithBus(ctx, task, vm, &stdout, &stdout, fsys, db, bus, &shared.DefaultCommandRunner{})
 
 	for _, tool := range c.Tools {
 		vm.Set(tool.Name(), c.intercept(session, tool, tool.ToolHandler(session)))
@@ -113,9 +115,9 @@ func (c *Interpreter) Interpret(ctx context.Context, fsys afero.Fs, input json.R
 		logger.Error("script execution failed", "error", err)
 	}
 
-	callState, ok := GetValue[*FunctionCallState](session, "function_call_state")
+	callState, ok := GetValue[*ToolCallState](session, "function_call_state")
 	if !ok {
-		callState = NewFunctionCallState()
+		callState = NewToolCallState()
 	}
 
 	toolStats, ok := GetValue[map[string]int64](session, "tool_stats")

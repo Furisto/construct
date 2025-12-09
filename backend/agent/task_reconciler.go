@@ -28,7 +28,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/afero"
 	"golang.org/x/sync/singleflight"
-	"google.golang.org/protobuf/types/known/timestamppb"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -58,7 +57,6 @@ type TaskReconciler struct {
 	memory          *memory.Client
 	interpreter     *codeact.Interpreter
 	bus             *event.Bus
-	eventHub        *event.MessageHub
 	queue           workqueue.TypedDelayingInterface[uuid.UUID]
 	providerFactory *ModelProviderFactory
 	concurrency     int
@@ -73,7 +71,6 @@ func NewTaskReconciler(
 	interpreter *codeact.Interpreter,
 	concurrency int,
 	bus *event.Bus,
-	eventHub *event.MessageHub,
 	providerFactory *ModelProviderFactory,
 	metricsRegistry prometheus.Registerer,
 ) *TaskReconciler {
@@ -87,7 +84,6 @@ func NewTaskReconciler(
 		memory:          memory,
 		interpreter:     interpreter,
 		bus:             bus,
-		eventHub:        eventHub,
 		providerFactory: providerFactory,
 		queue:           queue,
 		concurrency:     concurrency,
@@ -200,14 +196,9 @@ func (r *TaskReconciler) publishError(ctx context.Context, err error, taskID uui
 		KeyError, err.Error(),
 	)
 
-	msg := NewSystemMessage(taskID, WithContent(&v1.MessagePart{
-		Data: &v1.MessagePart_Error_{Error: &v1.MessagePart_Error{Message: err.Error()}},
-	}))
-
-	r.eventHub.Publish(taskID, &v1.SubscribeResponse{
-		Event: &v1.SubscribeResponse_Message{
-			Message: msg,
-		},
+	event.Publish(r.bus, event.ErrorEvent{
+		TaskID: taskID,
+		Error:  err,
 	})
 }
 
@@ -337,7 +328,7 @@ func (r *TaskReconciler) computeStatus(task *memory.Task, messages []*memory.Mes
 		if message.Source == types.MessageSourceTask {
 			continue
 		}
-		
+
 		if message.ProcessedTime.IsZero() {
 			switch message.Source {
 			case types.MessageSourceUser:
@@ -845,12 +836,12 @@ func logInterpreter(ctx context.Context, taskID uuid.UUID, toolID string, conten
 	defer fp.Close()
 
 	type ToolOperation struct {
-		ToolID string `json:"tool_id"`
+		ToolID  string `json:"tool_id"`
 		Content string `json:"content"`
 	}
 
 	toolOperation := ToolOperation{
-		ToolID: toolID,
+		ToolID:  toolID,
 		Content: content,
 	}
 
@@ -885,23 +876,15 @@ func hasToolCalls(content []model.ContentBlock) bool {
 }
 
 func (r *TaskReconciler) publishMessage(taskID uuid.UUID, message *v1.Message) {
-	r.eventHub.Publish(taskID, &v1.SubscribeResponse{
-		Event: &v1.SubscribeResponse_Message{
-			Message: message,
-		},
+	event.Publish(r.bus, event.MessageEvent{
+		MessageID: uuid.MustParse(message.Metadata.Id),
+		TaskID:    taskID,
 	})
 }
 
 func (r *TaskReconciler) publishTaskEvent(taskID uuid.UUID) {
-	taskEvent := &v1.TaskEvent{
-		TaskId:    taskID.String(),
-		Timestamp: timestamppb.Now(),
-	}
-
-	r.eventHub.Publish(taskID, &v1.SubscribeResponse{
-		Event: &v1.SubscribeResponse_TaskEvent{
-			TaskEvent: taskEvent,
-		},
+	event.Publish(r.bus, event.TaskEvent{
+		TaskID: taskID,
 	})
 }
 
