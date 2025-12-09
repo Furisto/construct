@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  API-first • CodeMode tool calling • Multi-agent workflows • Self-hostable
+  API-first • CodeAct tool calling • Multi-agent workflows • Self-hostable
 </p>
 
 ---
@@ -112,7 +112,7 @@ Three built-in agents optimized for different phases of work:
 
 - **plan** (Opus) - Architecture & complex decisions
 - **edit** (Sonnet) - Daily implementation work
-- **quick** (Haiku) - Simple refactors & formatting
+- **quick** (Haiku) - Simple refactors
 
 Switch between agents seamlessly. All agents share conversation history and workspace context.
 
