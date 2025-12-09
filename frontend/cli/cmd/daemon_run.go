@@ -88,9 +88,11 @@ debugging and development. For normal use, 'construct daemon install' is recomme
 				}
 			}
 
-			analytics, err := analytics.NewPostHogClient()
+			var analyticsClient analytics.Client
+			analyticsClient, err = analytics.NewPostHogClient()
 			if err != nil {
-				return fmt.Errorf("failed to create analytics client: %w", err)
+				slog.Error("failed to create analytics client", "error", err)
+				analyticsClient = analytics.NewNoopClient()
 			}
 
 			runtime, err := agent.NewRuntime(
@@ -108,7 +110,7 @@ debugging and development. For normal use, 'construct daemon install' is recomme
 					// codeact.NewSubmitReportTool(),
 					codeact.NewPrintTool(),
 				),
-				agent.WithAnalytics(analytics),
+				agent.WithAnalytics(analyticsClient),
 			)
 
 			if err != nil {

@@ -21,6 +21,7 @@ builds:
       - -X github.com/furisto/construct/frontend/cli/cmd.Version={{ .Version }}
       - -X github.com/furisto/construct/frontend/cli/cmd.GitCommit={{ .Commit }}
       - -X github.com/furisto/construct/frontend/cli/cmd.BuildDate={{ .Date }}
+      - -X github.com/furisto/construct/backend/analytics.PostHogAPIKey={{ .Env.POSTHOG_API_KEY }}
     hooks:
       post:
         - sh -c 'sha256sum {{ .Path }} | cut -d" " -f1 > {{ .Os }}_{{ .Arch }}_checksum.txt'

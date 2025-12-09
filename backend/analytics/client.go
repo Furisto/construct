@@ -4,6 +4,11 @@ import (
 	"github.com/posthog/posthog-go"
 )
 
+var (
+	// PostHogAPIKey is the PostHog project API key
+	PostHogAPIKey = ""
+)
+
 type Event struct {
 	DistinctId string
 	Event      string
@@ -20,7 +25,7 @@ type PostHogClient struct {
 }
 
 func NewPostHogClient() (*PostHogClient, error) {
-	client, err := posthog.NewWithConfig("phc_YcYtQoT1FASKJ6PZBF61NeGibEcKkw1v6aEd4udQfND", posthog.Config{Endpoint: "https://eu.i.posthog.com"})
+	client, err := posthog.NewWithConfig(PostHogAPIKey, posthog.Config{Endpoint: "https://eu.i.posthog.com"})
 	if err != nil {
 		return nil, err
 	}
