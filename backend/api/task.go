@@ -17,6 +17,8 @@ import (
 	"github.com/furisto/construct/backend/memory/message"
 	"github.com/furisto/construct/backend/memory/schema/types"
 	"github.com/furisto/construct/backend/memory/task"
+	toolTypes "github.com/furisto/construct/backend/tool/types"
+	"github.com/furisto/construct/shared"
 	"github.com/google/uuid"
 )
 
@@ -341,6 +343,16 @@ func (h *TaskHandler) publishTaskEvents(ctx context.Context, taskID uuid.UUID, s
 	})
 	defer taskSub.Unsubscribe()
 
+	toolCallCh, toolCallSub := event.SubscribeChannel(h.eventBus, 10, func(event toolTypes.ToolCallEvent) bool {
+		return event.TaskID == taskID
+	})
+	defer toolCallSub.Unsubscribe()
+
+	toolResultCh, toolResultSub := event.SubscribeChannel(h.eventBus, 10, func(event toolTypes.ToolResultEvent) bool {
+		return event.TaskID == taskID
+	})
+	defer toolResultSub.Unsubscribe()
+
 	for _, m := range messages {
 		protoMessage, err := conv.ConvertMemoryMessageToProto(m)
 		if err != nil {
@@ -379,6 +391,252 @@ func (h *TaskHandler) publishTaskEvents(ctx context.Context, taskID uuid.UUID, s
 					},
 				},
 			})
+		case toolCall := <-toolCallCh:
+			protoToolCall, err := convertArgumentsToProtoToolCall(toolCall)
+			if err != nil {
+				return err
+			}
+			stream.Send(&v1.SubscribeResponse{
+				Event: &v1.SubscribeResponse_Message{
+					Message: &v1.Message{
+						Spec: &v1.MessageSpec{
+							Content: []*v1.MessagePart{
+								protoToolCall,
+							},
+						},
+					},
+				},
+			})
+		case toolResult := <-toolResultCh:
+			protoToolResult, err := convertResultToProtoToolResult(toolResult)
+			if err != nil {
+				return err
+			}
+			if protoToolResult != nil {
+				stream.Send(&v1.SubscribeResponse{
+					Event: &v1.SubscribeResponse_Message{
+						Message: &v1.Message{
+							Spec: &v1.MessageSpec{
+								Content: []*v1.MessagePart{
+									protoToolResult,
+								},
+							},
+						},
+					},
+				})
+			}
 		}
 	}
+}
+
+func convertArgumentsToProtoToolCall(toolCall toolTypes.ToolCallEvent) (*v1.MessagePart, error) {
+	input := toolCall.Input
+	protoToolCall := &v1.ToolCall{
+		ToolName: toolCall.ToolName,
+	}
+
+	switch {
+	case input.CreateFile != nil:
+		protoToolCall.Input = &v1.ToolCall_CreateFile{
+			CreateFile: &v1.ToolCall_CreateFileInput{
+				Path:    input.CreateFile.Path,
+				Content: input.CreateFile.Content,
+			},
+		}
+	case input.EditFile != nil:
+		var diffs []*v1.ToolCall_EditFileInput_DiffPair
+		for _, diff := range input.EditFile.Diffs {
+			diffs = append(diffs, &v1.ToolCall_EditFileInput_DiffPair{
+				Old: diff.Old,
+				New: diff.New,
+			})
+		}
+		protoToolCall.Input = &v1.ToolCall_EditFile{
+			EditFile: &v1.ToolCall_EditFileInput{
+				Path:  input.EditFile.Path,
+				Diffs: diffs,
+			},
+		}
+	case input.ExecuteCommand != nil:
+		protoToolCall.Input = &v1.ToolCall_ExecuteCommand{
+			ExecuteCommand: &v1.ToolCall_ExecuteCommandInput{
+				Command: input.ExecuteCommand.Command,
+			},
+		}
+	case input.FindFile != nil:
+		protoToolCall.Input = &v1.ToolCall_FindFile{
+			FindFile: &v1.ToolCall_FindFileInput{
+				Pattern:        input.FindFile.Pattern,
+				Path:           input.FindFile.Path,
+				ExcludePattern: input.FindFile.ExcludePattern,
+				MaxResults:     int32(input.FindFile.MaxResults),
+			},
+		}
+	case input.Grep != nil:
+		protoToolCall.Input = &v1.ToolCall_Grep{
+			Grep: &v1.ToolCall_GrepInput{
+				Query:          input.Grep.Query,
+				Path:           input.Grep.Path,
+				IncludePattern: input.Grep.IncludePattern,
+				ExcludePattern: input.Grep.ExcludePattern,
+				CaseSensitive:  input.Grep.CaseSensitive,
+				MaxResults:     int32(input.Grep.MaxResults),
+			},
+		}
+	case input.Handoff != nil:
+		protoToolCall.Input = &v1.ToolCall_Handoff{
+			Handoff: &v1.ToolCall_HandoffInput{
+				RequestedAgent:  input.Handoff.RequestedAgent,
+				HandoverMessage: input.Handoff.HandoverMessage,
+			},
+		}
+	case input.AskUser != nil:
+		protoToolCall.Input = &v1.ToolCall_AskUser{
+			AskUser: &v1.ToolCall_AskUserInput{
+				Question: input.AskUser.Question,
+				Options:  input.AskUser.Options,
+			},
+		}
+	case input.ListFiles != nil:
+		protoToolCall.Input = &v1.ToolCall_ListFiles{
+			ListFiles: &v1.ToolCall_ListFilesInput{
+				Path:      input.ListFiles.Path,
+				Recursive: input.ListFiles.Recursive,
+			},
+		}
+	case input.ReadFile != nil:
+		readFile := &v1.ToolCall_ReadFile{
+			ReadFile: &v1.ToolCall_ReadFileInput{
+				Path: input.ReadFile.Path,
+			},
+		}
+		if input.ReadFile.StartLine != nil {
+			readFile.ReadFile.StartLine = int32(*input.ReadFile.StartLine)
+		}
+		if input.ReadFile.EndLine != nil {
+			readFile.ReadFile.EndLine = int32(*input.ReadFile.EndLine)
+		}
+		protoToolCall.Input = readFile
+	case input.SubmitReport != nil:
+		protoToolCall.Input = &v1.ToolCall_SubmitReport{
+			SubmitReport: &v1.ToolCall_SubmitReportInput{
+				Summary:      input.SubmitReport.Summary,
+				Completed:    input.SubmitReport.Completed,
+				Deliverables: input.SubmitReport.Deliverables,
+				NextSteps:    input.SubmitReport.NextSteps,
+			},
+		}
+	default:
+		return nil, shared.Errorf(shared.ErrorSourceSystem, "no tool input type set in ToolInput")
+	}
+
+	return &v1.MessagePart{
+		Data: &v1.MessagePart_ToolCall{
+			ToolCall: protoToolCall,
+		},
+	}, nil
+}
+
+// convertResultToProtoToolResult converts tool result to proper proto ToolResult
+func convertResultToProtoToolResult(toolResultEvent toolTypes.ToolResultEvent) (*v1.MessagePart, error) {
+	output := toolResultEvent.Output
+	protoToolResult := &v1.ToolResult{
+		ToolName: toolResultEvent.ToolName,
+	}
+
+	switch {
+	case output.CreateFile != nil:
+		protoToolResult.Result = &v1.ToolResult_CreateFile{
+			CreateFile: &v1.ToolResult_CreateFileResult{
+				Overwritten: output.CreateFile.Overwritten,
+			},
+		}
+	case output.EditFile != nil:
+		editResult := &v1.ToolResult_EditFileResult{
+			Path: output.EditFile.Path,
+		}
+		if output.EditFile.PatchInfo.Patch != "" {
+			editResult.PatchInfo = &v1.ToolResult_EditFileResult_PatchInfo{
+				Patch:        output.EditFile.PatchInfo.Patch,
+				LinesAdded:   int32(output.EditFile.PatchInfo.LinesAdded),
+				LinesRemoved: int32(output.EditFile.PatchInfo.LinesRemoved),
+			}
+		}
+		protoToolResult.Result = &v1.ToolResult_EditFile{
+			EditFile: editResult,
+		}
+	case output.ExecuteCommand != nil:
+		protoToolResult.Result = &v1.ToolResult_ExecuteCommand{
+			ExecuteCommand: &v1.ToolResult_ExecuteCommandResult{
+				Stdout:   output.ExecuteCommand.Stdout,
+				Stderr:   output.ExecuteCommand.Stderr,
+				ExitCode: int32(output.ExecuteCommand.ExitCode),
+				Command:  output.ExecuteCommand.Command,
+			},
+		}
+	case output.FindFile != nil:
+		protoToolResult.Result = &v1.ToolResult_FindFile{
+			FindFile: &v1.ToolResult_FindFileResult{
+				Files:          output.FindFile.Files,
+				TotalFiles:     int32(output.FindFile.TotalFiles),
+				TruncatedCount: int32(output.FindFile.TruncatedCount),
+			},
+		}
+	case output.Grep != nil:
+		var matches []*v1.ToolResult_GrepResult_GrepMatch
+		for _, match := range output.Grep.Matches {
+			matches = append(matches, &v1.ToolResult_GrepResult_GrepMatch{
+				FilePath: match.FilePath,
+				Value:    match.Value,
+			})
+		}
+		protoToolResult.Result = &v1.ToolResult_Grep{
+			Grep: &v1.ToolResult_GrepResult{
+				Matches:       matches,
+				TotalMatches:  int32(output.Grep.TotalMatches),
+				SearchedFiles: int32(output.Grep.SearchedFiles),
+			},
+		}
+	case output.ListFiles != nil:
+		var entries []*v1.ToolResult_ListFilesResult_DirectoryEntry
+		for _, entry := range output.ListFiles.Entries {
+			entries = append(entries, &v1.ToolResult_ListFilesResult_DirectoryEntry{
+				Name: entry.Name,
+				Type: entry.Type,
+				Size: entry.Size,
+			})
+		}
+		protoToolResult.Result = &v1.ToolResult_ListFiles{
+			ListFiles: &v1.ToolResult_ListFilesResult{
+				Path:    output.ListFiles.Path,
+				Entries: entries,
+			},
+		}
+	case output.ReadFile != nil:
+		protoToolResult.Result = &v1.ToolResult_ReadFile{
+			ReadFile: &v1.ToolResult_ReadFileResult{
+				Path:    output.ReadFile.Path,
+				Content: output.ReadFile.Content,
+			},
+		}
+	case output.SubmitReport != nil:
+		protoToolResult.Result = &v1.ToolResult_SubmitReport{
+			SubmitReport: &v1.ToolResult_SubmitReportResult{
+				Summary:      output.SubmitReport.Summary,
+				Completed:    output.SubmitReport.Completed,
+				Deliverables: output.SubmitReport.Deliverables,
+				NextSteps:    output.SubmitReport.NextSteps,
+			},
+		}
+	default:
+		// Some tools like handoff don't return a result, only an error
+		// Check if all fields are nil
+		return nil, nil
+	}
+
+	return &v1.MessagePart{
+		Data: &v1.MessagePart_ToolResult{
+			ToolResult: protoToolResult,
+		},
+	}, nil
 }
