@@ -59,7 +59,6 @@ func NewSessionKeyBindings() SessionKeyBindings {
 	}
 }
 
-// subtaskSubscription tracks an active subscription to a subtask
 type subtaskSubscription struct {
 	cancel context.CancelFunc
 }
@@ -91,11 +90,9 @@ type Session struct {
 	modelInfoCache   map[string]*modelInfo
 	currentModelInfo *modelInfo
 
-	// Subtask subscription tracking
 	subtaskSubscriptions   map[string]*subtaskSubscription
 	subtaskSubscriptionsMu sync.Mutex
 
-	// Program reference for sending messages from goroutines
 	program   *tea.Program
 	programMu sync.RWMutex
 }
@@ -154,15 +151,12 @@ func NewSession(ctx context.Context, apiClient *api_client.Client, task *v1.Task
 	}
 }
 
-// SetProgram sets the tea.Program reference for sending messages from goroutines.
-// This must be called after creating the program but before any subtask subscriptions.
 func (m *Session) SetProgram(p *tea.Program) {
 	m.programMu.Lock()
 	defer m.programMu.Unlock()
 	m.program = p
 }
 
-// getProgram safely retrieves the program reference
 func (m *Session) getProgram() *tea.Program {
 	m.programMu.RLock()
 	defer m.programMu.RUnlock()
@@ -186,6 +180,7 @@ func (m *Session) Init() tea.Cmd {
 			}
 		},
 		m.spinner.Tick,
+		m.messageFeed.Init(),
 	)
 }
 
@@ -212,7 +207,6 @@ func (m *Session) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case *v1.TaskEvent:
 		cmds = append(cmds, m.processTaskEvent(msg))
 
-	// Handle API commands
 	case suspendTaskCmd:
 		cmds = append(cmds, m.executeSuspendTask())
 	case sendMessageCmd:
@@ -226,9 +220,8 @@ func (m *Session) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case switchAgentCmd:
 		cmds = append(cmds, m.executeSwitchAgent(msg.agentId))
 	case taskUpdatedMsg:
-		// task was already updated, just trigger re-render
+		m.handleTaskStateChange()
 
-	// Handle subtask commands
 	case subtaskSubscribeCmd:
 		m.startSubtaskSubscription(msg)
 	}
@@ -250,6 +243,18 @@ func (m *Session) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
+func (m *Session) handleTaskStateChange() {
+	if m.task == nil {
+		return
+	}
+
+	switch m.task.Status.Phase {
+	case v1.TaskPhase_TASK_PHASE_SUSPENDED, v1.TaskPhase_TASK_PHASE_AWAITING:
+		m.cancelAllSubtaskSubscriptions()
+		m.messageFeed.CleanupAllSubtasks()
+	}
+}
+
 func (m *Session) updateUsage(msg tea.Msg) {
 	if msg, ok := msg.(*v1.Message); ok {
 		if msg.Metadata.Role == v1.MessageRole_MESSAGE_ROLE_ASSISTANT && msg.Status != nil && msg.Status.Usage != nil {
@@ -263,7 +268,6 @@ func (m *Session) updateUsage(msg tea.Msg) {
 
 func (m *Session) onKeyEvent(msg tea.KeyMsg) []tea.Cmd {
 	defer func() {
-		// if the key is not quit, reset the last Ctrl+C time
 		if !key.Matches(msg, m.keyBindings.ClearOrQuit) {
 			m.lastCtrlC = time.Time{}
 		}
@@ -321,7 +325,6 @@ func (m *Session) handleSwitchAgent() []tea.Cmd {
 
 	m.activeAgent = m.agents[currentIdx]
 
-	// Fetch model info for the new agent
 	return []tea.Cmd{func() tea.Msg {
 		return getModelCmd{modelId: m.activeAgent.Spec.ModelId}
 	}, func() tea.Msg {
@@ -332,14 +335,12 @@ func (m *Session) handleSwitchAgent() []tea.Cmd {
 func (m *Session) handleClearOrQuit() tea.Cmd {
 	now := time.Now()
 
-	// If Ctrl+C was pressed recently (within 1 second), quit the app
 	if !m.lastCtrlC.IsZero() && now.Sub(m.lastCtrlC) < time.Second {
-		// Cancel all subtask subscriptions before quitting
 		m.cancelAllSubtaskSubscriptions()
+		m.messageFeed.CleanupAllSubtasks()
 		return tea.Quit
 	}
 
-	// First Ctrl+C: clear the input and record the time
 	m.input.Reset()
 	m.lastCtrlC = now
 
@@ -414,7 +415,6 @@ func (m *Session) executeGetTask(taskId string) tea.Cmd {
 
 func (m *Session) executeGetModel(modelId string) tea.Cmd {
 	return func() tea.Msg {
-		// Check cache first
 		if cached, exists := m.modelInfoCache[modelId]; exists {
 			m.currentModelInfo = cached
 			return nil
@@ -429,7 +429,6 @@ func (m *Session) executeGetModel(modelId string) tea.Cmd {
 			return handleAPIError(err)
 		}
 
-		// Cache the result
 		info := &modelInfo{
 			name:          resp.Msg.Model.Spec.Name,
 			contextWindow: resp.Msg.Model.Spec.ContextWindow,
@@ -468,7 +467,6 @@ func (m *Session) executeSwitchAgent(agentId string) tea.Cmd {
 	}
 }
 
-// startSubtaskSubscription starts a goroutine to subscribe to a subtask and stream messages
 func (m *Session) startSubtaskSubscription(cmd subtaskSubscribeCmd) {
 	program := m.getProgram()
 	if program == nil {
@@ -476,28 +474,43 @@ func (m *Session) startSubtaskSubscription(cmd subtaskSubscribeCmd) {
 		return
 	}
 
-	// Create a cancellable context for this subscription
+	m.subtaskSubscriptionsMu.Lock()
+	if _, exists := m.subtaskSubscriptions[cmd.toolCallID]; exists {
+		m.subtaskSubscriptionsMu.Unlock()
+		return
+	}
+
 	subCtx, cancel := context.WithCancel(m.ctx)
 
-	// Track the subscription
-	m.subtaskSubscriptionsMu.Lock()
 	m.subtaskSubscriptions[cmd.toolCallID] = &subtaskSubscription{
 		cancel: cancel,
 	}
 	m.subtaskSubscriptionsMu.Unlock()
 
-	// Start the subscription in a goroutine
 	go m.subscribeToSubtask(subCtx, program, cmd.toolCallID, cmd.taskID)
 }
 
-// subscribeToSubtask connects to a subtask's event stream and forwards messages to the UI
 func (m *Session) subscribeToSubtask(ctx context.Context, program *tea.Program, toolCallID, taskID string) {
 	defer func() {
-		// Clean up subscription tracking when done
 		m.subtaskSubscriptionsMu.Lock()
 		delete(m.subtaskSubscriptions, toolCallID)
 		m.subtaskSubscriptionsMu.Unlock()
 	}()
+
+	taskResp, err := m.apiClient.Task().GetTask(ctx, &connect.Request[v1.GetTaskRequest]{
+		Msg: &v1.GetTaskRequest{
+			Id: taskID,
+		},
+	})
+	if err == nil {
+		phase := taskResp.Msg.Task.Status.Phase
+		if phase == v1.TaskPhase_TASK_PHASE_AWAITING || phase == v1.TaskPhase_TASK_PHASE_SUSPENDED {
+			program.Send(subtaskCompletedMsg{
+				toolCallID: toolCallID,
+			})
+			return
+		}
+	}
 
 	watch, err := m.apiClient.Task().Subscribe(ctx, &connect.Request[v1.SubscribeRequest]{
 		Msg: &v1.SubscribeRequest{
@@ -517,14 +530,12 @@ func (m *Session) subscribeToSubtask(ctx context.Context, program *tea.Program, 
 		msg := watch.Msg()
 		switch event := msg.Event.(type) {
 		case *v1.SubscribeResponse_Message:
-			// Forward the message to the UI
 			program.Send(subtaskMessageMsg{
 				toolCallID: toolCallID,
 				message:    event.Message,
 			})
 
 		case *v1.SubscribeResponse_TaskEvent:
-			// Check if the task completed
 			taskResp, err := m.apiClient.Task().GetTask(ctx, &connect.Request[v1.GetTaskRequest]{
 				Msg: &v1.GetTaskRequest{
 					Id: taskID,
@@ -543,6 +554,9 @@ func (m *Session) subscribeToSubtask(ctx context.Context, program *tea.Program, 
 	}
 
 	if err := watch.Err(); err != nil {
+		if ctx.Err() != nil {
+			return
+		}
 		program.Send(subtaskErrorMsg{
 			toolCallID: toolCallID,
 			err:        err,
@@ -550,7 +564,6 @@ func (m *Session) subscribeToSubtask(ctx context.Context, program *tea.Program, 
 		return
 	}
 
-	// Stream ended without explicit completion - treat as completed
 	program.Send(subtaskCompletedMsg{
 		toolCallID: toolCallID,
 	})
@@ -597,7 +610,6 @@ func (m *Session) View() string {
 }
 
 func (m *Session) headerView() string {
-	// Build agent section
 	agentName := "Unknown"
 	if m.activeAgent != nil {
 		agentName = m.activeAgent.Spec.Name
@@ -618,7 +630,6 @@ func (m *Session) headerView() string {
 		agentNameStyle.Render(agentName),
 	)
 
-	// Use cached model info
 	if m.currentModelInfo != nil && m.currentModelInfo.name != "" {
 		agentSection = lipgloss.JoinHorizontal(lipgloss.Left,
 			agentSection,
@@ -633,7 +644,6 @@ func (m *Session) headerView() string {
 		statusText,
 	)
 
-	// usage section
 	usageText := ""
 	tokenDisplay := fmt.Sprintf("Tokens: %d↑ %d↓", m.lastUsage.InputTokens, m.lastUsage.OutputTokens)
 
