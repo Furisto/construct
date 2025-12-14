@@ -69,7 +69,7 @@ func SpawnTask(ctx context.Context, db *memory.Client, bus *event.Bus, currentTa
 			})
 		}
 
-		event.Publish(bus, event.TaskEvent{TaskID: subtask.ID})
+		event.Publish(bus, event.TaskReconciliationEvent{TaskID: subtask.ID})
 
 		return &SpawnTaskResult{
 			TaskID: subtask.ID.String(),

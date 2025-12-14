@@ -42,6 +42,11 @@ func AwaitTasks(ctx context.Context, db *memory.Client, bus *event.Bus, currentT
 		return nil, err
 	}
 
+	err = setTasksToRunning(ctx, db, bus, taskIDs)
+	if err != nil {
+		return nil, err
+	}
+
 	err = waitForTasksCompletion(ctx, db, bus, taskIDs, time.Duration(timeout)*time.Second)
 	if err != nil {
 		return nil, err
@@ -86,6 +91,50 @@ func validateTaskOwnership(ctx context.Context, db *memory.Client, currentTaskID
 				"Use spawn_task() to create subtasks before awaiting them",
 			})
 		}
+	}
+
+	return nil
+}
+
+func setTasksToRunning(ctx context.Context, db *memory.Client, bus *event.Bus, taskIDs []uuid.UUID) error {
+	tasksToUpdate, err := memory.Transaction(ctx, db, func(tx *memory.Client) (*[]uuid.UUID, error) {
+		tasks, err := tx.Task.Query().
+			Where(task.IDIn(taskIDs...)).
+			All(ctx)
+		if err != nil {
+			return nil, base.NewCustomError(fmt.Sprintf("failed to query tasks: %v", memory.SanitizeError(err)), []string{
+				"This is likely a system bug. Ask the user how to proceed",
+			})
+		}
+
+		tasksToUpdate := make([]uuid.UUID, 0, len(tasks))
+		for _, t := range tasks {
+			if t.DesiredPhase == types.TaskPhaseSuspended {
+				tasksToUpdate = append(tasksToUpdate, t.ID)
+			}
+		}
+
+		if len(tasksToUpdate) > 0 {
+			_, err = tx.Task.Update().
+				Where(task.IDIn(tasksToUpdate...)).
+				SetDesiredPhase(types.TaskPhaseRunning).
+				Save(ctx)
+			if err != nil {
+				return nil, base.NewCustomError(fmt.Sprintf("failed to update task phases: %v", memory.SanitizeError(err)), []string{
+					"This is likely a system bug. Ask the user how to proceed",
+				})
+			}
+		}
+
+		return &tasksToUpdate, nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	for _, taskID := range *tasksToUpdate {
+		event.Publish(bus, event.TaskReconciliationEvent{TaskID: taskID})
 	}
 
 	return nil
