@@ -105,6 +105,7 @@ func NewRuntime(memory *memory.Client, encryption *secret.Encryption, listener n
 	interceptors := []codeact.Interceptor{
 		codeact.InterceptorFunc(codeact.ToolStatisticsInterceptor),
 		codeact.InterceptorFunc(codeact.DurableFunctionInterceptor),
+		codeact.NewToolEventPublisher(eventBus),
 		codeact.InterceptorFunc(codeact.ResetTemporarySessionValuesInterceptor),
 	}
 
@@ -211,6 +212,12 @@ func WithContent(content *v1.MessagePart) func(*v1.Message) {
 func WithStatus(status v1.ContentStatus) func(*v1.Message) {
 	return func(msg *v1.Message) {
 		msg.Status.ContentState = status
+	}
+}
+
+func WithID(id uuid.UUID) func(*v1.Message) {
+	return func(msg *v1.Message) {
+		msg.Metadata.Id = id.String()
 	}
 }
 
