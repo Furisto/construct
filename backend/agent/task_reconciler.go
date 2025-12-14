@@ -104,7 +104,7 @@ func (r *TaskReconciler) Run(ctx context.Context) error {
 		}()
 	}
 
-	taskEventSub := event.Subscribe(r.bus, func(ctx context.Context, e event.TaskEvent) {
+	taskEventSub := event.Subscribe(r.bus, func(ctx context.Context, e event.TaskReconciliationEvent) {
 		r.queue.Add(e.TaskID)
 	}, nil)
 
@@ -261,7 +261,6 @@ func (r *TaskReconciler) reconcile(ctx context.Context, taskID uuid.UUID) (Resul
 	)
 
 	r.setTaskPhaseAndPublish(ctx, taskID, status.Phase)
-	defer r.setTaskPhaseAndPublish(ctx, taskID, TaskPhaseAwaitInput)
 
 	switch status.Phase {
 	case TaskPhaseAwaitInput:
@@ -415,6 +414,8 @@ func (r *TaskReconciler) reconcileInvokeModel(ctx context.Context, taskID uuid.U
 
 	LogOperationStart(logger, "invoke model")
 	invokeStart := time.Now()
+
+	messageID := uuid.New()
 	message, err := modelProvider.InvokeModel(
 		ctx,
 		agent.Edges.Model.Name,
@@ -422,16 +423,7 @@ func (r *TaskReconciler) reconcileInvokeModel(ctx context.Context, taskID uuid.U
 		modelMessages,
 		model.WithTools(r.interpreter),
 		model.WithStreamHandler(func(ctx context.Context, chunk string) {
-			r.publishMessage(taskID, NewAssistantMessage(taskID,
-				WithContent(&v1.MessagePart{
-					Data: &v1.MessagePart_Text_{
-						Text: &v1.MessagePart_Text{
-							Content: chunk,
-						},
-					},
-				}),
-				WithStatus(v1.ContentStatus_CONTENT_STATUS_PARTIAL),
-			))
+			r.publishDeltaMessage(taskID, messageID, chunk)
 		}),
 	)
 	LogOperationEnd(logger, "invoke model", invokeStart)
@@ -879,6 +871,14 @@ func (r *TaskReconciler) publishMessage(taskID uuid.UUID, message *v1.Message) {
 	event.Publish(r.bus, event.MessageEvent{
 		MessageID: uuid.MustParse(message.Metadata.Id),
 		TaskID:    taskID,
+	})
+}
+
+func (r *TaskReconciler) publishDeltaMessage(taskID uuid.UUID, messageID uuid.UUID, content string) {
+	event.Publish(r.bus, event.DeltaMessageEvent{
+		MessageID: messageID,
+		TaskID:    taskID,
+		Content:   content,
 	})
 }
 
