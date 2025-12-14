@@ -108,6 +108,9 @@ func handleNewCommand(ctx context.Context, apiClient *api.Client, options *newOp
 		tea.WithAltScreen(),
 	)
 
+	// Set program reference for subtask subscriptions
+	model.SetProgram(program)
+
 	go func() {
 		watch, err := apiClient.Task().Subscribe(ctx, &connect.Request[v1.SubscribeRequest]{
 			Msg: &v1.SubscribeRequest{

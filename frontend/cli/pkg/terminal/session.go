@@ -94,6 +94,10 @@ type Session struct {
 	// Subtask subscription tracking
 	subtaskSubscriptions   map[string]*subtaskSubscription
 	subtaskSubscriptionsMu sync.Mutex
+
+	// Program reference for sending messages from goroutines
+	program   *tea.Program
+	programMu sync.RWMutex
 }
 
 type Usage struct {
@@ -148,6 +152,21 @@ func NewSession(ctx context.Context, apiClient *api_client.Client, task *v1.Task
 		currentModelInfo:     nil,
 		subtaskSubscriptions: make(map[string]*subtaskSubscription),
 	}
+}
+
+// SetProgram sets the tea.Program reference for sending messages from goroutines.
+// This must be called after creating the program but before any subtask subscriptions.
+func (m *Session) SetProgram(p *tea.Program) {
+	m.programMu.Lock()
+	defer m.programMu.Unlock()
+	m.program = p
+}
+
+// getProgram safely retrieves the program reference
+func (m *Session) getProgram() *tea.Program {
+	m.programMu.RLock()
+	defer m.programMu.RUnlock()
+	return m.program
 }
 
 func (m *Session) Init() tea.Cmd {
@@ -211,7 +230,7 @@ func (m *Session) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Handle subtask commands
 	case subtaskSubscribeCmd:
-		cmds = append(cmds, m.executeSubtaskSubscribe(msg))
+		m.startSubtaskSubscription(msg)
 	}
 
 	if !m.showHelp {
@@ -449,7 +468,14 @@ func (m *Session) executeSwitchAgent(agentId string) tea.Cmd {
 	}
 }
 
-func (m *Session) executeSubtaskSubscribe(cmd subtaskSubscribeCmd) tea.Cmd {
+// startSubtaskSubscription starts a goroutine to subscribe to a subtask and stream messages
+func (m *Session) startSubtaskSubscription(cmd subtaskSubscribeCmd) {
+	program := m.getProgram()
+	if program == nil {
+		slog.Warn("cannot start subtask subscription: program reference not set")
+		return
+	}
+
 	// Create a cancellable context for this subscription
 	subCtx, cancel := context.WithCancel(m.ctx)
 
@@ -460,44 +486,46 @@ func (m *Session) executeSubtaskSubscribe(cmd subtaskSubscribeCmd) tea.Cmd {
 	}
 	m.subtaskSubscriptionsMu.Unlock()
 
-	toolCallID := cmd.toolCallID
-	taskID := cmd.taskID
-	apiClient := m.apiClient
-
-	// Return a command that starts the subscription in a goroutine
-	return func() tea.Msg {
-		// This runs in a goroutine managed by bubbletea
-		return m.subscribeToSubtask(subCtx, apiClient, toolCallID, taskID)
-	}
+	// Start the subscription in a goroutine
+	go m.subscribeToSubtask(subCtx, program, cmd.toolCallID, cmd.taskID)
 }
 
-func (m *Session) subscribeToSubtask(ctx context.Context, apiClient *api_client.Client, toolCallID, taskID string) tea.Msg {
-	watch, err := apiClient.Task().Subscribe(ctx, &connect.Request[v1.SubscribeRequest]{
+// subscribeToSubtask connects to a subtask's event stream and forwards messages to the UI
+func (m *Session) subscribeToSubtask(ctx context.Context, program *tea.Program, toolCallID, taskID string) {
+	defer func() {
+		// Clean up subscription tracking when done
+		m.subtaskSubscriptionsMu.Lock()
+		delete(m.subtaskSubscriptions, toolCallID)
+		m.subtaskSubscriptionsMu.Unlock()
+	}()
+
+	watch, err := m.apiClient.Task().Subscribe(ctx, &connect.Request[v1.SubscribeRequest]{
 		Msg: &v1.SubscribeRequest{
 			TaskId: taskID,
 		},
 	})
 	if err != nil {
-		return subtaskErrorMsg{
+		program.Send(subtaskErrorMsg{
 			toolCallID: toolCallID,
 			err:        err,
-		}
+		})
+		return
 	}
 	defer watch.Close()
 
-	// We need to use a channel-based approach to send messages back to the UI
-	// Since we can only return one message, we'll use a streaming approach
 	for watch.Receive() {
 		msg := watch.Msg()
 		switch event := msg.Event.(type) {
 		case *v1.SubscribeResponse_Message:
-			// We can't directly send messages here since we're in a blocking loop
-			// Instead, we need to handle this differently
-			// For now, we'll process messages until task completes
-			_ = event // Messages are processed via the event stream
+			// Forward the message to the UI
+			program.Send(subtaskMessageMsg{
+				toolCallID: toolCallID,
+				message:    event.Message,
+			})
+
 		case *v1.SubscribeResponse_TaskEvent:
 			// Check if the task completed
-			taskResp, err := apiClient.Task().GetTask(ctx, &connect.Request[v1.GetTaskRequest]{
+			taskResp, err := m.apiClient.Task().GetTask(ctx, &connect.Request[v1.GetTaskRequest]{
 				Msg: &v1.GetTaskRequest{
 					Id: taskID,
 				},
@@ -505,24 +533,27 @@ func (m *Session) subscribeToSubtask(ctx context.Context, apiClient *api_client.
 			if err == nil {
 				phase := taskResp.Msg.Task.Status.Phase
 				if phase == v1.TaskPhase_TASK_PHASE_AWAITING || phase == v1.TaskPhase_TASK_PHASE_SUSPENDED {
-					return subtaskCompletedMsg{
+					program.Send(subtaskCompletedMsg{
 						toolCallID: toolCallID,
-					}
+					})
+					return
 				}
 			}
 		}
 	}
 
 	if err := watch.Err(); err != nil {
-		return subtaskErrorMsg{
+		program.Send(subtaskErrorMsg{
 			toolCallID: toolCallID,
 			err:        err,
-		}
+		})
+		return
 	}
 
-	return subtaskCompletedMsg{
+	// Stream ended without explicit completion - treat as completed
+	program.Send(subtaskCompletedMsg{
 		toolCallID: toolCallID,
-	}
+	})
 }
 
 func (m *Session) cancelAllSubtaskSubscriptions() {

@@ -57,7 +57,6 @@ func (m *Error) Timestamp() time.Time {
 	return m.Time
 }
 
-// Subtask status enum
 type SubtaskStatus int
 
 const (
@@ -67,49 +66,57 @@ const (
 	SubtaskStatusError
 )
 
-// SubtaskOutput tracks the output of a spawned subtask
 type SubtaskOutput struct {
-	ToolCallID string        // ID of the spawn_task tool call (used as key)
-	TaskID     string        // ID of the spawned task (populated when result arrives)
-	AgentName  string        // Name of the agent running the subtask
-	Prompt     string        // The prompt/instructions given to the subtask
-	Messages   []message     // Sliding window buffer of messages (max 10)
-	Status     SubtaskStatus // Current status of the subtask
-	Error      error         // Error if subscription failed
+	ToolCallID   string
+	TaskID       string
+	AgentName    string
+	Prompt       string
+	Messages     []message
+	Status       SubtaskStatus
+	Error        error
+	CreatedAt    time.Time
+	LastActivity time.Time
 }
 
-// MaxSubtaskMessages is the maximum number of messages to show in the sliding window
 const MaxSubtaskMessages = 10
 
-// AddMessage adds a message to the subtask output, maintaining the sliding window
+const SubtaskStaleTimeout = 5 * time.Minute
+
 func (s *SubtaskOutput) AddMessage(msg message) {
 	s.Messages = append(s.Messages, msg)
 	if len(s.Messages) > MaxSubtaskMessages {
 		s.Messages = s.Messages[len(s.Messages)-MaxSubtaskMessages:]
 	}
+	s.LastActivity = time.Now()
 }
 
-// Subtask-related commands and messages
+func (s *SubtaskOutput) IsStale() bool {
+	if s.Status == SubtaskStatusCompleted {
+		return true
+	}
+	if s.Status == SubtaskStatusError {
+		return time.Since(s.LastActivity) > 30*time.Second
+	}
+	return time.Since(s.LastActivity) > SubtaskStaleTimeout
+}
 
-// subtaskSubscribeCmd triggers subscription to a subtask
 type subtaskSubscribeCmd struct {
-	toolCallID string // ID of the spawn_task tool call
-	taskID     string // ID of the subtask to subscribe to
+	toolCallID string
+	taskID     string
 }
 
-// subtaskMessageMsg wraps a message from a subtask stream
 type subtaskMessageMsg struct {
-	toolCallID string      // ID of the spawn_task tool call to associate with
-	message    *v1.Message // The message from the subtask
+	toolCallID string
+	message    *v1.Message
 }
 
-// subtaskCompletedMsg signals that a subtask has finished
 type subtaskCompletedMsg struct {
-	toolCallID string // ID of the spawn_task tool call
+	toolCallID string
 }
 
-// subtaskErrorMsg signals that subscription to a subtask failed
 type subtaskErrorMsg struct {
-	toolCallID string // ID of the spawn_task tool call
-	err        error  // The error that occurred
+	toolCallID string
+	err        error
 }
+
+type subtaskCleanupTickMsg struct{}

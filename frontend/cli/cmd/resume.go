@@ -226,10 +226,15 @@ func resolveTaskID(ctx context.Context, apiClient *api.Client, taskID string) (*
 }
 
 func startInteractiveSession(ctx context.Context, apiClient *api.Client, task *v1.Task, agent *v1.Agent) error {
+	model := terminal.NewSession(ctx, apiClient, task, agent)
+
 	program := tea.NewProgram(
-		terminal.NewSession(ctx, apiClient, task, agent),
+		model,
 		tea.WithAltScreen(),
 	)
+
+	// Set program reference for subtask subscriptions
+	model.SetProgram(program)
 
 	fmt.Printf("Subscribed to task %s\n", task.Metadata.Id)
 	go func() {
