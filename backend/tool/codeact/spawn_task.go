@@ -15,6 +15,14 @@ Create a subtask and assign it to another agent. The subtask runs concurrently a
 
 Subtasks are useful for delegating specialized work to other agents, running multiple tasks in parallel, or implementing multi-phase workflows.
 
+## Available Agents
+- **scout**: Specialized agent for discovering and analyzing files relevant to a coding task. Use when you need to:
+  - Identify which files in the workspace are relevant to a specific feature or functionality
+  - Find files by name patterns, content, or project structure
+  - Get a structured analysis of relevant files grouped by type (implementation, tests, config, docs, utilities)
+  - Understand the codebase layout before making changes
+  The scout agent works independently and cannot ask questions, so provide clear, complete task descriptions.
+
 ## Parameters
 - **agent** (string, required): Agent name or ID to assign to the subtask
 - **prompt** (string, required): Initial message/instructions for the subtask
