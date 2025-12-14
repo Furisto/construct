@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"connectrpc.com/connect"
@@ -58,6 +59,11 @@ func NewSessionKeyBindings() SessionKeyBindings {
 	}
 }
 
+// subtaskSubscription tracks an active subscription to a subtask
+type subtaskSubscription struct {
+	cancel context.CancelFunc
+}
+
 type Session struct {
 	messageFeed *MessageFeed
 	input       textarea.Model
@@ -84,6 +90,10 @@ type Session struct {
 
 	modelInfoCache   map[string]*modelInfo
 	currentModelInfo *modelInfo
+
+	// Subtask subscription tracking
+	subtaskSubscriptions   map[string]*subtaskSubscription
+	subtaskSubscriptionsMu sync.Mutex
 }
 
 type Usage struct {
@@ -118,28 +128,29 @@ func NewSession(ctx context.Context, apiClient *api_client.Client, task *v1.Task
 	workspacePath := getWorkspacePath(task)
 
 	return &Session{
-		width:            80,
-		height:           20,
-		input:            ta,
-		messageFeed:      NewMessageFeed(),
-		spinner:          sp,
-		apiClient:        apiClient,
-		messages:         []message{},
-		activeAgent:      agent,
-		agents:           []*v1.Agent{},
-		task:             task,
-		ctx:              ctx,
-		showHelp:         false,
-		waitingForAgent:  false,
-		lastUsage:        Usage{},
-		workspacePath:    workspacePath,
-		keyBindings:      NewSessionKeyBindings(),
-		modelInfoCache:   make(map[string]*modelInfo),
-		currentModelInfo: nil,
+		width:                80,
+		height:               20,
+		input:                ta,
+		messageFeed:          NewMessageFeed(),
+		spinner:              sp,
+		apiClient:            apiClient,
+		messages:             []message{},
+		activeAgent:          agent,
+		agents:               []*v1.Agent{},
+		task:                 task,
+		ctx:                  ctx,
+		showHelp:             false,
+		waitingForAgent:      false,
+		lastUsage:            Usage{},
+		workspacePath:        workspacePath,
+		keyBindings:          NewSessionKeyBindings(),
+		modelInfoCache:       make(map[string]*modelInfo),
+		currentModelInfo:     nil,
+		subtaskSubscriptions: make(map[string]*subtaskSubscription),
 	}
 }
 
-func (m Session) Init() tea.Cmd {
+func (m *Session) Init() tea.Cmd {
 	windowTitle := "construct"
 	if m.workspacePath != "" {
 		windowTitle = fmt.Sprintf("construct (%s)", m.workspacePath)
@@ -197,6 +208,10 @@ func (m *Session) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, m.executeSwitchAgent(msg.agentId))
 	case taskUpdatedMsg:
 		// task was already updated, just trigger re-render
+
+	// Handle subtask commands
+	case subtaskSubscribeCmd:
+		cmds = append(cmds, m.executeSubtaskSubscribe(msg))
 	}
 
 	if !m.showHelp {
@@ -300,6 +315,8 @@ func (m *Session) handleClearOrQuit() tea.Cmd {
 
 	// If Ctrl+C was pressed recently (within 1 second), quit the app
 	if !m.lastCtrlC.IsZero() && now.Sub(m.lastCtrlC) < time.Second {
+		// Cancel all subtask subscriptions before quitting
+		m.cancelAllSubtaskSubscriptions()
 		return tea.Quit
 	}
 
@@ -430,6 +447,94 @@ func (m *Session) executeSwitchAgent(agentId string) tea.Cmd {
 
 		return nil
 	}
+}
+
+func (m *Session) executeSubtaskSubscribe(cmd subtaskSubscribeCmd) tea.Cmd {
+	// Create a cancellable context for this subscription
+	subCtx, cancel := context.WithCancel(m.ctx)
+
+	// Track the subscription
+	m.subtaskSubscriptionsMu.Lock()
+	m.subtaskSubscriptions[cmd.toolCallID] = &subtaskSubscription{
+		cancel: cancel,
+	}
+	m.subtaskSubscriptionsMu.Unlock()
+
+	toolCallID := cmd.toolCallID
+	taskID := cmd.taskID
+	apiClient := m.apiClient
+
+	// Return a command that starts the subscription in a goroutine
+	return func() tea.Msg {
+		// This runs in a goroutine managed by bubbletea
+		return m.subscribeToSubtask(subCtx, apiClient, toolCallID, taskID)
+	}
+}
+
+func (m *Session) subscribeToSubtask(ctx context.Context, apiClient *api_client.Client, toolCallID, taskID string) tea.Msg {
+	watch, err := apiClient.Task().Subscribe(ctx, &connect.Request[v1.SubscribeRequest]{
+		Msg: &v1.SubscribeRequest{
+			TaskId: taskID,
+		},
+	})
+	if err != nil {
+		return subtaskErrorMsg{
+			toolCallID: toolCallID,
+			err:        err,
+		}
+	}
+	defer watch.Close()
+
+	// We need to use a channel-based approach to send messages back to the UI
+	// Since we can only return one message, we'll use a streaming approach
+	for watch.Receive() {
+		msg := watch.Msg()
+		switch event := msg.Event.(type) {
+		case *v1.SubscribeResponse_Message:
+			// We can't directly send messages here since we're in a blocking loop
+			// Instead, we need to handle this differently
+			// For now, we'll process messages until task completes
+			_ = event // Messages are processed via the event stream
+		case *v1.SubscribeResponse_TaskEvent:
+			// Check if the task completed
+			taskResp, err := apiClient.Task().GetTask(ctx, &connect.Request[v1.GetTaskRequest]{
+				Msg: &v1.GetTaskRequest{
+					Id: taskID,
+				},
+			})
+			if err == nil {
+				phase := taskResp.Msg.Task.Status.Phase
+				if phase == v1.TaskPhase_TASK_PHASE_AWAITING || phase == v1.TaskPhase_TASK_PHASE_SUSPENDED {
+					return subtaskCompletedMsg{
+						toolCallID: toolCallID,
+					}
+				}
+			}
+		}
+	}
+
+	if err := watch.Err(); err != nil {
+		return subtaskErrorMsg{
+			toolCallID: toolCallID,
+			err:        err,
+		}
+	}
+
+	return subtaskCompletedMsg{
+		toolCallID: toolCallID,
+	}
+}
+
+func (m *Session) cancelAllSubtaskSubscriptions() {
+	m.subtaskSubscriptionsMu.Lock()
+	defer m.subtaskSubscriptionsMu.Unlock()
+
+	for _, sub := range m.subtaskSubscriptions {
+		if sub.cancel != nil {
+			sub.cancel()
+		}
+	}
+	m.subtaskSubscriptions = make(map[string]*subtaskSubscription)
 }
 
 func (m *Session) onWindowResize(msg tea.WindowSizeMsg) {

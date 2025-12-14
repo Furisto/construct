@@ -156,7 +156,9 @@ type TaskMetadata struct {
 	// created_at is the timestamp when the task was created.
 	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	// updated_at is the timestamp when the task was last modified.
-	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	UpdatedAt *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// parent_task_id is the ID of the parent task if this is a subtask (UUID format, optional).
+	ParentTaskId  *string `protobuf:"bytes,4,opt,name=parent_task_id,json=parentTaskId,proto3,oneof" json:"parent_task_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -210,6 +212,13 @@ func (x *TaskMetadata) GetUpdatedAt() *timestamppb.Timestamp {
 		return x.UpdatedAt
 	}
 	return nil
+}
+
+func (x *TaskMetadata) GetParentTaskId() string {
+	if x != nil && x.ParentTaskId != nil {
+		return *x.ParentTaskId
+	}
+	return ""
 }
 
 // TaskSpec defines the user-configurable specification of a task.
@@ -1308,13 +1317,15 @@ const file_construct_v1_task_proto_rawDesc = "" +
 	"\x04Task\x126\n" +
 	"\bmetadata\x18\x01 \x01(\v2\x1a.construct.v1.TaskMetadataR\bmetadata\x12*\n" +
 	"\x04spec\x18\x02 \x01(\v2\x16.construct.v1.TaskSpecR\x04spec\x120\n" +
-	"\x06status\x18\x03 \x01(\v2\x18.construct.v1.TaskStatusR\x06status\"\xae\x01\n" +
+	"\x06status\x18\x03 \x01(\v2\x18.construct.v1.TaskStatusR\x06status\"\xf6\x01\n" +
 	"\fTaskMetadata\x12\x18\n" +
 	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\x12A\n" +
 	"\n" +
 	"created_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\tcreatedAt\x12A\n" +
 	"\n" +
-	"updated_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\tupdatedAt\"\xdb\x01\n" +
+	"updated_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\tupdatedAt\x123\n" +
+	"\x0eparent_task_id\x18\x04 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\fparentTaskId\x88\x01\x01B\x11\n" +
+	"\x0f_parent_task_id\"\xdb\x01\n" +
 	"\bTaskSpec\x12(\n" +
 	"\bagent_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\aagentId\x88\x01\x01\x12$\n" +
 	"\tworkspace\x18\x02 \x01(\tB\x06\xbaH\x03\xc8\x01\x01R\tworkspace\x12F\n" +
@@ -1500,6 +1511,7 @@ func file_construct_v1_task_proto_init() {
 	}
 	file_construct_v1_common_proto_init()
 	file_construct_v1_message_proto_init()
+	file_construct_v1_task_proto_msgTypes[1].OneofWrappers = []any{}
 	file_construct_v1_task_proto_msgTypes[2].OneofWrappers = []any{}
 	file_construct_v1_task_proto_msgTypes[9].OneofWrappers = []any{}
 	file_construct_v1_task_proto_msgTypes[11].OneofWrappers = []any{}

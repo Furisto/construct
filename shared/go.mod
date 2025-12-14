@@ -7,6 +7,7 @@ require (
 	github.com/bored-engineer/go-launchd v0.0.0-20241220214420-b514778f4f80
 	github.com/google/uuid v1.6.0
 	github.com/spf13/afero v1.14.0
+	go.uber.org/mock v0.5.2
 	google.golang.org/protobuf v1.36.8
 	gopkg.in/yaml.v3 v3.0.1
 )

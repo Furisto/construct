@@ -49,14 +49,18 @@ type MessageFeed struct {
 	partialMessage   string
 	keyBindings      MessageFeedKeybindings
 	userIsScrolledUp bool
+
+	// Subtask tracking
+	subtaskOutputs map[string]*SubtaskOutput // keyed by tool call ID
 }
 
 var _ tea.Model = (*MessageFeed)(nil)
 
 func NewMessageFeed() *MessageFeed {
 	return &MessageFeed{
-		viewport:    viewport.New(0, 0),
-		keyBindings: NewMessageFeedKeybindings(),
+		viewport:       viewport.New(0, 0),
+		keyBindings:    NewMessageFeedKeybindings(),
+		subtaskOutputs: make(map[string]*SubtaskOutput),
 	}
 }
 
@@ -95,15 +99,89 @@ func (m *MessageFeed) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, cmd)
 
 	case *v1.Message:
-		m.processMessage(msg)
+		cmd := m.processMessage(msg)
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
 		m.updateViewportContent()
 
 	case *Error:
 		m.upsertErrorMessage(msg)
 		m.updateViewportContent()
+
+	// Handle subtask messages
+	case subtaskMessageMsg:
+		m.handleSubtaskMessage(msg)
+		m.updateViewportContent()
+
+	case subtaskCompletedMsg:
+		m.handleSubtaskCompleted(msg)
+		m.updateViewportContent()
+
+	case subtaskErrorMsg:
+		m.handleSubtaskError(msg)
+		m.updateViewportContent()
 	}
 
 	return m, tea.Batch(cmds...)
+}
+
+func (m *MessageFeed) handleSubtaskMessage(msg subtaskMessageMsg) {
+	output, exists := m.subtaskOutputs[msg.toolCallID]
+	if !exists {
+		return
+	}
+
+	// Update status to running if it was pending
+	if output.Status == SubtaskStatusPending {
+		output.Status = SubtaskStatusRunning
+	}
+
+	// Process the message and add to sliding window
+	for _, part := range msg.message.Spec.Content {
+		var newMsg message
+		timestamp := time.Now()
+		if msg.message.Metadata.CreatedAt != nil {
+			timestamp = msg.message.Metadata.CreatedAt.AsTime()
+		}
+
+		switch data := part.Data.(type) {
+		case *v1.MessagePart_Text_:
+			if msg.message.Metadata.Role == v1.MessageRole_MESSAGE_ROLE_ASSISTANT {
+				newMsg = &assistantTextMessage{
+					content:   data.Text.Content,
+					timestamp: timestamp,
+				}
+			}
+		case *v1.MessagePart_ToolCall:
+			newMsg = m.createToolCallMessage(data.ToolCall, timestamp)
+		case *v1.MessagePart_ToolResult:
+			newMsg = m.createToolResultMessage(data.ToolResult, timestamp)
+		}
+
+		if newMsg != nil {
+			output.AddMessage(newMsg)
+		}
+	}
+}
+
+func (m *MessageFeed) handleSubtaskCompleted(msg subtaskCompletedMsg) {
+	output, exists := m.subtaskOutputs[msg.toolCallID]
+	if !exists {
+		return
+	}
+	output.Status = SubtaskStatusCompleted
+	// Remove from map so it stops rendering
+	delete(m.subtaskOutputs, msg.toolCallID)
+}
+
+func (m *MessageFeed) handleSubtaskError(msg subtaskErrorMsg) {
+	output, exists := m.subtaskOutputs[msg.toolCallID]
+	if !exists {
+		return
+	}
+	output.Status = SubtaskStatusError
+	output.Error = msg.err
 }
 
 func (m *MessageFeed) View() string {
@@ -160,7 +238,7 @@ func (m *MessageFeed) renderInitialMessage() string {
 }
 
 func (m *MessageFeed) updateViewportContent() {
-	formatted := formatMessages(m.messages, m.partialMessage, m.viewport.Width)
+	formatted := m.formatMessages(m.messages, m.partialMessage, m.viewport.Width)
 	m.viewport.SetContent(formatted)
 
 	// Auto-scroll if user hasn't scrolled up OR if last message is from user
@@ -211,7 +289,9 @@ func (m *MessageFeed) upsertErrorMessage(errMsg *Error) {
 	m.messages = append(m.messages, errMsg)
 }
 
-func (m *MessageFeed) processMessage(msg *v1.Message) {
+func (m *MessageFeed) processMessage(msg *v1.Message) tea.Cmd {
+	var cmd tea.Cmd
+
 	for _, part := range msg.Spec.Content {
 		switch data := part.Data.(type) {
 		case *v1.MessagePart_Text_:
@@ -232,11 +312,22 @@ func (m *MessageFeed) processMessage(msg *v1.Message) {
 				m.partialMessage = ""
 			}
 		case *v1.MessagePart_ToolCall:
-			m.messages = append(m.messages, m.createToolCallMessage(data.ToolCall, msg.Metadata.CreatedAt.AsTime()))
+			toolMsg := m.createToolCallMessage(data.ToolCall, msg.Metadata.CreatedAt.AsTime())
+			if toolMsg != nil {
+				m.messages = append(m.messages, toolMsg)
+			}
 		case *v1.MessagePart_ToolResult:
-			m.messages = append(m.messages, m.createToolResultMessage(data.ToolResult, msg.Metadata.CreatedAt.AsTime()))
+			resultMsg, resultCmd := m.createToolResultMessageWithCmd(data.ToolResult, msg.Metadata.CreatedAt.AsTime())
+			if resultMsg != nil {
+				m.messages = append(m.messages, resultMsg)
+			}
+			if resultCmd != nil {
+				cmd = resultCmd
+			}
 		}
 	}
+
+	return cmd
 }
 
 func (m *MessageFeed) createToolCallMessage(toolCall *v1.ToolCall, timestamp time.Time) message {
@@ -301,6 +392,22 @@ func (m *MessageFeed) createToolCallMessage(toolCall *v1.ToolCall, timestamp tim
 			Input:     toolInput.SubmitReport,
 			timestamp: timestamp,
 		}
+	case *v1.ToolCall_SpawnTask:
+		// Create the tool call message
+		msg := &spawnTaskToolCall{
+			ID:        toolCall.Id,
+			Input:     toolInput.SpawnTask,
+			timestamp: timestamp,
+		}
+		// Initialize subtask output in pending state
+		m.subtaskOutputs[toolCall.Id] = &SubtaskOutput{
+			ToolCallID: toolCall.Id,
+			AgentName:  toolInput.SpawnTask.Agent,
+			Prompt:     toolInput.SpawnTask.Prompt,
+			Messages:   []message{},
+			Status:     SubtaskStatusPending,
+		}
+		return msg
 		// case *v1.ToolCall_CodeInterpreter:
 		// 	if m.Verbose {
 		// 		return &codeInterpreterToolCall{
@@ -315,69 +422,92 @@ func (m *MessageFeed) createToolCallMessage(toolCall *v1.ToolCall, timestamp tim
 }
 
 func (m *MessageFeed) createToolResultMessage(toolResult *v1.ToolResult, timestamp time.Time) message {
+	msg, _ := m.createToolResultMessageWithCmd(toolResult, timestamp)
+	return msg
+}
+
+func (m *MessageFeed) createToolResultMessageWithCmd(toolResult *v1.ToolResult, timestamp time.Time) (message, tea.Cmd) {
 	switch toolOutput := toolResult.Result.(type) {
 	case *v1.ToolResult_CreateFile:
 		return &createFileResult{
 			ID:        toolResult.Id,
 			Result:    toolOutput.CreateFile,
 			timestamp: timestamp,
-		}
+		}, nil
 	case *v1.ToolResult_EditFile:
 		return &editFileResult{
 			ID:        toolResult.Id,
 			Result:    toolOutput.EditFile,
 			timestamp: timestamp,
-		}
+		}, nil
 	case *v1.ToolResult_ExecuteCommand:
 		return &executeCommandResult{
 			ID:        toolResult.Id,
 			Result:    toolOutput.ExecuteCommand,
 			timestamp: timestamp,
-		}
+		}, nil
 	case *v1.ToolResult_FindFile:
 		return &findFileResult{
 			ID:        toolResult.Id,
 			Result:    toolOutput.FindFile,
 			timestamp: timestamp,
-		}
+		}, nil
 	case *v1.ToolResult_Grep:
 		return &grepResult{
 			ID:        toolResult.Id,
 			Result:    toolOutput.Grep,
 			timestamp: timestamp,
-		}
+		}, nil
 	case *v1.ToolResult_ListFiles:
 		return &listFilesResult{
 			ID:        toolResult.Id,
 			Result:    toolOutput.ListFiles,
 			timestamp: timestamp,
-		}
+		}, nil
 	case *v1.ToolResult_ReadFile:
 		return &readFileResult{
 			ID:        toolResult.Id,
 			Result:    toolOutput.ReadFile,
 			timestamp: timestamp,
-		}
+		}, nil
 	case *v1.ToolResult_SubmitReport:
 		return &submitReportResult{
 			ID:        toolResult.Id,
 			Result:    toolOutput.SubmitReport,
 			timestamp: timestamp,
+		}, nil
+	case *v1.ToolResult_SpawnTask:
+		// Update the subtask output with the task ID and trigger subscription
+		if output, exists := m.subtaskOutputs[toolResult.Id]; exists {
+			output.TaskID = toolOutput.SpawnTask.TaskId
 		}
+		msg := &spawnTaskResult{
+			ID:        toolResult.Id,
+			Result:    toolOutput.SpawnTask,
+			timestamp: timestamp,
+		}
+		// Return command to trigger subscription
+		cmd := func() tea.Msg {
+			return subtaskSubscribeCmd{
+				toolCallID: toolResult.Id,
+				taskID:     toolOutput.SpawnTask.TaskId,
+			}
+		}
+		return msg, cmd
 		// case *v1.ToolResult_CodeInterpreter:
 		// 	if m.Verbose {
 		// 		return &codeInterpreterResult{
 		// 			ID:        toolResult.Id,
 		// 			Result:    toolOutput.CodeInterpreter,
 		// 			timestamp: timestamp,
-		// 		}
+		// 		}, nil
 		// 	}
 	}
 
-	return nil
+	return nil, nil
 }
 
-func formatMessages(messages []message, partialMessage string, width int) string {
+func (m *MessageFeed) formatMessages(messages []message, partialMessage string, width int) string {
 	renderedMessages := []string{}
 	for i, msg := range messages {
 		switch msg := msg.(type) {
@@ -456,6 +586,27 @@ func formatMessages(messages []message, partialMessage string, width int) string
 			renderedMessages = append(renderedMessages, renderToolCallMessage("Interpreter", "Output", width, addBottomMargin(i, messages)))
 			renderedMessages = append(renderedMessages, formatCodeInterpreterContent(msg.Result.Output))
 
+		case *spawnTaskToolCall:
+			// Render the spawn task tool call
+			promptPreview := msg.Input.Prompt
+			if len(promptPreview) > 40 {
+				promptPreview = promptPreview[:37] + "..."
+			}
+			renderedMessages = append(renderedMessages, renderToolCallMessage("Spawn", fmt.Sprintf("%s: %q", msg.Input.Agent, promptPreview), width, false))
+
+			// Render subtask output if it exists and is not completed
+			if output, exists := m.subtaskOutputs[msg.ID]; exists {
+				subtaskOutput := m.renderSubtaskOutput(output, width)
+				if subtaskOutput != "" {
+					renderedMessages = append(renderedMessages, subtaskOutput)
+				}
+			}
+
+			// Add bottom margin if needed
+			if addBottomMargin(i, messages) {
+				renderedMessages = append(renderedMessages, "")
+			}
+
 		case *Error:
 			var message string
 			if msg != nil && msg.Error != nil {
@@ -478,4 +629,95 @@ func formatMessages(messages []message, partialMessage string, width int) string
 		lipgloss.Top,
 		renderedMessages...,
 	)
+}
+
+func (m *MessageFeed) renderSubtaskOutput(output *SubtaskOutput, width int) string {
+	if output == nil {
+		return ""
+	}
+
+	var lines []string
+
+	// Render header with agent name and truncated prompt
+	promptPreview := output.Prompt
+	if len(promptPreview) > 50 {
+		promptPreview = promptPreview[:47] + "..."
+	}
+	header := subtaskHeaderStyle.Render(fmt.Sprintf("╭─ %s: %q", output.AgentName, promptPreview))
+	lines = append(lines, header)
+
+	// Render status or messages based on state
+	switch output.Status {
+	case SubtaskStatusPending:
+		lines = append(lines, subtaskContentStyle.Render("│ Pending..."))
+	case SubtaskStatusError:
+		errMsg := "subscription failed"
+		if output.Error != nil {
+			errMsg = output.Error.Error()
+		}
+		lines = append(lines, subtaskContentStyle.Render(fmt.Sprintf("│ ❌ Error: %s", errMsg)))
+	case SubtaskStatusRunning, SubtaskStatusCompleted:
+		if len(output.Messages) == 0 {
+			lines = append(lines, subtaskContentStyle.Render("│ Waiting for output..."))
+		} else {
+			// Render each message in the sliding window
+			for _, msg := range output.Messages {
+				msgLine := m.formatSubtaskMessage(msg, width-4) // Account for indent
+				lines = append(lines, subtaskContentStyle.Render("│ "+msgLine))
+			}
+		}
+	}
+
+	// Render footer
+	lines = append(lines, subtaskContentStyle.Render("╰─"))
+
+	return strings.Join(lines, "\n")
+}
+
+func (m *MessageFeed) formatSubtaskMessage(msg message, width int) string {
+	switch msg := msg.(type) {
+	case *assistantTextMessage:
+		content := msg.content
+		// Replace newlines with spaces for compact display
+		content = strings.ReplaceAll(content, "\n", " ")
+		if len(content) > width {
+			content = content[:width-3] + "..."
+		}
+		return content
+
+	case *readFileToolCall:
+		return fmt.Sprintf("◆ Read(%s)", msg.Input.Path)
+
+	case *createFileToolCall:
+		return fmt.Sprintf("◆ Create(%s)", msg.Input.Path)
+
+	case *editFileToolCall:
+		return fmt.Sprintf("◆ Edit(%s)", msg.Input.Path)
+
+	case *executeCommandToolCall:
+		cmd := msg.Input.Command
+		if len(cmd) > 30 {
+			cmd = cmd[:27] + "..."
+		}
+		return fmt.Sprintf("◆ Execute(%s)", cmd)
+
+	case *findFileToolCall:
+		return fmt.Sprintf("◆ Find(%s)", msg.Input.Pattern)
+
+	case *grepToolCall:
+		query := msg.Input.Query
+		if len(query) > 20 {
+			query = query[:17] + "..."
+		}
+		return fmt.Sprintf("◆ Grep(%s)", query)
+
+	case *listFilesToolCall:
+		return fmt.Sprintf("◆ List(%s)", msg.Input.Path)
+
+	case *handoffToolCall:
+		return fmt.Sprintf("◆ Handoff(%s)", msg.Input.RequestedAgent)
+
+	default:
+		return "◆ ..."
+	}
 }

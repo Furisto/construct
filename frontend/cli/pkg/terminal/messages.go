@@ -217,6 +217,23 @@ func (m *codeInterpreterToolCall) Timestamp() time.Time {
 	return m.timestamp
 }
 
+// SPAWN TASK TOOL CALL
+type spawnTaskToolCall struct {
+	ID        string
+	Input     *v1.ToolCall_SpawnTaskInput
+	timestamp time.Time
+}
+
+func (m *spawnTaskToolCall) Type() messageType {
+	return MessageTypeAssistantTool
+}
+
+func (m *spawnTaskToolCall) Timestamp() time.Time {
+	return m.timestamp
+}
+
+var _ message = (*spawnTaskToolCall)(nil)
+
 // TOOL RESULT MESSAGES
 type createFileResult struct {
 	ID        string
@@ -343,3 +360,20 @@ func (m *codeInterpreterResult) Type() messageType {
 func (m *codeInterpreterResult) Timestamp() time.Time {
 	return m.timestamp
 }
+
+// SPAWN TASK RESULT
+type spawnTaskResult struct {
+	ID        string
+	Result    *v1.ToolResult_SpawnTaskResult
+	timestamp time.Time
+}
+
+func (m *spawnTaskResult) Type() messageType {
+	return MessageTypeAssistantTool
+}
+
+func (m *spawnTaskResult) Timestamp() time.Time {
+	return m.timestamp
+}
+
+var _ message = (*spawnTaskResult)(nil)

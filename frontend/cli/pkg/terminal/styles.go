@@ -105,6 +105,19 @@ var (
 
 	helpItemStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("252"))
+
+	// Subtask output styles
+	subtaskHeaderStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("39")).
+				PaddingLeft(4)
+
+	subtaskContentStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("245")).
+				PaddingLeft(4)
+
+	subtaskStatusStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("241")).
+				Italic(true)
 )
 
 func Bold(s string) string {
