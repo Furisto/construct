@@ -233,7 +233,7 @@ func (h *TaskHandler) UpdateTask(ctx context.Context, req *connect.Request[v1.Up
 
 	for _, field := range updatedFields {
 		if field == "agent_id" {
-			event.Publish(h.eventBus, event.TaskEvent{
+			event.Publish(h.eventBus, event.TaskReconciliationEvent{
 				TaskID: updatedTask.ID,
 			})
 			break
@@ -269,7 +269,7 @@ func (h *TaskHandler) Subscribe(ctx context.Context, req *connect.Request[v1.Sub
 		return apiError(err)
 	}
 
-	event.Publish(h.eventBus, event.TaskEvent{
+	event.Publish(h.eventBus, event.TaskReconciliationEvent{
 		TaskID: taskID,
 	})
 
@@ -353,6 +353,16 @@ func (h *TaskHandler) publishTaskEvents(ctx context.Context, taskID uuid.UUID, s
 	})
 	defer toolResultSub.Unsubscribe()
 
+	errorCh, errorSub := event.SubscribeChannel(h.eventBus, 10, func(event event.ErrorEvent) bool {
+		return event.TaskID == taskID
+	})
+	defer errorSub.Unsubscribe()
+
+	deltaMessageCh, deltaMessageSub := event.SubscribeChannel(h.eventBus, 10, func(event event.DeltaMessageEvent) bool {
+		return event.TaskID == taskID
+	})
+	defer deltaMessageSub.Unsubscribe()
+
 	for _, m := range messages {
 		protoMessage, err := conv.ConvertMemoryMessageToProto(m)
 		if err != nil {
@@ -392,13 +402,16 @@ func (h *TaskHandler) publishTaskEvents(ctx context.Context, taskID uuid.UUID, s
 				},
 			})
 		case toolCall := <-toolCallCh:
-			protoToolCall, err := convertArgumentsToProtoToolCall(toolCall)
+			protoToolCall, err := convertToolCallToProto(toolCall)
 			if err != nil {
 				return err
 			}
 			stream.Send(&v1.SubscribeResponse{
 				Event: &v1.SubscribeResponse_Message{
 					Message: &v1.Message{
+						Metadata: &v1.MessageMetadata{
+							Role: v1.MessageRole_MESSAGE_ROLE_ASSISTANT,
+						},
 						Spec: &v1.MessageSpec{
 							Content: []*v1.MessagePart{
 								protoToolCall,
@@ -408,7 +421,7 @@ func (h *TaskHandler) publishTaskEvents(ctx context.Context, taskID uuid.UUID, s
 				},
 			})
 		case toolResult := <-toolResultCh:
-			protoToolResult, err := convertResultToProtoToolResult(toolResult)
+			protoToolResult, err := convertToolResultToProto(toolResult)
 			if err != nil {
 				return err
 			}
@@ -416,6 +429,9 @@ func (h *TaskHandler) publishTaskEvents(ctx context.Context, taskID uuid.UUID, s
 				stream.Send(&v1.SubscribeResponse{
 					Event: &v1.SubscribeResponse_Message{
 						Message: &v1.Message{
+							Metadata: &v1.MessageMetadata{
+								Role: v1.MessageRole_MESSAGE_ROLE_SYSTEM,
+							},
 							Spec: &v1.MessageSpec{
 								Content: []*v1.MessagePart{
 									protoToolResult,
@@ -425,11 +441,53 @@ func (h *TaskHandler) publishTaskEvents(ctx context.Context, taskID uuid.UUID, s
 					},
 				})
 			}
+		case error := <-errorCh:
+			protoError, err := convertErrorToProto(error)
+			if err != nil {
+				return err
+			}
+			stream.Send(&v1.SubscribeResponse{
+				Event: &v1.SubscribeResponse_Message{
+					Message: &v1.Message{
+						Metadata: &v1.MessageMetadata{
+							Role: v1.MessageRole_MESSAGE_ROLE_SYSTEM,
+						},
+						Spec: &v1.MessageSpec{
+							Content: []*v1.MessagePart{
+								protoError,
+							},
+						},
+					},
+				},
+			})
+		case deltaMessage := <-deltaMessageCh:
+			protoDeltaMessage, err := convertDeltaMessageToProto(deltaMessage)
+			if err != nil {
+				return err
+			}
+			stream.Send(&v1.SubscribeResponse{
+				Event: &v1.SubscribeResponse_Message{
+					Message: &v1.Message{
+						Metadata: &v1.MessageMetadata{
+							Role: v1.MessageRole_MESSAGE_ROLE_ASSISTANT,
+							Id: deltaMessage.MessageID.String(),
+						},
+						Spec: &v1.MessageSpec{
+							Content: []*v1.MessagePart{
+								protoDeltaMessage,
+							},
+						},
+						Status: &v1.MessageStatus{
+							ContentState: v1.ContentStatus_CONTENT_STATUS_PARTIAL,
+						},
+					},
+				},
+			})
 		}
 	}
 }
 
-func convertArgumentsToProtoToolCall(toolCall toolTypes.ToolCallEvent) (*v1.MessagePart, error) {
+func convertToolCallToProto(toolCall toolTypes.ToolCallEvent) (*v1.MessagePart, error) {
 	input := toolCall.Input
 	protoToolCall := &v1.ToolCall{
 		ToolName: toolCall.ToolName,
@@ -537,11 +595,11 @@ func convertArgumentsToProtoToolCall(toolCall toolTypes.ToolCallEvent) (*v1.Mess
 	}, nil
 }
 
-// convertResultToProtoToolResult converts tool result to proper proto ToolResult
-func convertResultToProtoToolResult(toolResultEvent toolTypes.ToolResultEvent) (*v1.MessagePart, error) {
-	output := toolResultEvent.Output
+// convertToolResultToProto converts tool result to proper proto ToolResult
+func convertToolResultToProto(toolResult toolTypes.ToolResultEvent) (*v1.MessagePart, error) {
+	output := toolResult.Output
 	protoToolResult := &v1.ToolResult{
-		ToolName: toolResultEvent.ToolName,
+		ToolName: toolResult.ToolName,
 	}
 
 	switch {
@@ -637,6 +695,26 @@ func convertResultToProtoToolResult(toolResultEvent toolTypes.ToolResultEvent) (
 	return &v1.MessagePart{
 		Data: &v1.MessagePart_ToolResult{
 			ToolResult: protoToolResult,
+		},
+	}, nil
+}
+
+func convertErrorToProto(error event.ErrorEvent) (*v1.MessagePart, error) {
+	return &v1.MessagePart{
+		Data: &v1.MessagePart_Error_{
+			Error: &v1.MessagePart_Error{
+				Message: error.Error.Error(),
+			},
+		},
+	}, nil
+}
+
+func convertDeltaMessageToProto(deltaMessage event.DeltaMessageEvent) (*v1.MessagePart, error) {
+	return &v1.MessagePart{
+		Data: &v1.MessagePart_Text_{
+			Text: &v1.MessagePart_Text{
+				Content: deltaMessage.Content,
+			},
 		},
 	}, nil
 }

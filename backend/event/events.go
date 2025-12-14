@@ -14,12 +14,26 @@ type TaskSuspendedEvent struct {
 
 func (TaskSuspendedEvent) Event() {}
 
+type TaskReconciliationEvent struct {
+	TaskID uuid.UUID
+}
+
+func (TaskReconciliationEvent) Event() {}
+
 type MessageEvent struct {
 	MessageID uuid.UUID
 	TaskID    uuid.UUID
 }
 
 func (MessageEvent) Event() {}
+
+type DeltaMessageEvent struct {
+	MessageID uuid.UUID
+	TaskID    uuid.UUID
+	Content   string
+}
+
+func (DeltaMessageEvent) Event() {}
 
 type ErrorEvent struct {
 	TaskID uuid.UUID

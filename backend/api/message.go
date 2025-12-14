@@ -68,7 +68,7 @@ func (h *MessageHandler) CreateMessage(ctx context.Context, req *connect.Request
 		return nil, apiError(err)
 	}
 
-	event.Publish(h.eventBus, event.TaskEvent{
+	event.Publish(h.eventBus, event.TaskReconciliationEvent{
 		TaskID: taskID,
 	})
 
