@@ -3508,8 +3508,9 @@ type ToolResult_FetchResult struct {
 	Url           string                 `protobuf:"bytes,1,opt,name=url,proto3" json:"url,omitempty"`
 	Title         string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
 	Content       string                 `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`
-	ByteSize      int64                  `protobuf:"varint,4,opt,name=byte_size,json=byteSize,proto3" json:"byte_size,omitempty"`
-	Truncated     bool                   `protobuf:"varint,5,opt,name=truncated,proto3" json:"truncated,omitempty"`
+	ContentType   string                 `protobuf:"bytes,4,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
+	ByteSize      int64                  `protobuf:"varint,5,opt,name=byte_size,json=byteSize,proto3" json:"byte_size,omitempty"`
+	Truncated     bool                   `protobuf:"varint,6,opt,name=truncated,proto3" json:"truncated,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3561,6 +3562,13 @@ func (x *ToolResult_FetchResult) GetTitle() string {
 func (x *ToolResult_FetchResult) GetContent() string {
 	if x != nil {
 		return x.Content
+	}
+	return ""
+}
+
+func (x *ToolResult_FetchResult) GetContentType() string {
+	if x != nil {
+		return x.ContentType
 	}
 	return ""
 }
@@ -3966,7 +3974,7 @@ const file_construct_v1_message_proto_rawDesc = "" +
 	"\fHeadersEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\a\n" +
-	"\x05Input\"\xde\x11\n" +
+	"\x05Input\"\x81\x12\n" +
 	"\n" +
 	"ToolResult\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12#\n" +
@@ -4032,13 +4040,14 @@ const file_construct_v1_message_proto_rawDesc = "" +
 	"\tcompleted\x18\x02 \x01(\bR\tcompleted\x12\"\n" +
 	"\fdeliverables\x18\x03 \x03(\tR\fdeliverables\x12\x1d\n" +
 	"\n" +
-	"next_steps\x18\x04 \x01(\tR\tnextSteps\x1a\x8a\x01\n" +
+	"next_steps\x18\x04 \x01(\tR\tnextSteps\x1a\xad\x01\n" +
 	"\vFetchResult\x12\x10\n" +
 	"\x03url\x18\x01 \x01(\tR\x03url\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x18\n" +
-	"\acontent\x18\x03 \x01(\tR\acontent\x12\x1b\n" +
-	"\tbyte_size\x18\x04 \x01(\x03R\bbyteSize\x12\x1c\n" +
-	"\ttruncated\x18\x05 \x01(\bR\ttruncatedB\b\n" +
+	"\acontent\x18\x03 \x01(\tR\acontent\x12!\n" +
+	"\fcontent_type\x18\x04 \x01(\tR\vcontentType\x12\x1b\n" +
+	"\tbyte_size\x18\x05 \x01(\x03R\bbyteSize\x12\x1c\n" +
+	"\ttruncated\x18\x06 \x01(\bR\ttruncatedB\b\n" +
 	"\x06result\"\xc1\x01\n" +
 	"\x14CreateFileToolResult\x12>\n" +
 	"\x05input\x18\x01 \x01(\v2(.construct.v1.CreateFileToolResult.InputR\x05input\x12 \n" +

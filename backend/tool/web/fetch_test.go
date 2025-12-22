@@ -18,7 +18,7 @@ func TestFetch(t *testing.T) {
 			return Fetch(ctx, http.DefaultClient, input)
 		},
 		CmpOptions: []cmp.Option{
-			cmpopts.IgnoreFields(FetchResult{}, "URL", "Content", "ByteSize"),
+			cmpopts.IgnoreFields(FetchResult{}, "URL", "Content", "ByteSize", "Title"),
 			cmpopts.IgnoreFields(base.ToolError{}, "Suggestions", "Details"),
 		},
 	}
@@ -45,8 +45,9 @@ func TestFetch(t *testing.T) {
 			}(),
 			Expected: base.ToolTestExpectation[*FetchResult]{
 				Result: &FetchResult{
-					Title:     "Test Page",
-					Truncated: false,
+					Title:       "Test Page",
+					ContentType: "html",
+					Truncated:   false,
 				},
 			},
 		},
@@ -98,17 +99,35 @@ func TestFetch(t *testing.T) {
 			},
 		},
 		{
-			Name: "non-HTML content type",
+			Name: "successful fetch of JSON response",
 			TestInput: func() *FetchInput {
 				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					w.Header().Set("Content-Type", "application/json")
-					w.Write([]byte(`{"key": "value"}`))
+					w.Write([]byte(`{"name":"test","values":[1,2,3]}`))
 				}))
 				t.Cleanup(server.Close)
 				return &FetchInput{URL: server.URL}
 			}(),
 			Expected: base.ToolTestExpectation[*FetchResult]{
-				Error: base.NewCustomError("URL does not return HTML content", nil),
+				Result: &FetchResult{
+					ContentType: "json",
+					Content:     "{\n  \"name\": \"test\",\n  \"values\": [\n    1,\n    2,\n    3\n  ]\n}",
+					Truncated:   false,
+				},
+			},
+		},
+		{
+			Name: "unsupported content type",
+			TestInput: func() *FetchInput {
+				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.Header().Set("Content-Type", "application/pdf")
+					w.Write([]byte("PDF content"))
+				}))
+				t.Cleanup(server.Close)
+				return &FetchInput{URL: server.URL}
+			}(),
+			Expected: base.ToolTestExpectation[*FetchResult]{
+				Error: base.NewCustomError("Unsupported content type", nil),
 			},
 		},
 		{
@@ -137,8 +156,9 @@ func TestFetch(t *testing.T) {
 			}(),
 			Expected: base.ToolTestExpectation[*FetchResult]{
 				Result: &FetchResult{
-					Title:     "Auth Page",
-					Truncated: false,
+					Title:       "Auth Page",
+					ContentType: "html",
+					Truncated:   false,
 				},
 			},
 		},
@@ -158,8 +178,9 @@ func TestFetch(t *testing.T) {
 			}(),
 			Expected: base.ToolTestExpectation[*FetchResult]{
 				Result: &FetchResult{
-					Title:     "UA Test",
-					Truncated: false,
+					Title:       "UA Test",
+					ContentType: "html",
+					Truncated:   false,
 				},
 			},
 		},
@@ -176,8 +197,9 @@ func TestFetch(t *testing.T) {
 			}(),
 			Expected: base.ToolTestExpectation[*FetchResult]{
 				Result: &FetchResult{
-					Title:     "Large Page",
-					Truncated: true,
+					Title:       "Large Page",
+					ContentType: "html",
+					Truncated:   true,
 				},
 			},
 		},
@@ -193,8 +215,9 @@ func TestFetch(t *testing.T) {
 			}(),
 			Expected: base.ToolTestExpectation[*FetchResult]{
 				Result: &FetchResult{
-					Title:     "XHTML Page",
-					Truncated: false,
+					Title:       "XHTML Page",
+					ContentType: "html",
+					Truncated:   false,
 				},
 			},
 		},

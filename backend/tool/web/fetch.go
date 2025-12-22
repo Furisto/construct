@@ -29,11 +29,12 @@ type FetchInput struct {
 }
 
 type FetchResult struct {
-	URL       string `json:"url"`
-	Title     string `json:"title"`
-	Content   string `json:"content"`
-	ByteSize  int    `json:"byte_size"`
-	Truncated bool   `json:"truncated"`
+	URL         string `json:"url"`
+	Title       string `json:"title"`
+	Content     string `json:"content"`
+	ContentType string `json:"content_type"`
+	ByteSize    int    `json:"byte_size"`
+	Truncated   bool   `json:"truncated"`
 }
 
 func Fetch(ctx context.Context, client *http.Client, input *FetchInput) (*FetchResult, error) {
@@ -73,7 +74,7 @@ func Fetch(ctx context.Context, client *http.Client, input *FetchInput) (*FetchR
 	}
 
 	req.Header.Set("User-Agent", DefaultUserAgent)
-	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,application/json;q=0.8,*/*;q=0.7")
 	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
 
 	for key, value := range input.Headers {
@@ -103,9 +104,12 @@ func Fetch(ctx context.Context, client *http.Client, input *FetchInput) (*FetchR
 	}
 
 	contentType := resp.Header.Get("Content-Type")
-	if !strings.Contains(contentType, "text/html") && !strings.Contains(contentType, "application/xhtml") {
-		return nil, base.NewCustomError("URL does not return HTML content", []string{
-			"This tool only supports HTML web pages",
+	isHTML := strings.Contains(contentType, "text/html") || strings.Contains(contentType, "application/xhtml")
+	isJSON := strings.Contains(contentType, "application/json")
+
+	if !isHTML && !isJSON {
+		return nil, base.NewCustomError("Unsupported content type", []string{
+			"This tool supports HTML web pages and JSON responses",
 			"The server returned content type: " + contentType,
 		}, "content_type", contentType)
 	}
@@ -125,48 +129,61 @@ func Fetch(ctx context.Context, client *http.Client, input *FetchInput) (*FetchR
 
 	originalSize := len(body)
 
-	article, err := readability.FromReader(strings.NewReader(string(body)), parsedURL)
-	if err != nil {
-		return nil, base.NewCustomError("Failed to extract content from page", []string{
-			"The page content could not be parsed",
-			"This may happen with non-standard HTML or JavaScript-heavy pages",
-		}, "error", err)
-	}
+	var content string
+	var title string
+	var resultContentType string
 
-	converter := md.NewConverter("", true, nil)
-	markdown, err := converter.ConvertString(article.Content)
-	if err != nil {
-		return nil, base.NewCustomError("Failed to convert content to markdown", []string{
-			"The HTML content could not be converted to markdown",
-		}, "error", err)
-	}
-
-	markdown = cleanupMarkdown(markdown)
-
-	title := article.Title
-	if title == "" {
+	switch {
+	case isJSON:
+		content = string(body)
 		title = parsedURL.Host + parsedURL.Path
+		resultContentType = "json"
+	case isHTML:
+		article, err := readability.FromReader(strings.NewReader(string(body)), parsedURL)
+		if err != nil {
+			return nil, base.NewCustomError("Failed to extract content from page", []string{
+				"The page content could not be parsed",
+				"This may happen with non-standard HTML or JavaScript-heavy pages",
+			}, "error", err)
+		}
+
+		converter := md.NewConverter("", true, nil)
+		markdown, err := converter.ConvertString(article.Content)
+		if err != nil {
+			return nil, base.NewCustomError("Failed to convert content to markdown", []string{
+				"The HTML content could not be converted to markdown",
+			}, "error", err)
+		}
+
+		content = cleanupMarkdown(markdown)
+		title = article.Title
+		if title == "" {
+			title = parsedURL.Host + parsedURL.Path
+		}
+		resultContentType = "html"
 	}
 
 	sizePercent := 0.0
 	if originalSize > 0 {
-		sizePercent = float64(len(markdown)) / float64(originalSize) * 100
+		sizePercent = float64(len(content)) / float64(originalSize) * 100
 	}
 
 	slog.DebugContext(ctx, "web fetch completed",
 		"url", input.URL,
 		"title", title,
+		"content_type", resultContentType,
 		"original_size", originalSize,
 		"compression_ratio", fmt.Sprintf("%.1f%%", sizePercent),
 		"truncated", truncated,
 	)
 
 	return &FetchResult{
-		URL:       input.URL,
-		Title:     title,
-		Content:   markdown,
-		ByteSize:  originalSize,
-		Truncated: truncated,
+		URL:         input.URL,
+		Title:       title,
+		Content:     content,
+		ContentType: resultContentType,
+		ByteSize:    originalSize,
+		Truncated:   truncated,
 	}, nil
 }
 

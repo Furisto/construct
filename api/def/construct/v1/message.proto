@@ -418,8 +418,9 @@ message ToolResult {
     string url = 1;
     string title = 2;
     string content = 3;
-    int64 byte_size = 4;
-    bool truncated = 5;
+    string content_type = 4;
+    int64 byte_size = 5;
+    bool truncated = 6;
   }
 
   string id = 1;
