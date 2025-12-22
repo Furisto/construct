@@ -10,7 +10,7 @@ import (
 
 var fetchDescription = `
 ## Description
-Fetches a web page, extracts the main content, and converts it to Markdown format. This tool retrieves HTML content via HTTP(S), removes navigation, ads, scripts, and other non-essential elements, then returns clean, readable Markdown.
+Fetches a web page or API endpoint. Returns Markdown for HTML pages and formatted JSON for API responses.
 
 ## Parameters
 - **url** (*string*, required): The URL to fetch. Must be an HTTP or HTTPS URL.
@@ -33,9 +33,9 @@ The main content in Markdown format...",
 
 **Details:**
 - **url**: The URL that was fetched
-- **title**: The page title extracted from the HTML
-- **content**: The main content converted to Markdown format
-- **byte_size**: Size of the original HTML content in bytes
+- **title**: The page title extracted from HTML (empty for JSON responses)
+- **content**: The main content - Markdown for HTML pages, formatted JSON for API responses
+- **byte_size**: Size of the original content in bytes
 - **truncated**: Whether the content was truncated due to size limits (max 5MB)
 
 ## CRITICAL REQUIREMENTS
@@ -47,7 +47,7 @@ The main content in Markdown format...",
   // Incorrect - missing protocol
   fetch({ url: "docs.example.com/guide" })
   %[1]s
-- **HTML Content Only**: This tool only works with HTML web pages. It will return an error for JSON APIs, PDFs, images, or other non-HTML content.
+- **Supported Content Types**: This tool works with HTML web pages and JSON APIs. It will return an error for PDFs, images, or other binary content.
 - **No JavaScript Rendering**: Pages that require JavaScript to render content (SPAs, React apps) may return incomplete or empty content.
 - **Size Limits**: Content larger than 5MB will be truncated. Check the %[1]struncated%[1]s field in the response.
 
@@ -56,6 +56,7 @@ The main content in Markdown format...",
 - **Article Reading**: Retrieving blog posts, news articles, or wiki pages.
 - **Research**: Gathering information from web pages for analysis.
 - **Content Extraction**: Getting clean text from web pages without HTML markup.
+- **API Requests**: Fetching data from JSON APIs and REST endpoints.
 
 ## Limitations
 - Does not execute JavaScript - content rendered client-side may be missing
@@ -89,6 +90,12 @@ const result = fetch({
   url: "https://slow-server.example.com/page",
   timeout: 60
 });
+%[1]s
+
+### Fetching JSON API
+%[1]s
+const result = fetch({ url: "https://api.example.com/users/123" });
+print("Response:", result.content);
 %[1]s
 `
 
