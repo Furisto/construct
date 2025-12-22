@@ -510,6 +510,50 @@ func ConvertMemoryMessageToProto(m *memory.Message) (*v1.Message, error) {
 							},
 						},
 					})
+				case toolbase.ToolNameFetch:
+					fetchInput := call.Input.Fetch
+					if fetchInput == nil {
+						slog.Error("fetch input not set")
+						continue
+					}
+
+					contentParts = append(contentParts, &v1.MessagePart{
+						Data: &v1.MessagePart_ToolCall{
+							ToolCall: &v1.ToolCall{
+								ToolName: call.ToolName,
+								Input: &v1.ToolCall_Fetch{
+									Fetch: &v1.ToolCall_FetchInput{
+										Url:     fetchInput.URL,
+										Headers: fetchInput.Headers,
+										Timeout: int32(fetchInput.Timeout),
+									},
+								},
+							},
+						},
+					})
+
+					fetchResult := call.Output.Fetch
+					if fetchResult == nil {
+						slog.Error("fetch result not set")
+						continue
+					}
+
+					contentParts = append(contentParts, &v1.MessagePart{
+						Data: &v1.MessagePart_ToolResult{
+							ToolResult: &v1.ToolResult{
+								ToolName: call.ToolName,
+								Result: &v1.ToolResult_Fetch{
+									Fetch: &v1.ToolResult_FetchResult{
+										Url:       fetchResult.URL,
+										Title:     fetchResult.Title,
+										Content:   fetchResult.Content,
+										ByteSize:  int64(fetchResult.ByteSize),
+										Truncated: fetchResult.Truncated,
+									},
+								},
+							},
+						},
+					})
 				}
 			}
 		}

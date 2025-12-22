@@ -322,6 +322,12 @@ message ToolCall {
     string next_steps = 4;
   }
 
+  message FetchInput {
+    string url = 1;
+    map<string, string> headers = 2;
+    int32 timeout = 3;
+  }
+
   string id = 1;
   string tool_name = 2 [(buf.validate.field).required = true];
   oneof Input {
@@ -336,6 +342,7 @@ message ToolCall {
     ReadFileInput read_file = 11;
     SubmitReportInput submit_report = 12;
     CodeInterpreterInput code_interpreter = 13;
+    FetchInput fetch = 14;
   }
 }
 
@@ -407,6 +414,14 @@ message ToolResult {
     string next_steps = 4;
   }
 
+  message FetchResult {
+    string url = 1;
+    string title = 2;
+    string content = 3;
+    int64 byte_size = 4;
+    bool truncated = 5;
+  }
+
   string id = 1;
   string tool_name = 2 [(buf.validate.field).required = true];
 
@@ -420,6 +435,7 @@ message ToolResult {
     ReadFileResult read_file = 9;
     SubmitReportResult submit_report = 10;
     CodeInterpreterResult code_interpreter = 11;
+    FetchResult fetch = 14;
   }
 
   ToolError error = 13;

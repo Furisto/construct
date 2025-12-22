@@ -309,6 +309,12 @@ func (m *MessageFeed) createToolCallMessage(toolCall *v1.ToolCall, timestamp tim
 		// 			timestamp: timestamp,
 		// 		}
 		// 	}
+	case *v1.ToolCall_Fetch:
+		return &fetchToolCall{
+			ID:        toolCall.Id,
+			Input:     toolInput.Fetch,
+			timestamp: timestamp,
+		}
 	}
 
 	return nil
@@ -372,6 +378,12 @@ func (m *MessageFeed) createToolResultMessage(toolResult *v1.ToolResult, timesta
 		// 			timestamp: timestamp,
 		// 		}
 		// 	}
+	case *v1.ToolResult_Fetch:
+		return &fetchResult{
+			ID:        toolResult.Id,
+			Result:    toolOutput.Fetch,
+			timestamp: timestamp,
+		}
 	}
 
 	return nil
@@ -455,6 +467,9 @@ func formatMessages(messages []message, partialMessage string, width int) string
 		case *codeInterpreterResult:
 			renderedMessages = append(renderedMessages, renderToolCallMessage("Interpreter", "Output", width, addBottomMargin(i, messages)))
 			renderedMessages = append(renderedMessages, formatCodeInterpreterContent(msg.Result.Output))
+
+		case *fetchResult:
+			renderedMessages = append(renderedMessages, renderToolCallMessage("Fetch", msg.Result.Url, width, addBottomMargin(i, messages)))
 
 		case *Error:
 			var message string

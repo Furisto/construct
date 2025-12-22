@@ -343,3 +343,31 @@ func (m *codeInterpreterResult) Type() messageType {
 func (m *codeInterpreterResult) Timestamp() time.Time {
 	return m.timestamp
 }
+
+type fetchToolCall struct {
+	ID        string
+	Input     *v1.ToolCall_FetchInput
+	timestamp time.Time
+}
+
+func (m *fetchToolCall) Type() messageType {
+	return MessageTypeAssistantTool
+}
+
+func (m *fetchToolCall) Timestamp() time.Time {
+	return m.timestamp
+}
+
+type fetchResult struct {
+	ID        string
+	Result    *v1.ToolResult_FetchResult
+	timestamp time.Time
+}
+
+func (m *fetchResult) Type() messageType {
+	return MessageTypeAssistantTool
+}
+
+func (m *fetchResult) Timestamp() time.Time {
+	return m.timestamp
+}

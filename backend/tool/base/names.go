@@ -13,4 +13,5 @@ const (
 	ToolNameGrep            = "grep"
 	ToolNamePrint           = "print"
 	ToolNameAskUser         = "ask_user"
+	ToolNameFetch           = "fetch"
 )

@@ -9,6 +9,7 @@ import (
 	"github.com/furisto/construct/backend/tool/communication"
 	"github.com/furisto/construct/backend/tool/filesystem"
 	"github.com/furisto/construct/backend/tool/system"
+	"github.com/furisto/construct/backend/tool/web"
 	"github.com/furisto/construct/shared"
 	"github.com/google/uuid"
 	"github.com/grafana/sobek"
@@ -42,6 +43,7 @@ type FunctionCallInput struct {
 	SubmitReport   *communication.SubmitReportInput `json:"submit_report,omitempty"`
 	AskUser        *communication.AskUserInput      `json:"ask_user,omitempty"`
 	Handoff        *communication.HandoffInput      `json:"handoff,omitempty"`
+	Fetch          *web.FetchInput                  `json:"fetch,omitempty"`
 }
 
 type FunctionCallOutput struct {
@@ -54,6 +56,7 @@ type FunctionCallOutput struct {
 	ReadFile       *filesystem.ReadFileResult        `json:"read_file,omitempty"`
 	SubmitReport   *communication.SubmitReportResult `json:"submit_report,omitempty"`
 	AskUser        *communication.AskUserResult      `json:"ask_user,omitempty"`
+	Fetch          *web.FetchResult                  `json:"fetch,omitempty"`
 }
 
 type FunctionCall struct {
@@ -119,6 +122,10 @@ func convertToFunctionCallInput(toolName string, input any) FunctionCallInput {
 		if v, ok := input.(*communication.HandoffInput); ok {
 			result.Handoff = v
 		}
+	case base.ToolNameFetch:
+		if v, ok := input.(*web.FetchInput); ok {
+			result.Fetch = v
+		}
 	default:
 		slog.Error("unknown tool name", "tool_name", toolName)
 	}
@@ -165,6 +172,10 @@ func convertToFunctionCallOutput(toolName string, output any) FunctionCallOutput
 	case base.ToolNameAskUser:
 		if v, ok := output.(*communication.AskUserResult); ok {
 			result.AskUser = v
+		}
+	case base.ToolNameFetch:
+		if v, ok := output.(*web.FetchResult); ok {
+			result.Fetch = v
 		}
 	default:
 		slog.Error("unknown tool name", "tool_name", toolName)
@@ -395,6 +406,14 @@ func convertArgumentsToProtoToolCall(tooCall Tool, arguments []sobek.Value, sess
 				NextSteps:    input.NextSteps,
 			},
 		}
+	case *web.FetchInput:
+		toolCall.Input = &v1.ToolCall_Fetch{
+			Fetch: &v1.ToolCall_FetchInput{
+				Url:     input.URL,
+				Headers: input.Headers,
+				Timeout: int32(input.Timeout),
+			},
+		}
 	default:
 		return nil, shared.Errorf(shared.ErrorSourceSystem, "unknown tool input type: %T", input)
 	}
@@ -494,6 +513,16 @@ func convertResultToProtoToolResult(toolName string, result any) (*v1.MessagePar
 				Completed:    result.Completed,
 				Deliverables: result.Deliverables,
 				NextSteps:    result.NextSteps,
+			},
+		}
+	case *web.FetchResult:
+		toolResult.Result = &v1.ToolResult_Fetch{
+			Fetch: &v1.ToolResult_FetchResult{
+				Url:       result.URL,
+				Title:     result.Title,
+				Content:   result.Content,
+				ByteSize:  int64(result.ByteSize),
+				Truncated: result.Truncated,
 			},
 		}
 	case nil:

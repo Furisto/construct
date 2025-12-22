@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
@@ -161,9 +160,6 @@ func Fetch(ctx context.Context, client *http.Client, input *FetchInput) (*FetchR
 		"compression_ratio", fmt.Sprintf("%.1f%%", sizePercent),
 		"truncated", truncated,
 	)
-
-	os.WriteFile("/tmp/fetch.md", []byte(markdown), 0644)
-	os.WriteFile("/tmp/fetch.html", body, 0644)
 
 	return &FetchResult{
 		URL:       input.URL,
