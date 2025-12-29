@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"path/filepath"
+	"strings"
 
 	"connectrpc.com/connect"
 	"github.com/furisto/construct/api/go/client/mocks"
@@ -159,9 +160,56 @@ func (c *EndpointContexts) SetCurrent(contextName string) error {
 	return nil
 }
 
+const (
+	AuthTypeToken     = "token"
+	KeyringRefPrefix  = "keyring://construct/"
+)
+
+type AuthConfig struct {
+	Type     string `yaml:"type,omitempty"`
+	Token    string `yaml:"token,omitempty"`
+	TokenRef string `yaml:"token-ref,omitempty"`
+}
+
+func (a *AuthConfig) Validate() error {
+	if a == nil {
+		return nil
+	}
+
+	if a.Type != "" && a.Type != AuthTypeToken {
+		return fmt.Errorf("invalid auth type: %s (supported: %s)", a.Type, AuthTypeToken)
+	}
+
+	if a.Token != "" && a.TokenRef != "" {
+		return fmt.Errorf("cannot specify both token and token-ref")
+	}
+
+	if a.TokenRef != "" && !strings.HasPrefix(a.TokenRef, KeyringRefPrefix) {
+		return fmt.Errorf("invalid token-ref format: must start with %s", KeyringRefPrefix)
+	}
+
+	if a.Type == AuthTypeToken && a.Token == "" && a.TokenRef == "" {
+		return fmt.Errorf("auth type 'token' requires either token or token-ref")
+	}
+
+	return nil
+}
+
+func (a *AuthConfig) IsConfigured() bool {
+	return a != nil && (a.Token != "" || a.TokenRef != "")
+}
+
+func (a *AuthConfig) KeyringKey() string {
+	if a == nil || a.TokenRef == "" {
+		return ""
+	}
+	return strings.TrimPrefix(a.TokenRef, KeyringRefPrefix)
+}
+
 type EndpointContext struct {
-	Address string `yaml:"address"`
-	Kind    string `yaml:"kind"`
+	Address string      `yaml:"address"`
+	Kind    string      `yaml:"kind"`
+	Auth    *AuthConfig `yaml:"auth,omitempty"`
 }
 
 func (c *EndpointContext) Validate() error {
@@ -179,6 +227,10 @@ func (c *EndpointContext) Validate() error {
 		if _, err := url.Parse(c.Address); err != nil {
 			return fmt.Errorf("invalid http address: %s", c.Address)
 		}
+	}
+
+	if err := c.Auth.Validate(); err != nil {
+		return fmt.Errorf("invalid auth config: %w", err)
 	}
 
 	return nil
