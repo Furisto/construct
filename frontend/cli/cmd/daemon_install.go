@@ -430,7 +430,7 @@ func createOrUpdateContext(ctx context.Context, cmd *cobra.Command, out io.Write
 	}
 
 	contextManager := shared.NewContextManager(fs, userInfo)
-	exists, err := contextManager.UpsertContext(options.Name, socketType, address, true)
+	exists, err := contextManager.UpsertContext(options.Name, socketType, address, true, nil)
 	if err != nil {
 		return nil, fail.HandleError(cmd, err)
 	}
