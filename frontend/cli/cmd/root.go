@@ -5,14 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
-
-	"log/slog"
 
 	"github.com/common-nighthawk/go-figure"
 	"github.com/getsentry/sentry-go"
@@ -23,6 +22,7 @@ import (
 	api "github.com/furisto/construct/api/go/client"
 	"github.com/furisto/construct/shared"
 	"github.com/furisto/construct/shared/config"
+	"github.com/furisto/construct/shared/keyring"
 )
 
 var (
@@ -38,6 +38,7 @@ var (
 
 type globalOptions struct {
 	LogLevel LogLevel
+	Context  string
 }
 
 func NewRootCmd() *cobra.Command {
@@ -62,7 +63,7 @@ func NewRootCmd() *cobra.Command {
 			cmd.SetContext(setConfigStore(cmd.Context(), configStore))
 
 			if requiresContext(cmd) {
-				err := setAPIClient(cmd.Context(), cmd)
+				err := setAPIClient(cmd.Context(), cmd, options.Context)
 				if err != nil {
 					slog.Error("failed to set API client", "error", err)
 					return err
@@ -74,6 +75,7 @@ func NewRootCmd() *cobra.Command {
 	}
 
 	cmd.PersistentFlags().Var(&options.LogLevel, "log-level", "set the log level")
+	cmd.PersistentFlags().StringVar(&options.Context, "context", "", "context to use (overrides current context)")
 
 	cmd.AddGroup(
 		&cobra.Group{
@@ -143,12 +145,13 @@ func Execute() {
 	sentry.Flush(2 * time.Second)
 }
 
-func setAPIClient(ctx context.Context, cmd *cobra.Command) error {
+func setAPIClient(ctx context.Context, cmd *cobra.Command, contextOverride string) error {
 	if getAPIClient(ctx) != nil {
 		return nil
 	}
 
-	endpointContexts, err := shared.NewContextManager(getFileSystem(cmd.Context()), getUserInfo(cmd.Context())).LoadContext()
+	contextManager := shared.NewContextManager(getFileSystem(cmd.Context()), getUserInfo(cmd.Context()))
+	endpointContexts, err := contextManager.LoadContext()
 	if err != nil {
 		return err
 	}
@@ -157,12 +160,22 @@ func setAPIClient(ctx context.Context, cmd *cobra.Command) error {
 		return err
 	}
 
-	endpointContext, ok := endpointContexts.Current()
-	if !ok {
-		return fmt.Errorf("no context configured\n\nTo get started:\n  • Run 'construct daemon run' to start the daemon (first-time setup)\n  • Or run 'construct config context set' to configure an existing context")
+	contextName := resolveContextName(contextOverride, endpointContexts.CurrentContext)
+	if contextName == "" {
+		return fmt.Errorf("no context configured\n\nTo get started:\n  • Run 'construct daemon run' to start the daemon (first-time setup)\n  • Or run 'construct context add' to configure a remote context")
 	}
 
-	apiClient, err := api.NewClient(endpointContext)
+	endpointContext, ok := endpointContexts.Contexts[contextName]
+	if !ok {
+		return fmt.Errorf("context %q not found", contextName)
+	}
+
+	clientOptions, err := buildClientOptions(endpointContext, contextManager)
+	if err != nil {
+		return fmt.Errorf("failed to configure client: %w", err)
+	}
+
+	apiClient, err := api.NewClient(endpointContext, clientOptions...)
 	if err != nil {
 		return fmt.Errorf("failed to create api client: %w", err)
 	}
@@ -172,8 +185,58 @@ func setAPIClient(ctx context.Context, cmd *cobra.Command) error {
 	return nil
 }
 
+func resolveContextName(flagValue, configValue string) string {
+	if flagValue != "" {
+		return flagValue
+	}
+
+	if envValue := os.Getenv("CONSTRUCT_CONTEXT"); envValue != "" {
+		return envValue
+	}
+
+	return configValue
+}
+
+func buildClientOptions(endpointContext api.EndpointContext, contextManager *shared.ContextManager) ([]api.ClientOption, error) {
+	var options []api.ClientOption
+
+	if endpointContext.Auth != nil && endpointContext.Auth.IsConfigured() {
+		token, err := resolveToken(endpointContext.Auth, contextManager)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve auth token: %w", err)
+		}
+		options = append(options, api.WithAuthToken(token))
+	}
+
+	return options, nil
+}
+
+func resolveToken(auth *api.AuthConfig, contextManager *shared.ContextManager) (string, error) {
+	if auth.Token != "" {
+		return auth.Token, nil
+	}
+
+	if auth.TokenRef != "" {
+		keyringKey := auth.KeyringKey()
+		if keyringKey == "" {
+			return "", fmt.Errorf("invalid token-ref format")
+		}
+
+		token, err := contextManager.RetrieveToken(keyringKey)
+		if err != nil {
+			if errors.Is(err, &keyring.ErrSecretNotFound{}) {
+				return "", fmt.Errorf("token not found in keyring for context %q - try re-authenticating with 'construct context add'", keyringKey)
+			}
+			return "", err
+		}
+		return token, nil
+	}
+
+	return "", fmt.Errorf("no token configured")
+}
+
 func requiresContext(cmd *cobra.Command) bool {
-	skipCommands := []string{"info", "help", "update", "daemon.", "config."}
+	skipCommands := []string{"info", "help", "update", "daemon.", "config.", "context."}
 	for _, skipCmd := range skipCommands {
 		cmdName := cmd.Name()
 		parentCmd := cmd.Parent()
