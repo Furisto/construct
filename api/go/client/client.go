@@ -42,6 +42,40 @@ func WithConnectOptions(options ...connect.ClientOption) ClientOption {
 	}
 }
 
+func WithAuthToken(token string) ClientOption {
+	return func(o *ClientOptions) {
+		interceptor := newAuthInterceptor(token)
+		o.ConnectOptions = append(o.ConnectOptions, connect.WithInterceptors(interceptor))
+	}
+}
+
+type authInterceptor struct {
+	token string
+}
+
+func newAuthInterceptor(token string) *authInterceptor {
+	return &authInterceptor{token: token}
+}
+
+func (i *authInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
+	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
+		req.Header().Set("Authorization", "Bearer "+i.token)
+		return next(ctx, req)
+	}
+}
+
+func (i *authInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
+	return func(ctx context.Context, spec connect.Spec) connect.StreamingClientConn {
+		conn := next(ctx, spec)
+		conn.RequestHeader().Set("Authorization", "Bearer "+i.token)
+		return conn
+	}
+}
+
+func (i *authInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
+	return next
+}
+
 func NewClient(endpointContext EndpointContext, options ...ClientOption) (*Client, error) {
 	opts := ClientOptions{
 		HTTPClient: &http.Client{},
@@ -161,8 +195,8 @@ func (c *EndpointContexts) SetCurrent(contextName string) error {
 }
 
 const (
-	AuthTypeToken     = "token"
-	KeyringRefPrefix  = "keyring://construct/"
+	AuthTypeToken    = "token"
+	KeyringRefPrefix = "keyring://construct/"
 )
 
 type AuthConfig struct {
