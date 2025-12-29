@@ -9,7 +9,7 @@ require (
 	github.com/anthropics/anthropic-sdk-go v1.13.0
 	github.com/bmatcuk/doublestar/v4 v4.8.1
 	github.com/cenkalti/backoff/v5 v5.0.3
-	github.com/furisto/construct/api/go v0.0.0-00010101000000-000000000000
+	github.com/furisto/construct/api/go v0.0.0-20251222221511-903a1564b591
 	github.com/furisto/construct/shared v0.0.0-00010101000000-000000000000
 	github.com/go-shiori/go-readability v0.0.0-20240701094332-1070de7e32ef
 	github.com/google/go-cmp v0.7.0
