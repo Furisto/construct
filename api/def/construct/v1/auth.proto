@@ -1,0 +1,189 @@
+syntax = "proto3";
+
+package construct.v1;
+
+import "buf/validate/validate.proto";
+import "construct/v1/common.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/furisto/construct/api/go/v1";
+
+// AuthService handles authentication operations including token management
+// and credential exchange flows.
+//
+// Token management operations (Create, List, Revoke) require admin privileges,
+// which are granted implicitly to connections over Unix sockets or explicitly
+// via tokens with admin scope.
+service AuthService {
+  // CreateToken generates a new authentication token.
+  //
+  // The plaintext token is returned only once in the response and cannot be
+  // retrieved again.
+  rpc CreateToken(CreateTokenRequest) returns (CreateTokenResponse);
+
+  // CreateSetupCode generates a short-lived, single-use code that can be
+  // exchanged for a token via ExchangeSetupCode.
+  //
+  // Setup codes are designed for secure token distribution and expire quickly (default 15 minutes).
+  rpc CreateSetupCode(CreateSetupCodeRequest) returns (CreateSetupCodeResponse);
+
+  // ListTokens returns metadata about all tokens.
+  //
+  // Token values are never returned, only metadata such as name, creation time,
+  // expiration, and last usage.
+  rpc ListTokens(ListTokensRequest) returns (ListTokensResponse);
+
+  // RevokeToken invalidates a token by name, preventing further use.
+  rpc RevokeToken(RevokeTokenRequest) returns (RevokeTokenResponse);
+
+  // ExchangeSetupCode exchanges a setup code for an authentication token.
+  //
+  // This is the only unauthenticated endpoint in the auth service. It allows
+  // clients to obtain credentials using a short-lived setup code generated
+  // by an admin via CreateSetupCode.
+  //
+  // Setup codes are single-use and automatically invalidated after successful
+  // exchange or expiration.
+  rpc ExchangeSetupCode(ExchangeSetupCodeRequest) returns (ExchangeSetupCodeResponse);
+}
+
+// CreateTokenRequest contains parameters for creating a new token.
+message CreateTokenRequest {
+  // Human-readable name for the token. Must be unique.
+  // Used for identification in listings and revocation.
+  // Example: "macbook-thomas", "ci-pipeline"
+  string name = 1 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 255
+  ];
+
+  // How long until the token expires. Default: 90 days.
+  // Maximum allowed value is 365 days.
+  optional google.protobuf.Duration expires_in = 2;
+
+  // Optional description for the token's intended use.
+  optional string description = 3 [(buf.validate.field).string.max_len = 2048];
+}
+
+// CreateTokenResponse contains the newly created token.
+message CreateTokenResponse {
+  // The plaintext token value. This is the only time this value is available;
+  // it is not stored and cannot be retrieved again.
+  //
+  // Format: "ct_<base64url-encoded-random-bytes>"
+  // The "ct_" prefix identifies Construct tokens in logs and configurations.
+  string token = 1 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 255
+  ];
+
+  // When the token will expire.
+  google.protobuf.Timestamp expires_at = 2 [(buf.validate.field).required = true];
+}
+
+// CreateSetupCodeRequest contains parameters for creating a setup code.
+message CreateSetupCodeRequest {
+  // Name for the token that will be created when the code is exchanged.
+  // Must be unique at the time of exchange.
+  string token_name = 1 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 255
+  ];
+
+  // How long until the setup code expires. Default: 5 minutes.
+  // Maximum allowed value is 3 days.
+  optional google.protobuf.Duration expires_in = 2;
+
+  // How long the resulting token should be valid. Default: 90 days.
+  optional google.protobuf.Duration token_expires_in = 3;
+}
+
+// CreateSetupCodeResponse contains the generated setup code.
+message CreateSetupCodeResponse {
+  // Short, human-readable setup code. Format: "XXXX-XXXX"
+  string setup_code = 1 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 9,
+    (buf.validate.field).string.pattern = "^[A-Z0-9]{4}-[A-Z0-9]{4}$"
+  ];
+
+  // When the setup code expires (typically 15 minutes).
+  google.protobuf.Timestamp expires_at = 2 [(buf.validate.field).required = true];
+}
+
+// ListTokensRequest contains optional filters for listing tokens.
+message ListTokensRequest {
+  // Optional: filter by name prefix.
+  string name_prefix = 1;
+
+  // Optional: include expired tokens in results. Default: false.
+  bool include_expired = 2;
+}
+
+// ListTokensResponse contains token metadata.
+message ListTokensResponse {
+  repeated TokenInfo tokens = 1;
+}
+
+// TokenInfo contains metadata about a token
+message TokenInfo {
+  // Unique identifier for the token.
+  string id = 1 [(buf.validate.field).string.uuid = true];
+
+  // Human-readable name.
+  string name = 2 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 255
+  ];
+
+  // Optional description.
+  optional string description = 3 [(buf.validate.field).string.max_len = 2048];
+
+  // When the token was created.
+  google.protobuf.Timestamp created_at = 4 [(buf.validate.field).required = true];
+
+  // When the token expires.
+  google.protobuf.Timestamp expires_at = 5 [(buf.validate.field).required = true];
+
+  // Whether the token is currently valid (not expired, not revoked).
+  bool is_active = 7 [(buf.validate.field).required = true];
+}
+
+// RevokeTokenRequest identifies the token to revoke.
+message RevokeTokenRequest {
+  // Name of the token to revoke.
+  string id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+// RevokeTokenResponse confirms the revocation.
+message RevokeTokenResponse {
+}
+
+// ExchangeSetupCodeRequest contains the setup code to exchange.
+message ExchangeSetupCodeRequest {
+  // Format: "XXXX-XXXX"
+  string setup_code = 1 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 9,
+    (buf.validate.field).string.pattern = "^[A-Z0-9]{4}-[A-Z0-9]{4}$"
+  ];
+}
+
+// ExchangeSetupCodeResponse contains the token issued in exchange.
+message ExchangeSetupCodeResponse {
+  // The plaintext token value.
+  string token = 1 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 255
+  ];
+
+  // When the token expires.
+  google.protobuf.Timestamp expires_at = 2 [(buf.validate.field).required = true];
+
+  // The token name (as specified when the setup code was created).
+  string name = 3 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 255
+  ];
+}

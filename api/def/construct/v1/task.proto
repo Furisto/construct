@@ -239,7 +239,7 @@ message SubscribeRequest {
 message TaskEvent {
   // task_id is the ID of the task that changed
   string task_id = 1 [(buf.validate.field).string.uuid = true];
-  
+
   // timestamp when the event occurred
   google.protobuf.Timestamp timestamp = 2 [(buf.validate.field).required = true];
 }
