@@ -10,11 +10,27 @@ import (
 	"github.com/furisto/construct/backend/tool/native"
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/option"
+	"github.com/openai/openai-go/packages/ssestream"
 	"github.com/openai/openai-go/shared"
 )
 
+// OpenAIChatCompletionService defines the interface for OpenAI chat completions
+// to allow for mocking in tests.
+type OpenAIChatCompletionService interface {
+	NewStreaming(ctx context.Context, params openai.ChatCompletionNewParams) *ssestream.Stream[openai.ChatCompletionChunk]
+}
+
+// openaiChatCompletionServiceAdapter adapts the real OpenAI client to the interface.
+type openaiChatCompletionServiceAdapter struct {
+	client *openai.Client
+}
+
+func (a *openaiChatCompletionServiceAdapter) NewStreaming(ctx context.Context, params openai.ChatCompletionNewParams) *ssestream.Stream[openai.ChatCompletionChunk] {
+	return a.client.Chat.Completions.NewStreaming(ctx, params)
+}
+
 type OpenAICompletionProvider struct {
-	client openai.Client
+	chatService OpenAIChatCompletionService
 }
 
 func NewOpenAICompletionProvider(apiKey string, opts ...ProviderOption) (*OpenAICompletionProvider, error) {
@@ -43,9 +59,18 @@ func NewOpenAICompletionProvider(apiKey string, opts ...ProviderOption) (*OpenAI
 
 	logger.Info("OpenAI provider initialized successfully")
 
+	client := openai.NewClient(options...)
 	return &OpenAICompletionProvider{
-		client: openai.NewClient(options...),
+		chatService: &openaiChatCompletionServiceAdapter{client: &client},
 	}, nil
+}
+
+// NewOpenAICompletionProviderWithService creates a provider with a custom chat service.
+// This is primarily used for testing with mock implementations.
+func NewOpenAICompletionProviderWithService(chatService OpenAIChatCompletionService) *OpenAICompletionProvider {
+	return &OpenAICompletionProvider{
+		chatService: chatService,
+	}
 }
 
 func (p *OpenAICompletionProvider) InvokeModel(ctx context.Context, model, systemPrompt string, messages []*Message, opts ...InvokeModelOption) (*Message, error) {
@@ -93,7 +118,7 @@ func (p *OpenAICompletionProvider) InvokeModel(ctx context.Context, model, syste
 	invokeStart := time.Now()
 	logger.Debug("invoking OpenAI API")
 
-	stream := p.client.Chat.Completions.NewStreaming(ctx, openai.ChatCompletionNewParams{
+	stream := p.chatService.NewStreaming(ctx, openai.ChatCompletionNewParams{
 		Model:               model,
 		MaxCompletionTokens: openai.Int(modelProfile.MaxTokens),
 		Messages:            openaiMessages,
