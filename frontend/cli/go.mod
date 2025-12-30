@@ -11,8 +11,8 @@ require (
 	github.com/charmbracelet/glamour v0.10.0
 	github.com/charmbracelet/lipgloss v1.1.1-0.20250404203927-76690c660834
 	github.com/common-nighthawk/go-figure v0.0.0-20210622060536-734e95fb86be
-	github.com/furisto/construct/api/go v0.0.0-00010101000000-000000000000
-	github.com/furisto/construct/backend v0.0.0-00010101000000-000000000000
+	github.com/furisto/construct/api/go v0.0.0-20251222221511-903a1564b591
+	github.com/furisto/construct/backend v0.0.0-20251222221511-903a1564b591
 	github.com/furisto/construct/shared v0.0.0-00010101000000-000000000000
 	github.com/getsentry/sentry-go v0.33.0
 	github.com/google/go-cmp v0.7.0

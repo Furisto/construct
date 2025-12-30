@@ -82,7 +82,7 @@ debugging and development. For normal use, 'construct daemon install' is recomme
 			if explicitLaunch(provider.ActivationType()) {
 				contextManager := shared.NewContextManager(getFileSystem(cmd.Context()), getUserInfo(cmd.Context()))
 				contextName := generateContextName(provider.ActivationType(), listener)
-				_, err = contextManager.UpsertContext(contextName, provider.ActivationType(), listener.Addr().String(), true)
+				_, err = contextManager.UpsertContext(contextName, provider.ActivationType(), listener.Addr().String(), true, nil)
 				if err != nil {
 					return fmt.Errorf("failed to upsert context: %w", err)
 				}

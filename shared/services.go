@@ -11,17 +11,31 @@ import (
 
 	"github.com/adrg/xdg"
 	api "github.com/furisto/construct/api/go/client"
+	"github.com/furisto/construct/shared/keyring"
 	"github.com/spf13/afero"
 	"gopkg.in/yaml.v3"
 )
 
 type ContextManager struct {
-	fs       *afero.Afero
-	userInfo UserInfo
+	fs              *afero.Afero
+	userInfo        UserInfo
+	keyringProvider keyring.Provider
 }
 
 func NewContextManager(fs *afero.Afero, userInfo UserInfo) *ContextManager {
-	return &ContextManager{fs: fs, userInfo: userInfo}
+	return &ContextManager{
+		fs:              fs,
+		userInfo:        userInfo,
+		keyringProvider: keyring.NewKeyringProvider(),
+	}
+}
+
+func NewContextManagerWithKeyring(fs *afero.Afero, userInfo UserInfo, keyringProvider keyring.Provider) *ContextManager {
+	return &ContextManager{
+		fs:              fs,
+		userInfo:        userInfo,
+		keyringProvider: keyringProvider,
+	}
 }
 
 func (m *ContextManager) LoadContext() (*api.EndpointContexts, error) {
@@ -55,23 +69,52 @@ func (m *ContextManager) LoadContext() (*api.EndpointContexts, error) {
 	return &endpointContexts, nil
 }
 
-func (m *ContextManager) UpsertContext(contextName string, kind string, address string, setCurrent bool) (bool, error) {
+func (m *ContextManager) GetContext(contextName string) (*api.EndpointContext, error) {
+	endpointContexts, err := m.LoadContext()
+	if err != nil {
+		return nil, err
+	}
+
+	ctx, ok := endpointContexts.Contexts[contextName]
+	if !ok {
+		return nil, fmt.Errorf("context %q not found", contextName)
+	}
+
+	return &ctx, nil
+}
+
+func (m *ContextManager) ListContexts() ([]string, error) {
+	endpointContexts, err := m.LoadContext()
+	if err != nil {
+		return nil, err
+	}
+
+	names := make([]string, 0, len(endpointContexts.Contexts))
+	for name := range endpointContexts.Contexts {
+		names = append(names, name)
+	}
+
+	return names, nil
+}
+
+func (m *ContextManager) UpsertContext(contextName string, kind string, address string, setCurrent bool, auth *api.AuthConfig) (bool, error) {
 	endpointContexts, err := m.LoadContext()
 	if err != nil {
 		return false, err
 	}
 
-	context := api.EndpointContext{
+	endpointContext := api.EndpointContext{
 		Address: address,
 		Kind:    kind,
+		Auth:    auth,
 	}
 
-	if err := context.Validate(); err != nil {
+	if err := endpointContext.Validate(); err != nil {
 		return false, err
 	}
 
 	_, exists := endpointContexts.Contexts[contextName]
-	endpointContexts.Contexts[contextName] = context
+	endpointContexts.Contexts[contextName] = endpointContext
 
 	if setCurrent {
 		err = endpointContexts.SetCurrent(contextName)
@@ -81,6 +124,34 @@ func (m *ContextManager) UpsertContext(contextName string, kind string, address 
 	}
 
 	return exists, m.saveContext(endpointContexts)
+}
+
+func (m *ContextManager) DeleteContext(contextName string) error {
+	endpointContexts, err := m.LoadContext()
+	if err != nil {
+		return err
+	}
+
+	ctx, ok := endpointContexts.Contexts[contextName]
+	if !ok {
+		return fmt.Errorf("context %q not found", contextName)
+	}
+
+	if ctx.Auth != nil && ctx.Auth.KeyringKey() != "" {
+		if err := m.keyringProvider.Delete(ctx.Auth.KeyringKey()); err != nil {
+			if _, ok := err.(*keyring.ErrSecretNotFound); !ok {
+				return fmt.Errorf("failed to delete token from keyring: %w", err)
+			}
+		}
+	}
+
+	delete(endpointContexts.Contexts, contextName)
+
+	if endpointContexts.CurrentContext == contextName {
+		endpointContexts.CurrentContext = ""
+	}
+
+	return m.saveContext(endpointContexts)
 }
 
 func (m *ContextManager) SetCurrentContext(contextName string) error {
@@ -95,6 +166,18 @@ func (m *ContextManager) SetCurrentContext(contextName string) error {
 	}
 
 	return m.saveContext(endpointContexts)
+}
+
+func (m *ContextManager) StoreToken(contextName string, token string) error {
+	return m.keyringProvider.Set(contextName, token)
+}
+
+func (m *ContextManager) RetrieveToken(contextName string) (string, error) {
+	return m.keyringProvider.Get(contextName)
+}
+
+func (m *ContextManager) DeleteToken(contextName string) error {
+	return m.keyringProvider.Delete(contextName)
 }
 
 func (m *ContextManager) saveContext(endpointContexts *api.EndpointContexts) error {
