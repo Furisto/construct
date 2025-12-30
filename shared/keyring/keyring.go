@@ -44,6 +44,7 @@ func (e *ErrSecretTooLarge) Unwrap() error {
 	return e.Err
 }
 
+//go:generate mockgen -destination=../mocks/keyring_provider_mock.go -package=mocks . Provider
 type Provider interface {
 	Get(key string) (string, error)
 	Set(key string, value string) error
@@ -57,12 +58,6 @@ type KeyringProvider struct {
 func NewKeyringProvider() *KeyringProvider {
 	return &KeyringProvider{
 		service: ServiceName,
-	}
-}
-
-func NewKeyringProviderWithService(service string) *KeyringProvider {
-	return &KeyringProvider{
-		service: service,
 	}
 }
 

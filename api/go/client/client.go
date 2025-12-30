@@ -156,8 +156,9 @@ func (c *MockClient) Client() *Client {
 }
 
 type EndpointContexts struct {
-	CurrentContext string                     `yaml:"current"`
-	Contexts       map[string]EndpointContext `yaml:"contexts"`
+	CurrentContext  string                     `yaml:"current"`
+	PreviousContext string                     `yaml:"previous"`
+	Contexts        map[string]EndpointContext `yaml:"contexts"`
 }
 
 func (c *EndpointContexts) Validate() error {
@@ -191,6 +192,15 @@ func (c *EndpointContexts) SetCurrent(contextName string) error {
 	}
 
 	c.CurrentContext = contextName
+	return nil
+}
+
+func (c *EndpointContexts) SetPrevious(contextName string) error {
+	if contextName == "" {
+		return fmt.Errorf("context name is required")
+	}
+
+	c.PreviousContext = contextName
 	return nil
 }
 
