@@ -160,9 +160,15 @@ func (m *ContextManager) SetCurrentContext(contextName string) error {
 		return err
 	}
 
+	previousContext := endpointContexts.CurrentContext
+
 	err = endpointContexts.SetCurrent(contextName)
 	if err != nil {
 		return err
+	}
+
+	if previousContext != "" {
+		endpointContexts.SetPrevious(previousContext)
 	}
 
 	return m.saveContext(endpointContexts)
