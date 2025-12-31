@@ -631,7 +631,7 @@ func TestOpenAICompletionProvider_TransformMessages_EdgeCases(t *testing.T) {
 			name: "very long content",
 			messages: []*Message{
 				{
-					Source: MessageSourceUser,
+					Source:  MessageSourceUser,
 					Content: []ContentBlock{&TextBlock{Text: string(make([]byte, 100000))}},
 				},
 			},
