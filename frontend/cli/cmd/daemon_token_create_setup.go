@@ -92,12 +92,9 @@ The client exchanges the setup code for a token using:
 				fmt.Fprintln(os.Stderr, "")
 				fmt.Fprintln(os.Stderr, "Share this code securely with the user. They can exchange it for a token using:")
 				fmt.Fprintln(os.Stderr, "")
-				fmt.Fprintf(os.Stderr, "  construct context add <name> \\
-")
-				fmt.Fprintf(os.Stderr, "    --endpoint <daemon-url> \\
-")
-				fmt.Fprintf(os.Stderr, "    --setup-code %s
-", resp.Msg.SetupCode)
+				fmt.Fprintf(os.Stderr, "  construct context add <name> \\\n")
+				fmt.Fprintf(os.Stderr, "    --endpoint <daemon-url> \\\n")
+				fmt.Fprintf(os.Stderr, "    --setup-code %s\n", resp.Msg.SetupCode)
 				fmt.Fprintln(os.Stderr, "")
 				fmt.Fprintln(os.Stderr, "⚠️  This code can only be used once and expires in", FormatRelativeTime(resp.Msg.ExpiresAt.AsTime()))
 			}
