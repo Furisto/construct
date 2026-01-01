@@ -22,6 +22,8 @@ type Tx struct {
 	ModelProvider *ModelProviderClient
 	// Task is the client for interacting with the Task builders.
 	Task *TaskClient
+	// Token is the client for interacting with the Token builders.
+	Token *TokenClient
 
 	// lazily loaded.
 	client     *Client
@@ -158,6 +160,7 @@ func (tx *Tx) init() {
 	tx.Model = NewModelClient(tx.config)
 	tx.ModelProvider = NewModelProviderClient(tx.config)
 	tx.Task = NewTaskClient(tx.config)
+	tx.Token = NewTokenClient(tx.config)
 }
 
 // txDriver wraps the given dialect.Tx with a nop dialect.Driver implementation.

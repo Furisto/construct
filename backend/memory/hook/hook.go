@@ -69,6 +69,18 @@ func (f TaskFunc) Mutate(ctx context.Context, m memory.Mutation) (memory.Value, 
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *memory.TaskMutation", m)
 }
 
+// The TokenFunc type is an adapter to allow the use of ordinary
+// function as Token mutator.
+type TokenFunc func(context.Context, *memory.TokenMutation) (memory.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f TokenFunc) Mutate(ctx context.Context, m memory.Mutation) (memory.Value, error) {
+	if mv, ok := m.(*memory.TokenMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *memory.TokenMutation", m)
+}
+
 // Condition is a hook condition function.
 type Condition func(context.Context, memory.Mutation) bool
 

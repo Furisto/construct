@@ -17,6 +17,7 @@ import (
 	"github.com/furisto/construct/backend/memory/model"
 	"github.com/furisto/construct/backend/memory/modelprovider"
 	"github.com/furisto/construct/backend/memory/task"
+	"github.com/furisto/construct/backend/memory/token"
 )
 
 // ent aliases to avoid import conflicts in user's code.
@@ -82,6 +83,7 @@ func checkColumn(table, column string) error {
 			model.Table:         model.ValidColumn,
 			modelprovider.Table: modelprovider.ValidColumn,
 			task.Table:          task.ValidColumn,
+			token.Table:         token.ValidColumn,
 		})
 	})
 	return columnCheck(table, column)

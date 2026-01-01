@@ -11,6 +11,7 @@ import (
 	"github.com/furisto/construct/backend/memory/modelprovider"
 	"github.com/furisto/construct/backend/memory/schema"
 	"github.com/furisto/construct/backend/memory/task"
+	"github.com/furisto/construct/backend/memory/token"
 	"github.com/google/uuid"
 )
 
@@ -169,4 +170,27 @@ func init() {
 	taskDescID := taskFields[0].Descriptor()
 	// task.DefaultID holds the default value on creation for the id field.
 	task.DefaultID = taskDescID.Default.(func() uuid.UUID)
+	tokenMixin := schema.Token{}.Mixin()
+	tokenMixinFields0 := tokenMixin[0].Fields()
+	_ = tokenMixinFields0
+	tokenFields := schema.Token{}.Fields()
+	_ = tokenFields
+	// tokenDescCreateTime is the schema descriptor for create_time field.
+	tokenDescCreateTime := tokenMixinFields0[0].Descriptor()
+	// token.DefaultCreateTime holds the default value on creation for the create_time field.
+	token.DefaultCreateTime = tokenDescCreateTime.Default.(func() time.Time)
+	// tokenDescUpdateTime is the schema descriptor for update_time field.
+	tokenDescUpdateTime := tokenMixinFields0[1].Descriptor()
+	// token.DefaultUpdateTime holds the default value on creation for the update_time field.
+	token.DefaultUpdateTime = tokenDescUpdateTime.Default.(func() time.Time)
+	// token.UpdateDefaultUpdateTime holds the default value on update for the update_time field.
+	token.UpdateDefaultUpdateTime = tokenDescUpdateTime.UpdateDefault.(func() time.Time)
+	// tokenDescName is the schema descriptor for name field.
+	tokenDescName := tokenFields[1].Descriptor()
+	// token.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	token.NameValidator = tokenDescName.Validators[0].(func(string) error)
+	// tokenDescID is the schema descriptor for id field.
+	tokenDescID := tokenFields[0].Descriptor()
+	// token.DefaultID holds the default value on creation for the id field.
+	token.DefaultID = tokenDescID.Default.(func() uuid.UUID)
 }

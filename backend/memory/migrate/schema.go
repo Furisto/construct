@@ -195,6 +195,35 @@ var (
 			},
 		},
 	}
+	// TokensColumns holds the columns for the "tokens" table.
+	TokensColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID, Unique: true},
+		{Name: "create_time", Type: field.TypeTime},
+		{Name: "update_time", Type: field.TypeTime},
+		{Name: "name", Type: field.TypeString},
+		{Name: "type", Type: field.TypeEnum, Enums: []string{"setup_code", "api_token"}, Default: "api_token"},
+		{Name: "token_hash", Type: field.TypeBytes},
+		{Name: "description", Type: field.TypeString, Nullable: true},
+		{Name: "expires_at", Type: field.TypeTime},
+	}
+	// TokensTable holds the schema information for the "tokens" table.
+	TokensTable = &schema.Table{
+		Name:       "tokens",
+		Columns:    TokensColumns,
+		PrimaryKey: []*schema.Column{TokensColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "token_name",
+				Unique:  true,
+				Columns: []*schema.Column{TokensColumns[3]},
+			},
+			{
+				Name:    "token_token_hash",
+				Unique:  true,
+				Columns: []*schema.Column{TokensColumns[5]},
+			},
+		},
+	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		AgentsTable,
@@ -202,6 +231,7 @@ var (
 		ModelsTable,
 		ModelProvidersTable,
 		TasksTable,
+		TokensTable,
 	}
 )
 
