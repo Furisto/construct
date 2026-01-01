@@ -13,6 +13,7 @@ import (
 
 	"github.com/furisto/construct/api/go/v1/v1connect"
 	"github.com/furisto/construct/backend/analytics"
+	"github.com/furisto/construct/backend/api/auth"
 	"github.com/furisto/construct/backend/event"
 	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/secret"
@@ -31,14 +32,17 @@ type Server struct {
 }
 
 func NewServer(runtime AgentRuntime, listener net.Listener, eventBus *event.Bus, analyticsClient analytics.Client) *Server {
+	tokenProvider := auth.NewTokenProvider()
+
 	apiHandler := NewHandler(
 		HandlerOptions{
-			DB:           runtime.Memory(),
-			Encryption:   runtime.Encryption(),
-			AgentRuntime: runtime,
-			MessageHub:   runtime.EventHub(),
-			EventBus:     eventBus,
-			Analytics:    analyticsClient,
+			DB:            runtime.Memory(),
+			Encryption:    runtime.Encryption(),
+			AgentRuntime:  runtime,
+			MessageHub:    runtime.EventHub(),
+			EventBus:      eventBus,
+			Analytics:     analyticsClient,
+			TokenProvider: tokenProvider,
 		},
 	)
 
@@ -60,6 +64,13 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 		BaseContext: func(l net.Listener) context.Context {
 			return ctx
 		},
+		ConnContext: func(ctx context.Context, c net.Conn) context.Context {
+			transport := auth.TransportTCP
+			if _, ok := c.(*net.UnixConn); ok {
+				transport = auth.TransportUnix
+			}
+			return auth.WithTransport(ctx, transport)
+		},
 	}
 
 	return s.server.Serve(s.listener)
@@ -70,9 +81,10 @@ func (s *Server) Shutdown(ctx context.Context) error {
 }
 
 type HandlerOptions struct {
-	DB           *memory.Client
-	Encryption   *secret.Encryption
-	AgentRuntime AgentRuntime
+	DB            *memory.Client
+	Encryption    *secret.Encryption
+	AgentRuntime  AgentRuntime
+	TokenProvider *auth.TokenProvider
 
 	EventBus   *event.Bus
 	MessageHub *event.MessageHub
@@ -90,20 +102,27 @@ func NewHandler(opts HandlerOptions) *Handler {
 		mux: http.NewServeMux(),
 	}
 
+	authInterceptor := auth.NewAuthInterceptor(opts.DB, opts.TokenProvider)
+	interceptorOpt := connect.WithInterceptors(authInterceptor)
+	allOpts := append([]connect.HandlerOption{interceptorOpt}, opts.RequestOptions...)
+
+	authHandler := NewAuthHandler(opts.DB, opts.TokenProvider)
+	handler.mux.Handle(v1connect.NewAuthServiceHandler(authHandler, allOpts...))
+
 	modelProviderHandler := NewModelProviderHandler(opts.DB, opts.Encryption)
-	handler.mux.Handle(v1connect.NewModelProviderServiceHandler(modelProviderHandler, opts.RequestOptions...))
+	handler.mux.Handle(v1connect.NewModelProviderServiceHandler(modelProviderHandler, allOpts...))
 
 	modelHandler := NewModelHandler(opts.DB)
-	handler.mux.Handle(v1connect.NewModelServiceHandler(modelHandler, opts.RequestOptions...))
+	handler.mux.Handle(v1connect.NewModelServiceHandler(modelHandler, allOpts...))
 
 	agentHandler := NewAgentHandler(opts.DB, opts.Analytics)
-	handler.mux.Handle(v1connect.NewAgentServiceHandler(agentHandler, opts.RequestOptions...))
+	handler.mux.Handle(v1connect.NewAgentServiceHandler(agentHandler, allOpts...))
 
 	taskHandler := NewTaskHandler(opts.DB, opts.MessageHub, opts.EventBus, opts.AgentRuntime, opts.Analytics)
-	handler.mux.Handle(v1connect.NewTaskServiceHandler(taskHandler, opts.RequestOptions...))
+	handler.mux.Handle(v1connect.NewTaskServiceHandler(taskHandler, allOpts...))
 
 	messageHandler := NewMessageHandler(opts.DB, opts.AgentRuntime, opts.MessageHub, opts.EventBus)
-	handler.mux.Handle(v1connect.NewMessageServiceHandler(messageHandler, opts.RequestOptions...))
+	handler.mux.Handle(v1connect.NewMessageServiceHandler(messageHandler, allOpts...))
 
 	return handler
 }
