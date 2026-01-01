@@ -64,7 +64,7 @@ func TestCreateToken(t *testing.T) {
 				Name: "duplicate-token",
 			},
 			Expected: ServiceTestExpectation[v1.CreateTokenResponse]{
-				Error: "already_exists: token with name "duplicate-token" already exists",
+				Error: "already_exists: token with name \"duplicate-token\" already exists",
 			},
 		},
 	})

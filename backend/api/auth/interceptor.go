@@ -49,10 +49,16 @@ func (a *AuthInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc
 		if err != nil {
 			return connect.NewError(connect.CodeUnauthenticated, err)
 		}
-		ctx = WithIdentity(ctx, identity)
+		if identity != nil {
+			ctx = WithIdentity(ctx, identity)
+		}
 
 		return next(ctx, shc)
 	}
+}
+
+func (a *AuthInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
+	return next
 }
 
 func (a *AuthInterceptor) authenticate(ctx context.Context, spec connect.Spec, header http.Header) (*Identity, error) {
@@ -71,7 +77,7 @@ func (a *AuthInterceptor) authenticate(ctx context.Context, spec connect.Spec, h
 		}
 		return identity, nil
 	}
-	
+
 	authHeader := header.Get("Authorization")
 	if authHeader == "" {
 		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("missing authorization header"))

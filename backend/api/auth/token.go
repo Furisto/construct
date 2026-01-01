@@ -11,14 +11,14 @@ import (
 )
 
 const (
-	TokenLength         = 32
-	TokenPrefix         = "ct_"
-	SetupCodeLength     = 8
-	SetupCodeAlphabet   = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-	DefaultSetupExpiry  = 20 * time.Minute
-	MaxSetupExpiry      = 72 * time.Hour
-	DefaultTokenExpiry  = 90 * 24 * time.Hour
-	MaxTokenExpiry      = 365 * 24 * time.Hour
+	TokenLength        = 32
+	TokenPrefix        = "ct_"
+	SetupCodeLength    = 8
+	SetupCodeAlphabet  = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+	DefaultSetupExpiry = 20 * time.Minute
+	MaxSetupExpiry     = 72 * time.Hour
+	DefaultTokenExpiry = 90 * 24 * time.Hour
+	MaxTokenExpiry     = 365 * 24 * time.Hour
 )
 
 type TokenProvider struct {

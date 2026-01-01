@@ -102,27 +102,25 @@ func NewHandler(opts HandlerOptions) *Handler {
 		mux: http.NewServeMux(),
 	}
 
-	authInterceptor := auth.NewAuthInterceptor(opts.DB, opts.TokenProvider)
-	interceptorOpt := connect.WithInterceptors(authInterceptor)
-	allOpts := append([]connect.HandlerOption{interceptorOpt}, opts.RequestOptions...)
+	connectOpts := append([]connect.HandlerOption{connect.WithInterceptors(auth.NewAuthInterceptor(opts.DB, opts.TokenProvider))}, opts.RequestOptions...)
 
 	authHandler := NewAuthHandler(opts.DB, opts.TokenProvider)
-	handler.mux.Handle(v1connect.NewAuthServiceHandler(authHandler, allOpts...))
+	handler.mux.Handle(v1connect.NewAuthServiceHandler(authHandler, connectOpts...))
 
 	modelProviderHandler := NewModelProviderHandler(opts.DB, opts.Encryption)
-	handler.mux.Handle(v1connect.NewModelProviderServiceHandler(modelProviderHandler, allOpts...))
+	handler.mux.Handle(v1connect.NewModelProviderServiceHandler(modelProviderHandler, connectOpts...))
 
 	modelHandler := NewModelHandler(opts.DB)
-	handler.mux.Handle(v1connect.NewModelServiceHandler(modelHandler, allOpts...))
+	handler.mux.Handle(v1connect.NewModelServiceHandler(modelHandler, connectOpts...))
 
 	agentHandler := NewAgentHandler(opts.DB, opts.Analytics)
-	handler.mux.Handle(v1connect.NewAgentServiceHandler(agentHandler, allOpts...))
+	handler.mux.Handle(v1connect.NewAgentServiceHandler(agentHandler, connectOpts...))
 
 	taskHandler := NewTaskHandler(opts.DB, opts.MessageHub, opts.EventBus, opts.AgentRuntime, opts.Analytics)
-	handler.mux.Handle(v1connect.NewTaskServiceHandler(taskHandler, allOpts...))
+	handler.mux.Handle(v1connect.NewTaskServiceHandler(taskHandler, connectOpts...))
 
 	messageHandler := NewMessageHandler(opts.DB, opts.AgentRuntime, opts.MessageHub, opts.EventBus)
-	handler.mux.Handle(v1connect.NewMessageServiceHandler(messageHandler, allOpts...))
+	handler.mux.Handle(v1connect.NewMessageServiceHandler(messageHandler, connectOpts...))
 
 	return handler
 }

@@ -11,7 +11,6 @@ func (t TokenType) String() string {
 	return string(t)
 }
 
-
 func (t TokenType) Values() []string {
 	return []string{
 		string(TokenTypeSetupCode),
