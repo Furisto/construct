@@ -85,24 +85,32 @@ Build your own IDE plugins, Slack bots, or automation scripts. Full programmatic
   <img src="docs/images/construct-architecture.png" alt="Construct Architecture" width="600"
 </p>
 
-#### Agent-as-a-Service (Coming Soon)
+#### Agent-as-a-Service
 
-Construct's daemon can run anywhere - locally, on a remote server, or in cloud sandboxes. The architecture supports connecting to remote daemons, enabling:
+Construct's daemon can run anywhere - locally, on a remote server, or in cloud sandboxes. Connect CLI clients to remote daemons with secure token-based authentication.
 
 **Deploy daemon to cloud sandbox:**
 ```bash
-# Run daemon in isolated environment (Docker, E2B, Fly.io, etc.)
+# Server: Run daemon in isolated environment (Docker, E2B, Fly.io, etc.)
 construct daemon run --listen-http 0.0.0.0:8080
+
+# Server: Create secure setup code for client authentication
+construct daemon token create-setup laptop
+
+# Client: Connect to remote daemon using setup code
+construct context add production \
+  --endpoint https://daemon.example.com:8080 \
+  --setup-code ABCD-1234
 ```
 
-**Use cases enabled by remote daemon support:**
-- **Isolated execution**: Run agents in sandboxed environments separate from your development machine
+**Key capabilities:**
+- **Isolated execution**: Run agents in sandboxed environments separate from your machine
 - **Persistent agents**: Long-running tasks that continue even when you disconnect
 - **Multi-client control**: Multiple CLI instances can interact with the same daemon
-- **Cloud integration**: Deploy on serverless platforms, Kubernetes, or container services
-- **HTTP/2 streaming**: Real-time updates via ConnectRPC for interruptible agent runs
+- **Secure authentication**: Token-based auth with setup codes for easy, secure bootstrapping
+- **Context switching**: Easily switch between local and remote daemons
 
-Unlike AI tools designed only for local use, Construct's API-first design makes it a natural fit for remote agent orchestration. Remote context switching and management commands coming soon.
+See [Remote Daemon Setup Guide](docs/remote_daemon.md) for deployment examples (Docker, Fly.io, E2B) and security best practices.
 
 Language SDKs for Python, TypeScript, and Go coming soon.
 
