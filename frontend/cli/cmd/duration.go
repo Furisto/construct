@@ -9,7 +9,7 @@ import (
 
 func ParseDuration(s string) (time.Duration, error) {
 	s = strings.TrimSpace(s)
-	
+
 	if strings.HasSuffix(s, "d") {
 		daysStr := strings.TrimSuffix(s, "d")
 		days, err := strconv.ParseFloat(daysStr, 64)
@@ -18,7 +18,7 @@ func ParseDuration(s string) (time.Duration, error) {
 		}
 		return time.Duration(days * 24 * float64(time.Hour)), nil
 	}
-	
+
 	return time.ParseDuration(s)
 }
 
