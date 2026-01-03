@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -166,6 +167,9 @@ func NewTestServer(t *testing.T, handlerOptions HandlerOptions) *TestServer {
 	mux := http.NewServeMux()
 	mux.Handle("/api/", http.StripPrefix("/api", NewHandler(handlerOptions)))
 	server := httptest.NewUnstartedServer(mux)
+	server.Config.BaseContext = func(l net.Listener) context.Context {
+		return auth.WithTransport(context.Background(), auth.TransportUnix)
+	}
 
 	return &TestServer{
 		API:     server,

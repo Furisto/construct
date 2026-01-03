@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"connectrpc.com/connect"
@@ -159,6 +160,10 @@ func (h *AuthHandler) ListTokens(ctx context.Context, req *connect.Request[v1.Li
 
 		protoTokens = append(protoTokens, protoToken)
 	}
+
+	slices.SortFunc(protoTokens, func(a, b *v1.TokenInfo) int {
+		return b.CreatedAt.AsTime().Compare(a.CreatedAt.AsTime())
+	})
 
 	return connect.NewResponse(&v1.ListTokensResponse{
 		Tokens: protoTokens,

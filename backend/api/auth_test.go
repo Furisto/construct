@@ -9,8 +9,10 @@ import (
 	"github.com/furisto/construct/api/go/client"
 	v1 "github.com/furisto/construct/api/go/v1"
 	"github.com/furisto/construct/backend/memory"
+	"github.com/furisto/construct/backend/memory/test"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/google/uuid"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -58,7 +60,7 @@ func TestCreateToken(t *testing.T) {
 		{
 			Name: "duplicate name",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				createTestToken(t, ctx, db, "duplicate-token")
+				test.NewTokenBuilder(t, uuid.New(), db).WithName("duplicate-token").Build(ctx)
 			},
 			Request: &v1.CreateTokenRequest{
 				Name: "duplicate-token",
@@ -132,17 +134,17 @@ func TestListTokens(t *testing.T) {
 		{
 			Name: "list all tokens",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				createTestToken(t, ctx, db, "token-1")
-				createTestToken(t, ctx, db, "token-2")
-				createTestToken(t, ctx, db, "token-3")
+				test.NewTokenBuilder(t, uuid.New(), db).WithName("token-1").Build(ctx)
+				test.NewTokenBuilder(t, uuid.New(), db).WithName("token-2").Build(ctx)
+				test.NewTokenBuilder(t, uuid.New(), db).WithName("token-3").Build(ctx)
 			},
 			Request: &v1.ListTokensRequest{},
 			Expected: ServiceTestExpectation[v1.ListTokensResponse]{
 				Response: v1.ListTokensResponse{
 					Tokens: []*v1.TokenInfo{
-						{Name: "token-1", IsActive: true},
-						{Name: "token-2", IsActive: true},
 						{Name: "token-3", IsActive: true},
+						{Name: "token-2", IsActive: true},
+						{Name: "token-1", IsActive: true},
 					},
 				},
 			},
@@ -150,9 +152,9 @@ func TestListTokens(t *testing.T) {
 		{
 			Name: "filter by name prefix",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				createTestToken(t, ctx, db, "prod-token")
-				createTestToken(t, ctx, db, "dev-token")
-				createTestToken(t, ctx, db, "staging-token")
+				test.NewTokenBuilder(t, uuid.New(), db).WithName("prod-token").Build(ctx)
+				test.NewTokenBuilder(t, uuid.New(), db).WithName("dev-token").Build(ctx)
+				test.NewTokenBuilder(t, uuid.New(), db).WithName("staging-token").Build(ctx)
 			},
 			Request: &v1.ListTokensRequest{
 				NamePrefix: "prod",
@@ -168,8 +170,8 @@ func TestListTokens(t *testing.T) {
 		{
 			Name: "exclude expired tokens by default",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				createTestToken(t, ctx, db, "active-token")
-				createExpiredToken(t, ctx, db, "expired-token")
+				test.NewTokenBuilder(t, uuid.New(), db).WithName("active-token").Build(ctx)
+				test.NewTokenBuilder(t, uuid.New(), db).WithName("expired-token").WithExpiresAt(time.Now().Add(-1 * time.Hour)).Build(ctx)
 			},
 			Request: &v1.ListTokensRequest{},
 			Expected: ServiceTestExpectation[v1.ListTokensResponse]{
@@ -183,8 +185,8 @@ func TestListTokens(t *testing.T) {
 		{
 			Name: "include expired tokens when requested",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				createTestToken(t, ctx, db, "active-token")
-				createExpiredToken(t, ctx, db, "expired-token")
+				test.NewTokenBuilder(t, uuid.New(), db).WithName("active-token").Build(ctx)
+				test.NewTokenBuilder(t, uuid.New(), db).WithName("expired-token").WithExpiresAt(time.Now().Add(-1 * time.Hour)).Build(ctx)
 			},
 			Request: &v1.ListTokensRequest{
 				IncludeExpired: true,
@@ -192,8 +194,8 @@ func TestListTokens(t *testing.T) {
 			Expected: ServiceTestExpectation[v1.ListTokensResponse]{
 				Response: v1.ListTokensResponse{
 					Tokens: []*v1.TokenInfo{
-						{Name: "active-token", IsActive: true},
 						{Name: "expired-token", IsActive: false},
+						{Name: "active-token", IsActive: true},
 					},
 				},
 			},
@@ -202,6 +204,8 @@ func TestListTokens(t *testing.T) {
 }
 
 func TestRevokeToken(t *testing.T) {
+	tokenID := uuid.New()
+
 	setup := ServiceTestSetup[v1.RevokeTokenRequest, v1.RevokeTokenResponse]{
 		Call: func(ctx context.Context, client *client.Client, req *connect.Request[v1.RevokeTokenRequest]) (*connect.Response[v1.RevokeTokenResponse], error) {
 			return client.Auth().RevokeToken(ctx, req)
@@ -209,16 +213,6 @@ func TestRevokeToken(t *testing.T) {
 		CmpOptions: []cmp.Option{
 			cmpopts.IgnoreUnexported(v1.RevokeTokenResponse{}),
 			protocmp.Transform(),
-		},
-		QueryDatabase: func(ctx context.Context, db *memory.Client) (any, error) {
-			tokens, err := db.Token.Query().All(ctx)
-			if err != nil {
-				return nil, err
-			}
-			for _, tok := range tokens {
-				tokenIDCache[tok.Name] = tok.ID.String()
-			}
-			return nil, nil
 		},
 	}
 
@@ -229,7 +223,7 @@ func TestRevokeToken(t *testing.T) {
 				Id: "not-a-uuid",
 			},
 			Expected: ServiceTestExpectation[v1.RevokeTokenResponse]{
-				Error: "invalid_argument: invalid ID format: invalid UUID length: 11",
+				Error: "invalid_argument: invalid ID format: invalid UUID length: 10",
 			},
 		},
 		{
@@ -244,11 +238,10 @@ func TestRevokeToken(t *testing.T) {
 		{
 			Name: "success",
 			SeedDatabase: func(ctx context.Context, db *memory.Client) {
-				tok := createTestTokenWithReturn(t, ctx, db, "token-to-revoke")
-				tokenIDCache["token-to-revoke"] = tok.ID.String()
+				test.NewTokenBuilder(t, tokenID, db).WithName("token-to-revoke").Build(ctx)
 			},
 			Request: &v1.RevokeTokenRequest{
-				Id: getTokenID(t, "token-to-revoke"),
+				Id: tokenID.String(),
 			},
 			Expected: ServiceTestExpectation[v1.RevokeTokenResponse]{
 				Response: v1.RevokeTokenResponse{},
@@ -289,48 +282,4 @@ func TestExchangeSetupCode(t *testing.T) {
 			},
 		},
 	})
-}
-
-func createTestToken(t *testing.T, ctx context.Context, db *memory.Client, name string) {
-	t.Helper()
-	_ = createTestTokenWithReturn(t, ctx, db, name)
-}
-
-func createTestTokenWithReturn(t *testing.T, ctx context.Context, db *memory.Client, name string) *memory.Token {
-	t.Helper()
-	hash := []byte("test-hash-" + name)
-	tok, err := db.Token.Create().
-		SetName(name).
-		SetType("api_token").
-		SetTokenHash(hash).
-		SetExpiresAt(time.Now().Add(90 * 24 * time.Hour)).
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("failed to create test token: %v", err)
-	}
-	return tok
-}
-
-func createExpiredToken(t *testing.T, ctx context.Context, db *memory.Client, name string) {
-	t.Helper()
-	hash := []byte("test-hash-" + name)
-	_, err := db.Token.Create().
-		SetName(name).
-		SetType("api_token").
-		SetTokenHash(hash).
-		SetExpiresAt(time.Now().Add(-24 * time.Hour)).
-		Save(ctx)
-	if err != nil {
-		t.Fatalf("failed to create expired token: %v", err)
-	}
-}
-
-var tokenIDCache = make(map[string]string)
-
-func getTokenID(t *testing.T, name string) string {
-	t.Helper()
-	if id, ok := tokenIDCache[name]; ok {
-		return id
-	}
-	return "00000000-0000-0000-0000-000000000000"
 }
