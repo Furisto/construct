@@ -60,6 +60,19 @@ func TestCreateModelProvider(t *testing.T) {
 			},
 		},
 		{
+			Name: "non-Anthropic provider type rejected",
+			Request: &v1.CreateModelProviderRequest{
+				Name:         "openai",
+				ProviderType: v1.ModelProviderType_MODEL_PROVIDER_TYPE_OPENAI,
+				Authentication: &v1.CreateModelProviderRequest_ApiKey{
+					ApiKey: "sk-1234567890",
+				},
+			},
+			Expected: ServiceTestExpectation[v1.CreateModelProviderResponse]{
+				Error: "invalid_argument: only Anthropic is supported for now",
+			},
+		},
+		{
 			Name: "success",
 			Request: &v1.CreateModelProviderRequest{
 				Name:         "anthropic",

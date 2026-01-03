@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"entgo.io/ent/dialect/sql/schema"
 	api_client "github.com/furisto/construct/api/go/client"
 	"github.com/furisto/construct/backend/analytics"
+	"github.com/furisto/construct/backend/api/auth"
 	"github.com/furisto/construct/backend/event"
 	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/secret"
@@ -141,13 +143,16 @@ func DefaultTestHandlerOptions(t *testing.T) HandlerOptions {
 		t.Fatalf("failed creating message hub: %v", err)
 	}
 
+	tokenProvider := auth.NewTokenProvider()
+
 	return HandlerOptions{
-		DB:           db,
-		Encryption:   encryption,
-		AgentRuntime: runtime,
-		EventBus:     eventBus,
-		MessageHub:   messageHub,
-		Analytics:    analytics.NewInMemoryClient(),
+		DB:            db,
+		Encryption:    encryption,
+		AgentRuntime:  runtime,
+		EventBus:      eventBus,
+		MessageHub:    messageHub,
+		Analytics:     analytics.NewInMemoryClient(),
+		TokenProvider: tokenProvider,
 	}
 }
 
@@ -162,6 +167,9 @@ func NewTestServer(t *testing.T, handlerOptions HandlerOptions) *TestServer {
 	mux := http.NewServeMux()
 	mux.Handle("/api/", http.StripPrefix("/api", NewHandler(handlerOptions)))
 	server := httptest.NewUnstartedServer(mux)
+	server.Config.BaseContext = func(l net.Listener) context.Context {
+		return auth.WithTransport(context.Background(), auth.TransportUnix)
+	}
 
 	return &TestServer{
 		API:     server,
@@ -208,6 +216,11 @@ func (s *TestServer) ClearDatabase(ctx context.Context, t *testing.T) error {
 		_, err = tx.ModelProvider.Delete().Exec(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to delete model providers: %w", err)
+		}
+
+		_, err = tx.Token.Delete().Exec(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to delete tokens: %w", err)
 		}
 
 		return nil, nil

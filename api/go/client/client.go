@@ -21,6 +21,7 @@ type Client struct {
 	agent         v1connect.AgentServiceClient
 	task          v1connect.TaskServiceClient
 	message       v1connect.MessageServiceClient
+	auth          v1connect.AuthServiceClient
 }
 
 type ClientOptions struct {
@@ -104,6 +105,7 @@ func NewClient(endpointContext EndpointContext, options ...ClientOption) (*Clien
 		agent:         v1connect.NewAgentServiceClient(opts.HTTPClient, baseURL, opts.ConnectOptions...),
 		task:          v1connect.NewTaskServiceClient(opts.HTTPClient, baseURL, opts.ConnectOptions...),
 		message:       v1connect.NewMessageServiceClient(opts.HTTPClient, baseURL, opts.ConnectOptions...),
+		auth:          v1connect.NewAuthServiceClient(opts.HTTPClient, baseURL, opts.ConnectOptions...),
 	}, nil
 }
 
@@ -127,12 +129,17 @@ func (c *Client) Message() v1connect.MessageServiceClient {
 	return c.message
 }
 
+func (c *Client) Auth() v1connect.AuthServiceClient {
+	return c.auth
+}
+
 type MockClient struct {
 	ModelProvider *mocks.MockModelProviderServiceClient
 	Model         *mocks.MockModelServiceClient
 	Agent         *mocks.MockAgentServiceClient
 	Task          *mocks.MockTaskServiceClient
 	Message       *mocks.MockMessageServiceClient
+	Auth          *mocks.MockAuthServiceClient
 }
 
 func NewMockClient(ctrl *gomock.Controller) *MockClient {
@@ -142,6 +149,7 @@ func NewMockClient(ctrl *gomock.Controller) *MockClient {
 		Agent:         mocks.NewMockAgentServiceClient(ctrl),
 		Task:          mocks.NewMockTaskServiceClient(ctrl),
 		Message:       mocks.NewMockMessageServiceClient(ctrl),
+		Auth:          mocks.NewMockAuthServiceClient(ctrl),
 	}
 }
 
@@ -152,6 +160,7 @@ func (c *MockClient) Client() *Client {
 		agent:         c.Agent,
 		task:          c.Task,
 		message:       c.Message,
+		auth:          c.Auth,
 	}
 }
 

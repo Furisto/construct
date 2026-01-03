@@ -20,3 +20,6 @@ type ModelProvider func(*sql.Selector)
 
 // Task is the predicate function for task builders.
 type Task func(*sql.Selector)
+
+// Token is the predicate function for token builders.
+type Token func(*sql.Selector)

@@ -3,6 +3,7 @@ package test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/memory/schema/types"
@@ -324,4 +325,49 @@ func (b *MessageBuilder) Build(ctx context.Context) *memory.Message {
 	}
 
 	return message
+}
+
+type TokenBuilder struct {
+	*entityBuilder
+	tokenID uuid.UUID
+
+	name      string
+	expiresAt time.Time
+	tokenHash []byte
+}
+
+func NewTokenBuilder(t *testing.T, id uuid.UUID, db *memory.Client) *TokenBuilder {
+	return &TokenBuilder{
+		entityBuilder: newEntityBuilder(t, db),
+		tokenID:       id,
+		name:          "test-token",
+		expiresAt:     time.Now().Add(90 * 24 * time.Hour),
+		tokenHash:     []byte("test-hash-" + id.String()),
+	}
+}
+
+func (b *TokenBuilder) WithName(name string) *TokenBuilder {
+	b.name = name
+	return b
+}
+
+func (b *TokenBuilder) WithExpiresAt(expiresAt time.Time) *TokenBuilder {
+	b.expiresAt = expiresAt
+	return b
+}
+
+func (b *TokenBuilder) Build(ctx context.Context) *memory.Token {
+	token, err := b.db.Token.Create().
+		SetID(b.tokenID).
+		SetName(b.name).
+		SetType(types.TokenTypeAPIToken).
+		SetTokenHash(b.tokenHash).
+		SetExpiresAt(b.expiresAt).
+		Save(ctx)
+
+	if err != nil {
+		b.t.Fatalf("failed to create token: %v", err)
+	}
+
+	return token
 }
