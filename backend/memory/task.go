@@ -13,6 +13,7 @@ import (
 	"github.com/furisto/construct/backend/memory/agent"
 	"github.com/furisto/construct/backend/memory/schema/types"
 	"github.com/furisto/construct/backend/memory/task"
+	"github.com/furisto/construct/backend/memory/tasksummary"
 	"github.com/google/uuid"
 )
 
@@ -52,6 +53,7 @@ type Task struct {
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the TaskQuery when eager-loading is set.
 	Edges        TaskEdges `json:"edges"`
+	task_summary *uuid.UUID
 	selectValues sql.SelectValues
 }
 
@@ -61,9 +63,11 @@ type TaskEdges struct {
 	Messages []*Message `json:"messages,omitempty"`
 	// Agent holds the value of the agent edge.
 	Agent *Agent `json:"agent,omitempty"`
+	// Summary holds the value of the summary edge.
+	Summary *TaskSummary `json:"summary,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [2]bool
+	loadedTypes [3]bool
 }
 
 // MessagesOrErr returns the Messages value or an error if the edge
@@ -86,6 +90,17 @@ func (e TaskEdges) AgentOrErr() (*Agent, error) {
 	return nil, &NotLoadedError{edge: "agent"}
 }
 
+// SummaryOrErr returns the Summary value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e TaskEdges) SummaryOrErr() (*TaskSummary, error) {
+	if e.Summary != nil {
+		return e.Summary, nil
+	} else if e.loadedTypes[2] {
+		return nil, &NotFoundError{label: tasksummary.Label}
+	}
+	return nil, &NotLoadedError{edge: "summary"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*Task) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
@@ -103,6 +118,8 @@ func (*Task) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullTime)
 		case task.FieldID, task.FieldAgentID:
 			values[i] = new(uuid.UUID)
+		case task.ForeignKeys[0]: // task_summary
+			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		default:
 			values[i] = new(sql.UnknownType)
 		}
@@ -210,6 +227,13 @@ func (t *Task) assignValues(columns []string, values []any) error {
 			} else if value != nil {
 				t.AgentID = *value
 			}
+		case task.ForeignKeys[0]:
+			if value, ok := values[i].(*sql.NullScanner); !ok {
+				return fmt.Errorf("unexpected type %T for field task_summary", values[i])
+			} else if value.Valid {
+				t.task_summary = new(uuid.UUID)
+				*t.task_summary = *value.S.(*uuid.UUID)
+			}
 		default:
 			t.selectValues.Set(columns[i], values[i])
 		}
@@ -231,6 +255,11 @@ func (t *Task) QueryMessages() *MessageQuery {
 // QueryAgent queries the "agent" edge of the Task entity.
 func (t *Task) QueryAgent() *AgentQuery {
 	return NewTaskClient(t.config).QueryAgent(t)
+}
+
+// QuerySummary queries the "summary" edge of the Task entity.
+func (t *Task) QuerySummary() *TaskSummaryQuery {
+	return NewTaskClient(t.config).QuerySummary(t)
 }
 
 // Update returns a builder for updating this Task.

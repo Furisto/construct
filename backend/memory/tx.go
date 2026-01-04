@@ -22,6 +22,8 @@ type Tx struct {
 	ModelProvider *ModelProviderClient
 	// Task is the client for interacting with the Task builders.
 	Task *TaskClient
+	// TaskSummary is the client for interacting with the TaskSummary builders.
+	TaskSummary *TaskSummaryClient
 	// Token is the client for interacting with the Token builders.
 	Token *TokenClient
 
@@ -160,6 +162,7 @@ func (tx *Tx) init() {
 	tx.Model = NewModelClient(tx.config)
 	tx.ModelProvider = NewModelProviderClient(tx.config)
 	tx.Task = NewTaskClient(tx.config)
+	tx.TaskSummary = NewTaskSummaryClient(tx.config)
 	tx.Token = NewTokenClient(tx.config)
 }
 

@@ -21,6 +21,7 @@ import (
 	"github.com/furisto/construct/backend/memory/model"
 	"github.com/furisto/construct/backend/memory/modelprovider"
 	"github.com/furisto/construct/backend/memory/task"
+	"github.com/furisto/construct/backend/memory/tasksummary"
 	"github.com/furisto/construct/backend/memory/token"
 )
 
@@ -39,6 +40,8 @@ type Client struct {
 	ModelProvider *ModelProviderClient
 	// Task is the client for interacting with the Task builders.
 	Task *TaskClient
+	// TaskSummary is the client for interacting with the TaskSummary builders.
+	TaskSummary *TaskSummaryClient
 	// Token is the client for interacting with the Token builders.
 	Token *TokenClient
 }
@@ -57,6 +60,7 @@ func (c *Client) init() {
 	c.Model = NewModelClient(c.config)
 	c.ModelProvider = NewModelProviderClient(c.config)
 	c.Task = NewTaskClient(c.config)
+	c.TaskSummary = NewTaskSummaryClient(c.config)
 	c.Token = NewTokenClient(c.config)
 }
 
@@ -155,6 +159,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		Model:         NewModelClient(cfg),
 		ModelProvider: NewModelProviderClient(cfg),
 		Task:          NewTaskClient(cfg),
+		TaskSummary:   NewTaskSummaryClient(cfg),
 		Token:         NewTokenClient(cfg),
 	}, nil
 }
@@ -180,6 +185,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		Model:         NewModelClient(cfg),
 		ModelProvider: NewModelProviderClient(cfg),
 		Task:          NewTaskClient(cfg),
+		TaskSummary:   NewTaskSummaryClient(cfg),
 		Token:         NewTokenClient(cfg),
 	}, nil
 }
@@ -210,7 +216,7 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.Agent, c.Message, c.Model, c.ModelProvider, c.Task, c.Token,
+		c.Agent, c.Message, c.Model, c.ModelProvider, c.Task, c.TaskSummary, c.Token,
 	} {
 		n.Use(hooks...)
 	}
@@ -220,7 +226,7 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.Agent, c.Message, c.Model, c.ModelProvider, c.Task, c.Token,
+		c.Agent, c.Message, c.Model, c.ModelProvider, c.Task, c.TaskSummary, c.Token,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -239,6 +245,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.ModelProvider.mutate(ctx, m)
 	case *TaskMutation:
 		return c.Task.mutate(ctx, m)
+	case *TaskSummaryMutation:
+		return c.TaskSummary.mutate(ctx, m)
 	case *TokenMutation:
 		return c.Token.mutate(ctx, m)
 	default:
@@ -1078,6 +1086,22 @@ func (c *TaskClient) QueryAgent(t *Task) *AgentQuery {
 	return query
 }
 
+// QuerySummary queries the summary edge of a Task.
+func (c *TaskClient) QuerySummary(t *Task) *TaskSummaryQuery {
+	query := (&TaskSummaryClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := t.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(task.Table, task.FieldID, id),
+			sqlgraph.To(tasksummary.Table, tasksummary.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, task.SummaryTable, task.SummaryColumn),
+		)
+		fromV = sqlgraph.Neighbors(t.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *TaskClient) Hooks() []Hook {
 	return c.hooks.Task
@@ -1100,6 +1124,171 @@ func (c *TaskClient) mutate(ctx context.Context, m *TaskMutation) (Value, error)
 		return (&TaskDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("memory: unknown Task mutation op: %q", m.Op())
+	}
+}
+
+// TaskSummaryClient is a client for the TaskSummary schema.
+type TaskSummaryClient struct {
+	config
+}
+
+// NewTaskSummaryClient returns a client for the TaskSummary from the given config.
+func NewTaskSummaryClient(c config) *TaskSummaryClient {
+	return &TaskSummaryClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `tasksummary.Hooks(f(g(h())))`.
+func (c *TaskSummaryClient) Use(hooks ...Hook) {
+	c.hooks.TaskSummary = append(c.hooks.TaskSummary, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `tasksummary.Intercept(f(g(h())))`.
+func (c *TaskSummaryClient) Intercept(interceptors ...Interceptor) {
+	c.inters.TaskSummary = append(c.inters.TaskSummary, interceptors...)
+}
+
+// Create returns a builder for creating a TaskSummary entity.
+func (c *TaskSummaryClient) Create() *TaskSummaryCreate {
+	mutation := newTaskSummaryMutation(c.config, OpCreate)
+	return &TaskSummaryCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of TaskSummary entities.
+func (c *TaskSummaryClient) CreateBulk(builders ...*TaskSummaryCreate) *TaskSummaryCreateBulk {
+	return &TaskSummaryCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *TaskSummaryClient) MapCreateBulk(slice any, setFunc func(*TaskSummaryCreate, int)) *TaskSummaryCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &TaskSummaryCreateBulk{err: fmt.Errorf("calling to TaskSummaryClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*TaskSummaryCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &TaskSummaryCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for TaskSummary.
+func (c *TaskSummaryClient) Update() *TaskSummaryUpdate {
+	mutation := newTaskSummaryMutation(c.config, OpUpdate)
+	return &TaskSummaryUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *TaskSummaryClient) UpdateOne(ts *TaskSummary) *TaskSummaryUpdateOne {
+	mutation := newTaskSummaryMutation(c.config, OpUpdateOne, withTaskSummary(ts))
+	return &TaskSummaryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *TaskSummaryClient) UpdateOneID(id uuid.UUID) *TaskSummaryUpdateOne {
+	mutation := newTaskSummaryMutation(c.config, OpUpdateOne, withTaskSummaryID(id))
+	return &TaskSummaryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for TaskSummary.
+func (c *TaskSummaryClient) Delete() *TaskSummaryDelete {
+	mutation := newTaskSummaryMutation(c.config, OpDelete)
+	return &TaskSummaryDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *TaskSummaryClient) DeleteOne(ts *TaskSummary) *TaskSummaryDeleteOne {
+	return c.DeleteOneID(ts.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *TaskSummaryClient) DeleteOneID(id uuid.UUID) *TaskSummaryDeleteOne {
+	builder := c.Delete().Where(tasksummary.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &TaskSummaryDeleteOne{builder}
+}
+
+// Query returns a query builder for TaskSummary.
+func (c *TaskSummaryClient) Query() *TaskSummaryQuery {
+	return &TaskSummaryQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeTaskSummary},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a TaskSummary entity by its id.
+func (c *TaskSummaryClient) Get(ctx context.Context, id uuid.UUID) (*TaskSummary, error) {
+	return c.Query().Where(tasksummary.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *TaskSummaryClient) GetX(ctx context.Context, id uuid.UUID) *TaskSummary {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryTask queries the task edge of a TaskSummary.
+func (c *TaskSummaryClient) QueryTask(ts *TaskSummary) *TaskQuery {
+	query := (&TaskClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := ts.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(tasksummary.Table, tasksummary.FieldID, id),
+			sqlgraph.To(task.Table, task.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, tasksummary.TaskTable, tasksummary.TaskColumn),
+		)
+		fromV = sqlgraph.Neighbors(ts.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryMessage queries the message edge of a TaskSummary.
+func (c *TaskSummaryClient) QueryMessage(ts *TaskSummary) *MessageQuery {
+	query := (&MessageClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := ts.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(tasksummary.Table, tasksummary.FieldID, id),
+			sqlgraph.To(message.Table, message.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, tasksummary.MessageTable, tasksummary.MessageColumn),
+		)
+		fromV = sqlgraph.Neighbors(ts.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *TaskSummaryClient) Hooks() []Hook {
+	return c.hooks.TaskSummary
+}
+
+// Interceptors returns the client interceptors.
+func (c *TaskSummaryClient) Interceptors() []Interceptor {
+	return c.inters.TaskSummary
+}
+
+func (c *TaskSummaryClient) mutate(ctx context.Context, m *TaskSummaryMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&TaskSummaryCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&TaskSummaryUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&TaskSummaryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&TaskSummaryDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("memory: unknown TaskSummary mutation op: %q", m.Op())
 	}
 }
 
@@ -1239,9 +1428,9 @@ func (c *TokenClient) mutate(ctx context.Context, m *TokenMutation) (Value, erro
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		Agent, Message, Model, ModelProvider, Task, Token []ent.Hook
+		Agent, Message, Model, ModelProvider, Task, TaskSummary, Token []ent.Hook
 	}
 	inters struct {
-		Agent, Message, Model, ModelProvider, Task, Token []ent.Interceptor
+		Agent, Message, Model, ModelProvider, Task, TaskSummary, Token []ent.Interceptor
 	}
 )

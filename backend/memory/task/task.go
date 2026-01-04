@@ -49,6 +49,8 @@ const (
 	EdgeMessages = "messages"
 	// EdgeAgent holds the string denoting the agent edge name in mutations.
 	EdgeAgent = "agent"
+	// EdgeSummary holds the string denoting the summary edge name in mutations.
+	EdgeSummary = "summary"
 	// Table holds the table name of the task in the database.
 	Table = "tasks"
 	// MessagesTable is the table that holds the messages relation/edge.
@@ -65,6 +67,13 @@ const (
 	AgentInverseTable = "agents"
 	// AgentColumn is the table column denoting the agent relation/edge.
 	AgentColumn = "agent_id"
+	// SummaryTable is the table that holds the summary relation/edge.
+	SummaryTable = "tasks"
+	// SummaryInverseTable is the table name for the TaskSummary entity.
+	// It exists in this package in order to avoid circular dependency with the "tasksummary" package.
+	SummaryInverseTable = "task_summaries"
+	// SummaryColumn is the table column denoting the summary relation/edge.
+	SummaryColumn = "task_summary"
 )
 
 // Columns holds all SQL columns for task fields.
@@ -86,10 +95,21 @@ var Columns = []string{
 	FieldAgentID,
 }
 
+// ForeignKeys holds the SQL foreign-keys that are owned by the "tasks"
+// table and are not defined as standalone fields in the schema.
+var ForeignKeys = []string{
+	"task_summary",
+}
+
 // ValidColumn reports if the column name is valid (part of the table columns).
 func ValidColumn(column string) bool {
 	for i := range Columns {
 		if column == Columns[i] {
+			return true
+		}
+	}
+	for i := range ForeignKeys {
+		if column == ForeignKeys[i] {
 			return true
 		}
 	}
@@ -228,6 +248,13 @@ func ByAgentField(field string, opts ...sql.OrderTermOption) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newAgentStep(), sql.OrderByField(field, opts...))
 	}
 }
+
+// BySummaryField orders the results by summary field.
+func BySummaryField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newSummaryStep(), sql.OrderByField(field, opts...))
+	}
+}
 func newMessagesStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -240,5 +267,12 @@ func newAgentStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(AgentInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, false, AgentTable, AgentColumn),
+	)
+}
+func newSummaryStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(SummaryInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, false, SummaryTable, SummaryColumn),
 	)
 }

@@ -37,6 +37,7 @@ func (Task) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.From("messages", Message.Type).Ref("task"),
 		edge.To("agent", Agent.Type).Field("agent_id").Unique(),
+		edge.To("summary", TaskSummary.Type).Unique(),
 	}
 }
 

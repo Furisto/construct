@@ -18,6 +18,7 @@ import (
 	"github.com/furisto/construct/backend/memory/predicate"
 	"github.com/furisto/construct/backend/memory/schema/types"
 	"github.com/furisto/construct/backend/memory/task"
+	"github.com/furisto/construct/backend/memory/tasksummary"
 	"github.com/furisto/construct/backend/memory/token"
 	"github.com/google/uuid"
 )
@@ -36,6 +37,7 @@ const (
 	TypeModel         = "Model"
 	TypeModelProvider = "ModelProvider"
 	TypeTask          = "Task"
+	TypeTaskSummary   = "TaskSummary"
 	TypeToken         = "Token"
 )
 
@@ -4123,6 +4125,8 @@ type TaskMutation struct {
 	clearedmessages       bool
 	agent                 *uuid.UUID
 	clearedagent          bool
+	summary               *uuid.UUID
+	clearedsummary        bool
 	done                  bool
 	oldValue              func(context.Context) (*Task, error)
 	predicates            []predicate.Task
@@ -5046,6 +5050,45 @@ func (m *TaskMutation) ResetAgent() {
 	m.clearedagent = false
 }
 
+// SetSummaryID sets the "summary" edge to the TaskSummary entity by id.
+func (m *TaskMutation) SetSummaryID(id uuid.UUID) {
+	m.summary = &id
+}
+
+// ClearSummary clears the "summary" edge to the TaskSummary entity.
+func (m *TaskMutation) ClearSummary() {
+	m.clearedsummary = true
+}
+
+// SummaryCleared reports if the "summary" edge to the TaskSummary entity was cleared.
+func (m *TaskMutation) SummaryCleared() bool {
+	return m.clearedsummary
+}
+
+// SummaryID returns the "summary" edge ID in the mutation.
+func (m *TaskMutation) SummaryID() (id uuid.UUID, exists bool) {
+	if m.summary != nil {
+		return *m.summary, true
+	}
+	return
+}
+
+// SummaryIDs returns the "summary" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// SummaryID instead. It exists only for internal usage by the builders.
+func (m *TaskMutation) SummaryIDs() (ids []uuid.UUID) {
+	if id := m.summary; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetSummary resets all changes to the "summary" edge.
+func (m *TaskMutation) ResetSummary() {
+	m.summary = nil
+	m.clearedsummary = false
+}
+
 // Where appends a list predicates to the TaskMutation builder.
 func (m *TaskMutation) Where(ps ...predicate.Task) {
 	m.predicates = append(m.predicates, ps...)
@@ -5526,12 +5569,15 @@ func (m *TaskMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *TaskMutation) AddedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 3)
 	if m.messages != nil {
 		edges = append(edges, task.EdgeMessages)
 	}
 	if m.agent != nil {
 		edges = append(edges, task.EdgeAgent)
+	}
+	if m.summary != nil {
+		edges = append(edges, task.EdgeSummary)
 	}
 	return edges
 }
@@ -5550,13 +5596,17 @@ func (m *TaskMutation) AddedIDs(name string) []ent.Value {
 		if id := m.agent; id != nil {
 			return []ent.Value{*id}
 		}
+	case task.EdgeSummary:
+		if id := m.summary; id != nil {
+			return []ent.Value{*id}
+		}
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *TaskMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 3)
 	if m.removedmessages != nil {
 		edges = append(edges, task.EdgeMessages)
 	}
@@ -5579,12 +5629,15 @@ func (m *TaskMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *TaskMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 3)
 	if m.clearedmessages {
 		edges = append(edges, task.EdgeMessages)
 	}
 	if m.clearedagent {
 		edges = append(edges, task.EdgeAgent)
+	}
+	if m.clearedsummary {
+		edges = append(edges, task.EdgeSummary)
 	}
 	return edges
 }
@@ -5597,6 +5650,8 @@ func (m *TaskMutation) EdgeCleared(name string) bool {
 		return m.clearedmessages
 	case task.EdgeAgent:
 		return m.clearedagent
+	case task.EdgeSummary:
+		return m.clearedsummary
 	}
 	return false
 }
@@ -5607,6 +5662,9 @@ func (m *TaskMutation) ClearEdge(name string) error {
 	switch name {
 	case task.EdgeAgent:
 		m.ClearAgent()
+		return nil
+	case task.EdgeSummary:
+		m.ClearSummary()
 		return nil
 	}
 	return fmt.Errorf("unknown Task unique edge %s", name)
@@ -5622,8 +5680,762 @@ func (m *TaskMutation) ResetEdge(name string) error {
 	case task.EdgeAgent:
 		m.ResetAgent()
 		return nil
+	case task.EdgeSummary:
+		m.ResetSummary()
+		return nil
 	}
 	return fmt.Errorf("unknown Task edge %s", name)
+}
+
+// TaskSummaryMutation represents an operation that mutates the TaskSummary nodes in the graph.
+type TaskSummaryMutation struct {
+	config
+	op              Op
+	typ             string
+	id              *uuid.UUID
+	create_time     *time.Time
+	update_time     *time.Time
+	summary         **types.TaskSummary
+	token_budget    *int64
+	addtoken_budget *int64
+	clearedFields   map[string]struct{}
+	task            *uuid.UUID
+	clearedtask     bool
+	message         *uuid.UUID
+	clearedmessage  bool
+	done            bool
+	oldValue        func(context.Context) (*TaskSummary, error)
+	predicates      []predicate.TaskSummary
+}
+
+var _ ent.Mutation = (*TaskSummaryMutation)(nil)
+
+// tasksummaryOption allows management of the mutation configuration using functional options.
+type tasksummaryOption func(*TaskSummaryMutation)
+
+// newTaskSummaryMutation creates new mutation for the TaskSummary entity.
+func newTaskSummaryMutation(c config, op Op, opts ...tasksummaryOption) *TaskSummaryMutation {
+	m := &TaskSummaryMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeTaskSummary,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withTaskSummaryID sets the ID field of the mutation.
+func withTaskSummaryID(id uuid.UUID) tasksummaryOption {
+	return func(m *TaskSummaryMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *TaskSummary
+		)
+		m.oldValue = func(ctx context.Context) (*TaskSummary, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().TaskSummary.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withTaskSummary sets the old TaskSummary of the mutation.
+func withTaskSummary(node *TaskSummary) tasksummaryOption {
+	return func(m *TaskSummaryMutation) {
+		m.oldValue = func(context.Context) (*TaskSummary, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m TaskSummaryMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m TaskSummaryMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("memory: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of TaskSummary entities.
+func (m *TaskSummaryMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *TaskSummaryMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *TaskSummaryMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().TaskSummary.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreateTime sets the "create_time" field.
+func (m *TaskSummaryMutation) SetCreateTime(t time.Time) {
+	m.create_time = &t
+}
+
+// CreateTime returns the value of the "create_time" field in the mutation.
+func (m *TaskSummaryMutation) CreateTime() (r time.Time, exists bool) {
+	v := m.create_time
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreateTime returns the old "create_time" field's value of the TaskSummary entity.
+// If the TaskSummary object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TaskSummaryMutation) OldCreateTime(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreateTime is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreateTime requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreateTime: %w", err)
+	}
+	return oldValue.CreateTime, nil
+}
+
+// ResetCreateTime resets all changes to the "create_time" field.
+func (m *TaskSummaryMutation) ResetCreateTime() {
+	m.create_time = nil
+}
+
+// SetUpdateTime sets the "update_time" field.
+func (m *TaskSummaryMutation) SetUpdateTime(t time.Time) {
+	m.update_time = &t
+}
+
+// UpdateTime returns the value of the "update_time" field in the mutation.
+func (m *TaskSummaryMutation) UpdateTime() (r time.Time, exists bool) {
+	v := m.update_time
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdateTime returns the old "update_time" field's value of the TaskSummary entity.
+// If the TaskSummary object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TaskSummaryMutation) OldUpdateTime(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdateTime is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdateTime requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdateTime: %w", err)
+	}
+	return oldValue.UpdateTime, nil
+}
+
+// ResetUpdateTime resets all changes to the "update_time" field.
+func (m *TaskSummaryMutation) ResetUpdateTime() {
+	m.update_time = nil
+}
+
+// SetMessageAnchor sets the "message_anchor" field.
+func (m *TaskSummaryMutation) SetMessageAnchor(u uuid.UUID) {
+	m.message = &u
+}
+
+// MessageAnchor returns the value of the "message_anchor" field in the mutation.
+func (m *TaskSummaryMutation) MessageAnchor() (r uuid.UUID, exists bool) {
+	v := m.message
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMessageAnchor returns the old "message_anchor" field's value of the TaskSummary entity.
+// If the TaskSummary object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TaskSummaryMutation) OldMessageAnchor(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMessageAnchor is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMessageAnchor requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMessageAnchor: %w", err)
+	}
+	return oldValue.MessageAnchor, nil
+}
+
+// ResetMessageAnchor resets all changes to the "message_anchor" field.
+func (m *TaskSummaryMutation) ResetMessageAnchor() {
+	m.message = nil
+}
+
+// SetSummary sets the "summary" field.
+func (m *TaskSummaryMutation) SetSummary(ts *types.TaskSummary) {
+	m.summary = &ts
+}
+
+// Summary returns the value of the "summary" field in the mutation.
+func (m *TaskSummaryMutation) Summary() (r *types.TaskSummary, exists bool) {
+	v := m.summary
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSummary returns the old "summary" field's value of the TaskSummary entity.
+// If the TaskSummary object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TaskSummaryMutation) OldSummary(ctx context.Context) (v *types.TaskSummary, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSummary is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSummary requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSummary: %w", err)
+	}
+	return oldValue.Summary, nil
+}
+
+// ResetSummary resets all changes to the "summary" field.
+func (m *TaskSummaryMutation) ResetSummary() {
+	m.summary = nil
+}
+
+// SetTokenBudget sets the "token_budget" field.
+func (m *TaskSummaryMutation) SetTokenBudget(i int64) {
+	m.token_budget = &i
+	m.addtoken_budget = nil
+}
+
+// TokenBudget returns the value of the "token_budget" field in the mutation.
+func (m *TaskSummaryMutation) TokenBudget() (r int64, exists bool) {
+	v := m.token_budget
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTokenBudget returns the old "token_budget" field's value of the TaskSummary entity.
+// If the TaskSummary object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TaskSummaryMutation) OldTokenBudget(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTokenBudget is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTokenBudget requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTokenBudget: %w", err)
+	}
+	return oldValue.TokenBudget, nil
+}
+
+// AddTokenBudget adds i to the "token_budget" field.
+func (m *TaskSummaryMutation) AddTokenBudget(i int64) {
+	if m.addtoken_budget != nil {
+		*m.addtoken_budget += i
+	} else {
+		m.addtoken_budget = &i
+	}
+}
+
+// AddedTokenBudget returns the value that was added to the "token_budget" field in this mutation.
+func (m *TaskSummaryMutation) AddedTokenBudget() (r int64, exists bool) {
+	v := m.addtoken_budget
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetTokenBudget resets all changes to the "token_budget" field.
+func (m *TaskSummaryMutation) ResetTokenBudget() {
+	m.token_budget = nil
+	m.addtoken_budget = nil
+}
+
+// SetTaskID sets the "task_id" field.
+func (m *TaskSummaryMutation) SetTaskID(u uuid.UUID) {
+	m.task = &u
+}
+
+// TaskID returns the value of the "task_id" field in the mutation.
+func (m *TaskSummaryMutation) TaskID() (r uuid.UUID, exists bool) {
+	v := m.task
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTaskID returns the old "task_id" field's value of the TaskSummary entity.
+// If the TaskSummary object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TaskSummaryMutation) OldTaskID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTaskID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTaskID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTaskID: %w", err)
+	}
+	return oldValue.TaskID, nil
+}
+
+// ResetTaskID resets all changes to the "task_id" field.
+func (m *TaskSummaryMutation) ResetTaskID() {
+	m.task = nil
+}
+
+// ClearTask clears the "task" edge to the Task entity.
+func (m *TaskSummaryMutation) ClearTask() {
+	m.clearedtask = true
+	m.clearedFields[tasksummary.FieldTaskID] = struct{}{}
+}
+
+// TaskCleared reports if the "task" edge to the Task entity was cleared.
+func (m *TaskSummaryMutation) TaskCleared() bool {
+	return m.clearedtask
+}
+
+// TaskIDs returns the "task" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// TaskID instead. It exists only for internal usage by the builders.
+func (m *TaskSummaryMutation) TaskIDs() (ids []uuid.UUID) {
+	if id := m.task; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetTask resets all changes to the "task" edge.
+func (m *TaskSummaryMutation) ResetTask() {
+	m.task = nil
+	m.clearedtask = false
+}
+
+// SetMessageID sets the "message" edge to the Message entity by id.
+func (m *TaskSummaryMutation) SetMessageID(id uuid.UUID) {
+	m.message = &id
+}
+
+// ClearMessage clears the "message" edge to the Message entity.
+func (m *TaskSummaryMutation) ClearMessage() {
+	m.clearedmessage = true
+	m.clearedFields[tasksummary.FieldMessageAnchor] = struct{}{}
+}
+
+// MessageCleared reports if the "message" edge to the Message entity was cleared.
+func (m *TaskSummaryMutation) MessageCleared() bool {
+	return m.clearedmessage
+}
+
+// MessageID returns the "message" edge ID in the mutation.
+func (m *TaskSummaryMutation) MessageID() (id uuid.UUID, exists bool) {
+	if m.message != nil {
+		return *m.message, true
+	}
+	return
+}
+
+// MessageIDs returns the "message" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// MessageID instead. It exists only for internal usage by the builders.
+func (m *TaskSummaryMutation) MessageIDs() (ids []uuid.UUID) {
+	if id := m.message; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetMessage resets all changes to the "message" edge.
+func (m *TaskSummaryMutation) ResetMessage() {
+	m.message = nil
+	m.clearedmessage = false
+}
+
+// Where appends a list predicates to the TaskSummaryMutation builder.
+func (m *TaskSummaryMutation) Where(ps ...predicate.TaskSummary) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the TaskSummaryMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *TaskSummaryMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.TaskSummary, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *TaskSummaryMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *TaskSummaryMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (TaskSummary).
+func (m *TaskSummaryMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *TaskSummaryMutation) Fields() []string {
+	fields := make([]string, 0, 6)
+	if m.create_time != nil {
+		fields = append(fields, tasksummary.FieldCreateTime)
+	}
+	if m.update_time != nil {
+		fields = append(fields, tasksummary.FieldUpdateTime)
+	}
+	if m.message != nil {
+		fields = append(fields, tasksummary.FieldMessageAnchor)
+	}
+	if m.summary != nil {
+		fields = append(fields, tasksummary.FieldSummary)
+	}
+	if m.token_budget != nil {
+		fields = append(fields, tasksummary.FieldTokenBudget)
+	}
+	if m.task != nil {
+		fields = append(fields, tasksummary.FieldTaskID)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *TaskSummaryMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case tasksummary.FieldCreateTime:
+		return m.CreateTime()
+	case tasksummary.FieldUpdateTime:
+		return m.UpdateTime()
+	case tasksummary.FieldMessageAnchor:
+		return m.MessageAnchor()
+	case tasksummary.FieldSummary:
+		return m.Summary()
+	case tasksummary.FieldTokenBudget:
+		return m.TokenBudget()
+	case tasksummary.FieldTaskID:
+		return m.TaskID()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *TaskSummaryMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case tasksummary.FieldCreateTime:
+		return m.OldCreateTime(ctx)
+	case tasksummary.FieldUpdateTime:
+		return m.OldUpdateTime(ctx)
+	case tasksummary.FieldMessageAnchor:
+		return m.OldMessageAnchor(ctx)
+	case tasksummary.FieldSummary:
+		return m.OldSummary(ctx)
+	case tasksummary.FieldTokenBudget:
+		return m.OldTokenBudget(ctx)
+	case tasksummary.FieldTaskID:
+		return m.OldTaskID(ctx)
+	}
+	return nil, fmt.Errorf("unknown TaskSummary field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *TaskSummaryMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case tasksummary.FieldCreateTime:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreateTime(v)
+		return nil
+	case tasksummary.FieldUpdateTime:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdateTime(v)
+		return nil
+	case tasksummary.FieldMessageAnchor:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMessageAnchor(v)
+		return nil
+	case tasksummary.FieldSummary:
+		v, ok := value.(*types.TaskSummary)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSummary(v)
+		return nil
+	case tasksummary.FieldTokenBudget:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTokenBudget(v)
+		return nil
+	case tasksummary.FieldTaskID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTaskID(v)
+		return nil
+	}
+	return fmt.Errorf("unknown TaskSummary field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *TaskSummaryMutation) AddedFields() []string {
+	var fields []string
+	if m.addtoken_budget != nil {
+		fields = append(fields, tasksummary.FieldTokenBudget)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *TaskSummaryMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case tasksummary.FieldTokenBudget:
+		return m.AddedTokenBudget()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *TaskSummaryMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case tasksummary.FieldTokenBudget:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddTokenBudget(v)
+		return nil
+	}
+	return fmt.Errorf("unknown TaskSummary numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *TaskSummaryMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *TaskSummaryMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *TaskSummaryMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown TaskSummary nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *TaskSummaryMutation) ResetField(name string) error {
+	switch name {
+	case tasksummary.FieldCreateTime:
+		m.ResetCreateTime()
+		return nil
+	case tasksummary.FieldUpdateTime:
+		m.ResetUpdateTime()
+		return nil
+	case tasksummary.FieldMessageAnchor:
+		m.ResetMessageAnchor()
+		return nil
+	case tasksummary.FieldSummary:
+		m.ResetSummary()
+		return nil
+	case tasksummary.FieldTokenBudget:
+		m.ResetTokenBudget()
+		return nil
+	case tasksummary.FieldTaskID:
+		m.ResetTaskID()
+		return nil
+	}
+	return fmt.Errorf("unknown TaskSummary field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *TaskSummaryMutation) AddedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.task != nil {
+		edges = append(edges, tasksummary.EdgeTask)
+	}
+	if m.message != nil {
+		edges = append(edges, tasksummary.EdgeMessage)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *TaskSummaryMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case tasksummary.EdgeTask:
+		if id := m.task; id != nil {
+			return []ent.Value{*id}
+		}
+	case tasksummary.EdgeMessage:
+		if id := m.message; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *TaskSummaryMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 2)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *TaskSummaryMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *TaskSummaryMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.clearedtask {
+		edges = append(edges, tasksummary.EdgeTask)
+	}
+	if m.clearedmessage {
+		edges = append(edges, tasksummary.EdgeMessage)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *TaskSummaryMutation) EdgeCleared(name string) bool {
+	switch name {
+	case tasksummary.EdgeTask:
+		return m.clearedtask
+	case tasksummary.EdgeMessage:
+		return m.clearedmessage
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *TaskSummaryMutation) ClearEdge(name string) error {
+	switch name {
+	case tasksummary.EdgeTask:
+		m.ClearTask()
+		return nil
+	case tasksummary.EdgeMessage:
+		m.ClearMessage()
+		return nil
+	}
+	return fmt.Errorf("unknown TaskSummary unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *TaskSummaryMutation) ResetEdge(name string) error {
+	switch name {
+	case tasksummary.EdgeTask:
+		m.ResetTask()
+		return nil
+	case tasksummary.EdgeMessage:
+		m.ResetMessage()
+		return nil
+	}
+	return fmt.Errorf("unknown TaskSummary edge %s", name)
 }
 
 // TokenMutation represents an operation that mutates the Token nodes in the graph.

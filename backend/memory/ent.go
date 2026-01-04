@@ -17,6 +17,7 @@ import (
 	"github.com/furisto/construct/backend/memory/model"
 	"github.com/furisto/construct/backend/memory/modelprovider"
 	"github.com/furisto/construct/backend/memory/task"
+	"github.com/furisto/construct/backend/memory/tasksummary"
 	"github.com/furisto/construct/backend/memory/token"
 )
 
@@ -83,6 +84,7 @@ func checkColumn(table, column string) error {
 			model.Table:         model.ValidColumn,
 			modelprovider.Table: modelprovider.ValidColumn,
 			task.Table:          task.ValidColumn,
+			tasksummary.Table:   tasksummary.ValidColumn,
 			token.Table:         token.ValidColumn,
 		})
 	})

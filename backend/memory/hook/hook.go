@@ -69,6 +69,18 @@ func (f TaskFunc) Mutate(ctx context.Context, m memory.Mutation) (memory.Value, 
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *memory.TaskMutation", m)
 }
 
+// The TaskSummaryFunc type is an adapter to allow the use of ordinary
+// function as TaskSummary mutator.
+type TaskSummaryFunc func(context.Context, *memory.TaskSummaryMutation) (memory.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f TaskSummaryFunc) Mutate(ctx context.Context, m memory.Mutation) (memory.Value, error) {
+	if mv, ok := m.(*memory.TaskSummaryMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *memory.TaskSummaryMutation", m)
+}
+
 // The TokenFunc type is an adapter to allow the use of ordinary
 // function as Token mutator.
 type TokenFunc func(context.Context, *memory.TokenMutation) (memory.Value, error)

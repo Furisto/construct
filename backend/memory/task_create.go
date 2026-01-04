@@ -14,6 +14,7 @@ import (
 	"github.com/furisto/construct/backend/memory/message"
 	"github.com/furisto/construct/backend/memory/schema/types"
 	"github.com/furisto/construct/backend/memory/task"
+	"github.com/furisto/construct/backend/memory/tasksummary"
 	"github.com/google/uuid"
 )
 
@@ -246,6 +247,25 @@ func (tc *TaskCreate) SetAgent(a *Agent) *TaskCreate {
 	return tc.SetAgentID(a.ID)
 }
 
+// SetSummaryID sets the "summary" edge to the TaskSummary entity by ID.
+func (tc *TaskCreate) SetSummaryID(id uuid.UUID) *TaskCreate {
+	tc.mutation.SetSummaryID(id)
+	return tc
+}
+
+// SetNillableSummaryID sets the "summary" edge to the TaskSummary entity by ID if the given value is not nil.
+func (tc *TaskCreate) SetNillableSummaryID(id *uuid.UUID) *TaskCreate {
+	if id != nil {
+		tc = tc.SetSummaryID(*id)
+	}
+	return tc
+}
+
+// SetSummary sets the "summary" edge to the TaskSummary entity.
+func (tc *TaskCreate) SetSummary(t *TaskSummary) *TaskCreate {
+	return tc.SetSummaryID(t.ID)
+}
+
 // Mutation returns the TaskMutation object of the builder.
 func (tc *TaskCreate) Mutation() *TaskMutation {
 	return tc.mutation
@@ -459,6 +479,23 @@ func (tc *TaskCreate) createSpec() (*Task, *sqlgraph.CreateSpec) {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.AgentID = nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := tc.mutation.SummaryIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   task.SummaryTable,
+			Columns: []string{task.SummaryColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(tasksummary.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.task_summary = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

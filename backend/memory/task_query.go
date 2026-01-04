@@ -16,6 +16,7 @@ import (
 	"github.com/furisto/construct/backend/memory/message"
 	"github.com/furisto/construct/backend/memory/predicate"
 	"github.com/furisto/construct/backend/memory/task"
+	"github.com/furisto/construct/backend/memory/tasksummary"
 	"github.com/google/uuid"
 )
 
@@ -28,6 +29,8 @@ type TaskQuery struct {
 	predicates   []predicate.Task
 	withMessages *MessageQuery
 	withAgent    *AgentQuery
+	withSummary  *TaskSummaryQuery
+	withFKs      bool
 	modifiers    []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
@@ -102,6 +105,28 @@ func (tq *TaskQuery) QueryAgent() *AgentQuery {
 			sqlgraph.From(task.Table, task.FieldID, selector),
 			sqlgraph.To(agent.Table, agent.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, false, task.AgentTable, task.AgentColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(tq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QuerySummary chains the current query on the "summary" edge.
+func (tq *TaskQuery) QuerySummary() *TaskSummaryQuery {
+	query := (&TaskSummaryClient{config: tq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := tq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := tq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(task.Table, task.FieldID, selector),
+			sqlgraph.To(tasksummary.Table, tasksummary.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, task.SummaryTable, task.SummaryColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(tq.driver.Dialect(), step)
 		return fromU, nil
@@ -303,6 +328,7 @@ func (tq *TaskQuery) Clone() *TaskQuery {
 		predicates:   append([]predicate.Task{}, tq.predicates...),
 		withMessages: tq.withMessages.Clone(),
 		withAgent:    tq.withAgent.Clone(),
+		withSummary:  tq.withSummary.Clone(),
 		// clone intermediate query.
 		sql:       tq.sql.Clone(),
 		path:      tq.path,
@@ -329,6 +355,17 @@ func (tq *TaskQuery) WithAgent(opts ...func(*AgentQuery)) *TaskQuery {
 		opt(query)
 	}
 	tq.withAgent = query
+	return tq
+}
+
+// WithSummary tells the query-builder to eager-load the nodes that are connected to
+// the "summary" edge. The optional arguments are used to configure the query builder of the edge.
+func (tq *TaskQuery) WithSummary(opts ...func(*TaskSummaryQuery)) *TaskQuery {
+	query := (&TaskSummaryClient{config: tq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	tq.withSummary = query
 	return tq
 }
 
@@ -409,12 +446,20 @@ func (tq *TaskQuery) prepareQuery(ctx context.Context) error {
 func (tq *TaskQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Task, error) {
 	var (
 		nodes       = []*Task{}
+		withFKs     = tq.withFKs
 		_spec       = tq.querySpec()
-		loadedTypes = [2]bool{
+		loadedTypes = [3]bool{
 			tq.withMessages != nil,
 			tq.withAgent != nil,
+			tq.withSummary != nil,
 		}
 	)
+	if tq.withSummary != nil {
+		withFKs = true
+	}
+	if withFKs {
+		_spec.Node.Columns = append(_spec.Node.Columns, task.ForeignKeys...)
+	}
 	_spec.ScanValues = func(columns []string) ([]any, error) {
 		return (*Task).scanValues(nil, columns)
 	}
@@ -446,6 +491,12 @@ func (tq *TaskQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Task, e
 	if query := tq.withAgent; query != nil {
 		if err := tq.loadAgent(ctx, query, nodes, nil,
 			func(n *Task, e *Agent) { n.Edges.Agent = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := tq.withSummary; query != nil {
+		if err := tq.loadSummary(ctx, query, nodes, nil,
+			func(n *Task, e *TaskSummary) { n.Edges.Summary = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -504,6 +555,38 @@ func (tq *TaskQuery) loadAgent(ctx context.Context, query *AgentQuery, nodes []*
 		nodes, ok := nodeids[n.ID]
 		if !ok {
 			return fmt.Errorf(`unexpected foreign-key "agent_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
+}
+func (tq *TaskQuery) loadSummary(ctx context.Context, query *TaskSummaryQuery, nodes []*Task, init func(*Task), assign func(*Task, *TaskSummary)) error {
+	ids := make([]uuid.UUID, 0, len(nodes))
+	nodeids := make(map[uuid.UUID][]*Task)
+	for i := range nodes {
+		if nodes[i].task_summary == nil {
+			continue
+		}
+		fk := *nodes[i].task_summary
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(tasksummary.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "task_summary" returned %v`, n.ID)
 		}
 		for i := range nodes {
 			assign(nodes[i], n)

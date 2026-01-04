@@ -168,6 +168,7 @@ var (
 		{Name: "phase", Type: field.TypeEnum, Enums: []string{"unspecified", "running", "awaiting", "suspended"}, Default: "awaiting"},
 		{Name: "description", Type: field.TypeString, Nullable: true},
 		{Name: "agent_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "task_summary", Type: field.TypeUUID, Nullable: true},
 	}
 	// TasksTable holds the schema information for the "tasks" table.
 	TasksTable = &schema.Table{
@@ -181,6 +182,12 @@ var (
 				RefColumns: []*schema.Column{AgentsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
+			{
+				Symbol:     "tasks_task_summaries_summary",
+				Columns:    []*schema.Column{TasksColumns[15]},
+				RefColumns: []*schema.Column{TaskSummariesColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
 		},
 		Indexes: []*schema.Index{
 			{
@@ -192,6 +199,48 @@ var (
 				Name:    "task_update_time",
 				Unique:  false,
 				Columns: []*schema.Column{TasksColumns[2]},
+			},
+		},
+	}
+	// TaskSummariesColumns holds the columns for the "task_summaries" table.
+	TaskSummariesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID, Unique: true},
+		{Name: "create_time", Type: field.TypeTime},
+		{Name: "update_time", Type: field.TypeTime},
+		{Name: "summary", Type: field.TypeJSON},
+		{Name: "token_budget", Type: field.TypeInt64, Default: 0},
+		{Name: "task_id", Type: field.TypeUUID},
+		{Name: "message_anchor", Type: field.TypeUUID},
+	}
+	// TaskSummariesTable holds the schema information for the "task_summaries" table.
+	TaskSummariesTable = &schema.Table{
+		Name:       "task_summaries",
+		Columns:    TaskSummariesColumns,
+		PrimaryKey: []*schema.Column{TaskSummariesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "task_summaries_tasks_task",
+				Columns:    []*schema.Column{TaskSummariesColumns[5]},
+				RefColumns: []*schema.Column{TasksColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+			{
+				Symbol:     "task_summaries_messages_message",
+				Columns:    []*schema.Column{TaskSummariesColumns[6]},
+				RefColumns: []*schema.Column{MessagesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "tasksummary_task_id",
+				Unique:  true,
+				Columns: []*schema.Column{TaskSummariesColumns[5]},
+			},
+			{
+				Name:    "tasksummary_create_time",
+				Unique:  false,
+				Columns: []*schema.Column{TaskSummariesColumns[1]},
 			},
 		},
 	}
@@ -231,6 +280,7 @@ var (
 		ModelsTable,
 		ModelProvidersTable,
 		TasksTable,
+		TaskSummariesTable,
 		TokensTable,
 	}
 )
@@ -246,4 +296,7 @@ func init() {
 	}
 	ModelsTable.ForeignKeys[0].RefTable = ModelProvidersTable
 	TasksTable.ForeignKeys[0].RefTable = AgentsTable
+	TasksTable.ForeignKeys[1].RefTable = TaskSummariesTable
+	TaskSummariesTable.ForeignKeys[0].RefTable = TasksTable
+	TaskSummariesTable.ForeignKeys[1].RefTable = MessagesTable
 }

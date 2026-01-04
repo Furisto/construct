@@ -16,6 +16,7 @@ import (
 	"github.com/furisto/construct/backend/memory/predicate"
 	"github.com/furisto/construct/backend/memory/schema/types"
 	"github.com/furisto/construct/backend/memory/task"
+	"github.com/furisto/construct/backend/memory/tasksummary"
 	"github.com/google/uuid"
 )
 
@@ -309,6 +310,25 @@ func (tu *TaskUpdate) SetAgent(a *Agent) *TaskUpdate {
 	return tu.SetAgentID(a.ID)
 }
 
+// SetSummaryID sets the "summary" edge to the TaskSummary entity by ID.
+func (tu *TaskUpdate) SetSummaryID(id uuid.UUID) *TaskUpdate {
+	tu.mutation.SetSummaryID(id)
+	return tu
+}
+
+// SetNillableSummaryID sets the "summary" edge to the TaskSummary entity by ID if the given value is not nil.
+func (tu *TaskUpdate) SetNillableSummaryID(id *uuid.UUID) *TaskUpdate {
+	if id != nil {
+		tu = tu.SetSummaryID(*id)
+	}
+	return tu
+}
+
+// SetSummary sets the "summary" edge to the TaskSummary entity.
+func (tu *TaskUpdate) SetSummary(t *TaskSummary) *TaskUpdate {
+	return tu.SetSummaryID(t.ID)
+}
+
 // Mutation returns the TaskMutation object of the builder.
 func (tu *TaskUpdate) Mutation() *TaskMutation {
 	return tu.mutation
@@ -338,6 +358,12 @@ func (tu *TaskUpdate) RemoveMessages(m ...*Message) *TaskUpdate {
 // ClearAgent clears the "agent" edge to the Agent entity.
 func (tu *TaskUpdate) ClearAgent() *TaskUpdate {
 	tu.mutation.ClearAgent()
+	return tu
+}
+
+// ClearSummary clears the "summary" edge to the TaskSummary entity.
+func (tu *TaskUpdate) ClearSummary() *TaskUpdate {
+	tu.mutation.ClearSummary()
 	return tu
 }
 
@@ -552,6 +578,35 @@ func (tu *TaskUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if tu.mutation.SummaryCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   task.SummaryTable,
+			Columns: []string{task.SummaryColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(tasksummary.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := tu.mutation.SummaryIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   task.SummaryTable,
+			Columns: []string{task.SummaryColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(tasksummary.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -857,6 +912,25 @@ func (tuo *TaskUpdateOne) SetAgent(a *Agent) *TaskUpdateOne {
 	return tuo.SetAgentID(a.ID)
 }
 
+// SetSummaryID sets the "summary" edge to the TaskSummary entity by ID.
+func (tuo *TaskUpdateOne) SetSummaryID(id uuid.UUID) *TaskUpdateOne {
+	tuo.mutation.SetSummaryID(id)
+	return tuo
+}
+
+// SetNillableSummaryID sets the "summary" edge to the TaskSummary entity by ID if the given value is not nil.
+func (tuo *TaskUpdateOne) SetNillableSummaryID(id *uuid.UUID) *TaskUpdateOne {
+	if id != nil {
+		tuo = tuo.SetSummaryID(*id)
+	}
+	return tuo
+}
+
+// SetSummary sets the "summary" edge to the TaskSummary entity.
+func (tuo *TaskUpdateOne) SetSummary(t *TaskSummary) *TaskUpdateOne {
+	return tuo.SetSummaryID(t.ID)
+}
+
 // Mutation returns the TaskMutation object of the builder.
 func (tuo *TaskUpdateOne) Mutation() *TaskMutation {
 	return tuo.mutation
@@ -886,6 +960,12 @@ func (tuo *TaskUpdateOne) RemoveMessages(m ...*Message) *TaskUpdateOne {
 // ClearAgent clears the "agent" edge to the Agent entity.
 func (tuo *TaskUpdateOne) ClearAgent() *TaskUpdateOne {
 	tuo.mutation.ClearAgent()
+	return tuo
+}
+
+// ClearSummary clears the "summary" edge to the TaskSummary entity.
+func (tuo *TaskUpdateOne) ClearSummary() *TaskUpdateOne {
+	tuo.mutation.ClearSummary()
 	return tuo
 }
 
@@ -1130,6 +1210,35 @@ func (tuo *TaskUpdateOne) sqlSave(ctx context.Context) (_node *Task, err error) 
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(agent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if tuo.mutation.SummaryCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   task.SummaryTable,
+			Columns: []string{task.SummaryColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(tasksummary.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := tuo.mutation.SummaryIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   task.SummaryTable,
+			Columns: []string{task.SummaryColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(tasksummary.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

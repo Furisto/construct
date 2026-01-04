@@ -11,6 +11,7 @@ import (
 	"github.com/furisto/construct/backend/memory/modelprovider"
 	"github.com/furisto/construct/backend/memory/schema"
 	"github.com/furisto/construct/backend/memory/task"
+	"github.com/furisto/construct/backend/memory/tasksummary"
 	"github.com/furisto/construct/backend/memory/token"
 	"github.com/google/uuid"
 )
@@ -170,6 +171,29 @@ func init() {
 	taskDescID := taskFields[0].Descriptor()
 	// task.DefaultID holds the default value on creation for the id field.
 	task.DefaultID = taskDescID.Default.(func() uuid.UUID)
+	tasksummaryMixin := schema.TaskSummary{}.Mixin()
+	tasksummaryMixinFields0 := tasksummaryMixin[0].Fields()
+	_ = tasksummaryMixinFields0
+	tasksummaryFields := schema.TaskSummary{}.Fields()
+	_ = tasksummaryFields
+	// tasksummaryDescCreateTime is the schema descriptor for create_time field.
+	tasksummaryDescCreateTime := tasksummaryMixinFields0[0].Descriptor()
+	// tasksummary.DefaultCreateTime holds the default value on creation for the create_time field.
+	tasksummary.DefaultCreateTime = tasksummaryDescCreateTime.Default.(func() time.Time)
+	// tasksummaryDescUpdateTime is the schema descriptor for update_time field.
+	tasksummaryDescUpdateTime := tasksummaryMixinFields0[1].Descriptor()
+	// tasksummary.DefaultUpdateTime holds the default value on creation for the update_time field.
+	tasksummary.DefaultUpdateTime = tasksummaryDescUpdateTime.Default.(func() time.Time)
+	// tasksummary.UpdateDefaultUpdateTime holds the default value on update for the update_time field.
+	tasksummary.UpdateDefaultUpdateTime = tasksummaryDescUpdateTime.UpdateDefault.(func() time.Time)
+	// tasksummaryDescTokenBudget is the schema descriptor for token_budget field.
+	tasksummaryDescTokenBudget := tasksummaryFields[3].Descriptor()
+	// tasksummary.DefaultTokenBudget holds the default value on creation for the token_budget field.
+	tasksummary.DefaultTokenBudget = tasksummaryDescTokenBudget.Default.(int64)
+	// tasksummaryDescID is the schema descriptor for id field.
+	tasksummaryDescID := tasksummaryFields[0].Descriptor()
+	// tasksummary.DefaultID holds the default value on creation for the id field.
+	tasksummary.DefaultID = tasksummaryDescID.Default.(func() uuid.UUID)
 	tokenMixin := schema.Token{}.Mixin()
 	tokenMixinFields0 := tokenMixin[0].Fields()
 	_ = tokenMixinFields0

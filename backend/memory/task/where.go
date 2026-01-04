@@ -768,6 +768,29 @@ func HasAgentWith(preds ...predicate.Agent) predicate.Task {
 	})
 }
 
+// HasSummary applies the HasEdge predicate on the "summary" edge.
+func HasSummary() predicate.Task {
+	return predicate.Task(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, SummaryTable, SummaryColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasSummaryWith applies the HasEdge predicate on the "summary" edge with a given conditions (other predicates).
+func HasSummaryWith(preds ...predicate.TaskSummary) predicate.Task {
+	return predicate.Task(func(s *sql.Selector) {
+		step := newSummaryStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.Task) predicate.Task {
 	return predicate.Task(sql.AndPredicates(predicates...))
