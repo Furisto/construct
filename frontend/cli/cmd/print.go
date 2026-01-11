@@ -23,10 +23,11 @@ type RenderOptions struct {
 type OutputFormat string
 
 const (
-	OutputFormatJSON  OutputFormat = "json"
-	OutputFormatYAML  OutputFormat = "yaml"
-	OutputFormatTable OutputFormat = "table"
-	OutputFormatCard  OutputFormat = "card"
+	OutputFormatJSON     OutputFormat = "json"
+	OutputFormatYAML     OutputFormat = "yaml"
+	OutputFormatTable    OutputFormat = "table"
+	OutputFormatCard     OutputFormat = "card"
+	OutputFormatMarkdown OutputFormat = "markdown"
 )
 
 func (e *OutputFormat) String() string {
@@ -37,12 +38,15 @@ func (e *OutputFormat) String() string {
 }
 
 func (e *OutputFormat) Set(v string) error {
+	if v == "md" {
+		v = "markdown"
+	}
 	switch v {
-	case "json", "yaml", "table", "card":
+	case "json", "yaml", "table", "card", "markdown":
 		*e = OutputFormat(v)
 		return nil
 	default:
-		return errors.New(`must be one of "json" or "yaml"`)
+		return errors.New(`must be one of "json", "yaml", "table", "card", or "markdown"`)
 	}
 }
 
@@ -64,7 +68,7 @@ func addRenderOptions(cmd *cobra.Command, options *RenderOptions) {
 		WithTableFormat(options)
 	}
 
-	cmd.Flags().VarP(&options.Format, "output", "o", fmt.Sprintf("output format (json, yaml, table, card)(default: %s)", options.Format))
+	cmd.Flags().VarP(&options.Format, "output", "o", fmt.Sprintf("output format (json, yaml, table, card, markdown) (default: %s)", options.Format))
 	cmd.Flags().BoolVarP(&options.Wide, "wide", "w", false, "output verbosity (default: false)")
 	cmd.Flags().BoolVarP(&options.NoHeaders, "no-headers", "", false, "do not print headers (default: false)")
 }
@@ -99,6 +103,11 @@ func (f *DefaultRenderer) Render(resources any, options *RenderOptions) (err err
 		}
 	case OutputFormatTable:
 		err = renderTable(resources, options)
+		if err != nil {
+			return err
+		}
+	case OutputFormatMarkdown:
+		err = renderMarkdown(resources, options)
 		if err != nil {
 			return err
 		}
@@ -332,6 +341,128 @@ func renderCard(resources any, options *RenderOptions) error {
 	}
 
 	return nil
+}
+
+func renderMarkdown(resources any, options *RenderOptions) error {
+	if resources == nil {
+		return nil
+	}
+
+	value := reflect.ValueOf(resources)
+	typ := reflect.TypeOf(resources)
+
+	if value.Kind() == reflect.Ptr {
+		if value.IsNil() {
+			return nil
+		}
+		value = value.Elem()
+		typ = typ.Elem()
+	}
+
+	var items []reflect.Value
+	var itemType reflect.Type
+
+	if value.Kind() == reflect.Slice {
+		if value.Len() == 0 {
+			return nil
+		}
+		for i := 0; i < value.Len(); i++ {
+			items = append(items, value.Index(i))
+		}
+		itemType = typ.Elem()
+	} else {
+		items = append(items, value)
+		itemType = typ
+	}
+
+	if itemType.Kind() == reflect.Ptr {
+		itemType = itemType.Elem()
+	}
+
+	if itemType.Kind() != reflect.Struct {
+		return fmt.Errorf("renderMarkdown only supports struct types, got %v", itemType.Kind())
+	}
+
+	var fields []reflect.StructField
+	for i := 0; i < itemType.NumField(); i++ {
+		field := itemType.Field(i)
+		if includeField(field, options.Wide) {
+			fields = append(fields, field)
+		}
+	}
+
+	if len(fields) == 0 {
+		return nil
+	}
+
+	for idx, item := range items {
+		if item.Kind() == reflect.Ptr {
+			if item.IsNil() {
+				continue
+			}
+			item = item.Elem()
+		}
+
+		for _, field := range fields {
+			fieldValue := item.FieldByName(field.Name)
+			if !fieldValue.IsValid() {
+				continue
+			}
+
+			valueStr := formatMarkdownValue(fieldValue)
+			fmt.Printf("**%s:** %s\n", field.Name, valueStr)
+		}
+
+		if idx < len(items)-1 {
+			fmt.Print("\n---\n\n")
+		}
+	}
+
+	return nil
+}
+
+func formatMarkdownValue(v reflect.Value) string {
+	if !v.IsValid() {
+		return ""
+	}
+
+	switch v.Kind() {
+	case reflect.Ptr:
+		if v.IsNil() {
+			return ""
+		}
+		return formatMarkdownValue(v.Elem())
+	case reflect.String:
+		return v.String()
+	case reflect.Slice:
+		if v.Len() == 0 {
+			return ""
+		}
+		var parts []string
+		for i := 0; i < v.Len(); i++ {
+			parts = append(parts, formatMarkdownValue(v.Index(i)))
+		}
+		return strings.Join(parts, ", ")
+	case reflect.Map:
+		if v.Len() == 0 {
+			return ""
+		}
+		var parts []string
+		iter := v.MapRange()
+		for iter.Next() {
+			k := fmt.Sprint(iter.Key().Interface())
+			val := formatMarkdownValue(iter.Value())
+			parts = append(parts, fmt.Sprintf("%s=%s", k, val))
+		}
+		return strings.Join(parts, ", ")
+	case reflect.Struct:
+		if v.Type().String() == "time.Time" {
+			return fmt.Sprint(v.Interface())
+		}
+		return fmt.Sprint(v.Interface())
+	default:
+		return fmt.Sprint(v.Interface())
+	}
 }
 
 func includeField(field reflect.StructField, wide bool) bool {
