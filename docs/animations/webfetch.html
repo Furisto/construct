@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Construct WebFetch Animation</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #1a1a1a;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+        }
+
+        .container {
+            width: 1200px;
+            height: 675px;
+            background: #1a1a1a;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Token counter */
+        .token-counter {
+            position: absolute;
+            bottom: 16px;
+            right: 16px;
+            background: rgba(13, 17, 23, 0.95);
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 10px 16px;
+            z-index: 30;
+            opacity: 0;
+        }
+
+        .token-value {
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            font-size: 18px;
+            font-weight: bold;
+            color: #e6edf3;
+        }
+
+        .token-value .number {
+            color: #ff7b72;
+        }
+
+        .token-value.reduced .number {
+            color: #7ee787;
+        }
+
+        .token-unit {
+            font-size: 12px;
+            color: #7d8590;
+            margin-left: 4px;
+        }
+
+        /* Webpage mockup */
+        .webpage {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 700px;
+            height: 500px;
+            background: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.5);
+        }
+
+        .browser-bar {
+            height: 36px;
+            background: #e8e8e8;
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            gap: 8px;
+        }
+
+        .browser-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .dot-red { background: #ff5f57; }
+        .dot-yellow { background: #febc2e; }
+        .dot-green { background: #28c840; }
+
+        .url-bar {
+            flex: 1;
+            height: 22px;
+            background: #ffffff;
+            border-radius: 4px;
+            margin-left: 12px;
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            font-size: 11px;
+            color: #666;
+        }
+
+        .page-content {
+            padding: 16px;
+            height: calc(100% - 36px);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Clutter elements */
+        .clutter {
+            position: absolute;
+            opacity: 1;
+        }
+
+        .nav-bar {
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 50px;
+            background: linear-gradient(90deg, #4a90d9, #357abd);
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            gap: 20px;
+        }
+
+        .nav-item {
+            color: white;
+            font-size: 12px;
+            opacity: 0.9;
+        }
+
+        .nav-logo {
+            width: 80px;
+            height: 24px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 4px;
+        }
+
+        .sidebar-left {
+            position: absolute;
+            top: 60px;
+            left: 0;
+            width: 140px;
+            height: 350px;
+            background: #f5f5f5;
+            padding: 12px;
+        }
+
+        .sidebar-item {
+            height: 28px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            margin-bottom: 8px;
+        }
+
+        .sidebar-right {
+            position: absolute;
+            top: 60px;
+            right: 0;
+            width: 160px;
+            height: 350px;
+            padding: 8px;
+        }
+
+        .ad-box {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a5a);
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 10px;
+            color: white;
+            font-size: 10px;
+            text-align: center;
+        }
+
+        .ad-box.large {
+            height: 180px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .ad-label {
+            font-size: 8px;
+            opacity: 0.7;
+            margin-bottom: 4px;
+        }
+
+        .ad-text {
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .ad-box.small {
+            height: 70px;
+            background: linear-gradient(135deg, #ffd93d, #f9c846);
+            color: #333;
+        }
+
+        .popup-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .popup {
+            width: 280px;
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+
+        .popup-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .popup-text {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 16px;
+        }
+
+        .popup-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .popup-close {
+            position: absolute;
+            top: 8px;
+            right: 12px;
+            font-size: 18px;
+            color: #999;
+            cursor: pointer;
+        }
+
+        .cookie-banner {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #333;
+            color: white;
+            padding: 12px 16px;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 5;
+        }
+
+        .cookie-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 6px 16px;
+            border-radius: 4px;
+            font-size: 10px;
+        }
+
+        /* Main content (what we keep) */
+        .main-content {
+            position: absolute;
+            top: 60px;
+            left: 150px;
+            right: 170px;
+            padding: 16px;
+        }
+
+        .article-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #222;
+            margin-bottom: 12px;
+            line-height: 1.3;
+        }
+
+        .article-meta {
+            font-size: 11px;
+            color: #888;
+            margin-bottom: 16px;
+        }
+
+        .article-paragraph {
+            font-size: 13px;
+            line-height: 1.6;
+            color: #444;
+            margin-bottom: 12px;
+        }
+
+        .article-heading {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+            margin: 16px 0 10px;
+        }
+
+        /* Markdown result - positioned towards top of webpage */
+        .markdown-result {
+            position: absolute;
+            top: 45%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: calc(100% - 64px);
+            padding: 16px;
+            background: transparent;
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            opacity: 0;
+            z-index: 5;
+        }
+
+        .md-title {
+            color: #222;
+            font-size: 22px;
+            font-weight: bold;
+            margin-bottom: 16px;
+        }
+
+        .md-title::before {
+            content: "# ";
+            color: #2da44e;
+        }
+
+        .md-meta {
+            color: #666;
+            font-size: 12px;
+            margin-bottom: 20px;
+            font-style: italic;
+        }
+
+        .md-paragraph {
+            color: #333;
+            font-size: 13px;
+            line-height: 1.7;
+            margin-bottom: 16px;
+        }
+
+        .md-heading {
+            color: #222;
+            font-size: 16px;
+            font-weight: bold;
+            margin: 20px 0 12px;
+        }
+
+        .md-heading::before {
+            content: "## ";
+            color: #2da44e;
+        }
+
+        .md-cursor {
+            display: inline-block;
+            width: 2px;
+            height: 16px;
+            background: #2da44e;
+            animation: blink 1s infinite;
+            vertical-align: middle;
+            margin-left: 2px;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        /* Scan line effect */
+        .scan-line {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, rgba(126, 231, 135, 0.8), rgba(126, 231, 135, 1), rgba(126, 231, 135, 0.8), transparent);
+            box-shadow: 0 0 20px rgba(126, 231, 135, 0.5);
+            opacity: 0;
+            z-index: 20;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Webpage mockup -->
+        <div class="webpage">
+            <div class="browser-bar">
+                <div class="browser-dot dot-red"></div>
+                <div class="browser-dot dot-yellow"></div>
+                <div class="browser-dot dot-green"></div>
+                <div class="url-bar">https://example.com/article/understanding-web-content</div>
+            </div>
+            <div class="page-content">
+                <!-- Token Counter -->
+                <div class="token-counter">
+                    <div class="token-value">
+                        <span class="number">52,218</span><span class="token-unit">tokens</span>
+                    </div>
+                </div>
+
+                <!-- Navigation -->
+                <div class="clutter nav-bar">
+                    <div class="nav-logo"></div>
+                    <span class="nav-item">Home</span>
+                    <span class="nav-item">News</span>
+                    <span class="nav-item">Tech</span>
+                    <span class="nav-item">About</span>
+                    <span class="nav-item">Contact</span>
+                </div>
+
+                <!-- Left Sidebar -->
+                <div class="clutter sidebar-left">
+                    <div class="sidebar-item"></div>
+                    <div class="sidebar-item"></div>
+                    <div class="sidebar-item"></div>
+                    <div class="sidebar-item"></div>
+                    <div class="sidebar-item"></div>
+                    <div class="sidebar-item"></div>
+                    <div class="sidebar-item"></div>
+                </div>
+
+                <!-- Right Sidebar (Ads) -->
+                <div class="clutter sidebar-right">
+                    <div class="ad-box large">
+                        <div class="ad-label">ADVERTISEMENT</div>
+                        <div class="ad-text">🎯 Special Offer!</div>
+                        <div style="font-size: 9px; margin-top: 8px;">Click here now</div>
+                    </div>
+                    <div class="ad-box small">
+                        <div class="ad-label">SPONSORED</div>
+                        <div class="ad-text">50% OFF</div>
+                    </div>
+                </div>
+
+                <!-- Main Content -->
+                <div class="main-content">
+                    <h1 class="article-title">Understanding Modern Web Architecture</h1>
+                    <div class="article-meta">By Jane Smith • December 15, 2024 • 5 min read</div>
+                    <p class="article-paragraph">The evolution of web architecture has transformed how we build and deploy applications. Modern frameworks emphasize component-based design and reactive data flow.</p>
+                    <h2 class="article-heading">Key Concepts</h2>
+                    <p class="article-paragraph">Server-side rendering, static generation, and edge computing have become essential patterns for building performant web applications.</p>
+                </div>
+
+                <!-- Cookie Banner -->
+                <div class="clutter cookie-banner">
+                    <span>🍪 We use cookies to enhance your experience. By continuing, you agree to our policy.</span>
+                    <button class="cookie-btn">Accept All</button>
+                </div>
+
+                <!-- Popup -->
+                <div class="clutter popup-overlay">
+                    <div class="popup" style="position: relative;">
+                        <span class="popup-close">×</span>
+                        <div class="popup-title">📧 Subscribe Now!</div>
+                        <div class="popup-text">Get the latest updates delivered to your inbox weekly!</div>
+                        <button class="popup-btn">Sign Up Free</button>
+                    </div>
+                </div>
+
+                <!-- Scan Line -->
+                <div class="scan-line"></div>
+
+                <!-- Markdown Result -->
+                <div class="markdown-result">
+                    <div class="md-title">Understanding Modern Web Architecture</div>
+                    <div class="md-meta">By Jane Smith • December 15, 2024 • 5 min read</div>
+                    <p class="md-paragraph">The evolution of web architecture has transformed how we build and deploy applications. Modern frameworks emphasize component-based design and reactive data flow.</p>
+                    <div class="md-heading">Key Concepts</div>
+                    <p class="md-paragraph">Server-side rendering, static generation, and edge computing have become essential patterns for building performant web applications.<span class="md-cursor"></span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Token counter animation helper for webpage
+        function animateTokens(start, end, duration) {
+            const numberEl = document.querySelector('.webpage .token-value .number');
+            const valueEl = document.querySelector('.webpage .token-value');
+            const startTime = performance.now();
+            
+            function update(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / (duration * 1000), 1);
+                
+                // Easing function
+                const easeOutQuart = 1 - Math.pow(1 - progress, 4);
+                const current = Math.round(start + (end - start) * easeOutQuart);
+                
+                numberEl.textContent = current.toLocaleString();
+                
+                // Change color when significantly reduced
+                if (current < start * 0.5) {
+                    valueEl.classList.add('reduced');
+                }
+                
+                if (progress < 1) {
+                    requestAnimationFrame(update);
+                }
+            }
+            
+            requestAnimationFrame(update);
+        }
+
+        // Wait for page load
+        window.addEventListener('load', () => {
+            const tl = gsap.timeline({ repeat: -1, repeatDelay: 2 });
+
+            // Initial state
+            gsap.set('.markdown-result', { opacity: 0 });
+            gsap.set('.scan-line', { top: 0, opacity: 0 });
+            gsap.set('.webpage .token-counter', { opacity: 0, scale: 0.9 });
+
+            // Reset token display
+            const resetTokens = () => {
+                document.querySelector('.webpage .token-value .number').textContent = '52,218';
+                document.querySelector('.webpage .token-value').classList.remove('reduced');
+            };
+
+            // Phase 1: Show the cluttered page and token counter
+            tl.to('.webpage .token-counter', {
+                opacity: 1,
+                scale: 1,
+                duration: 0.5,
+                ease: 'back.out(1.4)'
+            });
+
+
+
+            // Phase 2: Scan line sweeps down
+            tl.to('.scan-line', {
+                opacity: 1,
+                duration: 0.2
+            })
+            .to('.scan-line', {
+                top: '100%',
+                duration: 1.2,
+                ease: 'power1.inOut'
+            });
+
+            // Start token countdown with the scan
+            tl.call(() => animateTokens(52218, 10359, 1.2), [], '-=1.2');
+
+            // Phase 3: Remove clutter elements as scan passes
+            tl.to('.popup-overlay', {
+                opacity: 0,
+                scale: 0.8,
+                duration: 0.4,
+                ease: 'power2.in'
+            }, '-=1.1');
+
+            tl.to('.nav-bar', {
+                opacity: 0,
+                y: -20,
+                duration: 0.3,
+                ease: 'power2.in'
+            }, '-=0.9');
+
+            tl.to('.sidebar-left', {
+                opacity: 0,
+                x: -30,
+                duration: 0.3,
+                ease: 'power2.in'
+            }, '-=0.7');
+
+            tl.to('.sidebar-right', {
+                opacity: 0,
+                x: 30,
+                duration: 0.3,
+                ease: 'power2.in'
+            }, '-=0.6');
+
+            tl.to('.cookie-banner', {
+                opacity: 0,
+                y: 20,
+                duration: 0.3,
+                ease: 'power2.in'
+            }, '-=0.3');
+
+            tl.to('.scan-line', {
+                opacity: 0,
+                duration: 0.2
+            });
+
+            // Pause to show the cleaned page
+            tl.to({}, { duration: 2 });
+
+            // Phase 4: Scan line sweeps down for markdown conversion
+            tl.set('.scan-line', { top: 0 });
+            tl.to('.scan-line', {
+                opacity: 1,
+                duration: 0.2
+            })
+            .to('.scan-line', {
+                top: '100%',
+                duration: 1.2,
+                ease: 'power1.inOut'
+            });
+
+            // Start token countdown with the scan
+            tl.call(() => animateTokens(10359, 994, 1.2), [], '-=1.2');
+
+            // Fade out browser chrome and main-content as scan passes
+            tl.to('.browser-bar', {
+                opacity: 0,
+                duration: 0.4,
+                ease: 'power2.in'
+            }, '-=1.0');
+
+            tl.to('.main-content', {
+                opacity: 0,
+                duration: 0.6,
+                ease: 'power2.in'
+            }, '-=0.8');
+
+            tl.to('.markdown-result', {
+                opacity: 1,
+                duration: 1.2,
+                ease: 'none'
+            }, '-=0.2');
+
+            tl.to('.scan-line', {
+                opacity: 0,
+                duration: 0.2
+            }, '-=0.2');
+
+            // Phase 5: Hold for viewing
+            tl.to({}, { duration: 2.5 });
+
+            // Phase 6: Reset for loop
+            tl.to('.markdown-result', {
+                opacity: 0,
+                duration: 0.4
+            });
+
+            tl.set('.main-content', { opacity: 1 });
+            tl.set('.browser-bar', { opacity: 1 });
+            tl.set('.clutter', { opacity: 1, x: 0, y: 0, scale: 1 });
+            tl.set('.scan-line', { top: 0, opacity: 0 });
+            tl.set('.markdown-result', { opacity: 0 });
+            tl.set('.webpage .token-counter', { opacity: 0, scale: 0.9 });
+            tl.call(resetTokens);
+        });
+    </script>
+</body>
+</html>
