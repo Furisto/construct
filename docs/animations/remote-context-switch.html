@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Construct Context Switching</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0d1117;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+        }
+
+        .container {
+            width: 1200px;
+            height: 675px;
+            background: #0d1117;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Subtle grid background */
+        .grid-bg {
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(88, 166, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(88, 166, 255, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        /* CLI Terminal */
+        .cli {
+            position: absolute;
+            left: 60px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 340px;
+            opacity: 0;
+        }
+
+        .terminal-box {
+            background: #161b22;
+            border: 2px solid #30363d;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .terminal-header {
+            height: 32px;
+            background: #21262d;
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            gap: 8px;
+        }
+
+        .terminal-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .dot-red { background: #ff5f57; }
+        .dot-yellow { background: #febc2e; }
+        .dot-green { background: #28c840; }
+
+        .terminal-title {
+            font-size: 11px;
+            color: #7d8590;
+            margin-left: 8px;
+        }
+
+        .terminal-content {
+            padding: 16px;
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            font-size: 11px;
+            min-height: 200px;
+        }
+
+        .term-line {
+            margin-bottom: 8px;
+            opacity: 0;
+        }
+
+        .prompt {
+            color: #7ee787;
+        }
+
+        .cmd {
+            color: #e6edf3;
+        }
+
+        .flag {
+            color: #ff7b72;
+        }
+
+        .output {
+            color: #7d8590;
+        }
+
+        .success {
+            color: #7ee787;
+        }
+
+        .context-local { color: #7ee787; }
+        .context-staging { color: #ffa657; }
+        .context-prod { color: #ff7b72; }
+
+        /* Current context indicator */
+        .context-indicator {
+            position: absolute;
+            left: 60px;
+            bottom: 120px;
+            opacity: 0;
+        }
+
+        .indicator-box {
+            background: #161b22;
+            border: 2px solid #30363d;
+            border-radius: 8px;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .indicator-label {
+            font-size: 10px;
+            color: #7d8590;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .indicator-value {
+            font-family: 'SF Mono', monospace;
+            font-size: 14px;
+            font-weight: 600;
+            color: #7ee787;
+        }
+
+        .indicator-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #7ee787;
+            box-shadow: 0 0 10px currentColor;
+        }
+
+        /* Daemon nodes */
+        .daemons {
+            position: absolute;
+            right: 80px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+
+        .daemon-node {
+            width: 280px;
+            background: #161b22;
+            border: 2px solid #30363d;
+            border-radius: 10px;
+            padding: 16px;
+            opacity: 0;
+            position: relative;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        .daemon-node.active {
+            border-color: #58a6ff;
+            box-shadow: 0 0 30px rgba(88, 166, 255, 0.3);
+        }
+
+        .daemon-node.local.active {
+            border-color: #7ee787;
+            box-shadow: 0 0 30px rgba(126, 231, 135, 0.3);
+        }
+
+        .daemon-node.staging.active {
+            border-color: #ffa657;
+            box-shadow: 0 0 30px rgba(255, 166, 87, 0.3);
+        }
+
+        .daemon-node.prod.active {
+            border-color: #ff7b72;
+            box-shadow: 0 0 30px rgba(255, 123, 114, 0.3);
+        }
+
+        .daemon-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .daemon-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .daemon-icon svg {
+            width: 18px;
+            height: 18px;
+            fill: #7d8590;
+        }
+
+        .daemon-node.local .daemon-icon {
+            background: rgba(126, 231, 135, 0.15);
+        }
+        .daemon-node.local .daemon-icon svg {
+            fill: #7ee787;
+        }
+
+        .daemon-node.staging .daemon-icon {
+            background: rgba(255, 166, 87, 0.15);
+        }
+        .daemon-node.staging .daemon-icon svg {
+            fill: #ffa657;
+        }
+
+        .daemon-node.prod .daemon-icon {
+            background: rgba(255, 123, 114, 0.15);
+        }
+        .daemon-node.prod .daemon-icon svg {
+            fill: #ff7b72;
+        }
+
+        .daemon-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #e6edf3;
+        }
+
+        .daemon-endpoint {
+            font-size: 10px;
+            color: #7d8590;
+            font-family: 'SF Mono', monospace;
+        }
+
+        .daemon-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 10px;
+            color: #7d8590;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #7d8590;
+        }
+
+        .daemon-node.active .status-dot {
+            background: #7ee787;
+            box-shadow: 0 0 8px rgba(126, 231, 135, 0.6);
+        }
+
+        /* Connection line */
+        .connection-svg {
+            position: absolute;
+            left: 400px;
+            top: 0;
+            width: 400px;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .connection-path {
+            fill: none;
+            stroke: #30363d;
+            stroke-width: 2;
+        }
+
+        .connection-active {
+            fill: none;
+            stroke: url(#gradient-local);
+            stroke-width: 3;
+            stroke-dasharray: 1000;
+            stroke-dashoffset: 1000;
+            filter: drop-shadow(0 0 6px rgba(126, 231, 135, 0.6));
+        }
+
+        /* Active indicator on node */
+        .active-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            width: 24px;
+            height: 24px;
+            background: #7ee787;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transform: scale(0);
+        }
+
+        .active-badge svg {
+            width: 14px;
+            height: 14px;
+            fill: #0d1117;
+        }
+
+        .daemon-node.local .active-badge { background: #7ee787; }
+        .daemon-node.staging .active-badge { background: #ffa657; }
+        .daemon-node.prod .active-badge { background: #ff7b72; }
+
+        /* Floating task indicator */
+        .task-float {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            opacity: 0;
+            z-index: 20;
+        }
+
+        .task-card {
+            background: #161b22;
+            border: 2px solid #58a6ff;
+            border-radius: 10px;
+            padding: 16px 24px;
+            text-align: center;
+            box-shadow: 0 0 40px rgba(88, 166, 255, 0.3);
+        }
+
+        .task-label {
+            font-size: 10px;
+            color: #7d8590;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .task-value {
+            font-family: 'SF Mono', monospace;
+            font-size: 12px;
+            color: #e6edf3;
+        }
+
+        .task-icon {
+            display: inline-block;
+            margin-right: 6px;
+            color: #7ee787;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="grid-bg"></div>
+
+        <!-- Connection SVG -->
+        <svg class="connection-svg" viewBox="0 0 400 675">
+            <defs>
+                <linearGradient id="gradient-local" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" style="stop-color:#58a6ff"/>
+                    <stop offset="100%" style="stop-color:#7ee787"/>
+                </linearGradient>
+                <linearGradient id="gradient-staging" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" style="stop-color:#58a6ff"/>
+                    <stop offset="100%" style="stop-color:#ffa657"/>
+                </linearGradient>
+                <linearGradient id="gradient-prod" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" style="stop-color:#58a6ff"/>
+                    <stop offset="100%" style="stop-color:#ff7b72"/>
+                </linearGradient>
+            </defs>
+            <!-- Paths to each daemon -->
+            <path class="connection-path path-local" d="M 0 337 Q 150 337 200 190 T 400 190"/>
+            <path class="connection-path path-staging" d="M 0 337 L 400 337"/>
+            <path class="connection-path path-prod" d="M 0 337 Q 150 337 200 485 T 400 485"/>
+
+            <!-- Active connection overlays -->
+            <path class="connection-active active-local" d="M 0 337 Q 150 337 200 190 T 400 190"/>
+            <path class="connection-active active-staging" d="M 0 337 L 400 337"/>
+            <path class="connection-active active-prod" d="M 0 337 Q 150 337 200 485 T 400 485"/>
+        </svg>
+
+        <!-- CLI Terminal -->
+        <div class="cli">
+            <div class="terminal-box">
+                <div class="terminal-header">
+                    <div class="terminal-dot dot-red"></div>
+                    <div class="terminal-dot dot-yellow"></div>
+                    <div class="terminal-dot dot-green"></div>
+                    <span class="terminal-title">~/projects</span>
+                </div>
+                <div class="terminal-content">
+                    <div class="term-line line-1">
+                        <span class="prompt">$</span> <span class="cmd">construct context use</span> <span class="context-local">local</span>
+                    </div>
+                    <div class="term-line line-2">
+                        <span class="success">✓</span> <span class="output">Switched to context "</span><span class="context-local">local</span><span class="output">"</span>
+                    </div>
+                    <div class="term-line line-3">
+                        <span class="prompt">$</span> <span class="cmd">construct context use</span> <span class="context-staging">staging</span>
+                    </div>
+                    <div class="term-line line-4">
+                        <span class="success">✓</span> <span class="output">Switched to context "</span><span class="context-staging">staging</span><span class="output">"</span>
+                    </div>
+                    <div class="term-line line-5">
+                        <span class="prompt">$</span> <span class="cmd">construct context use</span> <span class="context-prod">production</span>
+                    </div>
+                    <div class="term-line line-6">
+                        <span class="success">✓</span> <span class="output">Switched to context "</span><span class="context-prod">production</span><span class="output">"</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Current context indicator -->
+        <div class="context-indicator">
+            <div class="indicator-box">
+                <div class="indicator-dot"></div>
+                <div>
+                    <div class="indicator-label">Current Context</div>
+                    <div class="indicator-value">local</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Daemon nodes -->
+        <div class="daemons">
+            <div class="daemon-node local">
+                <div class="active-badge">
+                    <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                </div>
+                <div class="daemon-header">
+                    <div class="daemon-icon">
+                        <svg viewBox="0 0 24 24"><path d="M20 18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z"/></svg>
+                    </div>
+                    <div>
+                        <div class="daemon-name">local</div>
+                        <div class="daemon-endpoint">unix:///tmp/construct.sock</div>
+                    </div>
+                </div>
+                <div class="daemon-status">
+                    <div class="status-dot"></div>
+                    <span>Ready</span>
+                </div>
+            </div>
+
+            <div class="daemon-node staging">
+                <div class="active-badge">
+                    <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                </div>
+                <div class="daemon-header">
+                    <div class="daemon-icon">
+                        <svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
+                    </div>
+                    <div>
+                        <div class="daemon-name">staging</div>
+                        <div class="daemon-endpoint">https://staging.example.com</div>
+                    </div>
+                </div>
+                <div class="daemon-status">
+                    <div class="status-dot"></div>
+                    <span>Ready</span>
+                </div>
+            </div>
+
+            <div class="daemon-node prod">
+                <div class="active-badge">
+                    <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                </div>
+                <div class="daemon-header">
+                    <div class="daemon-icon">
+                        <svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
+                    </div>
+                    <div>
+                        <div class="daemon-name">production</div>
+                        <div class="daemon-endpoint">https://prod.example.com</div>
+                    </div>
+                </div>
+                <div class="daemon-status">
+                    <div class="status-dot"></div>
+                    <span>Ready</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Task persistence indicator -->
+        <div class="task-float">
+            <div class="task-card">
+                <div class="task-label">Session Preserved</div>
+                <div class="task-value">
+                    <span class="task-icon">✓</span>
+                    Task context transferred
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        window.addEventListener('load', () => {
+            const tl = gsap.timeline({ repeat: -1, repeatDelay: 1.5 });
+
+            // Helper to switch active daemon
+            function activateDaemon(name) {
+                document.querySelectorAll('.daemon-node').forEach(node => {
+                    node.classList.remove('active');
+                });
+                const node = document.querySelector(`.daemon-node.${name}`);
+                if (node) node.classList.add('active');
+            }
+
+            function updateIndicator(name, color) {
+                const value = document.querySelector('.indicator-value');
+                const dot = document.querySelector('.indicator-dot');
+                value.textContent = name;
+                value.style.color = color;
+                dot.style.background = color;
+                dot.style.boxShadow = `0 0 10px ${color}`;
+            }
+
+            function resetAll() {
+                document.querySelectorAll('.daemon-node').forEach(node => {
+                    node.classList.remove('active');
+                });
+                updateIndicator('local', '#7ee787');
+            }
+
+            // Set gradient for active connection
+            function setConnectionGradient(name) {
+                const path = document.querySelector(`.active-${name}`);
+                if (name === 'local') path.style.stroke = 'url(#gradient-local)';
+                if (name === 'staging') path.style.stroke = 'url(#gradient-staging)';
+                if (name === 'prod') path.style.stroke = 'url(#gradient-prod)';
+            }
+
+            // Initial states
+            gsap.set('.cli', { opacity: 0, x: -30 });
+            gsap.set('.daemon-node', { opacity: 0, x: 30 });
+            gsap.set('.context-indicator', { opacity: 0, y: 20 });
+            gsap.set('.term-line', { opacity: 0 });
+            gsap.set('.connection-active', { strokeDashoffset: 1000 });
+            gsap.set('.active-badge', { opacity: 0, scale: 0 });
+            gsap.set('.task-float', { opacity: 0, scale: 0.9 });
+
+            // Phase 1: Show CLI and daemons
+            tl.to('.cli', {
+                opacity: 1,
+                x: 0,
+                duration: 0.5,
+                ease: 'power2.out'
+            })
+            .to('.daemon-node', {
+                opacity: 1,
+                x: 0,
+                duration: 0.4,
+                stagger: 0.15,
+                ease: 'power2.out'
+            }, '-=0.3')
+            .to('.context-indicator', {
+                opacity: 1,
+                y: 0,
+                duration: 0.3
+            }, '-=0.2');
+
+            // Phase 2: Switch to LOCAL
+            tl.to('.line-1', { opacity: 1, duration: 0.3 })
+            .call(() => {
+                activateDaemon('local');
+                setConnectionGradient('local');
+            })
+            .to('.active-local', {
+                strokeDashoffset: 0,
+                duration: 0.6,
+                ease: 'power2.inOut'
+            })
+            .to('.daemon-node.local .active-badge', {
+                opacity: 1,
+                scale: 1,
+                duration: 0.3,
+                ease: 'back.out(2)'
+            }, '-=0.2')
+            .to('.line-2', { opacity: 1, duration: 0.2 })
+            .call(() => updateIndicator('local', '#7ee787'))
+            .to({}, { duration: 1 }); // Hold
+
+            // Phase 3: Switch to STAGING
+            tl.to('.line-3', { opacity: 1, duration: 0.3 })
+            .to('.daemon-node.local .active-badge', {
+                opacity: 0,
+                scale: 0,
+                duration: 0.2
+            })
+            .to('.active-local', {
+                strokeDashoffset: 1000,
+                duration: 0.4,
+                ease: 'power2.in'
+            })
+            .call(() => {
+                activateDaemon('staging');
+                setConnectionGradient('staging');
+            })
+            .to('.active-staging', {
+                strokeDashoffset: 0,
+                duration: 0.5,
+                ease: 'power2.inOut'
+            })
+            .to('.daemon-node.staging .active-badge', {
+                opacity: 1,
+                scale: 1,
+                duration: 0.3,
+                ease: 'back.out(2)'
+            }, '-=0.2')
+            .to('.line-4', { opacity: 1, duration: 0.2 })
+            .call(() => updateIndicator('staging', '#ffa657'))
+            .to({}, { duration: 1 }); // Hold
+
+            // Phase 4: Switch to PRODUCTION
+            tl.to('.line-5', { opacity: 1, duration: 0.3 })
+            .to('.daemon-node.staging .active-badge', {
+                opacity: 0,
+                scale: 0,
+                duration: 0.2
+            })
+            .to('.active-staging', {
+                strokeDashoffset: 1000,
+                duration: 0.4,
+                ease: 'power2.in'
+            })
+            .call(() => {
+                activateDaemon('prod');
+                setConnectionGradient('prod');
+            })
+            .to('.active-prod', {
+                strokeDashoffset: 0,
+                duration: 0.5,
+                ease: 'power2.inOut'
+            })
+            .to('.daemon-node.prod .active-badge', {
+                opacity: 1,
+                scale: 1,
+                duration: 0.3,
+                ease: 'back.out(2)'
+            }, '-=0.2')
+            .to('.line-6', { opacity: 1, duration: 0.2 })
+            .call(() => updateIndicator('production', '#ff7b72'))
+
+            // Show task persistence
+            .to('.task-float', {
+                opacity: 1,
+                scale: 1,
+                duration: 0.4,
+                ease: 'back.out(1.5)'
+            }, '+=0.3')
+            .to({}, { duration: 1.5 }) // Hold
+            .to('.task-float', {
+                opacity: 0,
+                scale: 0.9,
+                duration: 0.3
+            });
+
+            // Hold for viewing
+            tl.to({}, { duration: 1.5 });
+
+            // Reset
+            tl.to(['.cli', '.daemons', '.context-indicator'], {
+                opacity: 0,
+                duration: 0.4
+            })
+            .call(() => resetAll())
+            .set('.term-line', { opacity: 0 })
+            .set('.connection-active', { strokeDashoffset: 1000 })
+            .set('.active-badge', { opacity: 0, scale: 0 })
+            .set('.task-float', { opacity: 0, scale: 0.9 })
+            .set('.cli', { x: -30 })
+            .set('.daemon-node', { x: 30 })
+            .set('.context-indicator', { y: 20 });
+        });
+    </script>
+</body>
+</html>

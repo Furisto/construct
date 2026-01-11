@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Construct Remote Daemon Architecture</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0d1117;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+        }
+
+        .container {
+            width: 1200px;
+            height: 675px;
+            background: #0d1117;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Subtle grid background */
+        .grid-bg {
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(88, 166, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(88, 166, 255, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        /* Laptop / CLI */
+        .laptop {
+            position: absolute;
+            left: 80px;
+            top: 50%;
+            transform: translateY(-50%);
+            opacity: 0;
+        }
+
+        .laptop-screen {
+            width: 280px;
+            height: 180px;
+            background: #161b22;
+            border: 2px solid #30363d;
+            border-radius: 8px 8px 0 0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .laptop-base {
+            width: 320px;
+            height: 12px;
+            background: linear-gradient(180deg, #30363d 0%, #21262d 100%);
+            border-radius: 0 0 8px 8px;
+            margin-left: -20px;
+        }
+
+        .terminal {
+            padding: 12px;
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            font-size: 11px;
+            color: #e6edf3;
+        }
+
+        .terminal-header {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+
+        .terminal-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .dot-red { background: #ff5f57; }
+        .dot-yellow { background: #febc2e; }
+        .dot-green { background: #28c840; }
+
+        .terminal-line {
+            margin-bottom: 6px;
+            opacity: 0;
+        }
+
+        .prompt {
+            color: #7ee787;
+        }
+
+        .command {
+            color: #e6edf3;
+        }
+
+        .flag {
+            color: #ff7b72;
+        }
+
+        .output {
+            color: #7d8590;
+            font-size: 10px;
+        }
+
+        .cursor {
+            display: inline-block;
+            width: 7px;
+            height: 13px;
+            background: #58a6ff;
+            animation: blink 1s infinite;
+            vertical-align: middle;
+            margin-left: 2px;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        /* Connection beam */
+        .connection-container {
+            position: absolute;
+            left: 380px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 440px;
+            height: 100px;
+        }
+
+        .connection-line {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: #30363d;
+            transform: translateY(-50%);
+        }
+
+        .connection-glow {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 0%;
+            height: 2px;
+            background: linear-gradient(90deg, #58a6ff, #79c0ff);
+            box-shadow: 0 0 20px #58a6ff, 0 0 40px rgba(88, 166, 255, 0.5);
+            transform: translateY(-50%);
+        }
+
+        /* Data packets */
+        .packet {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+            opacity: 0;
+        }
+
+        .packet-outgoing {
+            background: #58a6ff;
+            box-shadow: 0 0 15px #58a6ff, 0 0 30px rgba(88, 166, 255, 0.6);
+            left: 0;
+        }
+
+        .packet-incoming {
+            background: #7ee787;
+            box-shadow: 0 0 15px #7ee787, 0 0 30px rgba(126, 231, 135, 0.6);
+            right: 0;
+        }
+
+        /* Cloud Server */
+        .cloud-server {
+            position: absolute;
+            right: 80px;
+            top: 50%;
+            transform: translateY(-50%);
+            opacity: 0;
+        }
+
+        .server-container {
+            width: 280px;
+            height: 320px;
+            background: #161b22;
+            border: 2px solid #30363d;
+            border-radius: 12px;
+            padding: 16px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .server-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #30363d;
+        }
+
+        .cloud-icon {
+            width: 32px;
+            height: 32px;
+            position: relative;
+        }
+
+        .cloud-icon svg {
+            width: 100%;
+            height: 100%;
+            fill: #58a6ff;
+        }
+
+        .server-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #e6edf3;
+        }
+
+        .server-subtitle {
+            font-size: 10px;
+            color: #7d8590;
+        }
+
+        .server-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #30363d;
+        }
+
+        .status-dot.active {
+            background: #7ee787;
+            box-shadow: 0 0 10px rgba(126, 231, 135, 0.6);
+        }
+
+        .status-text {
+            font-size: 11px;
+            color: #7d8590;
+        }
+
+        /* Agent execution area */
+        .agent-area {
+            background: #0d1117;
+            border-radius: 8px;
+            padding: 12px;
+            height: 180px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .agent-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .agent-icon {
+            width: 20px;
+            height: 20px;
+            background: #58a6ff;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.5;
+        }
+
+        .agent-icon.active {
+            opacity: 1;
+            box-shadow: 0 0 15px rgba(88, 166, 255, 0.5);
+        }
+
+        .agent-icon svg {
+            width: 12px;
+            height: 12px;
+            fill: white;
+        }
+
+        .agent-label {
+            font-size: 11px;
+            color: #7d8590;
+        }
+
+        .agent-tasks {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .task-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            background: #161b22;
+            border-radius: 6px;
+            border: 1px solid #30363d;
+            opacity: 0;
+            transform: translateX(20px);
+        }
+
+        .task-icon {
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .task-icon svg {
+            width: 14px;
+            height: 14px;
+            fill: #7d8590;
+        }
+
+        .task-item.active .task-icon svg {
+            fill: #58a6ff;
+        }
+
+        .task-item.complete .task-icon svg {
+            fill: #7ee787;
+        }
+
+        .task-text {
+            font-size: 10px;
+            color: #7d8590;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+        }
+
+        .task-item.active .task-text {
+            color: #e6edf3;
+        }
+
+        .task-spinner {
+            width: 12px;
+            height: 12px;
+            border: 2px solid #30363d;
+            border-top-color: #58a6ff;
+            border-radius: 50%;
+            margin-left: auto;
+            opacity: 0;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .task-check {
+            margin-left: auto;
+            opacity: 0;
+        }
+
+        .task-check svg {
+            width: 14px;
+            height: 14px;
+            fill: #7ee787;
+        }
+
+        /* Server glow effect */
+        .server-glow {
+            position: absolute;
+            inset: -2px;
+            border-radius: 14px;
+            background: transparent;
+            border: 2px solid transparent;
+            opacity: 0;
+        }
+
+        .server-glow.active {
+            border-color: #58a6ff;
+            box-shadow: 0 0 30px rgba(88, 166, 255, 0.3), inset 0 0 30px rgba(88, 166, 255, 0.1);
+        }
+
+        /* Labels */
+        .label {
+            position: absolute;
+            font-size: 12px;
+            font-weight: 600;
+            color: #7d8590;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0;
+        }
+
+        .label-local {
+            left: 140px;
+            top: calc(50% + 130px);
+        }
+
+        .label-remote {
+            right: 140px;
+            top: calc(50% + 200px);
+        }
+
+        /* Protocol indicator */
+        .protocol {
+            position: absolute;
+            left: 50%;
+            top: calc(50% - 70px);
+            transform: translateX(-50%);
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 11px;
+            color: #7d8590;
+            background: #161b22;
+            padding: 6px 12px;
+            border-radius: 4px;
+            border: 1px solid #30363d;
+            opacity: 0;
+        }
+
+        .protocol-active {
+            color: #58a6ff;
+            border-color: #58a6ff;
+            box-shadow: 0 0 20px rgba(88, 166, 255, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="grid-bg"></div>
+
+        <!-- Labels -->
+        <div class="label label-local">Local Machine</div>
+        <div class="label label-remote">Cloud Server</div>
+
+        <!-- Protocol indicator -->
+        <div class="protocol">HTTP/2 + ConnectRPC</div>
+
+        <!-- Laptop / CLI -->
+        <div class="laptop">
+            <div class="laptop-screen">
+                <div class="terminal">
+                    <div class="terminal-header">
+                        <div class="terminal-dot dot-red"></div>
+                        <div class="terminal-dot dot-yellow"></div>
+                        <div class="terminal-dot dot-green"></div>
+                    </div>
+                    <div class="terminal-line line-1">
+                        <span class="prompt">$</span> <span class="command">construct context use</span> <span class="flag">production</span>
+                    </div>
+                    <div class="terminal-line line-2">
+                        <span class="output">Switched to context "production"</span>
+                    </div>
+                    <div class="terminal-line line-3">
+                        <span class="prompt">$</span> <span class="command">construct new</span> <span class="flag">--agent edit</span>
+                    </div>
+                    <div class="terminal-line line-4">
+                        <span class="output">Connecting to remote daemon...</span>
+                    </div>
+                    <div class="terminal-line line-5">
+                        <span class="output" style="color: #7ee787;">Session started</span><span class="cursor"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="laptop-base"></div>
+        </div>
+
+        <!-- Connection -->
+        <div class="connection-container">
+            <div class="connection-line"></div>
+            <div class="connection-glow"></div>
+            <div class="packet packet-outgoing"></div>
+            <div class="packet packet-outgoing" style="left: 30px;"></div>
+            <div class="packet packet-incoming"></div>
+            <div class="packet packet-incoming" style="right: 30px;"></div>
+        </div>
+
+        <!-- Cloud Server -->
+        <div class="cloud-server">
+            <div class="server-glow"></div>
+            <div class="server-container">
+                <div class="server-header">
+                    <div class="cloud-icon">
+                        <svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
+                    </div>
+                    <div>
+                        <div class="server-title">Remote Daemon</div>
+                        <div class="server-subtitle">prod.example.com:8443</div>
+                    </div>
+                </div>
+
+                <div class="server-status">
+                    <div class="status-dot"></div>
+                    <div class="status-text">Daemon Status</div>
+                </div>
+
+                <div class="agent-area">
+                    <div class="agent-header">
+                        <div class="agent-icon">
+                            <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                        </div>
+                        <div class="agent-label">Agent: edit</div>
+                    </div>
+
+                    <div class="agent-tasks">
+                        <div class="task-item task-1">
+                            <div class="task-icon">
+                                <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/></svg>
+                            </div>
+                            <div class="task-text">read_file()</div>
+                            <div class="task-spinner"></div>
+                            <div class="task-check"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
+                        </div>
+                        <div class="task-item task-2">
+                            <div class="task-icon">
+                                <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                            </div>
+                            <div class="task-text">edit_file()</div>
+                            <div class="task-spinner"></div>
+                            <div class="task-check"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
+                        </div>
+                        <div class="task-item task-3">
+                            <div class="task-icon">
+                                <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V8l8 5 8-5v10zm-8-7L4 6h16l-8 5z"/></svg>
+                            </div>
+                            <div class="task-text">execute_cmd()</div>
+                            <div class="task-spinner"></div>
+                            <div class="task-check"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        window.addEventListener('load', () => {
+            const tl = gsap.timeline({ repeat: -1, repeatDelay: 1.5 });
+
+            // Initial states
+            gsap.set('.laptop', { opacity: 0, x: -30 });
+            gsap.set('.cloud-server', { opacity: 0, x: 30 });
+            gsap.set('.terminal-line', { opacity: 0 });
+            gsap.set('.connection-glow', { width: '0%' });
+            gsap.set('.packet', { opacity: 0 });
+            gsap.set('.label', { opacity: 0, y: 10 });
+            gsap.set('.protocol', { opacity: 0, y: -10 });
+            gsap.set('.task-item', { opacity: 0, x: 20 });
+            gsap.set('.task-spinner', { opacity: 0 });
+            gsap.set('.task-check', { opacity: 0, scale: 0 });
+            gsap.set('.status-dot', { className: 'status-dot' });
+            gsap.set('.agent-icon', { className: 'agent-icon' });
+            gsap.set('.server-glow', { opacity: 0 });
+
+            // Phase 1: Fade in elements
+            tl.to('.laptop', {
+                opacity: 1,
+                x: 0,
+                duration: 0.6,
+                ease: 'power2.out'
+            })
+            .to('.cloud-server', {
+                opacity: 1,
+                x: 0,
+                duration: 0.6,
+                ease: 'power2.out'
+            }, '-=0.4')
+            .to('.label', {
+                opacity: 1,
+                y: 0,
+                duration: 0.4,
+                stagger: 0.1
+            }, '-=0.3');
+
+            // Phase 2: Terminal typing
+            tl.to('.line-1', {
+                opacity: 1,
+                duration: 0.3
+            })
+            .to('.line-2', {
+                opacity: 1,
+                duration: 0.2
+            }, '+=0.3')
+            .to('.line-3', {
+                opacity: 1,
+                duration: 0.3
+            }, '+=0.2');
+
+            // Phase 3: Connection establishing
+            tl.to('.protocol', {
+                opacity: 1,
+                y: 0,
+                duration: 0.3
+            })
+            .to('.connection-glow', {
+                width: '100%',
+                duration: 0.8,
+                ease: 'power2.inOut'
+            })
+            .to('.protocol', {
+                className: 'protocol protocol-active',
+                duration: 0.2
+            }, '-=0.4')
+            .to('.server-glow', {
+                opacity: 1,
+                className: 'server-glow active',
+                duration: 0.3
+            }, '-=0.3');
+
+            // Phase 4: Connection established feedback
+            tl.to('.line-4', {
+                opacity: 1,
+                duration: 0.2
+            })
+            .to('.status-dot', {
+                className: 'status-dot active',
+                duration: 0.2
+            })
+            .to('.line-5', {
+                opacity: 1,
+                duration: 0.2
+            }, '+=0.2');
+
+            // Phase 5: Data packets flowing out
+            tl.to('.packet-outgoing', {
+                opacity: 1,
+                duration: 0.1,
+                stagger: 0.1
+            })
+            .to('.packet-outgoing', {
+                left: '100%',
+                duration: 0.6,
+                ease: 'power1.inOut',
+                stagger: 0.15
+            });
+
+            // Phase 6: Agent activation and task execution
+            tl.to('.agent-icon', {
+                className: 'agent-icon active',
+                duration: 0.2
+            }, '-=0.3')
+
+            // Task 1: read_file
+            .to('.task-1', {
+                opacity: 1,
+                x: 0,
+                duration: 0.3,
+                ease: 'power2.out'
+            })
+            .to('.task-1', {
+                className: 'task-item task-1 active',
+                duration: 0.1
+            })
+            .to('.task-1 .task-spinner', {
+                opacity: 1,
+                duration: 0.1
+            })
+            .to('.task-1 .task-spinner', {
+                opacity: 0,
+                duration: 0.1
+            }, '+=0.4')
+            .to('.task-1 .task-check', {
+                opacity: 1,
+                scale: 1,
+                duration: 0.2,
+                ease: 'back.out(2)'
+            })
+            .to('.task-1', {
+                className: 'task-item task-1 complete',
+                duration: 0.1
+            }, '-=0.1')
+
+            // Task 2: edit_file
+            .to('.task-2', {
+                opacity: 1,
+                x: 0,
+                duration: 0.3,
+                ease: 'power2.out'
+            }, '-=0.1')
+            .to('.task-2', {
+                className: 'task-item task-2 active',
+                duration: 0.1
+            })
+            .to('.task-2 .task-spinner', {
+                opacity: 1,
+                duration: 0.1
+            })
+            .to('.task-2 .task-spinner', {
+                opacity: 0,
+                duration: 0.1
+            }, '+=0.5')
+            .to('.task-2 .task-check', {
+                opacity: 1,
+                scale: 1,
+                duration: 0.2,
+                ease: 'back.out(2)'
+            })
+            .to('.task-2', {
+                className: 'task-item task-2 complete',
+                duration: 0.1
+            }, '-=0.1')
+
+            // Task 3: execute_command
+            .to('.task-3', {
+                opacity: 1,
+                x: 0,
+                duration: 0.3,
+                ease: 'power2.out'
+            }, '-=0.1')
+            .to('.task-3', {
+                className: 'task-item task-3 active',
+                duration: 0.1
+            })
+            .to('.task-3 .task-spinner', {
+                opacity: 1,
+                duration: 0.1
+            })
+            .to('.task-3 .task-spinner', {
+                opacity: 0,
+                duration: 0.1
+            }, '+=0.4')
+            .to('.task-3 .task-check', {
+                opacity: 1,
+                scale: 1,
+                duration: 0.2,
+                ease: 'back.out(2)'
+            })
+            .to('.task-3', {
+                className: 'task-item task-3 complete',
+                duration: 0.1
+            }, '-=0.1');
+
+            // Phase 7: Results flowing back
+            tl.to('.packet-outgoing', {
+                opacity: 0,
+                duration: 0.1
+            })
+            .to('.packet-incoming', {
+                opacity: 1,
+                duration: 0.1,
+                stagger: 0.1
+            })
+            .to('.packet-incoming', {
+                right: '100%',
+                duration: 0.6,
+                ease: 'power1.inOut',
+                stagger: 0.15
+            });
+
+            // Phase 8: Hold for viewing
+            tl.to({}, { duration: 2 });
+
+            // Phase 9: Reset
+            tl.to(['.laptop', '.cloud-server', '.label', '.protocol'], {
+                opacity: 0,
+                duration: 0.4
+            })
+            .set('.terminal-line', { opacity: 0 })
+            .set('.connection-glow', { width: '0%' })
+            .set('.packet-outgoing', { opacity: 0, left: 0 })
+            .set('.packet-incoming', { opacity: 0, right: 0 })
+            .set('.task-item', { opacity: 0, x: 20, className: 'task-item' })
+            .set('.task-1', { className: 'task-item task-1' })
+            .set('.task-2', { className: 'task-item task-2' })
+            .set('.task-3', { className: 'task-item task-3' })
+            .set('.task-spinner', { opacity: 0 })
+            .set('.task-check', { opacity: 0, scale: 0 })
+            .set('.status-dot', { className: 'status-dot' })
+            .set('.agent-icon', { className: 'agent-icon' })
+            .set('.server-glow', { opacity: 0, className: 'server-glow' })
+            .set('.protocol', { className: 'protocol', y: -10 })
+            .set('.label', { y: 10 })
+            .set('.laptop', { x: -30 })
+            .set('.cloud-server', { x: 30 });
+        });
+    </script>
+</body>
+</html>

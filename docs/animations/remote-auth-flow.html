@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Construct Authentication Flow</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0d1117;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+        }
+
+        .container {
+            width: 1200px;
+            height: 675px;
+            background: #0d1117;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Subtle grid background */
+        .grid-bg {
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(88, 166, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(88, 166, 255, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        /* Step indicators */
+        .steps {
+            position: absolute;
+            top: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 60px;
+            z-index: 10;
+        }
+
+        .step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            opacity: 0.3;
+            transition: opacity 0.3s ease;
+        }
+
+        .step.active,
+        .step.complete {
+            opacity: 1;
+        }
+
+        .step-number {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #21262d;
+            border: 2px solid #30363d;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 600;
+            color: #7d8590;
+        }
+
+        .step.active .step-number {
+            background: #58a6ff;
+            border-color: #58a6ff;
+            color: white;
+            box-shadow: 0 0 20px rgba(88, 166, 255, 0.5);
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 20px rgba(88, 166, 255, 0.5); }
+            50% { box-shadow: 0 0 30px rgba(88, 166, 255, 0.8); }
+        }
+
+        .step.complete .step-number {
+            background: #7ee787;
+            border-color: #7ee787;
+            color: #0d1117;
+            box-shadow: 0 0 20px rgba(126, 231, 135, 0.5);
+            animation: none;
+        }
+
+        .step-label {
+            font-size: 11px;
+            color: #7d8590;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: color 0.3s ease;
+        }
+
+        .step.active .step-label {
+            color: #e6edf3;
+        }
+
+        .step.complete .step-label {
+            color: #7ee787;
+        }
+
+        /* Server side */
+        .server-side {
+            position: absolute;
+            left: 80px;
+            top: 150px;
+            width: 320px;
+            opacity: 0;
+        }
+
+        .side-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #7d8590;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .side-label svg {
+            width: 16px;
+            height: 16px;
+            fill: #7d8590;
+        }
+
+        .terminal-box {
+            background: #161b22;
+            border: 2px solid #30363d;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .terminal-header {
+            height: 32px;
+            background: #21262d;
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            gap: 8px;
+        }
+
+        .terminal-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .dot-red { background: #ff5f57; }
+        .dot-yellow { background: #febc2e; }
+        .dot-green { background: #28c840; }
+
+        .terminal-title {
+            font-size: 11px;
+            color: #7d8590;
+            margin-left: 8px;
+        }
+
+        .terminal-content {
+            padding: 16px;
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            font-size: 11px;
+            min-height: 160px;
+        }
+
+        .term-line {
+            margin-bottom: 8px;
+            opacity: 0;
+        }
+
+        .prompt {
+            color: #7ee787;
+        }
+
+        .cmd {
+            color: #e6edf3;
+        }
+
+        .flag {
+            color: #ff7b72;
+        }
+
+        .output {
+            color: #7d8590;
+        }
+
+        .success {
+            color: #7ee787;
+        }
+
+        .highlight {
+            color: #ffa657;
+            font-weight: bold;
+        }
+
+        /* Setup code display */
+        .setup-code-display {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            opacity: 0;
+            z-index: 20;
+        }
+
+        .code-card {
+            background: #161b22;
+            border: 2px solid #30363d;
+            border-radius: 12px;
+            padding: 24px 32px;
+            text-align: center;
+        }
+
+        .code-label {
+            font-size: 11px;
+            color: #7d8590;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+        }
+
+        .code-value {
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 36px;
+            font-weight: bold;
+            color: #ffa657;
+            letter-spacing: 4px;
+            text-shadow: 0 0 30px rgba(255, 166, 87, 0.4);
+        }
+
+        .code-expiry {
+            font-size: 10px;
+            color: #7d8590;
+            margin-top: 12px;
+        }
+
+        .code-expiry svg {
+            width: 12px;
+            height: 12px;
+            fill: #7d8590;
+            vertical-align: middle;
+            margin-right: 4px;
+        }
+
+        /* Client side */
+        .client-side {
+            position: absolute;
+            right: 80px;
+            top: 150px;
+            width: 320px;
+            opacity: 0;
+        }
+
+        /* Token display */
+        .token-display {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            opacity: 0;
+            z-index: 20;
+        }
+
+        .token-card {
+            background: #161b22;
+            border: 2px solid #7ee787;
+            border-radius: 12px;
+            padding: 20px 28px;
+            text-align: center;
+            box-shadow: 0 0 40px rgba(126, 231, 135, 0.2);
+        }
+
+        .token-label {
+            font-size: 11px;
+            color: #7ee787;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .token-label svg {
+            width: 14px;
+            height: 14px;
+            fill: #7ee787;
+        }
+
+        .token-value {
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 14px;
+            color: #e6edf3;
+            background: #0d1117;
+            padding: 10px 16px;
+            border-radius: 6px;
+            letter-spacing: 1px;
+        }
+
+        /* Keyring */
+        .keyring {
+            position: absolute;
+            right: 140px;
+            bottom: 100px;
+            opacity: 0;
+            z-index: 15;
+        }
+
+        .keyring-box {
+            width: 200px;
+            background: #161b22;
+            border: 2px solid #30363d;
+            border-radius: 12px;
+            padding: 16px;
+            position: relative;
+        }
+
+        .keyring-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .keyring-icon {
+            width: 28px;
+            height: 28px;
+            background: #21262d;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .keyring-icon svg {
+            width: 16px;
+            height: 16px;
+            fill: #7d8590;
+        }
+
+        .keyring-icon.locked svg {
+            fill: #7ee787;
+        }
+
+        .keyring-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #e6edf3;
+        }
+
+        .keyring-subtitle {
+            font-size: 10px;
+            color: #7d8590;
+        }
+
+        .keyring-slot {
+            background: #0d1117;
+            border: 1px dashed #30363d;
+            border-radius: 6px;
+            padding: 12px;
+            text-align: center;
+            font-size: 10px;
+            color: #7d8590;
+            font-family: 'SF Mono', monospace;
+        }
+
+        .keyring-slot.filled {
+            border: 1px solid #7ee787;
+            color: #7ee787;
+            background: rgba(126, 231, 135, 0.1);
+        }
+
+        /* Connection arrow */
+        .flow-arrow {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            opacity: 0;
+        }
+
+        .arrow-line {
+            width: 200px;
+            height: 3px;
+            background: #30363d;
+            position: relative;
+        }
+
+        .arrow-glow {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #ffa657, #ff7b72);
+            box-shadow: 0 0 15px rgba(255, 166, 87, 0.6);
+        }
+
+        .arrow-head {
+            position: absolute;
+            right: -8px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 0;
+            height: 0;
+            border-left: 10px solid #30363d;
+            border-top: 6px solid transparent;
+            border-bottom: 6px solid transparent;
+        }
+
+        /* Secure transfer visualization */
+        .secure-packet {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            opacity: 0;
+            z-index: 25;
+        }
+
+        .packet-inner {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #ffa657, #ff7b72);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 40px rgba(255, 166, 87, 0.5);
+        }
+
+        .packet-inner svg {
+            width: 28px;
+            height: 28px;
+            fill: white;
+        }
+
+        /* Success indicator */
+        .success-badge {
+            position: absolute;
+            left: 50%;
+            bottom: 80px;
+            transform: translateX(-50%);
+            opacity: 0;
+            z-index: 30;
+        }
+
+        .badge-content {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(126, 231, 135, 0.15);
+            border: 1px solid #7ee787;
+            border-radius: 8px;
+            padding: 12px 20px;
+        }
+
+        .badge-icon {
+            width: 24px;
+            height: 24px;
+            background: #7ee787;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .badge-icon svg {
+            width: 14px;
+            height: 14px;
+            fill: #0d1117;
+        }
+
+        .badge-text {
+            font-size: 13px;
+            font-weight: 600;
+            color: #7ee787;
+        }
+
+        /* Request beam */
+        .request-beam {
+            position: absolute;
+            top: 320px;
+            left: 420px;
+            width: 360px;
+            height: 3px;
+            opacity: 0;
+        }
+
+        .beam-bg {
+            position: absolute;
+            inset: 0;
+            background: #30363d;
+            border-radius: 2px;
+        }
+
+        .beam-glow {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #58a6ff, #79c0ff);
+            box-shadow: 0 0 15px rgba(88, 166, 255, 0.6);
+            border-radius: 2px;
+        }
+
+        .beam-label {
+            position: absolute;
+            top: -24px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 10px;
+            color: #58a6ff;
+            font-family: 'SF Mono', monospace;
+            white-space: nowrap;
+            opacity: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="grid-bg"></div>
+
+        <!-- Step indicators -->
+        <div class="steps">
+            <div class="step step-1">
+                <div class="step-number">1</div>
+                <div class="step-label">Generate</div>
+            </div>
+            <div class="step step-2">
+                <div class="step-number">2</div>
+                <div class="step-label">Share</div>
+            </div>
+            <div class="step step-3">
+                <div class="step-number">3</div>
+                <div class="step-label">Exchange</div>
+            </div>
+            <div class="step step-4">
+                <div class="step-number">4</div>
+                <div class="step-label">Store</div>
+            </div>
+            <div class="step step-5">
+                <div class="step-number">5</div>
+                <div class="step-label">Authenticate</div>
+            </div>
+        </div>
+
+        <!-- Server Side -->
+        <div class="server-side">
+            <div class="side-label">
+                <svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
+                Server (SSH Access)
+            </div>
+            <div class="terminal-box">
+                <div class="terminal-header">
+                    <div class="terminal-dot dot-red"></div>
+                    <div class="terminal-dot dot-yellow"></div>
+                    <div class="terminal-dot dot-green"></div>
+                    <span class="terminal-title">server.example.com</span>
+                </div>
+                <div class="terminal-content">
+                    <div class="term-line server-line-1">
+                        <span class="prompt">$</span> <span class="cmd">construct daemon token</span> <span class="flag">create-setup</span> <span class="cmd">laptop</span>
+                    </div>
+                    <div class="term-line server-line-2">
+                        <span class="success">✓</span> <span class="output">Setup code created</span>
+                    </div>
+                    <div class="term-line server-line-3">
+                        <span class="output">Code: </span><span class="highlight">ABCD-1234</span>
+                    </div>
+                    <div class="term-line server-line-4">
+                        <span class="output">Expires in 20 minutes</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Client Side -->
+        <div class="client-side">
+            <div class="side-label">
+                <svg viewBox="0 0 24 24"><path d="M20 18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z"/></svg>
+                Local Machine
+            </div>
+            <div class="terminal-box">
+                <div class="terminal-header">
+                    <div class="terminal-dot dot-red"></div>
+                    <div class="terminal-dot dot-yellow"></div>
+                    <div class="terminal-dot dot-green"></div>
+                    <span class="terminal-title">~/projects</span>
+                </div>
+                <div class="terminal-content">
+                    <div class="term-line client-line-1">
+                        <span class="prompt">$</span> <span class="cmd">construct context add</span> <span class="flag">prod</span> <span class="cmd">\</span>
+                    </div>
+                    <div class="term-line client-line-2">
+                        <span class="cmd">  --endpoint</span> <span class="output">https://server.example.com</span> <span class="cmd">\</span>
+                    </div>
+                    <div class="term-line client-line-3">
+                        <span class="cmd">  --setup-code</span> <span class="highlight">ABCD-1234</span>
+                    </div>
+                    <div class="term-line client-line-4">
+                        <span class="success">✓</span> <span class="output">Token retrieved and stored</span>
+                    </div>
+                    <div class="term-line client-line-5">
+                        <span class="success">✓</span> <span class="output">Context "prod" added</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Setup code floating display -->
+        <div class="setup-code-display">
+            <div class="code-card">
+                <div class="code-label">Setup Code</div>
+                <div class="code-value">ABCD-1234</div>
+                <div class="code-expiry">
+                    <svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+                    Single-use • Expires in 20 min
+                </div>
+            </div>
+        </div>
+
+        <!-- Secure packet animation -->
+        <div class="secure-packet">
+            <div class="packet-inner">
+                <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+            </div>
+        </div>
+
+        <!-- Token display -->
+        <div class="token-display">
+            <div class="token-card">
+                <div class="token-label">
+                    <svg viewBox="0 0 24 24"><path d="M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>
+                    Access Token
+                </div>
+                <div class="token-value">ct_a8f3k2m9...</div>
+            </div>
+        </div>
+
+        <!-- Keyring -->
+        <div class="keyring">
+            <div class="keyring-box">
+                <div class="keyring-header">
+                    <div class="keyring-icon">
+                        <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+                    </div>
+                    <div>
+                        <div class="keyring-title">System Keyring</div>
+                        <div class="keyring-subtitle">macOS Keychain</div>
+                    </div>
+                </div>
+                <div class="keyring-slot">
+                    Empty
+                </div>
+            </div>
+        </div>
+
+        <!-- Request beam -->
+        <div class="request-beam">
+            <div class="beam-bg"></div>
+            <div class="beam-glow"></div>
+            <div class="beam-label">Authorization: Bearer ct_a8f3k2m9...</div>
+        </div>
+
+        <!-- Success badge -->
+        <div class="success-badge">
+            <div class="badge-content">
+                <div class="badge-icon">
+                    <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                </div>
+                <div class="badge-text">All requests authenticated</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        window.addEventListener('load', () => {
+            const tl = gsap.timeline({ repeat: -1, repeatDelay: 1.5 });
+
+            // Helper functions to light up steps
+            function activateStep(stepNum) {
+                const step = document.querySelector(`.step-${stepNum}`);
+                const number = step.querySelector('.step-number');
+                const label = step.querySelector('.step-label');
+
+                gsap.to(step, { opacity: 1, duration: 0.3 });
+                gsap.to(number, {
+                    background: '#58a6ff',
+                    borderColor: '#58a6ff',
+                    color: 'white',
+                    boxShadow: '0 0 25px rgba(88, 166, 255, 0.7)',
+                    scale: 1.1,
+                    duration: 0.3,
+                    ease: 'back.out(1.5)'
+                });
+                gsap.to(label, { color: '#e6edf3', duration: 0.3 });
+            }
+
+            function completeStep(stepNum) {
+                const step = document.querySelector(`.step-${stepNum}`);
+                const number = step.querySelector('.step-number');
+                const label = step.querySelector('.step-label');
+
+                gsap.to(number, {
+                    background: '#7ee787',
+                    borderColor: '#7ee787',
+                    color: '#0d1117',
+                    boxShadow: '0 0 20px rgba(126, 231, 135, 0.6)',
+                    scale: 1,
+                    duration: 0.3
+                });
+                gsap.to(label, { color: '#7ee787', duration: 0.3 });
+            }
+
+            function resetSteps() {
+                for (let i = 1; i <= 5; i++) {
+                    const step = document.querySelector(`.step-${i}`);
+                    const number = step.querySelector('.step-number');
+                    const label = step.querySelector('.step-label');
+
+                    gsap.set(step, { opacity: 0.3 });
+                    gsap.set(number, {
+                        background: '#21262d',
+                        borderColor: '#30363d',
+                        color: '#7d8590',
+                        boxShadow: 'none',
+                        scale: 1
+                    });
+                    gsap.set(label, { color: '#7d8590' });
+                }
+            }
+
+            // Initial states
+            gsap.set('.server-side', { opacity: 0, x: -20 });
+            gsap.set('.client-side', { opacity: 0, x: 20 });
+            gsap.set('.term-line', { opacity: 0 });
+            gsap.set('.setup-code-display', { opacity: 0, scale: 0.9 });
+            gsap.set('.secure-packet', { opacity: 0, scale: 0.5, x: -200 });
+            gsap.set('.token-display', { opacity: 0, scale: 0.9 });
+            gsap.set('.keyring', { opacity: 0, y: 20 });
+            gsap.set('.request-beam', { opacity: 0 });
+            gsap.set('.beam-glow', { width: '0%' });
+            gsap.set('.beam-label', { opacity: 0 });
+            gsap.set('.success-badge', { opacity: 0, y: 20 });
+            resetSteps();
+
+            // Phase 1: Show both sides
+            tl.to('.server-side', {
+                opacity: 1,
+                x: 0,
+                duration: 0.5,
+                ease: 'power2.out'
+            })
+            .to('.client-side', {
+                opacity: 1,
+                x: 0,
+                duration: 0.5,
+                ease: 'power2.out'
+            }, '-=0.3');
+
+            // Step 1: Generate setup code
+            tl.call(() => activateStep(1))
+            .to('.server-line-1', { opacity: 1, duration: 0.3 })
+            .to('.server-line-2', { opacity: 1, duration: 0.2 }, '+=0.3')
+            .to('.server-line-3', { opacity: 1, duration: 0.2 }, '+=0.1')
+            .to('.server-line-4', { opacity: 1, duration: 0.2 }, '+=0.1')
+            .call(() => completeStep(1))
+            .to({}, { duration: 0.5 }); // Delay between steps
+
+            // Step 2: Show setup code prominently
+            tl.call(() => activateStep(2))
+            .to('.setup-code-display', {
+                opacity: 1,
+                scale: 1,
+                duration: 0.4,
+                ease: 'back.out(1.5)'
+            })
+            .to({}, { duration: 0.8 }) // Hold
+            .to('.setup-code-display', {
+                opacity: 0,
+                scale: 0.9,
+                duration: 0.3
+            })
+            .call(() => completeStep(2))
+            .to({}, { duration: 0.5 }); // Delay between steps
+
+            // Step 3: Exchange - client enters code
+            tl.call(() => activateStep(3))
+            .to('.client-line-1', { opacity: 1, duration: 0.2 })
+            .to('.client-line-2', { opacity: 1, duration: 0.2 }, '+=0.1')
+            .to('.client-line-3', { opacity: 1, duration: 0.2 }, '+=0.1')
+
+            // Secure packet animation
+            .to('.secure-packet', {
+                opacity: 1,
+                scale: 1,
+                duration: 0.3,
+                ease: 'back.out(1.5)'
+            })
+            .to('.secure-packet', {
+                x: 200,
+                duration: 0.8,
+                ease: 'power2.inOut'
+            })
+            .to('.secure-packet', {
+                opacity: 0,
+                scale: 0.5,
+                duration: 0.2
+            })
+
+            // Token appears
+            .to('.token-display', {
+                opacity: 1,
+                scale: 1,
+                duration: 0.4,
+                ease: 'back.out(1.5)'
+            })
+            .to('.client-line-4', { opacity: 1, duration: 0.2 }, '-=0.2')
+            .to({}, { duration: 0.5 }) // Hold
+            .call(() => completeStep(3))
+            .to({}, { duration: 0.5 }); // Delay between steps
+
+            // Step 4: Store in keyring
+            tl.call(() => activateStep(4))
+            .to('.keyring', {
+                opacity: 1,
+                y: 0,
+                duration: 0.4,
+                ease: 'power2.out'
+            })
+            .to('.token-display', {
+                x: 200,
+                y: 100,
+                scale: 0.5,
+                duration: 0.5,
+                ease: 'power2.in'
+            })
+            .to('.token-display', {
+                opacity: 0,
+                duration: 0.2
+            })
+            .call(() => {
+                document.querySelector('.keyring-slot').textContent = 'ct_a8f3k2m9...';
+                document.querySelector('.keyring-slot').classList.add('filled');
+            })
+            .to('.keyring-icon svg', {
+                fill: '#7ee787',
+                duration: 0.2
+            })
+            .to('.client-line-5', { opacity: 1, duration: 0.2 })
+            .call(() => completeStep(4))
+            .to({}, { duration: 0.5 }); // Delay between steps
+
+            // Step 5: Authenticated requests
+            tl.call(() => activateStep(5))
+            .to('.request-beam', {
+                opacity: 1,
+                duration: 0.2
+            })
+            .to('.beam-label', {
+                opacity: 1,
+                duration: 0.2
+            })
+            .to('.beam-glow', {
+                width: '100%',
+                duration: 0.6,
+                ease: 'power2.inOut'
+            })
+            .to('.beam-glow', {
+                width: '0%',
+                left: '100%',
+                duration: 0.4,
+                ease: 'power2.in'
+            })
+            .set('.beam-glow', { left: '0%' })
+            .to('.beam-glow', {
+                width: '100%',
+                duration: 0.6,
+                ease: 'power2.inOut'
+            })
+            .to('.success-badge', {
+                opacity: 1,
+                y: 0,
+                duration: 0.4,
+                ease: 'back.out(1.5)'
+            }, '-=0.3')
+            .call(() => completeStep(5));
+
+            // Hold for viewing
+            tl.to({}, { duration: 2 });
+
+            // Reset
+            tl.to(['.server-side', '.client-side', '.keyring', '.request-beam', '.success-badge'], {
+                opacity: 0,
+                duration: 0.4
+            })
+            .call(() => resetSteps())
+            .call(() => {
+                document.querySelector('.keyring-slot').textContent = 'Empty';
+                document.querySelector('.keyring-slot').classList.remove('filled');
+            })
+            .set('.term-line', { opacity: 0 })
+            .set('.setup-code-display', { opacity: 0, scale: 0.9 })
+            .set('.secure-packet', { opacity: 0, scale: 0.5, x: -200 })
+            .set('.token-display', { opacity: 0, scale: 0.9, x: 0, y: 0 })
+            .set('.keyring', { y: 20 })
+            .set('.keyring-icon svg', { fill: '#7d8590' })
+            .set('.beam-glow', { width: '0%', left: '0%' })
+            .set('.beam-label', { opacity: 0 })
+            .set('.success-badge', { y: 20 })
+            .set('.server-side', { x: -20 })
+            .set('.client-side', { x: 20 });
+        });
+    </script>
+</body>
+</html>
