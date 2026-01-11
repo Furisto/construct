@@ -199,13 +199,16 @@ construct agent list [flags]
   * `-m, --model <model-name|id>`: Filter agents by the model they use.
   * `-n, --name <string>`: Filter agents by name (supports partial matching).
   * `-l, --limit <number>`: Limit the number of results returned.
-  * `--output <table|json|yaml>`: Specify the output format.
+  * `--output <table|json|yaml|markdown>`: Specify the output format. Use `markdown` or `md` for markdown output.
 
 **Examples**
 
 ```bash
 # List all agents in a table
 construct agent list
+
+# Export agents as markdown for documentation
+construct agent list --output markdown
 
 # Find all agents using a specific model
 construct agent ls --model "claude-3-5-sonnet"
@@ -331,7 +334,7 @@ construct task list [flags]
 
   * `-a, --agent <name|id>`: Filter tasks by the agent assigned to them.
   * `-l, --limit <number>`: Limit the number of results returned.
-  * `--output <table|json|yaml>`: Specify the output format.
+  * `--output <table|json|yaml|markdown>`: Specify the output format. Use `markdown` or `md` for markdown output.
 
 **Examples**
 
@@ -438,7 +441,7 @@ Lists messages, typically filtered by a specific task. Useful for reviewing or e
   * `-t, --task <task-id>`: (Recommended) Filter messages by task ID.
   * `-a, --agent <name|id>`: Filter by the agent that participated in the conversation.
   * `-r, --role <user|assistant>`: Filter messages by the role of the author.
-  * `--output <table|json|yaml>`: Specify the output format.
+  * `--output <table|json|yaml|markdown>`: Specify the output format. 
 
 **Examples**
 
@@ -501,7 +504,7 @@ construct model list [flags]
 **Options**
 
   * `-p, --provider <name|id>`: Filter models by their provider.
-  * `--output <table|json|yaml>`: Specify the output format.
+  * `--output <table|json|yaml|markdown>`: Specify the output format.
 
 **Examples**
 
@@ -565,7 +568,7 @@ construct provider list [flags]
 **Options**
 
   * `-t, --type <openai|anthropic>`: Filter providers by type.
-  * `--output <table|json|yaml>`: Specify the output format.
+  * `--output <table|json|yaml|markdown>`: Specify the output format.
 
 **Examples**
 
