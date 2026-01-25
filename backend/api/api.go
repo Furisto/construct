@@ -17,6 +17,7 @@ import (
 	"github.com/furisto/construct/backend/event"
 	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/secret"
+	"github.com/furisto/construct/backend/skill"
 )
 
 type AgentRuntime interface {
@@ -31,18 +32,19 @@ type Server struct {
 	listener net.Listener
 }
 
-func NewServer(runtime AgentRuntime, listener net.Listener, eventBus *event.Bus, analyticsClient analytics.Client) *Server {
+func NewServer(runtime AgentRuntime, listener net.Listener, eventBus *event.Bus, analyticsClient analytics.Client, skillInstaller *skill.Installer) *Server {
 	tokenProvider := auth.NewTokenProvider()
 
 	apiHandler := NewHandler(
 		HandlerOptions{
-			DB:            runtime.Memory(),
-			Encryption:    runtime.Encryption(),
-			AgentRuntime:  runtime,
-			MessageHub:    runtime.EventHub(),
-			EventBus:      eventBus,
-			Analytics:     analyticsClient,
-			TokenProvider: tokenProvider,
+			DB:             runtime.Memory(),
+			Encryption:     runtime.Encryption(),
+			AgentRuntime:   runtime,
+			MessageHub:     runtime.EventHub(),
+			EventBus:       eventBus,
+			Analytics:      analyticsClient,
+			TokenProvider:  tokenProvider,
+			SkillInstaller: skillInstaller,
 		},
 	)
 
@@ -81,10 +83,11 @@ func (s *Server) Shutdown(ctx context.Context) error {
 }
 
 type HandlerOptions struct {
-	DB            *memory.Client
-	Encryption    *secret.Encryption
-	AgentRuntime  AgentRuntime
-	TokenProvider *auth.TokenProvider
+	DB             *memory.Client
+	Encryption     *secret.Encryption
+	AgentRuntime   AgentRuntime
+	TokenProvider  *auth.TokenProvider
+	SkillInstaller *skill.Installer
 
 	EventBus   *event.Bus
 	MessageHub *event.MessageHub
@@ -121,6 +124,11 @@ func NewHandler(opts HandlerOptions) *Handler {
 
 	messageHandler := NewMessageHandler(opts.DB, opts.AgentRuntime, opts.MessageHub, opts.EventBus)
 	handler.mux.Handle(v1connect.NewMessageServiceHandler(messageHandler, connectOpts...))
+
+	if opts.SkillInstaller != nil {
+		skillHandler := NewSkillHandler(opts.SkillInstaller)
+		handler.mux.Handle(v1connect.NewSkillServiceHandler(skillHandler, connectOpts...))
+	}
 
 	return handler
 }

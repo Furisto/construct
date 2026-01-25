@@ -15,8 +15,11 @@ import (
 	"github.com/furisto/construct/backend/event"
 	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/secret"
+	"github.com/furisto/construct/backend/skill"
 	"github.com/furisto/construct/backend/tool/codeact"
+	"github.com/furisto/construct/shared"
 	"github.com/google/uuid"
+	"github.com/spf13/afero"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -128,7 +131,11 @@ func NewRuntime(memory *memory.Client, encryption *secret.Encryption, listener n
 		metrics:        metricsRegistry,
 	}
 
-	api := api.NewServer(runtime, listener, runtime.bus, runtime.analytics)
+	fs := afero.NewOsFs()
+	userInfo := shared.NewDefaultUserInfo(&afero.Afero{Fs: fs})
+	skillInstaller := skill.NewInstaller(fs, userInfo)
+
+	api := api.NewServer(runtime, listener, runtime.bus, runtime.analytics, skillInstaller)
 	runtime.api = api
 
 	listenerAddr := listener.Addr().String()
