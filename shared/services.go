@@ -237,10 +237,10 @@ func (r *DefaultRuntimeInfo) GOOS() string {
 }
 
 type DefaultUserInfo struct {
-	fs *afero.Afero
+	fs afero.Fs
 }
 
-func NewDefaultUserInfo(fs *afero.Afero) *DefaultUserInfo {
+func NewDefaultUserInfo(fs afero.Fs) *DefaultUserInfo {
 	return &DefaultUserInfo{fs: fs}
 }
 

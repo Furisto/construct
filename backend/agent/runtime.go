@@ -119,20 +119,20 @@ func NewRuntime(memory *memory.Client, encryption *secret.Encryption, listener n
 	}
 
 	clientFactory := NewModelProviderFactory(encryption, memory)
+	fs := afero.NewOsFs()
 
 	runtime := &Runtime{
 		memory:         memory,
 		encryption:     encryption,
 		eventHub:       messageHub,
 		bus:            eventBus,
-		taskReconciler: NewTaskReconciler(memory, codeact.NewInterpreter(options.Tools, interceptors), options.Concurrency, eventBus, messageHub, clientFactory, metricsRegistry),
+		taskReconciler: NewTaskReconciler(memory, codeact.NewInterpreter(options.Tools, interceptors), options.Concurrency, eventBus, messageHub, clientFactory, metricsRegistry, fs),
 		analytics:      options.Analytics,
 		logger:         logger,
 		metrics:        metricsRegistry,
 	}
 
-	fs := afero.NewOsFs()
-	userInfo := shared.NewDefaultUserInfo(&afero.Afero{Fs: fs})
+	userInfo := shared.NewDefaultUserInfo(fs)
 	skills := skill.NewSkillManager(fs, userInfo)
 
 	api := api.NewServer(runtime, listener, runtime.bus, runtime.analytics, skills)

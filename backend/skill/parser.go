@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"regexp"
 
 	"gopkg.in/yaml.v3"
@@ -57,17 +56,8 @@ func (p *Parser) Validate(skill *Skill, dirPath string) error {
 		return ErrInvalidNameFormat
 	}
 
-	dirName := filepath.Base(dirPath)
-	if skill.Name != dirName {
-		return fmt.Errorf("%w: got %q, expected %q", ErrNameMismatch, skill.Name, dirName)
-	}
-
 	if skill.Description == "" {
 		return ErrMissingDescription
-	}
-
-	if len(skill.Description) > MaxDescriptionLength {
-		return ErrDescriptionTooLong
 	}
 
 	return nil

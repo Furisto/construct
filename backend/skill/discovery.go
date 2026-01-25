@@ -9,16 +9,16 @@ import (
 )
 
 type Discoverer struct {
-	fs      afero.Fs
+	fs       afero.Fs
 	userInfo shared.UserInfo
-	parser  *Parser
+	parser   *Parser
 }
 
 func NewDiscoverer(fs afero.Fs, userInfo shared.UserInfo) *Discoverer {
 	return &Discoverer{
-		fs:      fs,
+		fs:       fs,
 		userInfo: userInfo,
-		parser:  NewParser(),
+		parser:   NewParser(),
 	}
 }
 
@@ -30,7 +30,7 @@ func (d *Discoverer) Discover(cwd string) ([]*Skill, error) {
 
 	skillsByName := make(map[string]*Skill)
 
-	for _, dp := range DefaultDiscoveryPaths() {
+	for _, dp := range DefaultDiscoveryPaths(d.userInfo) {
 		searchPath := d.resolvePath(dp, repoRoot)
 		if searchPath == "" {
 			continue

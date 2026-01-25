@@ -32,19 +32,19 @@ type Server struct {
 	listener net.Listener
 }
 
-func NewServer(runtime AgentRuntime, listener net.Listener, eventBus *event.Bus, analyticsClient analytics.Client, skillInstaller *skill.Installer) *Server {
+func NewServer(runtime AgentRuntime, listener net.Listener, eventBus *event.Bus, analyticsClient analytics.Client, skillInstaller *skill.SkillManager) *Server {
 	tokenProvider := auth.NewTokenProvider()
 
 	apiHandler := NewHandler(
 		HandlerOptions{
-			DB:             runtime.Memory(),
-			Encryption:     runtime.Encryption(),
-			AgentRuntime:   runtime,
-			MessageHub:     runtime.EventHub(),
-			EventBus:       eventBus,
-			Analytics:      analyticsClient,
-			TokenProvider:  tokenProvider,
-			SkillInstaller: skillInstaller,
+			DB:            runtime.Memory(),
+			Encryption:    runtime.Encryption(),
+			AgentRuntime:  runtime,
+			MessageHub:    runtime.EventHub(),
+			EventBus:      eventBus,
+			Analytics:     analyticsClient,
+			TokenProvider: tokenProvider,
+			Skills:        skillInstaller,
 		},
 	)
 
@@ -83,11 +83,11 @@ func (s *Server) Shutdown(ctx context.Context) error {
 }
 
 type HandlerOptions struct {
-	DB             *memory.Client
-	Encryption     *secret.Encryption
-	AgentRuntime   AgentRuntime
-	TokenProvider  *auth.TokenProvider
-	SkillInstaller *skill.Installer
+	DB            *memory.Client
+	Encryption    *secret.Encryption
+	AgentRuntime  AgentRuntime
+	TokenProvider *auth.TokenProvider
+	Skills        *skill.SkillManager
 
 	EventBus   *event.Bus
 	MessageHub *event.MessageHub
@@ -125,10 +125,8 @@ func NewHandler(opts HandlerOptions) *Handler {
 	messageHandler := NewMessageHandler(opts.DB, opts.AgentRuntime, opts.MessageHub, opts.EventBus)
 	handler.mux.Handle(v1connect.NewMessageServiceHandler(messageHandler, connectOpts...))
 
-	if opts.SkillInstaller != nil {
-		skillHandler := NewSkillHandler(opts.SkillInstaller)
-		handler.mux.Handle(v1connect.NewSkillServiceHandler(skillHandler, connectOpts...))
-	}
+	skillHandler := NewSkillHandler(opts.Skills)
+	handler.mux.Handle(v1connect.NewSkillServiceHandler(skillHandler, connectOpts...))
 
 	return handler
 }
