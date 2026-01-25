@@ -1,0 +1,139 @@
+// Skill API provides operations for managing skills within Construct.
+// Skills are specialized instructions that extend agent capabilities. They can be
+// installed from remote repositories (GitHub, GitLab) or direct URLs.
+syntax = "proto3";
+
+package construct.v1;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/furisto/construct/api/go/v1";
+
+// SkillService provides operations for managing skills.
+// Skills are specialized instructions that can be installed from remote sources
+// or placed manually in the skills directory.
+service SkillService {
+  // InstallSkill installs skills from a remote source.
+  rpc InstallSkill(InstallSkillRequest) returns (InstallSkillResponse) {}
+  
+  // ListSkills retrieves all installed skills.
+  rpc ListSkills(ListSkillsRequest) returns (ListSkillsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // DeleteSkill removes an installed skill.
+  rpc DeleteSkill(DeleteSkillRequest) returns (DeleteSkillResponse) {}
+
+  // UpdateSkill updates installed skills to their latest versions.
+  rpc UpdateSkill(UpdateSkillRequest) returns (UpdateSkillResponse) {}
+}
+
+// Skill represents an installed skill with its metadata and source information.
+message Skill {
+  // name is the unique identifier for the skill (lowercase alphanumeric with hyphens).
+  string name = 1 [(buf.validate.field).string.min_len = 1];
+
+  // description provides a brief summary of the skill's purpose.
+  string description = 2;
+
+  // installed_at is the timestamp when the skill was first installed.
+  google.protobuf.Timestamp installed_at = 3;
+
+  // updated_at is the timestamp when the skill was last updated.
+  google.protobuf.Timestamp updated_at = 4;
+
+  // source indicates where the skill was installed from.
+  // If not set, the skill was manually placed (local).
+  oneof source {
+    GitSource git = 5;
+    UrlSource url = 6;
+  }
+}
+
+// GitSource represents a skill installed from a git repository.
+message GitSource {
+  // provider indicates which git hosting service the skill came from.
+  GitProvider provider = 1 [(buf.validate.field).enum.defined_only = true];
+
+  // clone_url is the HTTPS URL used to clone the repository.
+  string clone_url = 2 [(buf.validate.field).string.min_len = 1];
+
+  // path is the path within the repository to the skill directory.
+  string path = 3;
+
+  // ref is the branch or tag that was checked out.
+  string ref = 4 [(buf.validate.field).string.min_len = 1];
+
+  // tree_hash is the git tree hash for detecting updates.
+  string tree_hash = 5;
+}
+
+// UrlSource represents a skill installed from a direct URL.
+message UrlSource {
+  // url is the direct URL to the SKILL.md file.
+  string url = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// GitProvider identifies the git hosting service.
+enum GitProvider {
+  // GIT_PROVIDER_UNSPECIFIED indicates an unknown provider.
+  GIT_PROVIDER_UNSPECIFIED = 0;
+
+  // GIT_PROVIDER_GITHUB indicates GitHub.
+  GIT_PROVIDER_GITHUB = 1;
+
+  // GIT_PROVIDER_GITLAB indicates GitLab.
+  GIT_PROVIDER_GITLAB = 2;
+}
+
+// ListSkillsRequest specifies parameters for listing installed skills.
+message ListSkillsRequest {}
+
+// ListSkillsResponse contains the list of installed skills.
+message ListSkillsResponse {
+  // skills is the list of installed skills.
+  repeated Skill skills = 1;
+}
+
+// InstallSkillRequest specifies the source to install skills from.
+message InstallSkillRequest {
+  // source is the installation source (e.g., "owner/repo", "github.com/owner/repo/tree/branch/path",
+  // or a direct URL ending in SKILL.md).
+  string source = 1 [(buf.validate.field).string.min_len = 1];
+
+  // force overwrites existing skills if they already exist.
+  bool force = 2;
+
+  // skill_names filters which skills to install from the source.
+  // If empty, all discovered skills are installed.
+  repeated string skill_names = 3;
+}
+
+// InstallSkillResponse contains the results of the installation.
+message InstallSkillResponse {
+  // installed_skills is the list of skills that were successfully installed.
+  repeated Skill installed_skills = 1;
+}
+
+// DeleteSkillRequest specifies which skill to delete.
+message DeleteSkillRequest {
+  // name is the name of the skill to delete.
+  string name = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// DeleteSkillResponse confirms the skill deletion (empty response).
+message DeleteSkillResponse {}
+
+// UpdateSkillRequest specifies which skills to update.
+message UpdateSkillRequest {
+  // name is the name of a specific skill to update.
+  // If empty, all skills with remote sources are updated.
+  optional string name = 1;
+}
+
+// UpdateSkillResponse contains the results of the update.
+message UpdateSkillResponse {
+  // updated_skills is the list of skills that were successfully updated.
+  repeated Skill updated_skills = 1;
+}
