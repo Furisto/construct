@@ -107,6 +107,7 @@ func NewRootCmd() *cobra.Command {
 	cmd.AddCommand(NewMessageCmd())
 	cmd.AddCommand(NewModelCmd())
 	cmd.AddCommand(NewModelProviderCmd())
+	cmd.AddCommand(NewSkillCmd())
 
 	cmd.AddCommand(NewContextCmd())
 	cmd.AddCommand(NewConfigCmd())
