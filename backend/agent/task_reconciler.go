@@ -21,8 +21,10 @@ import (
 	memory_task "github.com/furisto/construct/backend/memory/task"
 	"github.com/furisto/construct/backend/model"
 	"github.com/furisto/construct/backend/prompt"
+	"github.com/furisto/construct/backend/skill"
 	"github.com/furisto/construct/backend/tool/base"
 	"github.com/furisto/construct/backend/tool/codeact"
+	"github.com/furisto/construct/shared"
 	"github.com/furisto/construct/shared/conv"
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
@@ -55,6 +57,7 @@ const (
 )
 
 type TaskReconciler struct {
+	fs              *afero.Afero
 	memory          *memory.Client
 	interpreter     *codeact.Interpreter
 	bus             *event.Bus
@@ -84,6 +87,7 @@ func NewTaskReconciler(
 		Name: "construct",
 	})
 	return &TaskReconciler{
+		fs:              afero.NewOsFs().(*afero.Afero),
 		memory:          memory,
 		interpreter:     interpreter,
 		bus:             bus,
@@ -555,6 +559,8 @@ func (r *TaskReconciler) assembleSystemPrompt(ctx context.Context, agentInstruct
 
 	devTools := AvailableDevTools()
 
+	availableSkills := r.discoverSkills(ctx, cwd)
+
 	tmplParams := struct {
 		CurrentTime      string
 		WorkingDirectory string
@@ -564,6 +570,7 @@ func (r *TaskReconciler) assembleSystemPrompt(ctx context.Context, agentInstruct
 		ToolInstructions string
 		Tools            string
 		DevTools         *DevTools
+		AvailableSkills  string
 	}{
 		WorkingDirectory: cwd,
 		OperatingSystem:  runtime.GOOS,
@@ -572,6 +579,7 @@ func (r *TaskReconciler) assembleSystemPrompt(ctx context.Context, agentInstruct
 		ToolInstructions: toolInstruction,
 		Tools:            builder.String(),
 		DevTools:         devTools,
+		AvailableSkills:  availableSkills,
 	}
 
 	tmpl, err := template.New("system_prompt").Parse(agentInstruction)
@@ -586,6 +594,18 @@ func (r *TaskReconciler) assembleSystemPrompt(ctx context.Context, agentInstruct
 	}
 
 	return builder.String(), nil
+}
+
+func (r *TaskReconciler) discoverSkills(ctx context.Context, cwd string) string {
+	discoverer := skill.NewDiscoverer(r.fs, shared.NewDefaultUserInfo(r.fs))
+
+	skills, err := discoverer.Discover(cwd)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to discover skills", "error", err)
+		return ""
+	}
+
+	return formatSkills(skills)
 }
 
 func (r *TaskReconciler) persistModelResponse(ctx context.Context, taskID uuid.UUID, modelResponse *model.Message, cost float64) (*memory.Message, error) {
@@ -945,4 +965,35 @@ func (r *TaskReconciler) generateTitle(taskID uuid.UUID) {
 		LogError(r.logger, "failed to generate title", err)
 		r.logger.ErrorContext(context.Background(), "failed to generate title", "error", err)
 	}
+}
+
+func formatSkills(skills []*skill.Skill) string {
+	if len(skills) == 0 {
+		return ""
+	}
+
+	var builder strings.Builder
+	builder.WriteString(`<available_skills>
+Skills are specialized instructions that can be loaded on-demand when working on specific tasks like frontend development, building CPython modules, database migrations, etc.
+
+To use a skill:
+1. Read the SKILL.md file at the location path to get detailed instructions
+2. Use the list_files tool on the skill directory to discover additional content
+
+Skill directories may contain:
+- SKILL.md: Main instructions (required)
+- scripts/: Executable helper scripts
+- references/: Additional documentation and examples
+- assets/: Templates, configs, and other resources
+
+`)
+
+	for _, skill := range skills {
+		builder.WriteString(fmt.Sprintf("  <skill name=%q location=%q>\n", skill.Name, skill.Location))
+		builder.WriteString(fmt.Sprintf("    %s\n", strings.TrimSpace(skill.Description)))
+		builder.WriteString("  </skill>\n")
+	}
+
+	builder.WriteString("</available_skills>")
+	return builder.String()
 }
