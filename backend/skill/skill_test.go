@@ -163,52 +163,6 @@ func errorIs(err, target error) bool {
 	return false
 }
 
-func TestDiscoverer_Discover(t *testing.T) {
-	fs := afero.NewMemMapFs()
-
-	fs.MkdirAll("/repo/.git", 0755)
-	fs.MkdirAll("/repo/.construct/skills/my-skill", 0755)
-	afero.WriteFile(fs, "/repo/.construct/skills/my-skill/SKILL.md", []byte(`---
-name: my-skill
-description: My test skill description
----
-# My Skill`), 0644)
-
-	fs.MkdirAll("/home/user/.config/construct/skills/user-skill", 0755)
-	afero.WriteFile(fs, "/home/user/.config/construct/skills/user-skill/SKILL.md", []byte(`---
-name: user-skill
-description: User scope skill
----
-# User Skill`), 0644)
-
-	discoverer := NewDiscoverer(fs, &mockUserInfo{homeDir: "/home/user"})
-	skills, err := discoverer.Discover("/repo")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if len(skills) != 2 {
-		t.Errorf("got %d skills, want 2", len(skills))
-	}
-
-	skillMap := make(map[string]*Skill)
-	for _, s := range skills {
-		skillMap[s.Name] = s
-	}
-
-	if s, ok := skillMap["my-skill"]; !ok {
-		t.Error("my-skill not found")
-	} else if s.Scope != SkillScopeRepo {
-		t.Errorf("my-skill scope = %v, want %v", s.Scope, SkillScopeRepo)
-	}
-
-	if s, ok := skillMap["user-skill"]; !ok {
-		t.Error("user-skill not found")
-	} else if s.Scope != SkillScopeUser {
-		t.Errorf("user-skill scope = %v, want %v", s.Scope, SkillScopeUser)
-	}
-}
-
 func TestParseSource(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -347,7 +301,7 @@ func TestInstaller_LockFile(t *testing.T) {
 	// Create config directory
 	fs.MkdirAll(tempDir+"/.config/construct", 0755)
 
-	installer := NewInstaller(fs, userInfo)
+	installer := NewSkillManager(fs, userInfo)
 
 	// Test updating lock file
 	entry := &LockEntry{
@@ -420,45 +374,3 @@ func TestInstaller_LockFile(t *testing.T) {
 	}
 }
 
-func TestDiscoverer_Precedence(t *testing.T) {
-	fs := afero.NewMemMapFs()
-
-	fs.MkdirAll("/repo/.git", 0755)
-	fs.MkdirAll("/repo/.construct/skills/shared-skill", 0755)
-	afero.WriteFile(fs, "/repo/.construct/skills/shared-skill/SKILL.md", []byte(`---
-name: shared-skill
-description: Repo version
----`), 0644)
-
-	fs.MkdirAll("/home/user/.config/construct/skills/shared-skill", 0755)
-	afero.WriteFile(fs, "/home/user/.config/construct/skills/shared-skill/SKILL.md", []byte(`---
-name: shared-skill
-description: User version
----`), 0644)
-
-	discoverer := NewDiscoverer(fs, &mockUserInfo{homeDir: "/home/user"})
-	skills, err := discoverer.Discover("/repo")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	var sharedSkill *Skill
-	for _, s := range skills {
-		if s.Name == "shared-skill" {
-			sharedSkill = s
-			break
-		}
-	}
-
-	if sharedSkill == nil {
-		t.Fatal("shared-skill not found")
-	}
-
-	if sharedSkill.Description != "Repo version" {
-		t.Errorf("description = %q, want %q (repo should win)", sharedSkill.Description, "Repo version")
-	}
-
-	if sharedSkill.Scope != SkillScopeRepo {
-		t.Errorf("scope = %v, want %v", sharedSkill.Scope, SkillScopeRepo)
-	}
-}

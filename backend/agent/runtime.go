@@ -133,9 +133,9 @@ func NewRuntime(memory *memory.Client, encryption *secret.Encryption, listener n
 
 	fs := afero.NewOsFs()
 	userInfo := shared.NewDefaultUserInfo(&afero.Afero{Fs: fs})
-	skillInstaller := skill.NewInstaller(fs, userInfo)
+	skills := skill.NewSkillManager(fs, userInfo)
 
-	api := api.NewServer(runtime, listener, runtime.bus, runtime.analytics, skillInstaller)
+	api := api.NewServer(runtime, listener, runtime.bus, runtime.analytics, skills)
 	runtime.api = api
 
 	listenerAddr := listener.Addr().String()

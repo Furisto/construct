@@ -96,15 +96,15 @@ type InstalledSkill struct {
 	URL         *URLSource
 }
 
-// Installer handles skill installation, deletion, and updates.
-type Installer struct {
+// SkillManager handles skill installation, deletion, and updates.
+type SkillManager struct {
 	fs       afero.Fs
 	userInfo shared.UserInfo
 	parser   *Parser
 }
 
-func NewInstaller(fs afero.Fs, userInfo shared.UserInfo) *Installer {
-	return &Installer{
+func NewSkillManager(fs afero.Fs, userInfo shared.UserInfo) *SkillManager {
+	return &SkillManager{
 		fs:       fs,
 		userInfo: userInfo,
 		parser:   NewParser(),
@@ -205,14 +205,14 @@ func ParseSource(source string) (*Source, error) {
 }
 
 // Install installs skills from the given source.
-func (i *Installer) Install(ctx context.Context, source *Source, opts InstallOptions) ([]*InstalledSkill, error) {
+func (i *SkillManager) Install(ctx context.Context, source *Source, opts InstallOptions) ([]*InstalledSkill, error) {
 	if source.IsURL() {
 		return i.installFromURL(ctx, source, opts)
 	}
 	return i.installFromGit(ctx, source, opts)
 }
 
-func (i *Installer) installFromURL(ctx context.Context, source *Source, opts InstallOptions) ([]*InstalledSkill, error) {
+func (i *SkillManager) installFromURL(ctx context.Context, source *Source, opts InstallOptions) ([]*InstalledSkill, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, source.DirectURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -286,7 +286,7 @@ func (i *Installer) installFromURL(ctx context.Context, source *Source, opts Ins
 	}}, nil
 }
 
-func (i *Installer) installFromGit(ctx context.Context, source *Source, opts InstallOptions) ([]*InstalledSkill, error) {
+func (i *SkillManager) installFromGit(ctx context.Context, source *Source, opts InstallOptions) ([]*InstalledSkill, error) {
 	tempDir, err := afero.TempDir(i.fs, "", "skill-install-*")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp directory: %w", err)
@@ -420,7 +420,7 @@ func (i *Installer) installFromGit(ctx context.Context, source *Source, opts Ins
 	return installed, nil
 }
 
-func (i *Installer) discoverSkillsInDir(root string) ([]*Skill, error) {
+func (i *SkillManager) discoverSkillsInDir(root string) ([]*Skill, error) {
 	var skills []*Skill
 
 	// Priority paths to search
@@ -477,7 +477,7 @@ func (i *Installer) discoverSkillsInDir(root string) ([]*Skill, error) {
 	return i.discoverSkillsRecursive(root)
 }
 
-func (i *Installer) discoverSkillsRecursive(root string) ([]*Skill, error) {
+func (i *SkillManager) discoverSkillsRecursive(root string) ([]*Skill, error) {
 	var skills []*Skill
 
 	err := afero.Walk(i.fs, root, func(path string, info os.FileInfo, err error) error {
@@ -525,7 +525,7 @@ func (i *Installer) discoverSkillsRecursive(root string) ([]*Skill, error) {
 	return skills, nil
 }
 
-func (i *Installer) copySkillDir(src, dst string) error {
+func (i *SkillManager) copySkillDir(src, dst string) error {
 	if err := i.fs.MkdirAll(dst, 0755); err != nil {
 		return err
 	}
@@ -565,7 +565,7 @@ func (i *Installer) copySkillDir(src, dst string) error {
 }
 
 // Delete removes an installed skill.
-func (i *Installer) Delete(name string) error {
+func (i *SkillManager) Delete(name string) error {
 	skillsDir, err := i.skillsDir()
 	if err != nil {
 		return err
@@ -588,7 +588,7 @@ func (i *Installer) Delete(name string) error {
 }
 
 // Update updates installed skills to their latest versions.
-func (i *Installer) Update(ctx context.Context, name string) ([]*InstalledSkill, error) {
+func (i *SkillManager) Update(ctx context.Context, name string) ([]*InstalledSkill, error) {
 	lockFile, err := i.loadLockFile()
 	if err != nil {
 		return nil, err
@@ -663,7 +663,7 @@ func (i *Installer) Update(ctx context.Context, name string) ([]*InstalledSkill,
 }
 
 // List returns all installed skills.
-func (i *Installer) List() ([]*InstalledSkill, error) {
+func (i *SkillManager) List() ([]*InstalledSkill, error) {
 	skillsDir, err := i.skillsDir()
 	if err != nil {
 		return nil, err
@@ -727,7 +727,7 @@ func (i *Installer) List() ([]*InstalledSkill, error) {
 }
 
 // skillsDir returns the path to the skills directory.
-func (i *Installer) skillsDir() (string, error) {
+func (i *SkillManager) skillsDir() (string, error) {
 	configDir, err := i.userInfo.ConstructConfigDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get config directory: %w", err)
@@ -742,7 +742,7 @@ func (i *Installer) skillsDir() (string, error) {
 }
 
 // lockFilePath returns the path to the lock file.
-func (i *Installer) lockFilePath() (string, error) {
+func (i *SkillManager) lockFilePath() (string, error) {
 	configDir, err := i.userInfo.ConstructConfigDir()
 	if err != nil {
 		return "", err
@@ -751,7 +751,7 @@ func (i *Installer) lockFilePath() (string, error) {
 }
 
 // loadLockFile loads the lock file.
-func (i *Installer) loadLockFile() (*LockFile, error) {
+func (i *SkillManager) loadLockFile() (*LockFile, error) {
 	lockPath, err := i.lockFilePath()
 	if err != nil {
 		return nil, err
@@ -788,7 +788,7 @@ func (i *Installer) loadLockFile() (*LockFile, error) {
 }
 
 // updateLockFile updates or adds an entry in the lock file.
-func (i *Installer) updateLockFile(name string, entry *LockEntry) error {
+func (i *SkillManager) updateLockFile(name string, entry *LockEntry) error {
 	lockPath, err := i.lockFilePath()
 	if err != nil {
 		return err
@@ -826,7 +826,7 @@ func (i *Installer) updateLockFile(name string, entry *LockEntry) error {
 }
 
 // removeLockEntry removes an entry from the lock file.
-func (i *Installer) removeLockEntry(name string) error {
+func (i *SkillManager) removeLockEntry(name string) error {
 	lockPath, err := i.lockFilePath()
 	if err != nil {
 		return err
@@ -860,7 +860,7 @@ func (i *Installer) removeLockEntry(name string) error {
 }
 
 // writeLockFileAtomic writes the lock file atomically.
-func (i *Installer) writeLockFileAtomic(lockPath string, lockFile *LockFile) error {
+func (i *SkillManager) writeLockFileAtomic(lockPath string, lockFile *LockFile) error {
 	content, err := json.MarshalIndent(lockFile, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal lock file: %w", err)

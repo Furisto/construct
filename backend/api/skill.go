@@ -13,11 +13,11 @@ import (
 var _ v1connect.SkillServiceHandler = (*SkillHandler)(nil)
 
 type SkillHandler struct {
-	installer *skill.Installer
+	installer *skill.SkillManager
 	v1connect.UnimplementedSkillServiceHandler
 }
 
-func NewSkillHandler(installer *skill.Installer) *SkillHandler {
+func NewSkillHandler(installer *skill.SkillManager) *SkillHandler {
 	return &SkillHandler{
 		installer: installer,
 	}
