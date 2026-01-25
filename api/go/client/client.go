@@ -22,6 +22,7 @@ type Client struct {
 	task          v1connect.TaskServiceClient
 	message       v1connect.MessageServiceClient
 	auth          v1connect.AuthServiceClient
+	skill         v1connect.SkillServiceClient
 }
 
 type ClientOptions struct {
@@ -106,6 +107,7 @@ func NewClient(endpointContext EndpointContext, options ...ClientOption) (*Clien
 		task:          v1connect.NewTaskServiceClient(opts.HTTPClient, baseURL, opts.ConnectOptions...),
 		message:       v1connect.NewMessageServiceClient(opts.HTTPClient, baseURL, opts.ConnectOptions...),
 		auth:          v1connect.NewAuthServiceClient(opts.HTTPClient, baseURL, opts.ConnectOptions...),
+		skill:         v1connect.NewSkillServiceClient(opts.HTTPClient, baseURL, opts.ConnectOptions...),
 	}, nil
 }
 
@@ -133,6 +135,10 @@ func (c *Client) Auth() v1connect.AuthServiceClient {
 	return c.auth
 }
 
+func (c *Client) Skill() v1connect.SkillServiceClient {
+	return c.skill
+}
+
 type MockClient struct {
 	ModelProvider *mocks.MockModelProviderServiceClient
 	Model         *mocks.MockModelServiceClient
@@ -140,6 +146,7 @@ type MockClient struct {
 	Task          *mocks.MockTaskServiceClient
 	Message       *mocks.MockMessageServiceClient
 	Auth          *mocks.MockAuthServiceClient
+	Skill         *mocks.MockSkillServiceClient
 }
 
 func NewMockClient(ctrl *gomock.Controller) *MockClient {
@@ -150,6 +157,7 @@ func NewMockClient(ctrl *gomock.Controller) *MockClient {
 		Task:          mocks.NewMockTaskServiceClient(ctrl),
 		Message:       mocks.NewMockMessageServiceClient(ctrl),
 		Auth:          mocks.NewMockAuthServiceClient(ctrl),
+		Skill:         mocks.NewMockSkillServiceClient(ctrl),
 	}
 }
 
@@ -161,6 +169,7 @@ func (c *MockClient) Client() *Client {
 		task:          c.Task,
 		message:       c.Message,
 		auth:          c.Auth,
+		skill:         c.Skill,
 	}
 }
 
