@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"github.com/dustin/go-humanize"
 	v1 "github.com/furisto/construct/api/go/v1"
 	"github.com/spf13/cobra"
 )
@@ -23,10 +24,10 @@ func NewSkillCmd() *cobra.Command {
 
 type SkillDisplay struct {
 	Name        string `json:"name" yaml:"name" detail:"default"`
-	Description string `json:"description" yaml:"description" detail:"default"`
+	Description string `json:"description" yaml:"description" detail:"full"`
 	Source      string `json:"source" yaml:"source" detail:"default"`
-	InstalledAt string `json:"installed_at" yaml:"installed_at" detail:"full"`
-	UpdatedAt   string `json:"updated_at" yaml:"updated_at" detail:"full"`
+	InstalledAt string `json:"installed_at" yaml:"installed_at" detail:"default" column:"Installed"`
+	UpdatedAt   string `json:"updated_at" yaml:"updated_at" detail:"full" column:"Updated"`
 }
 
 func ConvertSkillToDisplay(skill *v1.Skill) *SkillDisplay {
@@ -55,10 +56,10 @@ func ConvertSkillToDisplay(skill *v1.Skill) *SkillDisplay {
 	}
 
 	if skill.InstalledAt != nil {
-		display.InstalledAt = skill.InstalledAt.AsTime().Format("2006-01-02 15:04:05")
+		display.InstalledAt = humanize.Time(skill.InstalledAt.AsTime())
 	}
 	if skill.UpdatedAt != nil {
-		display.UpdatedAt = skill.UpdatedAt.AsTime().Format("2006-01-02 15:04:05")
+		display.UpdatedAt = humanize.Time(skill.UpdatedAt.AsTime())
 	}
 
 	return display

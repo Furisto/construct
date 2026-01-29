@@ -160,11 +160,11 @@ func renderTable(resources any, options *RenderOptions) error {
 	}
 
 	// Collect headers
-	var headers []string
+	var headers []reflect.StructField
 	for i := 0; i < itemType.NumField(); i++ {
 		field := itemType.Field(i)
 		if includeField(field, options.Wide) {
-			headers = append(headers, field.Name)
+			headers = append(headers, field)
 		}
 	}
 
@@ -178,8 +178,12 @@ func renderTable(resources any, options *RenderOptions) error {
 
 	headerRow := make([]string, len(headers))
 	for i, h := range headers {
-		headerRow[i] = terminal.Bold(h)
-		widths[i] = len(h) // Width without ANSI codes
+		headerName := h.Name
+		if column := h.Tag.Get("column"); column != "" {
+			headerName = column
+		}
+		headerRow[i] = terminal.Bold(headerName)
+		widths[i] = len(headerName) // Width without ANSI codes
 	}
 	rows = append(rows, headerRow)
 
@@ -194,7 +198,7 @@ func renderTable(resources any, options *RenderOptions) error {
 
 		row := make([]string, len(headers))
 		for i, header := range headers {
-			fieldValue := item.FieldByName(header)
+			fieldValue := item.FieldByName(header.Name)
 			var strVal string
 
 			if !fieldValue.IsValid() {
