@@ -373,4 +373,3 @@ func TestInstaller_LockFile(t *testing.T) {
 		t.Errorf("expected 0 skills after removal, got %d", len(lockFile.Skills))
 	}
 }
-
