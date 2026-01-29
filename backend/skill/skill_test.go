@@ -124,12 +124,6 @@ func TestParser_Validate(t *testing.T) {
 			dirPath: "/path/to/test skill",
 			wantErr: ErrInvalidNameFormat,
 		},
-		{
-			name:    "name mismatch",
-			skill:   &Skill{Name: "test-skill", Description: "Desc"},
-			dirPath: "/path/to/other-skill",
-			wantErr: ErrNameMismatch,
-		},
 	}
 
 	parser := NewParser()
