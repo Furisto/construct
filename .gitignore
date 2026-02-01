@@ -37,3 +37,5 @@ construct.db-shm
 construct.db-wal
 
 .DS_Store
+
+.plan
