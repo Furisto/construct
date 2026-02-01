@@ -73,7 +73,6 @@ type Runtime struct {
 	api            *api.Server
 	memory         *memory.Client
 	encryption     *secret.Encryption
-	eventHub       *event.MessageHub
 	bus            *event.Bus
 	taskReconciler *TaskReconciler
 	logger         *slog.Logger
@@ -104,17 +103,12 @@ func NewRuntime(memory *memory.Client, encryption *secret.Encryption, listener n
 	metricsRegistry.MustRegister(collectors.NewBuildInfoCollector())
 	metricsRegistry.MustRegister(collectors.NewDBStatsCollector(memory.MustDB(), "construct"))
 
-	messageHub, err := event.NewMessageHub(memory)
-	if err != nil {
-		LogError(logger, "initialize message hub", err)
-		return nil, err
-	}
 	eventBus := event.NewBus(metricsRegistry)
 
 	interceptors := []codeact.Interceptor{
 		codeact.InterceptorFunc(codeact.ToolStatisticsInterceptor),
 		codeact.InterceptorFunc(codeact.DurableFunctionInterceptor),
-		codeact.NewToolEventPublisher(messageHub),
+		codeact.NewToolEventPublisher(codeact.NoopEventPublisher{}), // TODO: Replace with EventRouter
 		codeact.InterceptorFunc(codeact.ResetTemporarySessionValuesInterceptor),
 	}
 
@@ -124,9 +118,8 @@ func NewRuntime(memory *memory.Client, encryption *secret.Encryption, listener n
 	runtime := &Runtime{
 		memory:         memory,
 		encryption:     encryption,
-		eventHub:       messageHub,
 		bus:            eventBus,
-		taskReconciler: NewTaskReconciler(memory, codeact.NewInterpreter(options.Tools, interceptors), options.Concurrency, eventBus, messageHub, clientFactory, metricsRegistry),
+		taskReconciler: NewTaskReconciler(memory, codeact.NewInterpreter(options.Tools, interceptors), options.Concurrency, eventBus, clientFactory, metricsRegistry),
 		analytics:      options.Analytics,
 		logger:         logger,
 		metrics:        metricsRegistry,
@@ -209,10 +202,6 @@ func (rt *Runtime) Encryption() *secret.Encryption {
 
 func (rt *Runtime) Memory() *memory.Client {
 	return rt.memory
-}
-
-func (rt *Runtime) EventHub() *event.MessageHub {
-	return rt.eventHub
 }
 
 func WithRole(role v1.MessageRole) func(*v1.Message) {

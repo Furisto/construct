@@ -30,7 +30,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/afero"
 	"golang.org/x/sync/singleflight"
-	"google.golang.org/protobuf/types/known/timestamppb"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -61,7 +60,6 @@ type TaskReconciler struct {
 	memory          *memory.Client
 	interpreter     *codeact.Interpreter
 	bus             *event.Bus
-	eventHub        *event.MessageHub
 	queue           workqueue.TypedDelayingInterface[uuid.UUID]
 	providerFactory *ModelProviderFactory
 	concurrency     int
@@ -76,7 +74,6 @@ func NewTaskReconciler(
 	interpreter *codeact.Interpreter,
 	concurrency int,
 	bus *event.Bus,
-	eventHub *event.MessageHub,
 	providerFactory *ModelProviderFactory,
 	metricsRegistry prometheus.Registerer,
 ) *TaskReconciler {
@@ -91,7 +88,6 @@ func NewTaskReconciler(
 		memory:          memory,
 		interpreter:     interpreter,
 		bus:             bus,
-		eventHub:        eventHub,
 		providerFactory: providerFactory,
 		queue:           queue,
 		concurrency:     concurrency,
@@ -204,15 +200,10 @@ func (r *TaskReconciler) publishError(ctx context.Context, err error, taskID uui
 		KeyError, err.Error(),
 	)
 
-	msg := NewSystemMessage(taskID, WithContent(&v1.MessagePart{
-		Data: &v1.MessagePart_Error_{Error: &v1.MessagePart_Error{Message: err.Error()}},
-	}))
-
-	r.eventHub.Publish(taskID, &v1.SubscribeResponse{
-		Event: &v1.SubscribeResponse_Message{
-			Message: msg,
-		},
-	})
+	// TODO: Replace with EventRouter.Publish() when integrated
+	// msg := NewSystemMessage(taskID, WithContent(&v1.MessagePart{
+	// 	Data: &v1.MessagePart_Error_{Error: &v1.MessagePart_Error{Message: err.Error()}},
+	// }))
 }
 
 // Reconcile is the main entry point for reconciling a task's conversation state
@@ -900,24 +891,14 @@ func hasToolCalls(content []model.ContentBlock) bool {
 }
 
 func (r *TaskReconciler) publishMessage(taskID uuid.UUID, message *v1.Message) {
-	r.eventHub.Publish(taskID, &v1.SubscribeResponse{
-		Event: &v1.SubscribeResponse_Message{
-			Message: message,
-		},
-	})
+	// TODO: Replace with EventRouter.Publish() when integrated
+	_ = taskID
+	_ = message
 }
 
 func (r *TaskReconciler) publishTaskEvent(taskID uuid.UUID) {
-	taskEvent := &v1.TaskEvent{
-		TaskId:    taskID.String(),
-		Timestamp: timestamppb.Now(),
-	}
-
-	r.eventHub.Publish(taskID, &v1.SubscribeResponse{
-		Event: &v1.SubscribeResponse_TaskEvent{
-			TaskEvent: taskEvent,
-		},
-	})
+	// TODO: Replace with EventRouter.Publish() when integrated
+	_ = taskID
 }
 
 func (r *TaskReconciler) setTaskPhaseAndPublish(ctx context.Context, taskID uuid.UUID, phase TaskPhase) {

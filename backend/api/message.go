@@ -18,20 +18,18 @@ import (
 
 var _ v1connect.MessageServiceHandler = (*MessageHandler)(nil)
 
-func NewMessageHandler(db *memory.Client, runtime AgentRuntime, messageHub *event.MessageHub, eventBus *event.Bus) *MessageHandler {
+func NewMessageHandler(db *memory.Client, runtime AgentRuntime, eventBus *event.Bus) *MessageHandler {
 	return &MessageHandler{
-		db:         db,
-		runtime:    runtime,
-		messageHub: messageHub,
-		eventBus:   eventBus,
+		db:       db,
+		runtime:  runtime,
+		eventBus: eventBus,
 	}
 }
 
 type MessageHandler struct {
-	db         *memory.Client
-	runtime    AgentRuntime
-	messageHub *event.MessageHub
-	eventBus   *event.Bus
+	db       *memory.Client
+	runtime  AgentRuntime
+	eventBus *event.Bus
 	v1connect.UnimplementedMessageServiceHandler
 }
 
