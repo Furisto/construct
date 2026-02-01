@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"syscall"
 	"time"
@@ -107,6 +108,7 @@ func NewRootCmd() *cobra.Command {
 	cmd.AddCommand(NewMessageCmd())
 	cmd.AddCommand(NewModelCmd())
 	cmd.AddCommand(NewModelProviderCmd())
+	cmd.AddCommand(NewSkillCmd())
 
 	cmd.AddCommand(NewContextCmd())
 	cmd.AddCommand(NewConfigCmd())
@@ -122,6 +124,7 @@ func Execute() {
 			sentry.CurrentHub().Recover(r)
 			sentry.Flush(2 * time.Second)
 			fmt.Fprintf(os.Stderr, "Panic occurred: %v\n", r)
+			fmt.Fprintf(os.Stderr, "Stack:\n%s\n", debug.Stack())
 			os.Exit(1)
 		}
 	}()

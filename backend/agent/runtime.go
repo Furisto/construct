@@ -15,8 +15,11 @@ import (
 	"github.com/furisto/construct/backend/event"
 	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/secret"
+	"github.com/furisto/construct/backend/skill"
 	"github.com/furisto/construct/backend/tool/codeact"
+	"github.com/furisto/construct/shared"
 	"github.com/google/uuid"
+	"github.com/spf13/afero"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -116,6 +119,7 @@ func NewRuntime(memory *memory.Client, encryption *secret.Encryption, listener n
 	}
 
 	clientFactory := NewModelProviderFactory(encryption, memory)
+	fs := afero.NewOsFs()
 
 	runtime := &Runtime{
 		memory:         memory,
@@ -128,7 +132,10 @@ func NewRuntime(memory *memory.Client, encryption *secret.Encryption, listener n
 		metrics:        metricsRegistry,
 	}
 
-	api := api.NewServer(runtime, listener, runtime.bus, runtime.analytics)
+	userInfo := shared.NewDefaultUserInfo(fs)
+	skills := skill.NewSkillManager(fs, userInfo)
+
+	api := api.NewServer(runtime, listener, runtime.bus, runtime.analytics, skills)
 	runtime.api = api
 
 	listenerAddr := listener.Addr().String()

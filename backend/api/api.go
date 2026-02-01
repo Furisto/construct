@@ -17,6 +17,7 @@ import (
 	"github.com/furisto/construct/backend/event"
 	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/secret"
+	"github.com/furisto/construct/backend/skill"
 )
 
 type AgentRuntime interface {
@@ -31,7 +32,7 @@ type Server struct {
 	listener net.Listener
 }
 
-func NewServer(runtime AgentRuntime, listener net.Listener, eventBus *event.Bus, analyticsClient analytics.Client) *Server {
+func NewServer(runtime AgentRuntime, listener net.Listener, eventBus *event.Bus, analyticsClient analytics.Client, skillInstaller *skill.SkillManager) *Server {
 	tokenProvider := auth.NewTokenProvider()
 
 	apiHandler := NewHandler(
@@ -43,6 +44,7 @@ func NewServer(runtime AgentRuntime, listener net.Listener, eventBus *event.Bus,
 			EventBus:      eventBus,
 			Analytics:     analyticsClient,
 			TokenProvider: tokenProvider,
+			Skills:        skillInstaller,
 		},
 	)
 
@@ -85,6 +87,7 @@ type HandlerOptions struct {
 	Encryption    *secret.Encryption
 	AgentRuntime  AgentRuntime
 	TokenProvider *auth.TokenProvider
+	Skills        *skill.SkillManager
 
 	EventBus   *event.Bus
 	MessageHub *event.MessageHub
@@ -121,6 +124,9 @@ func NewHandler(opts HandlerOptions) *Handler {
 
 	messageHandler := NewMessageHandler(opts.DB, opts.AgentRuntime, opts.MessageHub, opts.EventBus)
 	handler.mux.Handle(v1connect.NewMessageServiceHandler(messageHandler, connectOpts...))
+
+	skillHandler := NewSkillHandler(opts.Skills)
+	handler.mux.Handle(v1connect.NewSkillServiceHandler(skillHandler, connectOpts...))
 
 	return handler
 }
