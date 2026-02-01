@@ -138,7 +138,7 @@ func NewRuntime(memory *memory.Client, encryption *secret.Encryption, listener n
 	userInfo := shared.NewDefaultUserInfo(fs)
 	skills := skill.NewSkillManager(fs, userInfo)
 
-	api := api.NewServer(runtime, listener, runtime.bus, runtime.analytics, skills)
+	api := api.NewServer(runtime, listener, runtime.bus, runtime.eventRouter, runtime.analytics, skills)
 	runtime.api = api
 
 	listenerAddr := listener.Addr().String()

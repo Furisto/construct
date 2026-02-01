@@ -109,9 +109,11 @@ func handleNewCommand(ctx context.Context, apiClient *api.Client, options *newOp
 	)
 
 	go func() {
-		watch, err := apiClient.Task().Subscribe(ctx, &connect.Request[v1.SubscribeRequest]{
-			Msg: &v1.SubscribeRequest{
-				TaskId: resp.Msg.Task.Metadata.Id,
+		taskID := resp.Msg.Task.Metadata.Id
+		watch, err := apiClient.Event().Subscribe(ctx, &connect.Request[v1.EventSubscribeRequest]{
+			Msg: &v1.EventSubscribeRequest{
+				EventTypes: []string{"task.*", "message.*"},
+				TaskId:     &taskID,
 			},
 		})
 		if err != nil {
@@ -123,11 +125,18 @@ func handleNewCommand(ctx context.Context, apiClient *api.Client, options *newOp
 
 		for watch.Receive() {
 			msg := watch.Msg()
-			switch msg.Event.(type) {
-			case *v1.SubscribeResponse_Message:
-				program.Send(msg.GetMessage())
-			case *v1.SubscribeResponse_TaskEvent:
-				program.Send(msg.GetTaskEvent())
+			if msg.Event == nil {
+				continue
+			}
+			switch payload := msg.Event.Payload.(type) {
+			case *v1.Event_Message:
+				if payload.Message != nil && payload.Message.Message != nil {
+					program.Send(payload.Message.Message)
+				}
+			case *v1.Event_Task:
+				if payload.Task != nil {
+					program.Send(payload.Task)
+				}
 			}
 		}
 

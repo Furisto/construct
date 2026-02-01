@@ -31,7 +31,7 @@ type Server struct {
 	listener net.Listener
 }
 
-func NewServer(runtime AgentRuntime, listener net.Listener, eventBus *event.Bus, analyticsClient analytics.Client, skillInstaller *skill.SkillManager) *Server {
+func NewServer(runtime AgentRuntime, listener net.Listener, eventBus *event.Bus, eventRouter *event.EventRouter, analyticsClient analytics.Client, skillInstaller *skill.SkillManager) *Server {
 	tokenProvider := auth.NewTokenProvider()
 
 	apiHandler := NewHandler(
@@ -40,6 +40,7 @@ func NewServer(runtime AgentRuntime, listener net.Listener, eventBus *event.Bus,
 			Encryption:    runtime.Encryption(),
 			AgentRuntime:  runtime,
 			EventBus:      eventBus,
+			EventRouter:   eventRouter,
 			Analytics:     analyticsClient,
 			TokenProvider: tokenProvider,
 			Skills:        skillInstaller,
@@ -87,8 +88,9 @@ type HandlerOptions struct {
 	TokenProvider *auth.TokenProvider
 	Skills        *skill.SkillManager
 
-	EventBus  *event.Bus
-	Analytics analytics.Client
+	EventBus    *event.Bus
+	EventRouter *event.EventRouter
+	Analytics   analytics.Client
 
 	RequestOptions []connect.HandlerOption
 }
@@ -124,6 +126,9 @@ func NewHandler(opts HandlerOptions) *Handler {
 
 	skillHandler := NewSkillHandler(opts.Skills)
 	handler.mux.Handle(v1connect.NewSkillServiceHandler(skillHandler, connectOpts...))
+
+	eventHandler := NewEventHandler(opts.DB, opts.EventRouter)
+	handler.mux.Handle(v1connect.NewEventServiceHandler(eventHandler, connectOpts...))
 
 	return handler
 }

@@ -36,7 +36,7 @@ const (
 	EventTypeModelProviderUpdated = "modelprovider.updated"
 	EventTypeModelProviderDeleted = "modelprovider.deleted"
 
-	// Tool events (transient, not replayed)
+	// Tool events
 	EventTypeToolCalled = "tool.called"
 	EventTypeToolResult = "tool.result"
 )

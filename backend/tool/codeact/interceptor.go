@@ -21,7 +21,7 @@ type EventPublisher interface {
 }
 
 // NoopEventPublisher is a no-op implementation of EventPublisher.
-// Used temporarily during the transition from MessageHub to EventRouter.
+// Useful for testing or when event publishing is not needed.
 type NoopEventPublisher struct{}
 
 func (NoopEventPublisher) PublishToolCall(taskID uuid.UUID, evt tooltypes.ToolCallEvent)   {}

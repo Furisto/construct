@@ -317,9 +317,9 @@ func (m *Session) handleSuspendTask() tea.Cmd {
 }
 
 func (m *Session) processTaskEvent(msg *v1.TaskEvent) tea.Cmd {
-	if msg.TaskId == m.task.Metadata.Id {
+	if msg.Task != nil && msg.Task.Metadata != nil && msg.Task.Metadata.Id == m.task.Metadata.Id {
 		return func() tea.Msg {
-			return getTaskCmd{taskId: msg.TaskId}
+			return getTaskCmd{taskId: msg.Task.Metadata.Id}
 		}
 	}
 	return nil
