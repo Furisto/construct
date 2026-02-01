@@ -13,7 +13,6 @@ import (
 	"text/template"
 	"time"
 
-	v1 "github.com/furisto/construct/api/go/v1"
 	"github.com/furisto/construct/backend/event"
 	"github.com/furisto/construct/backend/memory"
 	memory_message "github.com/furisto/construct/backend/memory/message"
@@ -60,6 +59,7 @@ type TaskReconciler struct {
 	memory          *memory.Client
 	interpreter     *codeact.Interpreter
 	bus             *event.Bus
+	eventRouter     *event.EventRouter
 	queue           workqueue.TypedDelayingInterface[uuid.UUID]
 	providerFactory *ModelProviderFactory
 	concurrency     int
@@ -74,6 +74,7 @@ func NewTaskReconciler(
 	interpreter *codeact.Interpreter,
 	concurrency int,
 	bus *event.Bus,
+	eventRouter *event.EventRouter,
 	providerFactory *ModelProviderFactory,
 	metricsRegistry prometheus.Registerer,
 ) *TaskReconciler {
@@ -88,6 +89,7 @@ func NewTaskReconciler(
 		memory:          memory,
 		interpreter:     interpreter,
 		bus:             bus,
+		eventRouter:     eventRouter,
 		providerFactory: providerFactory,
 		queue:           queue,
 		concurrency:     concurrency,
@@ -382,14 +384,10 @@ func (r *TaskReconciler) reconcileInvokeModel(ctx context.Context, taskID uuid.U
 	reconcileStart := time.Now()
 	logger.InfoContext(ctx, "model invocation phase started")
 
+	// Note: User messages are published via message.created event when created via API.
+	// The reconciler only processes them, doesn't need to re-publish.
 	if status.NextMessage.Source == types.MessageSourceUser {
-		msg, err := ConvertMemoryMessageToProto(status.NextMessage)
-		if err != nil {
-			LogError(logger, "failed to convert user message", err)
-			return Result{}, err
-		}
-		r.publishMessage(taskID, msg)
-		logger.DebugContext(ctx, "user message published")
+		logger.DebugContext(ctx, "processing user message")
 	}
 
 	modelMessages, err := r.buildMessageHistory(status.ProcessedMessages, status.NextMessage)
@@ -415,6 +413,13 @@ func (r *TaskReconciler) reconcileInvokeModel(ctx context.Context, taskID uuid.U
 
 	LogOperationStart(logger, "invoke model")
 	invokeStart := time.Now()
+
+	// Initialize streaming state for message chunks
+	streamState := &streamingState{
+		messageID:  uuid.New(), // Pre-generate ID for streaming chunks
+		chunkIndex: 0,
+	}
+
 	message, err := modelProvider.InvokeModel(
 		ctx,
 		agent.Edges.Model.Name,
@@ -422,16 +427,7 @@ func (r *TaskReconciler) reconcileInvokeModel(ctx context.Context, taskID uuid.U
 		modelMessages,
 		model.WithTools(r.interpreter),
 		model.WithStreamHandler(func(ctx context.Context, chunk string) {
-			r.publishMessage(taskID, NewAssistantMessage(taskID,
-				WithContent(&v1.MessagePart{
-					Data: &v1.MessagePart_Text_{
-						Text: &v1.MessagePart_Text{
-							Content: chunk,
-						},
-					},
-				}),
-				WithStatus(v1.ContentStatus_CONTENT_STATUS_PARTIAL),
-			))
+			r.publishMessageChunk(taskID, streamState, chunk)
 		}),
 	)
 	LogOperationEnd(logger, "invoke model", invokeStart)
@@ -493,14 +489,8 @@ func (r *TaskReconciler) reconcileInvokeModel(ctx context.Context, taskID uuid.U
 		return Result{}, fmt.Errorf("failed to persist model response: %w", err)
 	}
 
-	protoMessage, err := ConvertMemoryMessageToProto(modelMessage)
-	if err != nil {
-		LogError(logger, "failed to convert model message to proto", err)
-		return Result{}, err
-	}
-	protoMessage.Status.IsFinalResponse = !hasToolCalls(message.Content)
-	protoMessage.Status.ContentState = v1.ContentStatus_CONTENT_STATUS_COMPLETE
-	r.publishMessage(taskID, protoMessage)
+	// Publish message.created event for the persisted model response
+	r.publishMessageCreated(modelMessage)
 
 	LogOperationEnd(logger, "reconciliation (invoke_model)", reconcileStart)
 
@@ -890,21 +880,63 @@ func hasToolCalls(content []model.ContentBlock) bool {
 	return false
 }
 
-func (r *TaskReconciler) publishMessage(taskID uuid.UUID, message *v1.Message) {
-	// TODO: Replace with EventRouter.Publish() when integrated
-	_ = taskID
-	_ = message
+// streamingState tracks the state of a streaming message for chunk events
+type streamingState struct {
+	messageID  uuid.UUID
+	chunkIndex int
 }
 
-func (r *TaskReconciler) publishTaskEvent(taskID uuid.UUID) {
-	// TODO: Replace with EventRouter.Publish() when integrated
-	_ = taskID
+// publishMessageChunk publishes a message.chunk event for streaming partial content.
+func (r *TaskReconciler) publishMessageChunk(taskID uuid.UUID, state *streamingState, chunk string) {
+	if r.eventRouter == nil {
+		return
+	}
+
+	r.eventRouter.Publish(event.NewMessageChunkEvent(taskID, state.messageID, chunk, state.chunkIndex))
+	state.chunkIndex++
+}
+
+// publishMessageCreated publishes a message.created event for a persisted message.
+func (r *TaskReconciler) publishMessageCreated(message *memory.Message) {
+	if r.eventRouter == nil {
+		return
+	}
+
+	r.eventRouter.Publish(event.NewMessageCreatedEvent(message))
+}
+
+// publishMessageUpdated publishes a message.updated event when a message is finalized.
+func (r *TaskReconciler) publishMessageUpdated(message *memory.Message) {
+	if r.eventRouter == nil {
+		return
+	}
+
+	r.eventRouter.Publish(event.NewMessageUpdatedEvent(message))
 }
 
 func (r *TaskReconciler) setTaskPhaseAndPublish(ctx context.Context, taskID uuid.UUID, phase TaskPhase) {
 	p := convertTaskPhaseToMemory(phase)
-	_, err := memory.Transaction(ctx, r.memory, func(tx *memory.Client) (*memory.Task, error) {
-		return tx.Task.UpdateOneID(taskID).SetPhase(p).Save(ctx)
+
+	type result struct {
+		task          *memory.Task
+		previousPhase string
+	}
+
+	res, err := memory.Transaction(ctx, r.memory, func(tx *memory.Client) (*result, error) {
+		// Fetch current task to get previous phase
+		currentTask, err := tx.Task.Get(ctx, taskID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch current task: %w", err)
+		}
+		previousPhase := string(currentTask.Phase)
+
+		// Update the phase
+		updatedTask, err := tx.Task.UpdateOneID(taskID).SetPhase(p).Save(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to update task phase: %w", err)
+		}
+
+		return &result{task: updatedTask, previousPhase: previousPhase}, nil
 	})
 
 	if err != nil {
@@ -912,13 +944,18 @@ func (r *TaskReconciler) setTaskPhaseAndPublish(ctx context.Context, taskID uuid
 			"error", err,
 			KeyPhase, string(phase),
 		)
+		return
 	}
 
 	r.logger.DebugContext(ctx, "task phase updated",
 		KeyPhase, string(phase),
+		"previous_phase", res.previousPhase,
 	)
 
-	r.publishTaskEvent(taskID)
+	// Publish task.updated event with previous phase
+	if r.eventRouter != nil {
+		r.eventRouter.Publish(event.NewTaskUpdatedEvent(res.task, res.previousPhase))
+	}
 }
 
 func shouldGenerateTitle(task *memory.Task, messages []*memory.Message) bool {

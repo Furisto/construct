@@ -17,6 +17,7 @@ import (
 	"github.com/furisto/construct/backend/secret"
 	"github.com/furisto/construct/backend/skill"
 	"github.com/furisto/construct/backend/tool/codeact"
+	tooltypes "github.com/furisto/construct/backend/tool/types"
 	"github.com/furisto/construct/shared"
 	"github.com/google/uuid"
 	"github.com/spf13/afero"
@@ -74,6 +75,7 @@ type Runtime struct {
 	memory         *memory.Client
 	encryption     *secret.Encryption
 	bus            *event.Bus
+	eventRouter    *event.EventRouter
 	taskReconciler *TaskReconciler
 	logger         *slog.Logger
 
@@ -104,11 +106,18 @@ func NewRuntime(memory *memory.Client, encryption *secret.Encryption, listener n
 	metricsRegistry.MustRegister(collectors.NewDBStatsCollector(memory.MustDB(), "construct"))
 
 	eventBus := event.NewBus(metricsRegistry)
+	eventRouter := event.NewEventRouter(event.DefaultChannelBufferSize)
+
+	// Register ent hooks to emit CRUD events
+	event.RegisterHooks(memory, eventRouter)
+
+	// Create tool event publisher that publishes to EventRouter
+	toolEventPublisher := newEventRouterToolPublisher(eventRouter)
 
 	interceptors := []codeact.Interceptor{
 		codeact.InterceptorFunc(codeact.ToolStatisticsInterceptor),
 		codeact.InterceptorFunc(codeact.DurableFunctionInterceptor),
-		codeact.NewToolEventPublisher(codeact.NoopEventPublisher{}), // TODO: Replace with EventRouter
+		codeact.NewToolEventPublisher(toolEventPublisher),
 		codeact.InterceptorFunc(codeact.ResetTemporarySessionValuesInterceptor),
 	}
 
@@ -119,7 +128,8 @@ func NewRuntime(memory *memory.Client, encryption *secret.Encryption, listener n
 		memory:         memory,
 		encryption:     encryption,
 		bus:            eventBus,
-		taskReconciler: NewTaskReconciler(memory, codeact.NewInterpreter(options.Tools, interceptors), options.Concurrency, eventBus, clientFactory, metricsRegistry),
+		eventRouter:    eventRouter,
+		taskReconciler: NewTaskReconciler(memory, codeact.NewInterpreter(options.Tools, interceptors), options.Concurrency, eventBus, eventRouter, clientFactory, metricsRegistry),
 		analytics:      options.Analytics,
 		logger:         logger,
 		metrics:        metricsRegistry,
@@ -273,4 +283,21 @@ func NewMessage(taskID uuid.UUID, options ...func(*v1.Message)) *v1.Message {
 	}
 
 	return msg
+}
+
+// eventRouterToolPublisher implements codeact.EventPublisher to publish tool events to EventRouter.
+type eventRouterToolPublisher struct {
+	router *event.EventRouter
+}
+
+func newEventRouterToolPublisher(router *event.EventRouter) *eventRouterToolPublisher {
+	return &eventRouterToolPublisher{router: router}
+}
+
+func (p *eventRouterToolPublisher) PublishToolCall(taskID uuid.UUID, evt tooltypes.ToolCallEvent) {
+	p.router.Publish(event.NewToolCalledEvent(taskID, evt))
+}
+
+func (p *eventRouterToolPublisher) PublishToolResult(taskID uuid.UUID, evt tooltypes.ToolResultEvent) {
+	p.router.Publish(event.NewToolResultEvent(taskID, evt))
 }
