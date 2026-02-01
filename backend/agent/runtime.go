@@ -126,7 +126,7 @@ func NewRuntime(memory *memory.Client, encryption *secret.Encryption, listener n
 		encryption:     encryption,
 		eventHub:       messageHub,
 		bus:            eventBus,
-		taskReconciler: NewTaskReconciler(memory, codeact.NewInterpreter(options.Tools, interceptors), options.Concurrency, eventBus, messageHub, clientFactory, metricsRegistry, fs),
+		taskReconciler: NewTaskReconciler(memory, codeact.NewInterpreter(options.Tools, interceptors), options.Concurrency, eventBus, messageHub, clientFactory, metricsRegistry),
 		analytics:      options.Analytics,
 		logger:         logger,
 		metrics:        metricsRegistry,
