@@ -47,8 +47,6 @@ const (
 	TaskServiceUpdateTaskProcedure = "/construct.v1.TaskService/UpdateTask"
 	// TaskServiceDeleteTaskProcedure is the fully-qualified name of the TaskService's DeleteTask RPC.
 	TaskServiceDeleteTaskProcedure = "/construct.v1.TaskService/DeleteTask"
-	// TaskServiceSubscribeProcedure is the fully-qualified name of the TaskService's Subscribe RPC.
-	TaskServiceSubscribeProcedure = "/construct.v1.TaskService/Subscribe"
 	// TaskServiceSuspendTaskProcedure is the fully-qualified name of the TaskService's SuspendTask RPC.
 	TaskServiceSuspendTaskProcedure = "/construct.v1.TaskService/SuspendTask"
 )
@@ -65,8 +63,6 @@ type TaskServiceClient interface {
 	UpdateTask(context.Context, *connect.Request[v1.UpdateTaskRequest]) (*connect.Response[v1.UpdateTaskResponse], error)
 	// DeleteTask removes a task from the system.
 	DeleteTask(context.Context, *connect.Request[v1.DeleteTaskRequest]) (*connect.Response[v1.DeleteTaskResponse], error)
-	// Subscribe to task events.
-	Subscribe(context.Context, *connect.Request[v1.SubscribeRequest]) (*connect.ServerStreamForClient[v1.SubscribeResponse], error)
 	// SuspendTask suspends a task.
 	SuspendTask(context.Context, *connect.Request[v1.SuspendTaskRequest]) (*connect.Response[v1.SuspendTaskResponse], error)
 }
@@ -114,12 +110,6 @@ func NewTaskServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(taskServiceMethods.ByName("DeleteTask")),
 			connect.WithClientOptions(opts...),
 		),
-		subscribe: connect.NewClient[v1.SubscribeRequest, v1.SubscribeResponse](
-			httpClient,
-			baseURL+TaskServiceSubscribeProcedure,
-			connect.WithSchema(taskServiceMethods.ByName("Subscribe")),
-			connect.WithClientOptions(opts...),
-		),
 		suspendTask: connect.NewClient[v1.SuspendTaskRequest, v1.SuspendTaskResponse](
 			httpClient,
 			baseURL+TaskServiceSuspendTaskProcedure,
@@ -136,7 +126,6 @@ type taskServiceClient struct {
 	listTasks   *connect.Client[v1.ListTasksRequest, v1.ListTasksResponse]
 	updateTask  *connect.Client[v1.UpdateTaskRequest, v1.UpdateTaskResponse]
 	deleteTask  *connect.Client[v1.DeleteTaskRequest, v1.DeleteTaskResponse]
-	subscribe   *connect.Client[v1.SubscribeRequest, v1.SubscribeResponse]
 	suspendTask *connect.Client[v1.SuspendTaskRequest, v1.SuspendTaskResponse]
 }
 
@@ -165,11 +154,6 @@ func (c *taskServiceClient) DeleteTask(ctx context.Context, req *connect.Request
 	return c.deleteTask.CallUnary(ctx, req)
 }
 
-// Subscribe calls construct.v1.TaskService.Subscribe.
-func (c *taskServiceClient) Subscribe(ctx context.Context, req *connect.Request[v1.SubscribeRequest]) (*connect.ServerStreamForClient[v1.SubscribeResponse], error) {
-	return c.subscribe.CallServerStream(ctx, req)
-}
-
 // SuspendTask calls construct.v1.TaskService.SuspendTask.
 func (c *taskServiceClient) SuspendTask(ctx context.Context, req *connect.Request[v1.SuspendTaskRequest]) (*connect.Response[v1.SuspendTaskResponse], error) {
 	return c.suspendTask.CallUnary(ctx, req)
@@ -187,8 +171,6 @@ type TaskServiceHandler interface {
 	UpdateTask(context.Context, *connect.Request[v1.UpdateTaskRequest]) (*connect.Response[v1.UpdateTaskResponse], error)
 	// DeleteTask removes a task from the system.
 	DeleteTask(context.Context, *connect.Request[v1.DeleteTaskRequest]) (*connect.Response[v1.DeleteTaskResponse], error)
-	// Subscribe to task events.
-	Subscribe(context.Context, *connect.Request[v1.SubscribeRequest], *connect.ServerStream[v1.SubscribeResponse]) error
 	// SuspendTask suspends a task.
 	SuspendTask(context.Context, *connect.Request[v1.SuspendTaskRequest]) (*connect.Response[v1.SuspendTaskResponse], error)
 }
@@ -232,12 +214,6 @@ func NewTaskServiceHandler(svc TaskServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(taskServiceMethods.ByName("DeleteTask")),
 		connect.WithHandlerOptions(opts...),
 	)
-	taskServiceSubscribeHandler := connect.NewServerStreamHandler(
-		TaskServiceSubscribeProcedure,
-		svc.Subscribe,
-		connect.WithSchema(taskServiceMethods.ByName("Subscribe")),
-		connect.WithHandlerOptions(opts...),
-	)
 	taskServiceSuspendTaskHandler := connect.NewUnaryHandler(
 		TaskServiceSuspendTaskProcedure,
 		svc.SuspendTask,
@@ -256,8 +232,6 @@ func NewTaskServiceHandler(svc TaskServiceHandler, opts ...connect.HandlerOption
 			taskServiceUpdateTaskHandler.ServeHTTP(w, r)
 		case TaskServiceDeleteTaskProcedure:
 			taskServiceDeleteTaskHandler.ServeHTTP(w, r)
-		case TaskServiceSubscribeProcedure:
-			taskServiceSubscribeHandler.ServeHTTP(w, r)
 		case TaskServiceSuspendTaskProcedure:
 			taskServiceSuspendTaskHandler.ServeHTTP(w, r)
 		default:
@@ -287,10 +261,6 @@ func (UnimplementedTaskServiceHandler) UpdateTask(context.Context, *connect.Requ
 
 func (UnimplementedTaskServiceHandler) DeleteTask(context.Context, *connect.Request[v1.DeleteTaskRequest]) (*connect.Response[v1.DeleteTaskResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("construct.v1.TaskService.DeleteTask is not implemented"))
-}
-
-func (UnimplementedTaskServiceHandler) Subscribe(context.Context, *connect.Request[v1.SubscribeRequest], *connect.ServerStream[v1.SubscribeResponse]) error {
-	return connect.NewError(connect.CodeUnimplemented, errors.New("construct.v1.TaskService.Subscribe is not implemented"))
 }
 
 func (UnimplementedTaskServiceHandler) SuspendTask(context.Context, *connect.Request[v1.SuspendTaskRequest]) (*connect.Response[v1.SuspendTaskResponse], error) {
