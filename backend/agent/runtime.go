@@ -226,12 +226,6 @@ func WithContent(content *v1.MessagePart) func(*v1.Message) {
 	}
 }
 
-func WithStatus(status v1.ContentStatus) func(*v1.Message) {
-	return func(msg *v1.Message) {
-		msg.Status.ContentState = status
-	}
-}
-
 func NewUserMessage(taskID uuid.UUID, options ...func(*v1.Message)) *v1.Message {
 	msg := NewMessage(taskID, WithRole(v1.MessageRole_MESSAGE_ROLE_USER))
 
@@ -273,7 +267,6 @@ func NewMessage(taskID uuid.UUID, options ...func(*v1.Message)) *v1.Message {
 		},
 		Spec: &v1.MessageSpec{},
 		Status: &v1.MessageStatus{
-			ContentState:    v1.ContentStatus_CONTENT_STATUS_COMPLETE,
 			IsFinalResponse: false,
 		},
 	}

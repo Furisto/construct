@@ -257,6 +257,10 @@ func startInteractiveSession(ctx context.Context, apiClient *api.Client, task *v
 				if payload.Message != nil && payload.Message.Message != nil {
 					program.Send(payload.Message.Message)
 				}
+			case *v1.Event_MessageChunk:
+				if payload.MessageChunk != nil {
+					program.Send(payload.MessageChunk)
+				}
 			case *v1.Event_Task:
 				if payload.Task != nil {
 					program.Send(payload.Task)

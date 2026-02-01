@@ -98,6 +98,10 @@ func (m *MessageFeed) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.processMessage(msg)
 		m.updateViewportContent()
 
+	case *v1.MessageChunkEvent:
+		m.partialMessage += msg.Chunk
+		m.updateViewportContent()
+
 	case *Error:
 		m.upsertErrorMessage(msg)
 		m.updateViewportContent()
@@ -215,22 +219,18 @@ func (m *MessageFeed) processMessage(msg *v1.Message) {
 	for _, part := range msg.Spec.Content {
 		switch data := part.Data.(type) {
 		case *v1.MessagePart_Text_:
-			if msg.Status.ContentState == v1.ContentStatus_CONTENT_STATUS_PARTIAL {
-				m.partialMessage += data.Text.Content
+			if msg.Metadata.Role == v1.MessageRole_MESSAGE_ROLE_ASSISTANT {
+				m.messages = append(m.messages, &assistantTextMessage{
+					content:   data.Text.Content,
+					timestamp: msg.Metadata.CreatedAt.AsTime(),
+				})
 			} else {
-				if msg.Metadata.Role == v1.MessageRole_MESSAGE_ROLE_ASSISTANT {
-					m.messages = append(m.messages, &assistantTextMessage{
-						content:   data.Text.Content,
-						timestamp: msg.Metadata.CreatedAt.AsTime(),
-					})
-				} else {
-					m.messages = append(m.messages, &userTextMessage{
-						content:   data.Text.Content,
-						timestamp: msg.Metadata.CreatedAt.AsTime(),
-					})
-				}
-				m.partialMessage = ""
+				m.messages = append(m.messages, &userTextMessage{
+					content:   data.Text.Content,
+					timestamp: msg.Metadata.CreatedAt.AsTime(),
+				})
 			}
+			m.partialMessage = ""
 		case *v1.MessagePart_ToolCall:
 			m.messages = append(m.messages, m.createToolCallMessage(data.ToolCall, msg.Metadata.CreatedAt.AsTime()))
 		case *v1.MessagePart_ToolResult:

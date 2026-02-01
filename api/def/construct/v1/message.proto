@@ -77,19 +77,10 @@ message MessageSpec {
   repeated MessagePart content = 1;
 }
 
-enum ContentStatus {
-  CONTENT_STATUS_UNSPECIFIED = 0;
-  CONTENT_STATUS_PARTIAL = 1;
-  CONTENT_STATUS_COMPLETE = 2;
-}
-
 // MessageStatus contains the observed state and usage information of the message.
 message MessageStatus {
   // usage tracks resource consumption and costs associated with generating this message.
   MessageUsage usage = 1;
-
-  // content_state indicates the status of the message content.
-  ContentStatus content_state = 2;
 
   // is_final_response indicates whether this message is the final response to the user's request.
   bool is_final_response = 3;
