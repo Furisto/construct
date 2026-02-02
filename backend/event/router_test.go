@@ -368,3 +368,199 @@ func TestEventRouter_DropsEventsOnFullChannel(t *testing.T) {
 		}
 	}
 }
+
+func TestMatchPattern_InternalEventsRequireExplicitPattern(t *testing.T) {
+	tests := []struct {
+		name      string
+		pattern   string
+		eventType string
+		want      bool
+	}{
+		// Wildcards should NOT match internal events
+		{"wildcard does not match internal.task.trigger", "*", "internal.task.trigger", false},
+		{"wildcard does not match internal.task.suspend", "*", "internal.task.suspend", false},
+		{"*.trigger does not match internal.task.trigger", "*.trigger", "internal.task.trigger", false},
+
+		// Explicit internal patterns should match
+		{"internal.task.trigger matches itself", "internal.task.trigger", "internal.task.trigger", true},
+		{"internal.task.suspend matches itself", "internal.task.suspend", "internal.task.suspend", true},
+		{"internal.* matches internal.task.trigger", "internal.*", "internal.task.trigger", true},
+		{"internal.* matches internal.task.suspend", "internal.*", "internal.task.suspend", true},
+
+		// Regular events should still work
+		{"wildcard still matches task.created", "*", "task.created", true},
+		{"task.* still matches task.created", "task.*", "task.created", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := matchPattern(tt.pattern, tt.eventType)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestEventRouter_InternalPatternsFilteredForExternalSubscribers(t *testing.T) {
+	router := NewEventRouter(10)
+	defer router.Close()
+
+	ctx := context.Background()
+
+	// External subscriber tries to subscribe to internal events - should be filtered
+	ch, unsubscribe := router.Subscribe(ctx, SubscribeOptions{
+		EventTypes: []string{"internal.task.trigger", "task.created"},
+		Internal:   false, // External subscriber
+	})
+	defer unsubscribe()
+
+	taskID := uuid.New()
+
+	// Publish internal event
+	router.Publish(&StreamEvent{
+		Type:    "internal.task.trigger",
+		TaskID:  &taskID,
+		Payload: "internal",
+	})
+
+	// Publish regular event
+	router.Publish(&StreamEvent{
+		Type:    "task.created",
+		TaskID:  &taskID,
+		Payload: "regular",
+	})
+
+	// Should only receive the regular event
+	select {
+	case received := <-ch:
+		assert.Equal(t, "task.created", received.Type)
+		assert.Equal(t, "regular", received.Payload)
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("should receive regular event")
+	}
+
+	// Should not receive internal event
+	select {
+	case received := <-ch:
+		t.Fatalf("should not receive internal event, got: %v", received.Type)
+	case <-time.After(50 * time.Millisecond):
+		// Expected
+	}
+}
+
+func TestEventRouter_InternalSubscribersReceiveInternalEvents(t *testing.T) {
+	router := NewEventRouter(10)
+	defer router.Close()
+
+	ctx := context.Background()
+
+	// Internal subscriber
+	ch, unsubscribe := router.Subscribe(ctx, SubscribeOptions{
+		EventTypes: []string{"internal.task.trigger"},
+		Internal:   true,
+	})
+	defer unsubscribe()
+
+	taskID := uuid.New()
+
+	// Publish internal event
+	router.Publish(&StreamEvent{
+		Type:    "internal.task.trigger",
+		TaskID:  &taskID,
+		Payload: "internal",
+	})
+
+	// Should receive the internal event
+	select {
+	case received := <-ch:
+		assert.Equal(t, "internal.task.trigger", received.Type)
+		assert.Equal(t, "internal", received.Payload)
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("internal subscriber should receive internal event")
+	}
+}
+
+func TestEventRouter_WildcardDoesNotMatchInternalEvents(t *testing.T) {
+	router := NewEventRouter(10)
+	defer router.Close()
+
+	ctx := context.Background()
+
+	// Subscribe to all events with wildcard
+	ch, unsubscribe := router.Subscribe(ctx, SubscribeOptions{
+		EventTypes: []string{"*"},
+	})
+	defer unsubscribe()
+
+	taskID := uuid.New()
+
+	// Publish internal event
+	router.Publish(&StreamEvent{
+		Type:    "internal.task.trigger",
+		TaskID:  &taskID,
+		Payload: "internal",
+	})
+
+	// Publish regular event
+	router.Publish(&StreamEvent{
+		Type:    "task.created",
+		TaskID:  &taskID,
+		Payload: "regular",
+	})
+
+	// Should only receive the regular event
+	select {
+	case received := <-ch:
+		assert.Equal(t, "task.created", received.Type)
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("should receive regular event")
+	}
+
+	// Should not receive internal event
+	select {
+	case received := <-ch:
+		t.Fatalf("wildcard should not match internal event, got: %v", received.Type)
+	case <-time.After(50 * time.Millisecond):
+		// Expected
+	}
+}
+
+func TestFilterInternalPatterns(t *testing.T) {
+	tests := []struct {
+		name     string
+		patterns []string
+		want     []string
+	}{
+		{
+			name:     "filters internal patterns",
+			patterns: []string{"internal.task.trigger", "task.created", "internal.task.suspend"},
+			want:     []string{"task.created"},
+		},
+		{
+			name:     "keeps non-internal patterns",
+			patterns: []string{"task.*", "message.created", "*.deleted"},
+			want:     []string{"task.*", "message.created", "*.deleted"},
+		},
+		{
+			name:     "handles empty slice",
+			patterns: []string{},
+			want:     []string{},
+		},
+		{
+			name:     "filters all internal patterns",
+			patterns: []string{"internal.task.trigger", "internal.task.suspend"},
+			want:     []string{},
+		},
+		{
+			name:     "filters internal.* wildcard",
+			patterns: []string{"internal.*", "task.created"},
+			want:     []string{"task.created"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := filterInternalPatterns(tt.patterns)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

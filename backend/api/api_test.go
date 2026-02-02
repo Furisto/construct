@@ -136,7 +136,7 @@ func DefaultTestHandlerOptions(t *testing.T) HandlerOptions {
 
 	runtime := &MockAgentRuntime{}
 
-	eventBus := event.NewBus(nil)
+	eventRouter := event.NewEventRouter(event.DefaultChannelBufferSize)
 
 	tokenProvider := auth.NewTokenProvider()
 
@@ -144,7 +144,7 @@ func DefaultTestHandlerOptions(t *testing.T) HandlerOptions {
 		DB:            db,
 		Encryption:    encryption,
 		AgentRuntime:  runtime,
-		EventBus:      eventBus,
+		EventRouter:   eventRouter,
 		Analytics:     analytics.NewInMemoryClient(),
 		TokenProvider: tokenProvider,
 	}

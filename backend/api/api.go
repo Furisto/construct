@@ -31,7 +31,7 @@ type Server struct {
 	listener net.Listener
 }
 
-func NewServer(runtime AgentRuntime, listener net.Listener, eventBus *event.Bus, eventRouter *event.EventRouter, analyticsClient analytics.Client, skillInstaller *skill.SkillManager) *Server {
+func NewServer(runtime AgentRuntime, listener net.Listener, eventRouter *event.EventRouter, analyticsClient analytics.Client, skillInstaller *skill.SkillManager) *Server {
 	tokenProvider := auth.NewTokenProvider()
 
 	apiHandler := NewHandler(
@@ -39,7 +39,6 @@ func NewServer(runtime AgentRuntime, listener net.Listener, eventBus *event.Bus,
 			DB:            runtime.Memory(),
 			Encryption:    runtime.Encryption(),
 			AgentRuntime:  runtime,
-			EventBus:      eventBus,
 			EventRouter:   eventRouter,
 			Analytics:     analyticsClient,
 			TokenProvider: tokenProvider,
@@ -88,7 +87,6 @@ type HandlerOptions struct {
 	TokenProvider *auth.TokenProvider
 	Skills        *skill.SkillManager
 
-	EventBus    *event.Bus
 	EventRouter *event.EventRouter
 	Analytics   analytics.Client
 
@@ -118,10 +116,10 @@ func NewHandler(opts HandlerOptions) *Handler {
 	agentHandler := NewAgentHandler(opts.DB, opts.Analytics)
 	handler.mux.Handle(v1connect.NewAgentServiceHandler(agentHandler, connectOpts...))
 
-	taskHandler := NewTaskHandler(opts.DB, opts.EventBus, opts.AgentRuntime, opts.Analytics)
+	taskHandler := NewTaskHandler(opts.DB, opts.EventRouter, opts.AgentRuntime, opts.Analytics)
 	handler.mux.Handle(v1connect.NewTaskServiceHandler(taskHandler, connectOpts...))
 
-	messageHandler := NewMessageHandler(opts.DB, opts.AgentRuntime, opts.EventBus)
+	messageHandler := NewMessageHandler(opts.DB, opts.AgentRuntime, opts.EventRouter)
 	handler.mux.Handle(v1connect.NewMessageServiceHandler(messageHandler, connectOpts...))
 
 	skillHandler := NewSkillHandler(opts.Skills)

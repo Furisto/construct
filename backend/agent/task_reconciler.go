@@ -58,7 +58,6 @@ type TaskReconciler struct {
 	fs              afero.Fs
 	memory          *memory.Client
 	interpreter     *codeact.Interpreter
-	bus             *event.Bus
 	eventRouter     *event.EventRouter
 	queue           workqueue.TypedDelayingInterface[uuid.UUID]
 	providerFactory *ModelProviderFactory
@@ -73,7 +72,6 @@ func NewTaskReconciler(
 	memory *memory.Client,
 	interpreter *codeact.Interpreter,
 	concurrency int,
-	bus *event.Bus,
 	eventRouter *event.EventRouter,
 	providerFactory *ModelProviderFactory,
 	metricsRegistry prometheus.Registerer,
@@ -88,7 +86,6 @@ func NewTaskReconciler(
 		fs:              afero.NewOsFs(),
 		memory:          memory,
 		interpreter:     interpreter,
-		bus:             bus,
 		eventRouter:     eventRouter,
 		providerFactory: providerFactory,
 		queue:           queue,
@@ -110,27 +107,52 @@ func (r *TaskReconciler) Run(ctx context.Context) error {
 		}()
 	}
 
-	taskEventSub := event.Subscribe(r.bus, func(ctx context.Context, e event.TaskEvent) {
-		r.queue.Add(e.TaskID)
-	}, nil)
+	// Subscribe to internal task trigger events
+	taskTriggerCh, cancelTaskTrigger := r.eventRouter.Subscribe(ctx, event.SubscribeOptions{
+		EventTypes: []string{event.EventTypeInternalTaskTrigger},
+		Internal:   true,
+	})
 
-	taskSuspendedEventSub := event.Subscribe(r.bus, func(ctx context.Context, e event.TaskSuspendedEvent) {
-		cancel, ok := r.runningTasks.Get(e.TaskID)
-		if ok {
-			r.logger.DebugContext(ctx, "task suspension signal received",
-				KeyTaskID, e.TaskID,
-			)
-			cancel()
+	// Subscribe to internal task suspend events
+	taskSuspendCh, cancelTaskSuspend := r.eventRouter.Subscribe(ctx, event.SubscribeOptions{
+		EventTypes: []string{event.EventTypeInternalTaskSuspend},
+		Internal:   true,
+	})
+
+	// Process task trigger events
+	r.wg.Add(1)
+	go func() {
+		defer r.wg.Done()
+		for evt := range taskTriggerCh {
+			if payload, ok := evt.Payload.(*event.InternalTaskTriggerPayload); ok {
+				r.queue.Add(payload.TaskID)
+			}
 		}
-	}, nil)
+	}()
+
+	// Process task suspend events
+	r.wg.Add(1)
+	go func() {
+		defer r.wg.Done()
+		for evt := range taskSuspendCh {
+			if payload, ok := evt.Payload.(*event.InternalTaskSuspendPayload); ok {
+				if cancel, ok := r.runningTasks.Get(payload.TaskID); ok {
+					r.logger.DebugContext(ctx, "task suspension signal received",
+						KeyTaskID, payload.TaskID,
+					)
+					cancel()
+				}
+			}
+		}
+	}()
 
 	r.logger.InfoContext(ctx, "task reconciler initialization complete")
 	<-ctx.Done()
 	r.logger.InfoContext(ctx, "task reconciler shutdown initiated")
 	shutdownStart := time.Now()
 
-	taskEventSub.Unsubscribe()
-	taskSuspendedEventSub.Unsubscribe()
+	cancelTaskTrigger()
+	cancelTaskSuspend()
 
 	r.queue.ShutDownWithDrain()
 	r.logger.DebugContext(ctx, "task queue shutdown with drain complete")

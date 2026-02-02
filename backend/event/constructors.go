@@ -39,6 +39,10 @@ const (
 	// Tool events
 	EventTypeToolCalled = "tool.called"
 	EventTypeToolResult = "tool.result"
+
+	// Internal events (for internal coordination, not exposed to external clients)
+	EventTypeInternalTaskTrigger = "internal.task.trigger"
+	EventTypeInternalTaskSuspend = "internal.task.suspend"
 )
 
 // Event action constants
@@ -86,6 +90,16 @@ type ModelProviderEventPayload struct {
 type DeletedEntityPayload struct {
 	ID     uuid.UUID
 	TaskID *uuid.UUID // Only set for message.deleted events
+}
+
+// InternalTaskTriggerPayload contains the payload for internal.task.trigger events.
+type InternalTaskTriggerPayload struct {
+	TaskID uuid.UUID
+}
+
+// InternalTaskSuspendPayload contains the payload for internal.task.suspend events.
+type InternalTaskSuspendPayload struct {
+	TaskID uuid.UUID
 }
 
 // --- Task Event Constructors ---
@@ -325,5 +339,35 @@ func NewToolResultEvent(taskID uuid.UUID, evt tooltypes.ToolResultEvent) *Stream
 		Timestamp: time.Now(),
 		TaskID:    &taskID,
 		Payload:   &evt,
+	}
+}
+
+// --- Internal Event Constructors ---
+
+// NewInternalTaskTriggerEvent creates a new internal.task.trigger event.
+// This event is used to trigger task reconciliation.
+func NewInternalTaskTriggerEvent(taskID uuid.UUID) *StreamEvent {
+	return &StreamEvent{
+		Type:      EventTypeInternalTaskTrigger,
+		Action:    ActionCreated,
+		Timestamp: time.Now(),
+		TaskID:    &taskID,
+		Payload: &InternalTaskTriggerPayload{
+			TaskID: taskID,
+		},
+	}
+}
+
+// NewInternalTaskSuspendEvent creates a new internal.task.suspend event.
+// This event is used to signal task suspension.
+func NewInternalTaskSuspendEvent(taskID uuid.UUID) *StreamEvent {
+	return &StreamEvent{
+		Type:      EventTypeInternalTaskSuspend,
+		Action:    ActionCreated,
+		Timestamp: time.Now(),
+		TaskID:    &taskID,
+		Payload: &InternalTaskSuspendPayload{
+			TaskID: taskID,
+		},
 	}
 }

@@ -74,7 +74,6 @@ type Runtime struct {
 	api            *api.Server
 	memory         *memory.Client
 	encryption     *secret.Encryption
-	bus            *event.Bus
 	eventRouter    *event.EventRouter
 	taskReconciler *TaskReconciler
 	logger         *slog.Logger
@@ -105,7 +104,6 @@ func NewRuntime(memory *memory.Client, encryption *secret.Encryption, listener n
 	metricsRegistry.MustRegister(collectors.NewBuildInfoCollector())
 	metricsRegistry.MustRegister(collectors.NewDBStatsCollector(memory.MustDB(), "construct"))
 
-	eventBus := event.NewBus(metricsRegistry)
 	eventRouter := event.NewEventRouter(event.DefaultChannelBufferSize)
 
 	// Register ent hooks to emit CRUD events
@@ -127,9 +125,8 @@ func NewRuntime(memory *memory.Client, encryption *secret.Encryption, listener n
 	runtime := &Runtime{
 		memory:         memory,
 		encryption:     encryption,
-		bus:            eventBus,
 		eventRouter:    eventRouter,
-		taskReconciler: NewTaskReconciler(memory, codeact.NewInterpreter(options.Tools, interceptors), options.Concurrency, eventBus, eventRouter, clientFactory, metricsRegistry),
+		taskReconciler: NewTaskReconciler(memory, codeact.NewInterpreter(options.Tools, interceptors), options.Concurrency, eventRouter, clientFactory, metricsRegistry),
 		analytics:      options.Analytics,
 		logger:         logger,
 		metrics:        metricsRegistry,
@@ -138,7 +135,7 @@ func NewRuntime(memory *memory.Client, encryption *secret.Encryption, listener n
 	userInfo := shared.NewDefaultUserInfo(fs)
 	skills := skill.NewSkillManager(fs, userInfo)
 
-	api := api.NewServer(runtime, listener, runtime.bus, runtime.eventRouter, runtime.analytics, skills)
+	api := api.NewServer(runtime, listener, runtime.eventRouter, runtime.analytics, skills)
 	runtime.api = api
 
 	listenerAddr := listener.Addr().String()

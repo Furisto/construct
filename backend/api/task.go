@@ -22,20 +22,20 @@ import (
 
 var _ v1connect.TaskServiceHandler = (*TaskHandler)(nil)
 
-func NewTaskHandler(db *memory.Client, eventBus *event.Bus, runtime AgentRuntime, analytics analytics.Client) *TaskHandler {
+func NewTaskHandler(db *memory.Client, eventRouter *event.EventRouter, runtime AgentRuntime, analytics analytics.Client) *TaskHandler {
 	return &TaskHandler{
-		db:        db,
-		eventBus:  eventBus,
-		runtime:   runtime,
-		analytics: analytics,
+		db:          db,
+		eventRouter: eventRouter,
+		runtime:     runtime,
+		analytics:   analytics,
 	}
 }
 
 type TaskHandler struct {
-	db        *memory.Client
-	eventBus  *event.Bus
-	runtime   AgentRuntime
-	analytics analytics.Client
+	db          *memory.Client
+	eventRouter *event.EventRouter
+	runtime     AgentRuntime
+	analytics   analytics.Client
 	v1connect.UnimplementedTaskServiceHandler
 }
 
@@ -267,8 +267,6 @@ func (h *TaskHandler) SuspendTask(ctx context.Context, req *connect.Request[v1.S
 		return nil, apiError(err)
 	}
 
-	event.Publish(h.eventBus, event.TaskSuspendedEvent{
-		TaskID: taskID,
-	})
+	h.eventRouter.Publish(event.NewInternalTaskSuspendEvent(taskID))
 	return connect.NewResponse(&v1.SuspendTaskResponse{}), nil
 }

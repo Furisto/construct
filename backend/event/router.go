@@ -39,6 +39,7 @@ type SubscribeOptions struct {
 	// EventTypes specifies which event types to receive using glob patterns.
 	// Supports: "*" (all), "entity.*" (e.g., "task.*"), "*.action" (e.g., "*.created"), or exact match.
 	// Empty slice subscribes to all events.
+	// Note: internal.* events are filtered out unless Internal is set to true.
 	EventTypes []string
 
 	// TaskID filters events to only those related to a specific task.
@@ -48,6 +49,10 @@ type SubscribeOptions struct {
 	// ReplayAfterMessageID enables replay of message.created events after this message ID.
 	// Only applicable when TaskID is also set.
 	ReplayAfterMessageID string
+
+	// Internal allows subscribing to internal.* events.
+	// This should only be set by internal components, not external API consumers.
+	Internal bool
 }
 
 // eventSubscription represents an active event eventSubscription.
@@ -91,10 +96,13 @@ func (r *EventRouter) Subscribe(ctx context.Context, opts SubscribeOptions) (<-c
 		return ch, func() {}
 	}
 
-	// Parse patterns
+	// Parse patterns, filtering out internal event patterns for external consumers
 	patterns := opts.EventTypes
 	if len(patterns) == 0 {
 		patterns = []string{"*"}
+	}
+	if !opts.Internal {
+		patterns = filterInternalPatterns(patterns)
 	}
 
 	// Parse task ID
@@ -185,13 +193,40 @@ func (r *EventRouter) matches(sub *eventSubscription, event *StreamEvent) bool {
 	return false
 }
 
+// internalEventPrefix is the prefix for internal coordination events.
+const internalEventPrefix = "internal."
+
+// filterInternalPatterns removes patterns that would match internal events.
+func filterInternalPatterns(patterns []string) []string {
+	filtered := make([]string, 0, len(patterns))
+	for _, p := range patterns {
+		if !strings.HasPrefix(p, internalEventPrefix) {
+			filtered = append(filtered, p)
+		}
+	}
+	return filtered
+}
+
+// isInternalEvent checks if an event type is an internal event.
+func isInternalEvent(eventType string) bool {
+	return strings.HasPrefix(eventType, internalEventPrefix)
+}
+
 // matchPattern checks if an event type matches a glob pattern.
 // Supported patterns:
-//   - "*" matches all event types
+//   - "*" matches all event types (except internal.* events)
 //   - "entity.*" matches all events for that entity (e.g., "task.*" matches "task.created")
 //   - "*.action" matches that action across all entities (e.g., "*.created" matches "task.created")
 //   - Exact strings match exactly (e.g., "message.chunk")
+//
+// Note: Internal events (internal.*) are only matched by explicit internal.* patterns,
+// never by wildcards. This prevents external consumers from accidentally receiving internal events.
 func matchPattern(pattern, eventType string) bool {
+	// Internal events require explicit internal.* patterns to match
+	if isInternalEvent(eventType) && !strings.HasPrefix(pattern, internalEventPrefix) {
+		return false
+	}
+
 	if pattern == "*" {
 		return true
 	}
