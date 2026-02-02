@@ -49,8 +49,10 @@ func (h *EventHandler) Subscribe(
 		"replay_after_message_id", opts.ReplayAfterMessageID,
 	)
 
-	// Handle replay if requested
-	if opts.TaskID != "" && opts.ReplayAfterMessageID != "" {
+	// Handle replay if task ID is specified
+	// If ReplayAfterMessageID is set, replay messages after that ID
+	// If ReplayAfterMessageID is empty, replay all messages for the task
+	if opts.TaskID != "" {
 		if err := h.replayMessages(ctx, stream, opts.TaskID, opts.ReplayAfterMessageID); err != nil {
 			slog.ErrorContext(ctx, "failed to replay messages", "error", err)
 			// Continue with live subscription even if replay fails
@@ -89,7 +91,9 @@ func (h *EventHandler) Subscribe(
 	}
 }
 
-// replayMessages replays message.created events after the specified message ID.
+// replayMessages replays message.created events for a task.
+// If afterMessageIDStr is empty, replays all messages for the task.
+// If afterMessageIDStr is set, replays only messages created after that message.
 func (h *EventHandler) replayMessages(
 	ctx context.Context,
 	stream *connect.ServerStream[v1.EventSubscribeResponse],
@@ -100,25 +104,26 @@ func (h *EventHandler) replayMessages(
 		return err
 	}
 
-	afterMessageID, err := uuid.Parse(afterMessageIDStr)
-	if err != nil {
-		return err
+	query := h.db.Message.Query().
+		Where(memory_message.TaskIDEQ(taskID)).
+		Order(memory_message.ByCreateTime())
+
+	// If afterMessageIDStr is specified, only replay messages after that one
+	if afterMessageIDStr != "" {
+		afterMessageID, err := uuid.Parse(afterMessageIDStr)
+		if err != nil {
+			return err
+		}
+
+		afterMessage, err := h.db.Message.Get(ctx, afterMessageID)
+		if err != nil {
+			return err
+		}
+
+		query = query.Where(memory_message.CreateTimeGT(afterMessage.CreateTime))
 	}
 
-	// Get the timestamp of the after message
-	afterMessage, err := h.db.Message.Get(ctx, afterMessageID)
-	if err != nil {
-		return err
-	}
-
-	// Query messages created after the specified message
-	messages, err := h.db.Message.Query().
-		Where(
-			memory_message.TaskIDEQ(taskID),
-			memory_message.CreateTimeGT(afterMessage.CreateTime),
-		).
-		Order(memory_message.ByCreateTime()).
-		All(ctx)
+	messages, err := query.All(ctx)
 	if err != nil {
 		return err
 	}
