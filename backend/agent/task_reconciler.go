@@ -384,10 +384,10 @@ func (r *TaskReconciler) reconcileInvokeModel(ctx context.Context, taskID uuid.U
 	reconcileStart := time.Now()
 	logger.InfoContext(ctx, "model invocation phase started")
 
-	// Note: User messages are published via message.created event when created via API.
-	// The reconciler only processes them, doesn't need to re-publish.
+	// Publish user message event so frontend can display it
 	if status.NextMessage.Source == types.MessageSourceUser {
 		logger.DebugContext(ctx, "processing user message")
+		r.publishMessageCreated(status.NextMessage)
 	}
 
 	modelMessages, err := r.buildMessageHistory(status.ProcessedMessages, status.NextMessage)
