@@ -67,9 +67,9 @@ type eventSubscription struct {
 // EventRouter manages event eventSubscriptions and distribution.
 type EventRouter struct {
 	eventSubscriptions map[uuid.UUID]*eventSubscription
-	mu            sync.RWMutex
-	bufferSize    int
-	closed        bool
+	mu                 sync.RWMutex
+	bufferSize         int
+	closed             bool
 }
 
 // NewEventRouter creates a new EventRouter with the specified channel buffer size.
@@ -79,7 +79,7 @@ func NewEventRouter(bufferSize int) *EventRouter {
 	}
 	return &EventRouter{
 		eventSubscriptions: make(map[uuid.UUID]*eventSubscription),
-		bufferSize:    bufferSize,
+		bufferSize:         bufferSize,
 	}
 }
 

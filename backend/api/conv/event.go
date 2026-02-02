@@ -503,4 +503,3 @@ func convertToolOutputToProto(id, toolName string, output *tooltypes.ToolOutput)
 
 	return tr
 }
-

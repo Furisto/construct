@@ -24,7 +24,7 @@ type EventPublisher interface {
 // Useful for testing or when event publishing is not needed.
 type NoopEventPublisher struct{}
 
-func (NoopEventPublisher) PublishToolCall(taskID uuid.UUID, evt tooltypes.ToolCallEvent)   {}
+func (NoopEventPublisher) PublishToolCall(taskID uuid.UUID, evt tooltypes.ToolCallEvent)     {}
 func (NoopEventPublisher) PublishToolResult(taskID uuid.UUID, evt tooltypes.ToolResultEvent) {}
 
 type Interceptor interface {
@@ -300,4 +300,3 @@ func (p *ToolEventPublisher) Intercept(session *Session, tool Tool, inner func(s
 		return inner(call)
 	}
 }
-
