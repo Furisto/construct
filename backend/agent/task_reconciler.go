@@ -55,7 +55,7 @@ const (
 )
 
 type TaskReconciler struct {
-	fs              *afero.Afero
+	fs              afero.Fs
 	memory          *memory.Client
 	interpreter     *codeact.Interpreter
 	bus             *event.Bus
@@ -85,7 +85,7 @@ func NewTaskReconciler(
 		Name: "construct",
 	})
 	return &TaskReconciler{
-		fs:              afero.NewOsFs().(*afero.Afero),
+		fs:              afero.NewOsFs(),
 		memory:          memory,
 		interpreter:     interpreter,
 		bus:             bus,
