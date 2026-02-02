@@ -102,6 +102,18 @@ func (m *MessageFeed) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.partialMessage += msg.Chunk
 		m.updateViewportContent()
 
+	case *v1.ToolCalledEvent:
+		if msg.ToolCall != nil {
+			m.messages = append(m.messages, m.createToolCallMessage(msg.ToolCall, time.Now()))
+			m.updateViewportContent()
+		}
+
+	case *v1.ToolResultEvent:
+		if msg.ToolResult != nil {
+			m.messages = append(m.messages, m.createToolResultMessage(msg.ToolResult, time.Now()))
+			m.updateViewportContent()
+		}
+
 	case *Error:
 		m.upsertErrorMessage(msg)
 		m.updateViewportContent()

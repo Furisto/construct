@@ -112,7 +112,7 @@ func handleNewCommand(ctx context.Context, apiClient *api.Client, options *newOp
 		taskID := resp.Msg.Task.Metadata.Id
 		watch, err := apiClient.Event().Subscribe(ctx, &connect.Request[v1.EventSubscribeRequest]{
 			Msg: &v1.EventSubscribeRequest{
-				EventTypes: []string{"task.*", "message.*"},
+				EventTypes: []string{"task.*", "message.*", "tool.*"},
 				TaskId:     &taskID,
 			},
 		})
@@ -140,6 +140,14 @@ func handleNewCommand(ctx context.Context, apiClient *api.Client, options *newOp
 			case *v1.Event_Task:
 				if payload.Task != nil {
 					program.Send(payload.Task)
+				}
+			case *v1.Event_ToolCalled:
+				if payload.ToolCalled != nil {
+					program.Send(payload.ToolCalled)
+				}
+			case *v1.Event_ToolResult:
+				if payload.ToolResult != nil {
+					program.Send(payload.ToolResult)
 				}
 			}
 		}
