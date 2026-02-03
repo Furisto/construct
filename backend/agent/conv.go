@@ -10,7 +10,7 @@ import (
 	"github.com/furisto/construct/backend/memory/schema/types"
 	"github.com/furisto/construct/backend/model"
 	toolbase "github.com/furisto/construct/backend/tool/base"
-	"github.com/furisto/construct/backend/tool/codeact"
+	tooltypes "github.com/furisto/construct/backend/tool/types"
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -52,45 +52,49 @@ func ConvertMemoryMessageBlocksToModel(blocks []types.MessageBlock) ([]model.Con
 			contentBlocks = append(contentBlocks, &model.TextBlock{
 				Text: block.Payload,
 			})
-		case types.MessageBlockKindNativeToolCall:
-			var toolCall model.ToolCallBlock
+		case types.MessageBlockKindToolCall:
+			var toolCall ToolCall
 			err := json.Unmarshal([]byte(block.Payload), &toolCall)
 			if err != nil {
-				return nil, fmt.Errorf("failed to unmarshal native tool call block: %w", err)
+				return nil, fmt.Errorf("failed to unmarshal tool call block: %w", err)
 			}
-			contentBlocks = append(contentBlocks, &toolCall)
-		case types.MessageBlockKindNativeToolResult:
-			var toolResult model.ToolResultBlock
+
+			// Serialize Input back to raw JSON for model layer
+			var args json.RawMessage
+			if toolCall.Input != nil && toolCall.Input.Interpreter != nil {
+				args, _ = json.Marshal(toolCall.Input.Interpreter)
+			}
+
+			contentBlocks = append(contentBlocks, &model.ToolCallBlock{
+				ID:   toolCall.Provider.ID,
+				Tool: toolCall.Tool,
+				Args: args,
+			})
+
+		case types.MessageBlockKindToolResult:
+			var toolResult ToolResult
 			err := json.Unmarshal([]byte(block.Payload), &toolResult)
 			if err != nil {
-				return nil, fmt.Errorf("failed to unmarshal native tool result block: %w", err)
-			}
-			contentBlocks = append(contentBlocks, &toolResult)
-
-		case types.MessageBlockKindCodeInterpreterCall:
-			var toolCall model.ToolCallBlock
-			err := json.Unmarshal([]byte(block.Payload), &toolCall)
-			if err != nil {
-				return nil, fmt.Errorf("failed to unmarshal code interpreter call block: %w", err)
-			}
-			contentBlocks = append(contentBlocks, &toolCall)
-
-		case types.MessageBlockKindCodeInterpreterResult:
-			var interpreterResult codeact.InterpreterToolResult
-			err := json.Unmarshal([]byte(block.Payload), &interpreterResult)
-			if err != nil {
-				return nil, fmt.Errorf("failed to unmarshal code interpreter result block: %w", err)
+				return nil, fmt.Errorf("failed to unmarshal tool result block: %w", err)
 			}
 
-			result := interpreterResult.Output
-			if interpreterResult.Error != "" {
-				result = interpreterResult.Output + "\n\n" + interpreterResult.Error
+			// Serialize Output back to string for model layer
+			var resultStr string
+			if toolResult.Output != nil && toolResult.Output.Interpreter != nil {
+				resultStr = toolResult.Output.Interpreter.ConsoleOutput
+				// Append function call errors if any
+				for _, fc := range toolResult.Output.Interpreter.FunctionCalls {
+					if fc.Output.ExecuteCommand != nil && fc.Output.ExecuteCommand.Stderr != "" {
+						resultStr += "\n" + fc.Output.ExecuteCommand.Stderr
+					}
+				}
 			}
+
 			contentBlocks = append(contentBlocks, &model.ToolResultBlock{
-				ID:        interpreterResult.ID,
-				Name:      "code_interpreter",
-				Result:    result,
-				Succeeded: interpreterResult.Error == "",
+				ID:        toolResult.Provider.ID,
+				Name:      toolResult.Tool,
+				Result:    resultStr,
+				Succeeded: toolResult.Succeeded,
 			})
 		default:
 			return nil, fmt.Errorf("unknown message block kind: %s", block.Kind)
@@ -98,6 +102,32 @@ func ConvertMemoryMessageBlocksToModel(blocks []types.MessageBlock) ([]model.Con
 	}
 
 	return contentBlocks, nil
+}
+
+// ConvertMemoryBlocksToAgent converts memory blocks to agent-typed blocks with parsed Input/Output.
+func ConvertMemoryBlocksToAgent(blocks []types.MessageBlock) ([]*ToolCall, []*ToolResult, error) {
+	var toolCalls []*ToolCall
+	var toolResults []*ToolResult
+
+	for _, block := range blocks {
+		switch block.Kind {
+		case types.MessageBlockKindToolCall:
+			var toolCall ToolCall
+			if err := json.Unmarshal([]byte(block.Payload), &toolCall); err != nil {
+				return nil, nil, fmt.Errorf("failed to unmarshal tool call block: %w", err)
+			}
+			toolCalls = append(toolCalls, &toolCall)
+
+		case types.MessageBlockKindToolResult:
+			var toolResult ToolResult
+			if err := json.Unmarshal([]byte(block.Payload), &toolResult); err != nil {
+				return nil, nil, fmt.Errorf("failed to unmarshal tool result block: %w", err)
+			}
+			toolResults = append(toolResults, &toolResult)
+		}
+	}
+
+	return toolCalls, toolResults, nil
 }
 
 func ConvertMemoryMessageToProto(m *memory.Message) (*v1.Message, error) {
@@ -125,52 +155,49 @@ func ConvertMemoryMessageToProto(m *memory.Message) (*v1.Message, error) {
 				},
 			})
 
-		case types.MessageBlockKindCodeInterpreterCall:
-			var toolCall model.ToolCallBlock
+		case types.MessageBlockKindToolCall:
+			var toolCall ToolCall
 			err := json.Unmarshal([]byte(block.Payload), &toolCall)
 			if err != nil {
-				return nil, fmt.Errorf("failed to unmarshal code interpreter call block: %w", err)
+				return nil, fmt.Errorf("failed to unmarshal tool call block: %w", err)
 			}
 
-			var interpreterArgs codeact.InterpreterInput
-			err = json.Unmarshal(toolCall.Args, &interpreterArgs)
-			if err != nil {
-				return nil, fmt.Errorf("failed to unmarshal code interpreter args: %w", err)
-			}
-
-			contentParts = append(contentParts, &v1.MessagePart{
-				Data: &v1.MessagePart_ToolCall{
-					ToolCall: &v1.ToolCall{
-						ToolName: toolCall.Tool,
-						Input: &v1.ToolCall_CodeInterpreter{
-							CodeInterpreter: &v1.ToolCall_CodeInterpreterInput{
-								Code: interpreterArgs.Script,
+			if toolCall.Tool == "code_interpreter" && toolCall.Input != nil && toolCall.Input.Interpreter != nil {
+				contentParts = append(contentParts, &v1.MessagePart{
+					Data: &v1.MessagePart_ToolCall{
+						ToolCall: &v1.ToolCall{
+							ToolName: toolCall.Tool,
+							Input: &v1.ToolCall_CodeInterpreter{
+								CodeInterpreter: &v1.ToolCall_CodeInterpreterInput{
+									Code: toolCall.Input.Interpreter.Script,
+								},
 							},
 						},
 					},
-				},
-			})
-		case types.MessageBlockKindCodeInterpreterResult:
-			var interpreterResult codeact.InterpreterToolResult
-			err := json.Unmarshal([]byte(block.Payload), &interpreterResult)
+				})
+			}
+		case types.MessageBlockKindToolResult:
+			var toolResult ToolResult
+			err := json.Unmarshal([]byte(block.Payload), &toolResult)
 			if err != nil {
-				return nil, fmt.Errorf("failed to unmarshal code interpreter result: %w", err)
+				return nil, fmt.Errorf("failed to unmarshal tool result: %w", err)
 			}
 
-			contentParts = append(contentParts, &v1.MessagePart{
-				Data: &v1.MessagePart_ToolResult{
-					ToolResult: &v1.ToolResult{
-						ToolName: "code_interpreter",
-						Result: &v1.ToolResult_CodeInterpreter{
-							CodeInterpreter: &v1.ToolResult_CodeInterpreterResult{
-								Output: interpreterResult.Output,
+			if toolResult.Tool == "code_interpreter" && toolResult.Output != nil && toolResult.Output.Interpreter != nil {
+				contentParts = append(contentParts, &v1.MessagePart{
+					Data: &v1.MessagePart_ToolResult{
+						ToolResult: &v1.ToolResult{
+							ToolName: "code_interpreter",
+							Result: &v1.ToolResult_CodeInterpreter{
+								CodeInterpreter: &v1.ToolResult_CodeInterpreterResult{
+									Output: toolResult.Output.Interpreter.ConsoleOutput,
+								},
 							},
 						},
 					},
-				},
-			})
+				})
 
-			for _, call := range interpreterResult.FunctionCalls {
+				for _, call := range toolResult.Output.Interpreter.FunctionCalls {
 				switch call.ToolName {
 				case toolbase.ToolNameCreateFile:
 					createFileInput := call.Input.CreateFile
@@ -572,6 +599,7 @@ func ConvertMemoryMessageToProto(m *memory.Message) (*v1.Message, error) {
 					})
 				}
 			}
+			}
 		}
 	}
 
@@ -642,6 +670,10 @@ func ConvertModelMessageSourceToMemory(source model.MessageSource) types.Message
 }
 
 func ConvertModelContentBlocksToMemory(blocks []model.ContentBlock) (*types.MessageContent, error) {
+	return ConvertModelContentBlocksToMemoryWithProvider(blocks, "")
+}
+
+func ConvertModelContentBlocksToMemoryWithProvider(blocks []model.ContentBlock, providerKind string) (*types.MessageContent, error) {
 	var messageBlocks []types.MessageBlock
 
 	for _, block := range blocks {
@@ -652,29 +684,45 @@ func ConvertModelContentBlocksToMemory(blocks []model.ContentBlock) (*types.Mess
 				Payload: b.Text,
 			})
 		case *model.ToolCallBlock:
-			payload, err := json.Marshal(b)
+			// Convert to unified ToolCall format
+			toolCall := &ToolCall{
+				Tool: b.Tool,
+				Provider: &ProviderData{
+					Kind: providerKind,
+					ID:   b.ID,
+				},
+			}
+			// Parse Args based on tool type
+			if b.Tool == "code_interpreter" {
+				var input tooltypes.InterpreterInput
+				if err := json.Unmarshal(b.Args, &input); err == nil {
+					toolCall.Input = &tooltypes.ToolInput{Interpreter: &input}
+				}
+			}
+			payload, err := json.Marshal(toolCall)
 			if err != nil {
 				return nil, fmt.Errorf("failed to marshal tool call block: %w", err)
 			}
-			kind := types.MessageBlockKindNativeToolCall
-			if b.Tool == "code_interpreter" {
-				kind = types.MessageBlockKindCodeInterpreterCall
-			}
 			messageBlocks = append(messageBlocks, types.MessageBlock{
-				Kind:    kind,
+				Kind:    types.MessageBlockKindToolCall,
 				Payload: string(payload),
 			})
 		case *model.ToolResultBlock:
-			payload, err := json.Marshal(b)
+			// Convert to unified ToolResult format
+			toolResult := &ToolResult{
+				Tool:      b.Name,
+				Succeeded: b.Succeeded,
+				Provider: &ProviderData{
+					Kind: providerKind,
+					ID:   b.ID,
+				},
+			}
+			payload, err := json.Marshal(toolResult)
 			if err != nil {
 				return nil, fmt.Errorf("failed to marshal tool result block: %w", err)
 			}
-			kind := types.MessageBlockKindNativeToolResult
-			if b.Name == "code_interpreter" {
-				kind = types.MessageBlockKindCodeInterpreterResult
-			}
 			messageBlocks = append(messageBlocks, types.MessageBlock{
-				Kind:    kind,
+				Kind:    types.MessageBlockKindToolResult,
 				Payload: string(payload),
 			})
 		default:

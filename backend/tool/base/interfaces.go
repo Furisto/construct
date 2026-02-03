@@ -56,7 +56,3 @@ type ValidationError struct {
 func (e ValidationError) Error() string {
 	return e.Field + ": " + e.Message
 }
-
-type ToolResult interface {
-	Kind() string
-}

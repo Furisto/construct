@@ -9,6 +9,26 @@ import (
 	"github.com/furisto/construct/backend/tool/web"
 )
 
+// InterpreterInput represents input for the code interpreter tool.
+type InterpreterInput struct {
+	Script string `json:"script"`
+}
+
+// InterpreterOutput represents output from the code interpreter tool.
+type InterpreterOutput struct {
+	ConsoleOutput string           `json:"console_output"`
+	FunctionCalls []FunctionCall   `json:"function_calls"`
+	ToolStats     map[string]int64 `json:"tool_stats,omitempty"`
+}
+
+// FunctionCall represents a function call made within the interpreter.
+type FunctionCall struct {
+	ToolName string     `json:"tool_name"`
+	Input    ToolInput  `json:"input"`
+	Output   ToolOutput `json:"output"`
+	Index    int        `json:"index"`
+}
+
 // ToolInput contains the typed input for a tool call.
 // Only one field will be set at a time based on the tool being called.
 type ToolInput struct {
@@ -23,6 +43,7 @@ type ToolInput struct {
 	AskUser        *communication.AskUserInput      `json:"ask_user,omitempty"`
 	Handoff        *communication.HandoffInput      `json:"handoff,omitempty"`
 	Fetch          *web.FetchInput                  `json:"fetch,omitempty"`
+	Interpreter    *InterpreterInput                `json:"interpreter,omitempty"`
 }
 
 // ToolInputFrom converts a raw tool input to the typed ToolInput struct.
@@ -52,6 +73,8 @@ func ToolInputFrom(input any) (ToolInput, error) {
 		result.Handoff = v
 	case *web.FetchInput:
 		result.Fetch = v
+	case *InterpreterInput:
+		result.Interpreter = v
 	default:
 		return result, fmt.Errorf("unknown tool input type: %T", input)
 	}
@@ -71,6 +94,7 @@ type ToolOutput struct {
 	SubmitReport   *communication.SubmitReportResult `json:"submit_report,omitempty"`
 	AskUser        *communication.AskUserResult      `json:"ask_user,omitempty"`
 	Fetch          *web.FetchResult                  `json:"fetch,omitempty"`
+	Interpreter    *InterpreterOutput                `json:"interpreter,omitempty"`
 }
 
 // ToolOutputFrom converts a raw tool output to the typed ToolOutput struct.
@@ -98,6 +122,8 @@ func ToolOutputFrom(output any) (ToolOutput, error) {
 		result.AskUser = v
 	case *web.FetchResult:
 		result.Fetch = v
+	case *InterpreterOutput:
+		result.Interpreter = v
 	default:
 		return result, fmt.Errorf("unknown tool output type: %T", output)
 	}

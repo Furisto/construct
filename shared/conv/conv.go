@@ -9,12 +9,32 @@ import (
 	v1 "github.com/furisto/construct/api/go/v1"
 	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/memory/schema/types"
-	"github.com/furisto/construct/backend/model"
 	toolbase "github.com/furisto/construct/backend/tool/base"
-	"github.com/furisto/construct/backend/tool/codeact"
+	tooltypes "github.com/furisto/construct/backend/tool/types"
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+// ProviderData contains provider-specific metadata for tool calls (for parsing).
+type ProviderData struct {
+	Kind string `json:"kind"`
+	ID   string `json:"id"`
+}
+
+// ToolCall represents a tool invocation with typed input (for parsing).
+type ToolCall struct {
+	Tool     string               `json:"tool"`
+	Input    *tooltypes.ToolInput `json:"input,omitempty"`
+	Provider *ProviderData        `json:"provider"`
+}
+
+// ToolResult represents a tool result with typed output (for parsing).
+type ToolResult struct {
+	Tool      string                `json:"tool"`
+	Output    *tooltypes.ToolOutput `json:"output,omitempty"`
+	Succeeded bool                  `json:"succeeded"`
+	Provider  *ProviderData         `json:"provider"`
+}
 
 func Ptr[T any](v T) *T {
 	return &v
@@ -65,52 +85,49 @@ func ConvertMemoryMessageToProto(m *memory.Message) (*v1.Message, error) {
 				},
 			})
 
-		case types.MessageBlockKindCodeInterpreterCall:
-			var toolCall model.ToolCallBlock
+		case types.MessageBlockKindToolCall:
+			var toolCall ToolCall
 			err := json.Unmarshal([]byte(block.Payload), &toolCall)
 			if err != nil {
-				return nil, fmt.Errorf("failed to unmarshal code interpreter call block: %w", err)
+				return nil, fmt.Errorf("failed to unmarshal tool call block: %w", err)
 			}
 
-			var interpreterArgs codeact.InterpreterInput
-			err = json.Unmarshal(toolCall.Args, &interpreterArgs)
-			if err != nil {
-				return nil, fmt.Errorf("failed to unmarshal code interpreter args: %w", err)
-			}
-
-			contentParts = append(contentParts, &v1.MessagePart{
-				Data: &v1.MessagePart_ToolCall{
-					ToolCall: &v1.ToolCall{
-						ToolName: toolCall.Tool,
-						Input: &v1.ToolCall_CodeInterpreter{
-							CodeInterpreter: &v1.ToolCall_CodeInterpreterInput{
-								Code: interpreterArgs.Script,
+			if toolCall.Tool == "code_interpreter" && toolCall.Input != nil && toolCall.Input.Interpreter != nil {
+				contentParts = append(contentParts, &v1.MessagePart{
+					Data: &v1.MessagePart_ToolCall{
+						ToolCall: &v1.ToolCall{
+							ToolName: toolCall.Tool,
+							Input: &v1.ToolCall_CodeInterpreter{
+								CodeInterpreter: &v1.ToolCall_CodeInterpreterInput{
+									Code: toolCall.Input.Interpreter.Script,
+								},
 							},
 						},
 					},
-				},
-			})
-		case types.MessageBlockKindCodeInterpreterResult:
-			var interpreterResult codeact.InterpreterToolResult
-			err := json.Unmarshal([]byte(block.Payload), &interpreterResult)
+				})
+			}
+		case types.MessageBlockKindToolResult:
+			var toolResult ToolResult
+			err := json.Unmarshal([]byte(block.Payload), &toolResult)
 			if err != nil {
-				return nil, fmt.Errorf("failed to unmarshal code interpreter result: %w", err)
+				return nil, fmt.Errorf("failed to unmarshal tool result: %w", err)
 			}
 
-			contentParts = append(contentParts, &v1.MessagePart{
-				Data: &v1.MessagePart_ToolResult{
-					ToolResult: &v1.ToolResult{
-						ToolName: "code_interpreter",
-						Result: &v1.ToolResult_CodeInterpreter{
-							CodeInterpreter: &v1.ToolResult_CodeInterpreterResult{
-								Output: interpreterResult.Output,
+			if toolResult.Tool == "code_interpreter" && toolResult.Output != nil && toolResult.Output.Interpreter != nil {
+				contentParts = append(contentParts, &v1.MessagePart{
+					Data: &v1.MessagePart_ToolResult{
+						ToolResult: &v1.ToolResult{
+							ToolName: "code_interpreter",
+							Result: &v1.ToolResult_CodeInterpreter{
+								CodeInterpreter: &v1.ToolResult_CodeInterpreterResult{
+									Output: toolResult.Output.Interpreter.ConsoleOutput,
+								},
 							},
 						},
 					},
-				},
-			})
+				})
 
-			for _, call := range interpreterResult.FunctionCalls {
+				for _, call := range toolResult.Output.Interpreter.FunctionCalls {
 				switch call.ToolName {
 				case toolbase.ToolNameCreateFile:
 					createFileInput := call.Input.CreateFile
@@ -555,6 +572,7 @@ func ConvertMemoryMessageToProto(m *memory.Message) (*v1.Message, error) {
 						},
 					})
 				}
+			}
 			}
 		}
 	}

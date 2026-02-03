@@ -8,21 +8,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/furisto/construct/backend/tool/types"
 	"github.com/furisto/construct/shared"
 	"github.com/grafana/sobek"
 	"github.com/invopop/jsonschema"
 	"github.com/spf13/afero"
 )
 
-type InterpreterInput struct {
-	Script string `json:"script"`
-}
+// InterpreterInput is an alias for types.InterpreterInput
+type InterpreterInput = types.InterpreterInput
 
-type InterpreterOutput struct {
-	ConsoleOutput string           `json:"console_output"`
-	FunctionCalls []FunctionCall   `json:"function_calls"`
-	ToolStats     map[string]int64 `json:"tool_stats"`
-}
+// InterpreterOutput is an alias for types.InterpreterOutput
+type InterpreterOutput = types.InterpreterOutput
 
 type Interpreter struct {
 	Tools        []Tool
@@ -66,7 +63,7 @@ func (c *Interpreter) Run(ctx context.Context, fsys afero.Fs, input json.RawMess
 	return "", nil
 }
 
-func (c *Interpreter) Interpret(ctx context.Context, fsys afero.Fs, input json.RawMessage, task *Task) (*InterpreterOutput, error) {
+func (c *Interpreter) Interpret(ctx context.Context, fsys afero.Fs, input *InterpreterInput, task *Task) (*InterpreterOutput, error) {
 	logger := slog.With(
 		"component", "code_interpreter",
 		"task_id", task.ID,
@@ -74,14 +71,7 @@ func (c *Interpreter) Interpret(ctx context.Context, fsys afero.Fs, input json.R
 
 	interpretStart := time.Now()
 
-	var args InterpreterInput
-	err := json.Unmarshal(input, &args)
-	if err != nil {
-		logger.Error("failed to unmarshal interpreter input", "error", err)
-		return nil, err
-	}
-
-	scriptLines := strings.Count(args.Script, "\n") + 1
+	scriptLines := strings.Count(input.Script, "\n") + 1
 	logger.Debug("script execution started",
 		"script_lines", scriptLines,
 	)
@@ -105,7 +95,7 @@ func (c *Interpreter) Interpret(ctx context.Context, fsys afero.Fs, input json.R
 		}
 	}()
 
-	_, err = vm.RunString(ensureStrictMode(args.Script))
+	_, err := vm.RunString(ensureStrictMode(input.Script))
 	close(done)
 
 	if err != nil {
