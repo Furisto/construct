@@ -1,0 +1,155 @@
+// Event API provides real-time event streaming for Construct.
+// Events notify clients of changes to tasks, messages, agents, models, and other resources.
+// Clients can subscribe with pattern-based filtering and task scope filtering.
+syntax = "proto3";
+
+package construct.v1;
+
+import "buf/validate/validate.proto";
+import "construct/v1/agent.proto";
+import "construct/v1/message.proto";
+import "construct/v1/model.proto";
+import "construct/v1/modelprovider.proto";
+import "construct/v1/task.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/furisto/construct/api/go/v1";
+
+// EventService provides real-time event streaming.
+// Clients can subscribe to events with optional filtering by event type patterns and task scope.
+service EventService {
+  // Subscribe streams events matching the filter criteria.
+  // Supports pattern-based filtering (e.g., "task.*", "*.created") and task scope filtering.
+  rpc Subscribe(EventSubscribeRequest) returns (stream EventSubscribeResponse) {}
+}
+
+// EventSubscribeRequest specifies the subscription filter criteria.
+message EventSubscribeRequest {
+  // event_types specifies which event types to receive using glob patterns.
+  // Supports: "*" (all), "entity.*" (e.g., "task.*"), "*.action" (e.g., "*.created"), or exact match.
+  // Empty list subscribes to all events.
+  repeated string event_types = 1;
+
+  // task_id filters events to only those related to a specific task (UUID format, optional).
+  // When set, only task-scoped events (task.*, message.*, tool.*) for this task are delivered.
+  optional string task_id = 2 [(buf.validate.field).string.uuid = true];
+
+  // replay_after_message_id enables replay of message.created events after this message ID.
+  // Only applicable when task_id is also set. Only message.created events are replayed.
+  optional string replay_after_message_id = 3 [(buf.validate.field).string.uuid = true];
+}
+
+// EventSubscribeResponse wraps an event in the stream.
+message EventSubscribeResponse {
+  // event is the streamed event.
+  Event event = 1 [(buf.validate.field).required = true];
+}
+
+// EventAction represents the type of change that occurred to a resource.
+enum EventAction {
+  // EVENT_ACTION_UNSPECIFIED is used for non-CRUD events like message.chunk or tool events.
+  EVENT_ACTION_UNSPECIFIED = 0;
+
+  // EVENT_ACTION_CREATED indicates the resource was created.
+  EVENT_ACTION_CREATED = 1;
+
+  // EVENT_ACTION_UPDATED indicates the resource was modified.
+  EVENT_ACTION_UPDATED = 2;
+
+  // EVENT_ACTION_DELETED indicates the resource was deleted.
+  EVENT_ACTION_DELETED = 3;
+}
+
+// Event represents a single event in the stream.
+message Event {
+  // type is the event type string for filtering (e.g., "task.created", "message.chunk", "tool.called").
+  string type = 1 [(buf.validate.field).required = true];
+
+  // action is the action that occurred: created, updated, deleted, or unspecified (for non-CRUD events).
+  EventAction action = 2 [(buf.validate.field).enum.defined_only = true];
+
+  // timestamp is when the change occurred (entity timestamp, e.g., created_at, updated_at).
+  google.protobuf.Timestamp timestamp = 3 [(buf.validate.field).required = true];
+
+  // payload contains the event-specific data.
+  oneof payload {
+    TaskEvent task = 10;
+    MessageEvent message = 11;
+    MessageChunkEvent message_chunk = 12;
+    AgentEvent agent = 13;
+    ModelEvent model = 14;
+    ModelProviderEvent model_provider = 15;
+    ToolCalledEvent tool_called = 16;
+    ToolResultEvent tool_result = 17;
+  }
+}
+
+// TaskEvent contains task event data.
+message TaskEvent {
+  // task is the task entity. For delete events, may only have ID populated.
+  Task task = 1 [(buf.validate.field).required = true];
+
+  // previous_phase is populated on phase change updates.
+  optional string previous_phase = 2;
+}
+
+// MessageEvent contains message event data (created, updated, deleted).
+message MessageEvent {
+  // message is the message entity. For delete events, may only have ID populated.
+  Message message = 1 [(buf.validate.field).required = true];
+}
+
+// MessageChunkEvent contains streaming message chunk data.
+// Note: Chunk events are not replayed. After streaming completes, a message.created event is emitted.
+message MessageChunkEvent {
+  // task_id is the task this message belongs to.
+  string task_id = 1 [(buf.validate.field).string.uuid = true];
+
+  // message_id is the message being streamed.
+  string message_id = 2 [(buf.validate.field).string.uuid = true];
+
+  // chunk is the delta content (incremental text to append), not cumulative.
+  string chunk = 3;
+
+  // chunk_index is 0-based, per-message, monotonically increasing.
+  int32 chunk_index = 4;
+}
+
+// AgentEvent contains agent event data.
+message AgentEvent {
+  // agent is the agent entity. For delete events, may only have ID populated.
+  Agent agent = 1 [(buf.validate.field).required = true];
+}
+
+// ModelEvent contains model event data.
+message ModelEvent {
+  // model is the model entity. For delete events, may only have ID populated.
+  Model model = 1 [(buf.validate.field).required = true];
+}
+
+// ModelProviderEvent contains model provider event data.
+// Note: Must never include credentials/API keys in the payload.
+message ModelProviderEvent {
+  // model_provider is the model provider entity. For delete events, may only have ID populated.
+  ModelProvider model_provider = 1 [(buf.validate.field).required = true];
+}
+
+// ToolCalledEvent contains tool call event data.
+// Emitted before tool execution begins.
+message ToolCalledEvent {
+  // task_id is the task where this tool was called.
+  string task_id = 1 [(buf.validate.field).string.uuid = true];
+
+  // tool_call contains the tool name and input.
+  ToolCall tool_call = 2 [(buf.validate.field).required = true];
+}
+
+// ToolResultEvent contains tool result event data.
+// Emitted after tool execution completes.
+message ToolResultEvent {
+  // task_id is the task where this tool was executed.
+  string task_id = 1 [(buf.validate.field).string.uuid = true];
+
+  // tool_result contains the tool name and output.
+  ToolResult tool_result = 2 [(buf.validate.field).required = true];
+}

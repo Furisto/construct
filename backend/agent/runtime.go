@@ -17,6 +17,7 @@ import (
 	"github.com/furisto/construct/backend/secret"
 	"github.com/furisto/construct/backend/skill"
 	"github.com/furisto/construct/backend/tool/codeact"
+	tooltypes "github.com/furisto/construct/backend/tool/types"
 	"github.com/furisto/construct/shared"
 	"github.com/google/uuid"
 	"github.com/spf13/afero"
@@ -73,8 +74,7 @@ type Runtime struct {
 	api            *api.Server
 	memory         *memory.Client
 	encryption     *secret.Encryption
-	eventHub       *event.MessageHub
-	bus            *event.Bus
+	eventRouter    *event.EventRouter
 	taskReconciler *TaskReconciler
 	logger         *slog.Logger
 
@@ -104,17 +104,18 @@ func NewRuntime(memory *memory.Client, encryption *secret.Encryption, listener n
 	metricsRegistry.MustRegister(collectors.NewBuildInfoCollector())
 	metricsRegistry.MustRegister(collectors.NewDBStatsCollector(memory.MustDB(), "construct"))
 
-	messageHub, err := event.NewMessageHub(memory)
-	if err != nil {
-		LogError(logger, "initialize message hub", err)
-		return nil, err
-	}
-	eventBus := event.NewBus(metricsRegistry)
+	eventRouter := event.NewEventRouter(event.DefaultChannelBufferSize)
+
+	// Register ent hooks to emit CRUD events
+	event.RegisterHooks(memory, eventRouter)
+
+	// Create tool event publisher that publishes to EventRouter
+	toolEventPublisher := newEventRouterToolPublisher(eventRouter)
 
 	interceptors := []codeact.Interceptor{
 		codeact.InterceptorFunc(codeact.ToolStatisticsInterceptor),
 		codeact.InterceptorFunc(codeact.DurableFunctionInterceptor),
-		codeact.NewToolEventPublisher(messageHub),
+		codeact.NewToolEventPublisher(toolEventPublisher),
 		codeact.InterceptorFunc(codeact.ResetTemporarySessionValuesInterceptor),
 	}
 
@@ -124,9 +125,8 @@ func NewRuntime(memory *memory.Client, encryption *secret.Encryption, listener n
 	runtime := &Runtime{
 		memory:         memory,
 		encryption:     encryption,
-		eventHub:       messageHub,
-		bus:            eventBus,
-		taskReconciler: NewTaskReconciler(memory, codeact.NewInterpreter(options.Tools, interceptors), options.Concurrency, eventBus, messageHub, clientFactory, metricsRegistry),
+		eventRouter:    eventRouter,
+		taskReconciler: NewTaskReconciler(memory, codeact.NewInterpreter(options.Tools, interceptors), options.Concurrency, eventRouter, clientFactory, metricsRegistry),
 		analytics:      options.Analytics,
 		logger:         logger,
 		metrics:        metricsRegistry,
@@ -135,7 +135,7 @@ func NewRuntime(memory *memory.Client, encryption *secret.Encryption, listener n
 	userInfo := shared.NewDefaultUserInfo(fs)
 	skills := skill.NewSkillManager(fs, userInfo)
 
-	api := api.NewServer(runtime, listener, runtime.bus, runtime.analytics, skills)
+	api := api.NewServer(runtime, listener, runtime.eventRouter, runtime.analytics, skills)
 	runtime.api = api
 
 	listenerAddr := listener.Addr().String()
@@ -211,10 +211,6 @@ func (rt *Runtime) Memory() *memory.Client {
 	return rt.memory
 }
 
-func (rt *Runtime) EventHub() *event.MessageHub {
-	return rt.eventHub
-}
-
 func WithRole(role v1.MessageRole) func(*v1.Message) {
 	return func(msg *v1.Message) {
 		msg.Metadata.Role = role
@@ -224,12 +220,6 @@ func WithRole(role v1.MessageRole) func(*v1.Message) {
 func WithContent(content *v1.MessagePart) func(*v1.Message) {
 	return func(msg *v1.Message) {
 		msg.Spec.Content = append(msg.Spec.Content, content)
-	}
-}
-
-func WithStatus(status v1.ContentStatus) func(*v1.Message) {
-	return func(msg *v1.Message) {
-		msg.Status.ContentState = status
 	}
 }
 
@@ -274,7 +264,6 @@ func NewMessage(taskID uuid.UUID, options ...func(*v1.Message)) *v1.Message {
 		},
 		Spec: &v1.MessageSpec{},
 		Status: &v1.MessageStatus{
-			ContentState:    v1.ContentStatus_CONTENT_STATUS_COMPLETE,
 			IsFinalResponse: false,
 		},
 	}
@@ -284,4 +273,21 @@ func NewMessage(taskID uuid.UUID, options ...func(*v1.Message)) *v1.Message {
 	}
 
 	return msg
+}
+
+// eventRouterToolPublisher implements codeact.EventPublisher to publish tool events to EventRouter.
+type eventRouterToolPublisher struct {
+	router *event.EventRouter
+}
+
+func newEventRouterToolPublisher(router *event.EventRouter) *eventRouterToolPublisher {
+	return &eventRouterToolPublisher{router: router}
+}
+
+func (p *eventRouterToolPublisher) PublishToolCall(taskID uuid.UUID, evt tooltypes.ToolCallEvent) {
+	p.router.Publish(event.NewToolCalledEvent(taskID, evt))
+}
+
+func (p *eventRouterToolPublisher) PublishToolResult(taskID uuid.UUID, evt tooltypes.ToolResultEvent) {
+	p.router.Publish(event.NewToolResultEvent(taskID, evt))
 }

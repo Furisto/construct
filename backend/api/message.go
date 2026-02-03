@@ -18,20 +18,18 @@ import (
 
 var _ v1connect.MessageServiceHandler = (*MessageHandler)(nil)
 
-func NewMessageHandler(db *memory.Client, runtime AgentRuntime, messageHub *event.MessageHub, eventBus *event.Bus) *MessageHandler {
+func NewMessageHandler(db *memory.Client, runtime AgentRuntime, eventRouter *event.EventRouter) *MessageHandler {
 	return &MessageHandler{
-		db:         db,
-		runtime:    runtime,
-		messageHub: messageHub,
-		eventBus:   eventBus,
+		db:          db,
+		runtime:     runtime,
+		eventRouter: eventRouter,
 	}
 }
 
 type MessageHandler struct {
-	db         *memory.Client
-	runtime    AgentRuntime
-	messageHub *event.MessageHub
-	eventBus   *event.Bus
+	db          *memory.Client
+	runtime     AgentRuntime
+	eventRouter *event.EventRouter
 	v1connect.UnimplementedMessageServiceHandler
 }
 
@@ -70,9 +68,7 @@ func (h *MessageHandler) CreateMessage(ctx context.Context, req *connect.Request
 		return nil, apiError(err)
 	}
 
-	event.Publish(h.eventBus, event.TaskEvent{
-		TaskID: taskID,
-	})
+	h.eventRouter.Publish(event.NewInternalTaskTriggerEvent(taskID))
 
 	return connect.NewResponse(&v1.CreateMessageResponse{
 		Message: protoMsg,

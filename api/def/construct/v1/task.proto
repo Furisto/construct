@@ -7,7 +7,6 @@ package construct.v1;
 
 import "buf/validate/validate.proto";
 import "construct/v1/common.proto";
-import "construct/v1/message.proto";
 import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/furisto/construct/api/go/v1";
@@ -34,9 +33,6 @@ service TaskService {
 
   // DeleteTask removes a task from the system.
   rpc DeleteTask(DeleteTaskRequest) returns (DeleteTaskResponse) {}
-
-  // Subscribe to task events.
-  rpc Subscribe(SubscribeRequest) returns (stream SubscribeResponse) {}
 
   // SuspendTask suspends a task.
   rpc SuspendTask(SuspendTaskRequest) returns (SuspendTaskResponse) {}
@@ -230,26 +226,6 @@ message DeleteTaskRequest {
 
 // DeleteTaskResponse confirms the task deletion (empty response).
 message DeleteTaskResponse {}
-
-message SubscribeRequest {
-  string task_id = 1 [(buf.validate.field).string.uuid = true];
-}
-
-// TaskEvent represents a task state change notification
-message TaskEvent {
-  // task_id is the ID of the task that changed
-  string task_id = 1 [(buf.validate.field).string.uuid = true];
-
-  // timestamp when the event occurred
-  google.protobuf.Timestamp timestamp = 2 [(buf.validate.field).required = true];
-}
-
-message SubscribeResponse {
-  oneof event {
-    Message message = 1;
-    TaskEvent task_event = 2;
-  }
-}
 
 message SuspendTaskRequest {
   string task_id = 1 [(buf.validate.field).string.uuid = true];

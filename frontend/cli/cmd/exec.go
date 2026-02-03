@@ -290,9 +290,10 @@ func handleResponseStream(ctx context.Context, cmd *cobra.Command, client *clien
 	streamCtx, streamCancel := context.WithCancel(ctx)
 	defer streamCancel()
 
-	stream, err := client.Task().Subscribe(streamCtx, &connect.Request[v1.SubscribeRequest]{
-		Msg: &v1.SubscribeRequest{
-			TaskId: taskID,
+	stream, err := client.Event().Subscribe(streamCtx, &connect.Request[v1.EventSubscribeRequest]{
+		Msg: &v1.EventSubscribeRequest{
+			EventTypes: []string{"message.*"},
+			TaskId:     &taskID,
 		},
 	})
 	if err != nil {
@@ -300,10 +301,16 @@ func handleResponseStream(ctx context.Context, cmd *cobra.Command, client *clien
 	}
 
 	for stream.Receive() {
-		message := stream.Msg().GetMessage()
-		if message == nil {
+		msg := stream.Msg()
+		if msg.Event == nil {
 			continue
 		}
+
+		messagePayload, ok := msg.Event.Payload.(*v1.Event_Message)
+		if !ok || messagePayload.Message == nil || messagePayload.Message.Message == nil {
+			continue
+		}
+		message := messagePayload.Message.Message
 
 		task, err := client.Task().GetTask(ctx, &connect.Request[v1.GetTaskRequest]{
 			Msg: &v1.GetTaskRequest{

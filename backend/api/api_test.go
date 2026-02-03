@@ -20,7 +20,6 @@ import (
 	"github.com/furisto/construct/backend/memory"
 	"github.com/furisto/construct/backend/secret"
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/uuid"
 )
 
 type ClientServiceCall[Request any, Response any] func(ctx context.Context, client *api_client.Client, req *connect.Request[Request]) (*connect.Response[Response], error)
@@ -137,11 +136,7 @@ func DefaultTestHandlerOptions(t *testing.T) HandlerOptions {
 
 	runtime := &MockAgentRuntime{}
 
-	eventBus := event.NewBus(nil)
-	messageHub, err := event.NewMessageHub(db)
-	if err != nil {
-		t.Fatalf("failed creating message hub: %v", err)
-	}
+	eventRouter := event.NewEventRouter(event.DefaultChannelBufferSize)
 
 	tokenProvider := auth.NewTokenProvider()
 
@@ -149,8 +144,7 @@ func DefaultTestHandlerOptions(t *testing.T) HandlerOptions {
 		DB:            db,
 		Encryption:    encryption,
 		AgentRuntime:  runtime,
-		EventBus:      eventBus,
-		MessageHub:    messageHub,
+		EventRouter:   eventRouter,
 		Analytics:     analytics.NewInMemoryClient(),
 		TokenProvider: tokenProvider,
 	}
@@ -313,11 +307,4 @@ func (m *MockAgentRuntime) Memory() *memory.Client {
 
 func (m *MockAgentRuntime) Encryption() *secret.Encryption {
 	return nil
-}
-
-func (m *MockAgentRuntime) EventHub() *event.MessageHub {
-	return nil
-}
-
-func (m *MockAgentRuntime) CancelTask(id uuid.UUID) {
 }

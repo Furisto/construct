@@ -27,55 +27,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type ContentStatus int32
-
-const (
-	ContentStatus_CONTENT_STATUS_UNSPECIFIED ContentStatus = 0
-	ContentStatus_CONTENT_STATUS_PARTIAL     ContentStatus = 1
-	ContentStatus_CONTENT_STATUS_COMPLETE    ContentStatus = 2
-)
-
-// Enum value maps for ContentStatus.
-var (
-	ContentStatus_name = map[int32]string{
-		0: "CONTENT_STATUS_UNSPECIFIED",
-		1: "CONTENT_STATUS_PARTIAL",
-		2: "CONTENT_STATUS_COMPLETE",
-	}
-	ContentStatus_value = map[string]int32{
-		"CONTENT_STATUS_UNSPECIFIED": 0,
-		"CONTENT_STATUS_PARTIAL":     1,
-		"CONTENT_STATUS_COMPLETE":    2,
-	}
-)
-
-func (x ContentStatus) Enum() *ContentStatus {
-	p := new(ContentStatus)
-	*p = x
-	return p
-}
-
-func (x ContentStatus) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (ContentStatus) Descriptor() protoreflect.EnumDescriptor {
-	return file_construct_v1_message_proto_enumTypes[0].Descriptor()
-}
-
-func (ContentStatus) Type() protoreflect.EnumType {
-	return &file_construct_v1_message_proto_enumTypes[0]
-}
-
-func (x ContentStatus) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use ContentStatus.Descriptor instead.
-func (ContentStatus) EnumDescriptor() ([]byte, []int) {
-	return file_construct_v1_message_proto_rawDescGZIP(), []int{0}
-}
-
 // MessageRole indicates the source/author of a message in the conversation.
 type MessageRole int32
 
@@ -117,11 +68,11 @@ func (x MessageRole) String() string {
 }
 
 func (MessageRole) Descriptor() protoreflect.EnumDescriptor {
-	return file_construct_v1_message_proto_enumTypes[1].Descriptor()
+	return file_construct_v1_message_proto_enumTypes[0].Descriptor()
 }
 
 func (MessageRole) Type() protoreflect.EnumType {
-	return &file_construct_v1_message_proto_enumTypes[1]
+	return &file_construct_v1_message_proto_enumTypes[0]
 }
 
 func (x MessageRole) Number() protoreflect.EnumNumber {
@@ -130,7 +81,7 @@ func (x MessageRole) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use MessageRole.Descriptor instead.
 func (MessageRole) EnumDescriptor() ([]byte, []int) {
-	return file_construct_v1_message_proto_rawDescGZIP(), []int{1}
+	return file_construct_v1_message_proto_rawDescGZIP(), []int{0}
 }
 
 // Message represents a complete message entity with metadata, specification, and status.
@@ -348,8 +299,6 @@ type MessageStatus struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// usage tracks resource consumption and costs associated with generating this message.
 	Usage *MessageUsage `protobuf:"bytes,1,opt,name=usage,proto3" json:"usage,omitempty"`
-	// content_state indicates the status of the message content.
-	ContentState ContentStatus `protobuf:"varint,2,opt,name=content_state,json=contentState,proto3,enum=construct.v1.ContentStatus" json:"content_state,omitempty"`
 	// is_final_response indicates whether this message is the final response to the user's request.
 	IsFinalResponse bool `protobuf:"varint,3,opt,name=is_final_response,json=isFinalResponse,proto3" json:"is_final_response,omitempty"`
 	unknownFields   protoimpl.UnknownFields
@@ -391,13 +340,6 @@ func (x *MessageStatus) GetUsage() *MessageUsage {
 		return x.Usage
 	}
 	return nil
-}
-
-func (x *MessageStatus) GetContentState() ContentStatus {
-	if x != nil {
-		return x.ContentState
-	}
-	return ContentStatus_CONTENT_STATUS_UNSPECIFIED
 }
 
 func (x *MessageStatus) GetIsFinalResponse() bool {
@@ -3833,10 +3775,9 @@ const file_construct_v1_message_proto_rawDesc = "" +
 	"\t_agent_idB\v\n" +
 	"\t_model_id\"B\n" +
 	"\vMessageSpec\x123\n" +
-	"\acontent\x18\x01 \x03(\v2\x19.construct.v1.MessagePartR\acontent\"\xaf\x01\n" +
+	"\acontent\x18\x01 \x03(\v2\x19.construct.v1.MessagePartR\acontent\"m\n" +
 	"\rMessageStatus\x120\n" +
-	"\x05usage\x18\x01 \x01(\v2\x1a.construct.v1.MessageUsageR\x05usage\x12@\n" +
-	"\rcontent_state\x18\x02 \x01(\x0e2\x1b.construct.v1.ContentStatusR\fcontentState\x12*\n" +
+	"\x05usage\x18\x01 \x01(\v2\x1a.construct.v1.MessageUsageR\x05usage\x12*\n" +
 	"\x11is_final_response\x18\x03 \x01(\bR\x0fisFinalResponse\"\xca\x02\n" +
 	"\vMessagePart\x124\n" +
 	"\x04text\x18\x01 \x01(\v2\x1e.construct.v1.MessagePart.TextH\x00R\x04text\x125\n" +
@@ -4081,11 +4022,7 @@ const file_construct_v1_message_proto_rawDesc = "" +
 	"\adetails\x18\x02 \x03(\v2$.construct.v1.ToolError.DetailsEntryR\adetails\x1a:\n" +
 	"\fDetailsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01*h\n" +
-	"\rContentStatus\x12\x1e\n" +
-	"\x1aCONTENT_STATUS_UNSPECIFIED\x10\x00\x12\x1a\n" +
-	"\x16CONTENT_STATUS_PARTIAL\x10\x01\x12\x1b\n" +
-	"\x17CONTENT_STATUS_COMPLETE\x10\x02*w\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01*w\n" +
 	"\vMessageRole\x12\x1c\n" +
 	"\x18MESSAGE_ROLE_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11MESSAGE_ROLE_USER\x10\x01\x12\x1a\n" +
@@ -4111,144 +4048,142 @@ func file_construct_v1_message_proto_rawDescGZIP() []byte {
 	return file_construct_v1_message_proto_rawDescData
 }
 
-var file_construct_v1_message_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_construct_v1_message_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_construct_v1_message_proto_msgTypes = make([]protoimpl.MessageInfo, 60)
 var file_construct_v1_message_proto_goTypes = []any{
-	(ContentStatus)(0),                                // 0: construct.v1.ContentStatus
-	(MessageRole)(0),                                  // 1: construct.v1.MessageRole
-	(*Message)(nil),                                   // 2: construct.v1.Message
-	(*MessageMetadata)(nil),                           // 3: construct.v1.MessageMetadata
-	(*MessageSpec)(nil),                               // 4: construct.v1.MessageSpec
-	(*MessageStatus)(nil),                             // 5: construct.v1.MessageStatus
-	(*MessagePart)(nil),                               // 6: construct.v1.MessagePart
-	(*MessageUsage)(nil),                              // 7: construct.v1.MessageUsage
-	(*CreateMessageRequest)(nil),                      // 8: construct.v1.CreateMessageRequest
-	(*CreateMessageResponse)(nil),                     // 9: construct.v1.CreateMessageResponse
-	(*GetMessageRequest)(nil),                         // 10: construct.v1.GetMessageRequest
-	(*GetMessageResponse)(nil),                        // 11: construct.v1.GetMessageResponse
-	(*ListMessagesRequest)(nil),                       // 12: construct.v1.ListMessagesRequest
-	(*ListMessagesResponse)(nil),                      // 13: construct.v1.ListMessagesResponse
-	(*UpdateMessageRequest)(nil),                      // 14: construct.v1.UpdateMessageRequest
-	(*UpdateMessageResponse)(nil),                     // 15: construct.v1.UpdateMessageResponse
-	(*DeleteMessageRequest)(nil),                      // 16: construct.v1.DeleteMessageRequest
-	(*DeleteMessageResponse)(nil),                     // 17: construct.v1.DeleteMessageResponse
-	(*ToolCall)(nil),                                  // 18: construct.v1.ToolCall
-	(*ToolResult)(nil),                                // 19: construct.v1.ToolResult
-	(*CreateFileToolResult)(nil),                      // 20: construct.v1.CreateFileToolResult
-	(*EditFileToolResult)(nil),                        // 21: construct.v1.EditFileToolResult
-	(*ExecuteCommandToolResult)(nil),                  // 22: construct.v1.ExecuteCommandToolResult
-	(*FindFileToolResult)(nil),                        // 23: construct.v1.FindFileToolResult
-	(*GrepToolResult)(nil),                            // 24: construct.v1.GrepToolResult
-	(*HandoffToolResult)(nil),                         // 25: construct.v1.HandoffToolResult
-	(*ListFilesToolResult)(nil),                       // 26: construct.v1.ListFilesToolResult
-	(*ReadFileToolResult)(nil),                        // 27: construct.v1.ReadFileToolResult
-	(*SubmitReport)(nil),                              // 28: construct.v1.SubmitReport
-	(*ToolError)(nil),                                 // 29: construct.v1.ToolError
-	(*MessagePart_Text)(nil),                          // 30: construct.v1.MessagePart.Text
-	(*MessagePart_Error)(nil),                         // 31: construct.v1.MessagePart.Error
-	(*ListMessagesRequest_Filter)(nil),                // 32: construct.v1.ListMessagesRequest.Filter
-	(*ToolCall_CodeInterpreterInput)(nil),             // 33: construct.v1.ToolCall.CodeInterpreterInput
-	(*ToolCall_CreateFileInput)(nil),                  // 34: construct.v1.ToolCall.CreateFileInput
-	(*ToolCall_EditFileInput)(nil),                    // 35: construct.v1.ToolCall.EditFileInput
-	(*ToolCall_ExecuteCommandInput)(nil),              // 36: construct.v1.ToolCall.ExecuteCommandInput
-	(*ToolCall_FindFileInput)(nil),                    // 37: construct.v1.ToolCall.FindFileInput
-	(*ToolCall_GrepInput)(nil),                        // 38: construct.v1.ToolCall.GrepInput
-	(*ToolCall_HandoffInput)(nil),                     // 39: construct.v1.ToolCall.HandoffInput
-	(*ToolCall_AskUserInput)(nil),                     // 40: construct.v1.ToolCall.AskUserInput
-	(*ToolCall_ListFilesInput)(nil),                   // 41: construct.v1.ToolCall.ListFilesInput
-	(*ToolCall_ReadFileInput)(nil),                    // 42: construct.v1.ToolCall.ReadFileInput
-	(*ToolCall_SubmitReportInput)(nil),                // 43: construct.v1.ToolCall.SubmitReportInput
-	(*ToolCall_FetchInput)(nil),                       // 44: construct.v1.ToolCall.FetchInput
-	(*ToolCall_EditFileInput_DiffPair)(nil),           // 45: construct.v1.ToolCall.EditFileInput.DiffPair
-	nil,                                               // 46: construct.v1.ToolCall.FetchInput.HeadersEntry
-	(*ToolResult_CodeInterpreterResult)(nil),          // 47: construct.v1.ToolResult.CodeInterpreterResult
-	(*ToolResult_CreateFileResult)(nil),               // 48: construct.v1.ToolResult.CreateFileResult
-	(*ToolResult_EditFileResult)(nil),                 // 49: construct.v1.ToolResult.EditFileResult
-	(*ToolResult_ExecuteCommandResult)(nil),           // 50: construct.v1.ToolResult.ExecuteCommandResult
-	(*ToolResult_FindFileResult)(nil),                 // 51: construct.v1.ToolResult.FindFileResult
-	(*ToolResult_GrepResult)(nil),                     // 52: construct.v1.ToolResult.GrepResult
-	(*ToolResult_ListFilesResult)(nil),                // 53: construct.v1.ToolResult.ListFilesResult
-	(*ToolResult_ReadFileResult)(nil),                 // 54: construct.v1.ToolResult.ReadFileResult
-	(*ToolResult_SubmitReportResult)(nil),             // 55: construct.v1.ToolResult.SubmitReportResult
-	(*ToolResult_FetchResult)(nil),                    // 56: construct.v1.ToolResult.FetchResult
-	(*ToolResult_EditFileResult_PatchInfo)(nil),       // 57: construct.v1.ToolResult.EditFileResult.PatchInfo
-	(*ToolResult_GrepResult_GrepMatch)(nil),           // 58: construct.v1.ToolResult.GrepResult.GrepMatch
-	(*ToolResult_ListFilesResult_DirectoryEntry)(nil), // 59: construct.v1.ToolResult.ListFilesResult.DirectoryEntry
-	(*CreateFileToolResult_Input)(nil),                // 60: construct.v1.CreateFileToolResult.Input
-	nil,                                               // 61: construct.v1.ToolError.DetailsEntry
-	(*timestamppb.Timestamp)(nil),                     // 62: google.protobuf.Timestamp
-	(SortField)(0),                                    // 63: construct.v1.SortField
-	(SortOrder)(0),                                    // 64: construct.v1.SortOrder
+	(MessageRole)(0),                                  // 0: construct.v1.MessageRole
+	(*Message)(nil),                                   // 1: construct.v1.Message
+	(*MessageMetadata)(nil),                           // 2: construct.v1.MessageMetadata
+	(*MessageSpec)(nil),                               // 3: construct.v1.MessageSpec
+	(*MessageStatus)(nil),                             // 4: construct.v1.MessageStatus
+	(*MessagePart)(nil),                               // 5: construct.v1.MessagePart
+	(*MessageUsage)(nil),                              // 6: construct.v1.MessageUsage
+	(*CreateMessageRequest)(nil),                      // 7: construct.v1.CreateMessageRequest
+	(*CreateMessageResponse)(nil),                     // 8: construct.v1.CreateMessageResponse
+	(*GetMessageRequest)(nil),                         // 9: construct.v1.GetMessageRequest
+	(*GetMessageResponse)(nil),                        // 10: construct.v1.GetMessageResponse
+	(*ListMessagesRequest)(nil),                       // 11: construct.v1.ListMessagesRequest
+	(*ListMessagesResponse)(nil),                      // 12: construct.v1.ListMessagesResponse
+	(*UpdateMessageRequest)(nil),                      // 13: construct.v1.UpdateMessageRequest
+	(*UpdateMessageResponse)(nil),                     // 14: construct.v1.UpdateMessageResponse
+	(*DeleteMessageRequest)(nil),                      // 15: construct.v1.DeleteMessageRequest
+	(*DeleteMessageResponse)(nil),                     // 16: construct.v1.DeleteMessageResponse
+	(*ToolCall)(nil),                                  // 17: construct.v1.ToolCall
+	(*ToolResult)(nil),                                // 18: construct.v1.ToolResult
+	(*CreateFileToolResult)(nil),                      // 19: construct.v1.CreateFileToolResult
+	(*EditFileToolResult)(nil),                        // 20: construct.v1.EditFileToolResult
+	(*ExecuteCommandToolResult)(nil),                  // 21: construct.v1.ExecuteCommandToolResult
+	(*FindFileToolResult)(nil),                        // 22: construct.v1.FindFileToolResult
+	(*GrepToolResult)(nil),                            // 23: construct.v1.GrepToolResult
+	(*HandoffToolResult)(nil),                         // 24: construct.v1.HandoffToolResult
+	(*ListFilesToolResult)(nil),                       // 25: construct.v1.ListFilesToolResult
+	(*ReadFileToolResult)(nil),                        // 26: construct.v1.ReadFileToolResult
+	(*SubmitReport)(nil),                              // 27: construct.v1.SubmitReport
+	(*ToolError)(nil),                                 // 28: construct.v1.ToolError
+	(*MessagePart_Text)(nil),                          // 29: construct.v1.MessagePart.Text
+	(*MessagePart_Error)(nil),                         // 30: construct.v1.MessagePart.Error
+	(*ListMessagesRequest_Filter)(nil),                // 31: construct.v1.ListMessagesRequest.Filter
+	(*ToolCall_CodeInterpreterInput)(nil),             // 32: construct.v1.ToolCall.CodeInterpreterInput
+	(*ToolCall_CreateFileInput)(nil),                  // 33: construct.v1.ToolCall.CreateFileInput
+	(*ToolCall_EditFileInput)(nil),                    // 34: construct.v1.ToolCall.EditFileInput
+	(*ToolCall_ExecuteCommandInput)(nil),              // 35: construct.v1.ToolCall.ExecuteCommandInput
+	(*ToolCall_FindFileInput)(nil),                    // 36: construct.v1.ToolCall.FindFileInput
+	(*ToolCall_GrepInput)(nil),                        // 37: construct.v1.ToolCall.GrepInput
+	(*ToolCall_HandoffInput)(nil),                     // 38: construct.v1.ToolCall.HandoffInput
+	(*ToolCall_AskUserInput)(nil),                     // 39: construct.v1.ToolCall.AskUserInput
+	(*ToolCall_ListFilesInput)(nil),                   // 40: construct.v1.ToolCall.ListFilesInput
+	(*ToolCall_ReadFileInput)(nil),                    // 41: construct.v1.ToolCall.ReadFileInput
+	(*ToolCall_SubmitReportInput)(nil),                // 42: construct.v1.ToolCall.SubmitReportInput
+	(*ToolCall_FetchInput)(nil),                       // 43: construct.v1.ToolCall.FetchInput
+	(*ToolCall_EditFileInput_DiffPair)(nil),           // 44: construct.v1.ToolCall.EditFileInput.DiffPair
+	nil,                                               // 45: construct.v1.ToolCall.FetchInput.HeadersEntry
+	(*ToolResult_CodeInterpreterResult)(nil),          // 46: construct.v1.ToolResult.CodeInterpreterResult
+	(*ToolResult_CreateFileResult)(nil),               // 47: construct.v1.ToolResult.CreateFileResult
+	(*ToolResult_EditFileResult)(nil),                 // 48: construct.v1.ToolResult.EditFileResult
+	(*ToolResult_ExecuteCommandResult)(nil),           // 49: construct.v1.ToolResult.ExecuteCommandResult
+	(*ToolResult_FindFileResult)(nil),                 // 50: construct.v1.ToolResult.FindFileResult
+	(*ToolResult_GrepResult)(nil),                     // 51: construct.v1.ToolResult.GrepResult
+	(*ToolResult_ListFilesResult)(nil),                // 52: construct.v1.ToolResult.ListFilesResult
+	(*ToolResult_ReadFileResult)(nil),                 // 53: construct.v1.ToolResult.ReadFileResult
+	(*ToolResult_SubmitReportResult)(nil),             // 54: construct.v1.ToolResult.SubmitReportResult
+	(*ToolResult_FetchResult)(nil),                    // 55: construct.v1.ToolResult.FetchResult
+	(*ToolResult_EditFileResult_PatchInfo)(nil),       // 56: construct.v1.ToolResult.EditFileResult.PatchInfo
+	(*ToolResult_GrepResult_GrepMatch)(nil),           // 57: construct.v1.ToolResult.GrepResult.GrepMatch
+	(*ToolResult_ListFilesResult_DirectoryEntry)(nil), // 58: construct.v1.ToolResult.ListFilesResult.DirectoryEntry
+	(*CreateFileToolResult_Input)(nil),                // 59: construct.v1.CreateFileToolResult.Input
+	nil,                                               // 60: construct.v1.ToolError.DetailsEntry
+	(*timestamppb.Timestamp)(nil),                     // 61: google.protobuf.Timestamp
+	(SortField)(0),                                    // 62: construct.v1.SortField
+	(SortOrder)(0),                                    // 63: construct.v1.SortOrder
 }
 var file_construct_v1_message_proto_depIdxs = []int32{
-	3,  // 0: construct.v1.Message.metadata:type_name -> construct.v1.MessageMetadata
-	4,  // 1: construct.v1.Message.spec:type_name -> construct.v1.MessageSpec
-	5,  // 2: construct.v1.Message.status:type_name -> construct.v1.MessageStatus
-	62, // 3: construct.v1.MessageMetadata.created_at:type_name -> google.protobuf.Timestamp
-	62, // 4: construct.v1.MessageMetadata.updated_at:type_name -> google.protobuf.Timestamp
-	1,  // 5: construct.v1.MessageMetadata.role:type_name -> construct.v1.MessageRole
-	6,  // 6: construct.v1.MessageSpec.content:type_name -> construct.v1.MessagePart
-	7,  // 7: construct.v1.MessageStatus.usage:type_name -> construct.v1.MessageUsage
-	0,  // 8: construct.v1.MessageStatus.content_state:type_name -> construct.v1.ContentStatus
-	30, // 9: construct.v1.MessagePart.text:type_name -> construct.v1.MessagePart.Text
-	18, // 10: construct.v1.MessagePart.tool_call:type_name -> construct.v1.ToolCall
-	19, // 11: construct.v1.MessagePart.tool_result:type_name -> construct.v1.ToolResult
-	31, // 12: construct.v1.MessagePart.error:type_name -> construct.v1.MessagePart.Error
-	6,  // 13: construct.v1.CreateMessageRequest.content:type_name -> construct.v1.MessagePart
-	2,  // 14: construct.v1.CreateMessageResponse.message:type_name -> construct.v1.Message
-	2,  // 15: construct.v1.GetMessageResponse.message:type_name -> construct.v1.Message
-	32, // 16: construct.v1.ListMessagesRequest.filter:type_name -> construct.v1.ListMessagesRequest.Filter
-	63, // 17: construct.v1.ListMessagesRequest.sort_field:type_name -> construct.v1.SortField
-	64, // 18: construct.v1.ListMessagesRequest.sort_order:type_name -> construct.v1.SortOrder
-	2,  // 19: construct.v1.ListMessagesResponse.messages:type_name -> construct.v1.Message
-	6,  // 20: construct.v1.UpdateMessageRequest.content:type_name -> construct.v1.MessagePart
-	2,  // 21: construct.v1.UpdateMessageResponse.message:type_name -> construct.v1.Message
-	34, // 22: construct.v1.ToolCall.create_file:type_name -> construct.v1.ToolCall.CreateFileInput
-	35, // 23: construct.v1.ToolCall.edit_file:type_name -> construct.v1.ToolCall.EditFileInput
-	36, // 24: construct.v1.ToolCall.execute_command:type_name -> construct.v1.ToolCall.ExecuteCommandInput
-	37, // 25: construct.v1.ToolCall.find_file:type_name -> construct.v1.ToolCall.FindFileInput
-	38, // 26: construct.v1.ToolCall.grep:type_name -> construct.v1.ToolCall.GrepInput
-	39, // 27: construct.v1.ToolCall.handoff:type_name -> construct.v1.ToolCall.HandoffInput
-	40, // 28: construct.v1.ToolCall.ask_user:type_name -> construct.v1.ToolCall.AskUserInput
-	41, // 29: construct.v1.ToolCall.list_files:type_name -> construct.v1.ToolCall.ListFilesInput
-	42, // 30: construct.v1.ToolCall.read_file:type_name -> construct.v1.ToolCall.ReadFileInput
-	43, // 31: construct.v1.ToolCall.submit_report:type_name -> construct.v1.ToolCall.SubmitReportInput
-	33, // 32: construct.v1.ToolCall.code_interpreter:type_name -> construct.v1.ToolCall.CodeInterpreterInput
-	44, // 33: construct.v1.ToolCall.fetch:type_name -> construct.v1.ToolCall.FetchInput
-	48, // 34: construct.v1.ToolResult.create_file:type_name -> construct.v1.ToolResult.CreateFileResult
-	49, // 35: construct.v1.ToolResult.edit_file:type_name -> construct.v1.ToolResult.EditFileResult
-	50, // 36: construct.v1.ToolResult.execute_command:type_name -> construct.v1.ToolResult.ExecuteCommandResult
-	51, // 37: construct.v1.ToolResult.find_file:type_name -> construct.v1.ToolResult.FindFileResult
-	52, // 38: construct.v1.ToolResult.grep:type_name -> construct.v1.ToolResult.GrepResult
-	53, // 39: construct.v1.ToolResult.list_files:type_name -> construct.v1.ToolResult.ListFilesResult
-	54, // 40: construct.v1.ToolResult.read_file:type_name -> construct.v1.ToolResult.ReadFileResult
-	55, // 41: construct.v1.ToolResult.submit_report:type_name -> construct.v1.ToolResult.SubmitReportResult
-	47, // 42: construct.v1.ToolResult.code_interpreter:type_name -> construct.v1.ToolResult.CodeInterpreterResult
-	56, // 43: construct.v1.ToolResult.fetch:type_name -> construct.v1.ToolResult.FetchResult
-	29, // 44: construct.v1.ToolResult.error:type_name -> construct.v1.ToolError
-	60, // 45: construct.v1.CreateFileToolResult.input:type_name -> construct.v1.CreateFileToolResult.Input
-	61, // 46: construct.v1.ToolError.details:type_name -> construct.v1.ToolError.DetailsEntry
-	1,  // 47: construct.v1.ListMessagesRequest.Filter.roles:type_name -> construct.v1.MessageRole
-	45, // 48: construct.v1.ToolCall.EditFileInput.diffs:type_name -> construct.v1.ToolCall.EditFileInput.DiffPair
-	46, // 49: construct.v1.ToolCall.FetchInput.headers:type_name -> construct.v1.ToolCall.FetchInput.HeadersEntry
-	57, // 50: construct.v1.ToolResult.EditFileResult.patch_info:type_name -> construct.v1.ToolResult.EditFileResult.PatchInfo
-	58, // 51: construct.v1.ToolResult.GrepResult.matches:type_name -> construct.v1.ToolResult.GrepResult.GrepMatch
-	59, // 52: construct.v1.ToolResult.ListFilesResult.entries:type_name -> construct.v1.ToolResult.ListFilesResult.DirectoryEntry
-	8,  // 53: construct.v1.MessageService.CreateMessage:input_type -> construct.v1.CreateMessageRequest
-	10, // 54: construct.v1.MessageService.GetMessage:input_type -> construct.v1.GetMessageRequest
-	12, // 55: construct.v1.MessageService.ListMessages:input_type -> construct.v1.ListMessagesRequest
-	14, // 56: construct.v1.MessageService.UpdateMessage:input_type -> construct.v1.UpdateMessageRequest
-	16, // 57: construct.v1.MessageService.DeleteMessage:input_type -> construct.v1.DeleteMessageRequest
-	9,  // 58: construct.v1.MessageService.CreateMessage:output_type -> construct.v1.CreateMessageResponse
-	11, // 59: construct.v1.MessageService.GetMessage:output_type -> construct.v1.GetMessageResponse
-	13, // 60: construct.v1.MessageService.ListMessages:output_type -> construct.v1.ListMessagesResponse
-	15, // 61: construct.v1.MessageService.UpdateMessage:output_type -> construct.v1.UpdateMessageResponse
-	17, // 62: construct.v1.MessageService.DeleteMessage:output_type -> construct.v1.DeleteMessageResponse
-	58, // [58:63] is the sub-list for method output_type
-	53, // [53:58] is the sub-list for method input_type
-	53, // [53:53] is the sub-list for extension type_name
-	53, // [53:53] is the sub-list for extension extendee
-	0,  // [0:53] is the sub-list for field type_name
+	2,  // 0: construct.v1.Message.metadata:type_name -> construct.v1.MessageMetadata
+	3,  // 1: construct.v1.Message.spec:type_name -> construct.v1.MessageSpec
+	4,  // 2: construct.v1.Message.status:type_name -> construct.v1.MessageStatus
+	61, // 3: construct.v1.MessageMetadata.created_at:type_name -> google.protobuf.Timestamp
+	61, // 4: construct.v1.MessageMetadata.updated_at:type_name -> google.protobuf.Timestamp
+	0,  // 5: construct.v1.MessageMetadata.role:type_name -> construct.v1.MessageRole
+	5,  // 6: construct.v1.MessageSpec.content:type_name -> construct.v1.MessagePart
+	6,  // 7: construct.v1.MessageStatus.usage:type_name -> construct.v1.MessageUsage
+	29, // 8: construct.v1.MessagePart.text:type_name -> construct.v1.MessagePart.Text
+	17, // 9: construct.v1.MessagePart.tool_call:type_name -> construct.v1.ToolCall
+	18, // 10: construct.v1.MessagePart.tool_result:type_name -> construct.v1.ToolResult
+	30, // 11: construct.v1.MessagePart.error:type_name -> construct.v1.MessagePart.Error
+	5,  // 12: construct.v1.CreateMessageRequest.content:type_name -> construct.v1.MessagePart
+	1,  // 13: construct.v1.CreateMessageResponse.message:type_name -> construct.v1.Message
+	1,  // 14: construct.v1.GetMessageResponse.message:type_name -> construct.v1.Message
+	31, // 15: construct.v1.ListMessagesRequest.filter:type_name -> construct.v1.ListMessagesRequest.Filter
+	62, // 16: construct.v1.ListMessagesRequest.sort_field:type_name -> construct.v1.SortField
+	63, // 17: construct.v1.ListMessagesRequest.sort_order:type_name -> construct.v1.SortOrder
+	1,  // 18: construct.v1.ListMessagesResponse.messages:type_name -> construct.v1.Message
+	5,  // 19: construct.v1.UpdateMessageRequest.content:type_name -> construct.v1.MessagePart
+	1,  // 20: construct.v1.UpdateMessageResponse.message:type_name -> construct.v1.Message
+	33, // 21: construct.v1.ToolCall.create_file:type_name -> construct.v1.ToolCall.CreateFileInput
+	34, // 22: construct.v1.ToolCall.edit_file:type_name -> construct.v1.ToolCall.EditFileInput
+	35, // 23: construct.v1.ToolCall.execute_command:type_name -> construct.v1.ToolCall.ExecuteCommandInput
+	36, // 24: construct.v1.ToolCall.find_file:type_name -> construct.v1.ToolCall.FindFileInput
+	37, // 25: construct.v1.ToolCall.grep:type_name -> construct.v1.ToolCall.GrepInput
+	38, // 26: construct.v1.ToolCall.handoff:type_name -> construct.v1.ToolCall.HandoffInput
+	39, // 27: construct.v1.ToolCall.ask_user:type_name -> construct.v1.ToolCall.AskUserInput
+	40, // 28: construct.v1.ToolCall.list_files:type_name -> construct.v1.ToolCall.ListFilesInput
+	41, // 29: construct.v1.ToolCall.read_file:type_name -> construct.v1.ToolCall.ReadFileInput
+	42, // 30: construct.v1.ToolCall.submit_report:type_name -> construct.v1.ToolCall.SubmitReportInput
+	32, // 31: construct.v1.ToolCall.code_interpreter:type_name -> construct.v1.ToolCall.CodeInterpreterInput
+	43, // 32: construct.v1.ToolCall.fetch:type_name -> construct.v1.ToolCall.FetchInput
+	47, // 33: construct.v1.ToolResult.create_file:type_name -> construct.v1.ToolResult.CreateFileResult
+	48, // 34: construct.v1.ToolResult.edit_file:type_name -> construct.v1.ToolResult.EditFileResult
+	49, // 35: construct.v1.ToolResult.execute_command:type_name -> construct.v1.ToolResult.ExecuteCommandResult
+	50, // 36: construct.v1.ToolResult.find_file:type_name -> construct.v1.ToolResult.FindFileResult
+	51, // 37: construct.v1.ToolResult.grep:type_name -> construct.v1.ToolResult.GrepResult
+	52, // 38: construct.v1.ToolResult.list_files:type_name -> construct.v1.ToolResult.ListFilesResult
+	53, // 39: construct.v1.ToolResult.read_file:type_name -> construct.v1.ToolResult.ReadFileResult
+	54, // 40: construct.v1.ToolResult.submit_report:type_name -> construct.v1.ToolResult.SubmitReportResult
+	46, // 41: construct.v1.ToolResult.code_interpreter:type_name -> construct.v1.ToolResult.CodeInterpreterResult
+	55, // 42: construct.v1.ToolResult.fetch:type_name -> construct.v1.ToolResult.FetchResult
+	28, // 43: construct.v1.ToolResult.error:type_name -> construct.v1.ToolError
+	59, // 44: construct.v1.CreateFileToolResult.input:type_name -> construct.v1.CreateFileToolResult.Input
+	60, // 45: construct.v1.ToolError.details:type_name -> construct.v1.ToolError.DetailsEntry
+	0,  // 46: construct.v1.ListMessagesRequest.Filter.roles:type_name -> construct.v1.MessageRole
+	44, // 47: construct.v1.ToolCall.EditFileInput.diffs:type_name -> construct.v1.ToolCall.EditFileInput.DiffPair
+	45, // 48: construct.v1.ToolCall.FetchInput.headers:type_name -> construct.v1.ToolCall.FetchInput.HeadersEntry
+	56, // 49: construct.v1.ToolResult.EditFileResult.patch_info:type_name -> construct.v1.ToolResult.EditFileResult.PatchInfo
+	57, // 50: construct.v1.ToolResult.GrepResult.matches:type_name -> construct.v1.ToolResult.GrepResult.GrepMatch
+	58, // 51: construct.v1.ToolResult.ListFilesResult.entries:type_name -> construct.v1.ToolResult.ListFilesResult.DirectoryEntry
+	7,  // 52: construct.v1.MessageService.CreateMessage:input_type -> construct.v1.CreateMessageRequest
+	9,  // 53: construct.v1.MessageService.GetMessage:input_type -> construct.v1.GetMessageRequest
+	11, // 54: construct.v1.MessageService.ListMessages:input_type -> construct.v1.ListMessagesRequest
+	13, // 55: construct.v1.MessageService.UpdateMessage:input_type -> construct.v1.UpdateMessageRequest
+	15, // 56: construct.v1.MessageService.DeleteMessage:input_type -> construct.v1.DeleteMessageRequest
+	8,  // 57: construct.v1.MessageService.CreateMessage:output_type -> construct.v1.CreateMessageResponse
+	10, // 58: construct.v1.MessageService.GetMessage:output_type -> construct.v1.GetMessageResponse
+	12, // 59: construct.v1.MessageService.ListMessages:output_type -> construct.v1.ListMessagesResponse
+	14, // 60: construct.v1.MessageService.UpdateMessage:output_type -> construct.v1.UpdateMessageResponse
+	16, // 61: construct.v1.MessageService.DeleteMessage:output_type -> construct.v1.DeleteMessageResponse
+	57, // [57:62] is the sub-list for method output_type
+	52, // [52:57] is the sub-list for method input_type
+	52, // [52:52] is the sub-list for extension type_name
+	52, // [52:52] is the sub-list for extension extendee
+	0,  // [0:52] is the sub-list for field type_name
 }
 
 func init() { file_construct_v1_message_proto_init() }
@@ -4297,7 +4232,7 @@ func file_construct_v1_message_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_construct_v1_message_proto_rawDesc), len(file_construct_v1_message_proto_rawDesc)),
-			NumEnums:      2,
+			NumEnums:      1,
 			NumMessages:   60,
 			NumExtensions: 0,
 			NumServices:   1,

@@ -18,27 +18,24 @@ import (
 	"github.com/furisto/construct/backend/memory/schema/types"
 	"github.com/furisto/construct/backend/memory/task"
 	"github.com/google/uuid"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var _ v1connect.TaskServiceHandler = (*TaskHandler)(nil)
 
-func NewTaskHandler(db *memory.Client, messageHub *event.MessageHub, eventBus *event.Bus, runtime AgentRuntime, analytics analytics.Client) *TaskHandler {
+func NewTaskHandler(db *memory.Client, eventRouter *event.EventRouter, runtime AgentRuntime, analytics analytics.Client) *TaskHandler {
 	return &TaskHandler{
-		db:         db,
-		messageHub: messageHub,
-		eventBus:   eventBus,
-		runtime:    runtime,
-		analytics:  analytics,
+		db:          db,
+		eventRouter: eventRouter,
+		runtime:     runtime,
+		analytics:   analytics,
 	}
 }
 
 type TaskHandler struct {
-	db         *memory.Client
-	messageHub *event.MessageHub
-	eventBus   *event.Bus
-	runtime    AgentRuntime
-	analytics  analytics.Client
+	db          *memory.Client
+	eventRouter *event.EventRouter
+	runtime     AgentRuntime
+	analytics   analytics.Client
 	v1connect.UnimplementedTaskServiceHandler
 }
 
@@ -232,20 +229,7 @@ func (h *TaskHandler) UpdateTask(ctx context.Context, req *connect.Request[v1.Up
 
 	analytics.EmitTaskUpdated(h.analytics, updatedTask.ID.String(), updatedFields)
 
-	for _, field := range updatedFields {
-		if field == "agent_id" {
-			taskEvent := &v1.TaskEvent{
-				TaskId:    updatedTask.ID.String(),
-				Timestamp: timestamppb.Now(),
-			}
-			h.messageHub.Publish(updatedTask.ID, &v1.SubscribeResponse{
-				Event: &v1.SubscribeResponse_TaskEvent{
-					TaskEvent: taskEvent,
-				},
-			})
-			break
-		}
-	}
+	// TODO: Publish task.updated event via EventRouter
 
 	return connect.NewResponse(&v1.UpdateTaskResponse{
 		Task: protoTask,
@@ -263,33 +247,6 @@ func (h *TaskHandler) DeleteTask(ctx context.Context, req *connect.Request[v1.De
 	}
 
 	return connect.NewResponse(&v1.DeleteTaskResponse{}), nil
-}
-
-func (h *TaskHandler) Subscribe(ctx context.Context, req *connect.Request[v1.SubscribeRequest], stream *connect.ServerStream[v1.SubscribeResponse]) error {
-	taskID, err := uuid.Parse(req.Msg.TaskId)
-	if err != nil {
-		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid task ID format: %w", err))
-	}
-
-	_, err = h.db.Task.Get(ctx, taskID)
-	if err != nil {
-		return apiError(err)
-	}
-
-	event.Publish(h.eventBus, event.TaskEvent{
-		TaskID: taskID,
-	})
-
-	for response, err := range h.messageHub.Subscribe(ctx, taskID) {
-		if err != nil {
-			return apiError(err)
-		}
-
-		if err := stream.Send(response); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (h *TaskHandler) SuspendTask(ctx context.Context, req *connect.Request[v1.SuspendTaskRequest]) (*connect.Response[v1.SuspendTaskResponse], error) {
@@ -310,8 +267,6 @@ func (h *TaskHandler) SuspendTask(ctx context.Context, req *connect.Request[v1.S
 		return nil, apiError(err)
 	}
 
-	event.Publish(h.eventBus, event.TaskSuspendedEvent{
-		TaskID: taskID,
-	})
+	h.eventRouter.Publish(event.NewInternalTaskSuspendEvent(taskID))
 	return connect.NewResponse(&v1.SuspendTaskResponse{}), nil
 }

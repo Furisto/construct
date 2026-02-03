@@ -36,8 +36,8 @@ jobs:
 
       - name: Run tests
         run: |
-          (cd backend && go test ./...)
-          (cd frontend/cli && go test ./...)
+          (cd backend && go test -p=1 ./...)
+          (cd frontend/cli && go test -p=1 ./...)
           (cd shared && go test ./...)
           (cd api/go && go test ./...)
         env:

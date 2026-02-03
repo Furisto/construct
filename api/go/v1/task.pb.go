@@ -972,187 +972,6 @@ func (*DeleteTaskResponse) Descriptor() ([]byte, []int) {
 	return file_construct_v1_task_proto_rawDescGZIP(), []int{14}
 }
 
-type SubscribeRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *SubscribeRequest) Reset() {
-	*x = SubscribeRequest{}
-	mi := &file_construct_v1_task_proto_msgTypes[15]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *SubscribeRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SubscribeRequest) ProtoMessage() {}
-
-func (x *SubscribeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_construct_v1_task_proto_msgTypes[15]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use SubscribeRequest.ProtoReflect.Descriptor instead.
-func (*SubscribeRequest) Descriptor() ([]byte, []int) {
-	return file_construct_v1_task_proto_rawDescGZIP(), []int{15}
-}
-
-func (x *SubscribeRequest) GetTaskId() string {
-	if x != nil {
-		return x.TaskId
-	}
-	return ""
-}
-
-// TaskEvent represents a task state change notification
-type TaskEvent struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// task_id is the ID of the task that changed
-	TaskId string `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
-	// timestamp when the event occurred
-	Timestamp     *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *TaskEvent) Reset() {
-	*x = TaskEvent{}
-	mi := &file_construct_v1_task_proto_msgTypes[16]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *TaskEvent) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*TaskEvent) ProtoMessage() {}
-
-func (x *TaskEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_construct_v1_task_proto_msgTypes[16]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use TaskEvent.ProtoReflect.Descriptor instead.
-func (*TaskEvent) Descriptor() ([]byte, []int) {
-	return file_construct_v1_task_proto_rawDescGZIP(), []int{16}
-}
-
-func (x *TaskEvent) GetTaskId() string {
-	if x != nil {
-		return x.TaskId
-	}
-	return ""
-}
-
-func (x *TaskEvent) GetTimestamp() *timestamppb.Timestamp {
-	if x != nil {
-		return x.Timestamp
-	}
-	return nil
-}
-
-type SubscribeResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Types that are valid to be assigned to Event:
-	//
-	//	*SubscribeResponse_Message
-	//	*SubscribeResponse_TaskEvent
-	Event         isSubscribeResponse_Event `protobuf_oneof:"event"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *SubscribeResponse) Reset() {
-	*x = SubscribeResponse{}
-	mi := &file_construct_v1_task_proto_msgTypes[17]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *SubscribeResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SubscribeResponse) ProtoMessage() {}
-
-func (x *SubscribeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_construct_v1_task_proto_msgTypes[17]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use SubscribeResponse.ProtoReflect.Descriptor instead.
-func (*SubscribeResponse) Descriptor() ([]byte, []int) {
-	return file_construct_v1_task_proto_rawDescGZIP(), []int{17}
-}
-
-func (x *SubscribeResponse) GetEvent() isSubscribeResponse_Event {
-	if x != nil {
-		return x.Event
-	}
-	return nil
-}
-
-func (x *SubscribeResponse) GetMessage() *Message {
-	if x != nil {
-		if x, ok := x.Event.(*SubscribeResponse_Message); ok {
-			return x.Message
-		}
-	}
-	return nil
-}
-
-func (x *SubscribeResponse) GetTaskEvent() *TaskEvent {
-	if x != nil {
-		if x, ok := x.Event.(*SubscribeResponse_TaskEvent); ok {
-			return x.TaskEvent
-		}
-	}
-	return nil
-}
-
-type isSubscribeResponse_Event interface {
-	isSubscribeResponse_Event()
-}
-
-type SubscribeResponse_Message struct {
-	Message *Message `protobuf:"bytes,1,opt,name=message,proto3,oneof"`
-}
-
-type SubscribeResponse_TaskEvent struct {
-	TaskEvent *TaskEvent `protobuf:"bytes,2,opt,name=task_event,json=taskEvent,proto3,oneof"`
-}
-
-func (*SubscribeResponse_Message) isSubscribeResponse_Event() {}
-
-func (*SubscribeResponse_TaskEvent) isSubscribeResponse_Event() {}
-
 type SuspendTaskRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
@@ -1162,7 +981,7 @@ type SuspendTaskRequest struct {
 
 func (x *SuspendTaskRequest) Reset() {
 	*x = SuspendTaskRequest{}
-	mi := &file_construct_v1_task_proto_msgTypes[18]
+	mi := &file_construct_v1_task_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1174,7 +993,7 @@ func (x *SuspendTaskRequest) String() string {
 func (*SuspendTaskRequest) ProtoMessage() {}
 
 func (x *SuspendTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_construct_v1_task_proto_msgTypes[18]
+	mi := &file_construct_v1_task_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1187,7 +1006,7 @@ func (x *SuspendTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SuspendTaskRequest.ProtoReflect.Descriptor instead.
 func (*SuspendTaskRequest) Descriptor() ([]byte, []int) {
-	return file_construct_v1_task_proto_rawDescGZIP(), []int{18}
+	return file_construct_v1_task_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *SuspendTaskRequest) GetTaskId() string {
@@ -1205,7 +1024,7 @@ type SuspendTaskResponse struct {
 
 func (x *SuspendTaskResponse) Reset() {
 	*x = SuspendTaskResponse{}
-	mi := &file_construct_v1_task_proto_msgTypes[19]
+	mi := &file_construct_v1_task_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1217,7 +1036,7 @@ func (x *SuspendTaskResponse) String() string {
 func (*SuspendTaskResponse) ProtoMessage() {}
 
 func (x *SuspendTaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_construct_v1_task_proto_msgTypes[19]
+	mi := &file_construct_v1_task_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1230,7 +1049,7 @@ func (x *SuspendTaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SuspendTaskResponse.ProtoReflect.Descriptor instead.
 func (*SuspendTaskResponse) Descriptor() ([]byte, []int) {
-	return file_construct_v1_task_proto_rawDescGZIP(), []int{19}
+	return file_construct_v1_task_proto_rawDescGZIP(), []int{16}
 }
 
 // Filter specifies criteria for narrowing the list of returned tasks.
@@ -1251,7 +1070,7 @@ type ListTasksRequest_Filter struct {
 
 func (x *ListTasksRequest_Filter) Reset() {
 	*x = ListTasksRequest_Filter{}
-	mi := &file_construct_v1_task_proto_msgTypes[21]
+	mi := &file_construct_v1_task_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1263,7 +1082,7 @@ func (x *ListTasksRequest_Filter) String() string {
 func (*ListTasksRequest_Filter) ProtoMessage() {}
 
 func (x *ListTasksRequest_Filter) ProtoReflect() protoreflect.Message {
-	mi := &file_construct_v1_task_proto_msgTypes[21]
+	mi := &file_construct_v1_task_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1304,7 +1123,7 @@ var File_construct_v1_task_proto protoreflect.FileDescriptor
 
 const file_construct_v1_task_proto_rawDesc = "" +
 	"\n" +
-	"\x17construct/v1/task.proto\x12\fconstruct.v1\x1a\x1bbuf/validate/validate.proto\x1a\x19construct/v1/common.proto\x1a\x1aconstruct/v1/message.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x9c\x01\n" +
+	"\x17construct/v1/task.proto\x12\fconstruct.v1\x1a\x1bbuf/validate/validate.proto\x1a\x19construct/v1/common.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x9c\x01\n" +
 	"\x04Task\x126\n" +
 	"\bmetadata\x18\x01 \x01(\v2\x1a.construct.v1.TaskMetadataR\bmetadata\x12*\n" +
 	"\x04spec\x18\x02 \x01(\v2\x16.construct.v1.TaskSpecR\x04spec\x120\n" +
@@ -1378,17 +1197,7 @@ const file_construct_v1_task_proto_rawDesc = "" +
 	"\x04task\x18\x01 \x01(\v2\x12.construct.v1.TaskB\x06\xbaH\x03\xc8\x01\x01R\x04task\"-\n" +
 	"\x11DeleteTaskRequest\x12\x18\n" +
 	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\"\x14\n" +
-	"\x12DeleteTaskResponse\"5\n" +
-	"\x10SubscribeRequest\x12!\n" +
-	"\atask_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x06taskId\"p\n" +
-	"\tTaskEvent\x12!\n" +
-	"\atask_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x06taskId\x12@\n" +
-	"\ttimestamp\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\ttimestamp\"\x89\x01\n" +
-	"\x11SubscribeResponse\x121\n" +
-	"\amessage\x18\x01 \x01(\v2\x15.construct.v1.MessageH\x00R\amessage\x128\n" +
-	"\n" +
-	"task_event\x18\x02 \x01(\v2\x17.construct.v1.TaskEventH\x00R\ttaskEventB\a\n" +
-	"\x05event\"7\n" +
+	"\x12DeleteTaskResponse\"7\n" +
 	"\x12SuspendTaskRequest\x12!\n" +
 	"\atask_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x06taskId\"\x15\n" +
 	"\x13SuspendTaskResponse*r\n" +
@@ -1396,7 +1205,7 @@ const file_construct_v1_task_proto_rawDesc = "" +
 	"\x16TASK_PHASE_UNSPECIFIED\x10\x00\x12\x17\n" +
 	"\x13TASK_PHASE_AWAITING\x10\x01\x12\x16\n" +
 	"\x12TASK_PHASE_RUNNING\x10\x02\x12\x18\n" +
-	"\x14TASK_PHASE_SUSPENDED\x10\x032\xce\x04\n" +
+	"\x14TASK_PHASE_SUSPENDED\x10\x032\xfc\x03\n" +
 	"\vTaskService\x12Q\n" +
 	"\n" +
 	"CreateTask\x12\x1f.construct.v1.CreateTaskRequest\x1a .construct.v1.CreateTaskResponse\"\x00\x12K\n" +
@@ -1405,8 +1214,7 @@ const file_construct_v1_task_proto_rawDesc = "" +
 	"\n" +
 	"UpdateTask\x12\x1f.construct.v1.UpdateTaskRequest\x1a .construct.v1.UpdateTaskResponse\"\x00\x12Q\n" +
 	"\n" +
-	"DeleteTask\x12\x1f.construct.v1.DeleteTaskRequest\x1a .construct.v1.DeleteTaskResponse\"\x00\x12P\n" +
-	"\tSubscribe\x12\x1e.construct.v1.SubscribeRequest\x1a\x1f.construct.v1.SubscribeResponse\"\x000\x01\x12T\n" +
+	"DeleteTask\x12\x1f.construct.v1.DeleteTaskRequest\x1a .construct.v1.DeleteTaskResponse\"\x00\x12T\n" +
 	"\vSuspendTask\x12 .construct.v1.SuspendTaskRequest\x1a!.construct.v1.SuspendTaskResponse\"\x00B(Z&github.com/furisto/construct/api/go/v1b\x06proto3"
 
 var (
@@ -1422,7 +1230,7 @@ func file_construct_v1_task_proto_rawDescGZIP() []byte {
 }
 
 var file_construct_v1_task_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_construct_v1_task_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
+var file_construct_v1_task_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
 var file_construct_v1_task_proto_goTypes = []any{
 	(TaskPhase)(0),                  // 0: construct.v1.TaskPhase
 	(*Task)(nil),                    // 1: construct.v1.Task
@@ -1440,57 +1248,48 @@ var file_construct_v1_task_proto_goTypes = []any{
 	(*UpdateTaskResponse)(nil),      // 13: construct.v1.UpdateTaskResponse
 	(*DeleteTaskRequest)(nil),       // 14: construct.v1.DeleteTaskRequest
 	(*DeleteTaskResponse)(nil),      // 15: construct.v1.DeleteTaskResponse
-	(*SubscribeRequest)(nil),        // 16: construct.v1.SubscribeRequest
-	(*TaskEvent)(nil),               // 17: construct.v1.TaskEvent
-	(*SubscribeResponse)(nil),       // 18: construct.v1.SubscribeResponse
-	(*SuspendTaskRequest)(nil),      // 19: construct.v1.SuspendTaskRequest
-	(*SuspendTaskResponse)(nil),     // 20: construct.v1.SuspendTaskResponse
-	nil,                             // 21: construct.v1.TaskUsage.ToolUsesEntry
-	(*ListTasksRequest_Filter)(nil), // 22: construct.v1.ListTasksRequest.Filter
-	(*timestamppb.Timestamp)(nil),   // 23: google.protobuf.Timestamp
-	(SortField)(0),                  // 24: construct.v1.SortField
-	(SortOrder)(0),                  // 25: construct.v1.SortOrder
-	(*Message)(nil),                 // 26: construct.v1.Message
+	(*SuspendTaskRequest)(nil),      // 16: construct.v1.SuspendTaskRequest
+	(*SuspendTaskResponse)(nil),     // 17: construct.v1.SuspendTaskResponse
+	nil,                             // 18: construct.v1.TaskUsage.ToolUsesEntry
+	(*ListTasksRequest_Filter)(nil), // 19: construct.v1.ListTasksRequest.Filter
+	(*timestamppb.Timestamp)(nil),   // 20: google.protobuf.Timestamp
+	(SortField)(0),                  // 21: construct.v1.SortField
+	(SortOrder)(0),                  // 22: construct.v1.SortOrder
 }
 var file_construct_v1_task_proto_depIdxs = []int32{
 	2,  // 0: construct.v1.Task.metadata:type_name -> construct.v1.TaskMetadata
 	3,  // 1: construct.v1.Task.spec:type_name -> construct.v1.TaskSpec
 	4,  // 2: construct.v1.Task.status:type_name -> construct.v1.TaskStatus
-	23, // 3: construct.v1.TaskMetadata.created_at:type_name -> google.protobuf.Timestamp
-	23, // 4: construct.v1.TaskMetadata.updated_at:type_name -> google.protobuf.Timestamp
+	20, // 3: construct.v1.TaskMetadata.created_at:type_name -> google.protobuf.Timestamp
+	20, // 4: construct.v1.TaskMetadata.updated_at:type_name -> google.protobuf.Timestamp
 	0,  // 5: construct.v1.TaskSpec.desired_phase:type_name -> construct.v1.TaskPhase
 	5,  // 6: construct.v1.TaskStatus.usage:type_name -> construct.v1.TaskUsage
 	0,  // 7: construct.v1.TaskStatus.phase:type_name -> construct.v1.TaskPhase
-	21, // 8: construct.v1.TaskUsage.tool_uses:type_name -> construct.v1.TaskUsage.ToolUsesEntry
+	18, // 8: construct.v1.TaskUsage.tool_uses:type_name -> construct.v1.TaskUsage.ToolUsesEntry
 	1,  // 9: construct.v1.CreateTaskResponse.task:type_name -> construct.v1.Task
 	1,  // 10: construct.v1.GetTaskResponse.task:type_name -> construct.v1.Task
-	22, // 11: construct.v1.ListTasksRequest.filter:type_name -> construct.v1.ListTasksRequest.Filter
-	24, // 12: construct.v1.ListTasksRequest.sort_field:type_name -> construct.v1.SortField
-	25, // 13: construct.v1.ListTasksRequest.sort_order:type_name -> construct.v1.SortOrder
+	19, // 11: construct.v1.ListTasksRequest.filter:type_name -> construct.v1.ListTasksRequest.Filter
+	21, // 12: construct.v1.ListTasksRequest.sort_field:type_name -> construct.v1.SortField
+	22, // 13: construct.v1.ListTasksRequest.sort_order:type_name -> construct.v1.SortOrder
 	1,  // 14: construct.v1.ListTasksResponse.tasks:type_name -> construct.v1.Task
 	1,  // 15: construct.v1.UpdateTaskResponse.task:type_name -> construct.v1.Task
-	23, // 16: construct.v1.TaskEvent.timestamp:type_name -> google.protobuf.Timestamp
-	26, // 17: construct.v1.SubscribeResponse.message:type_name -> construct.v1.Message
-	17, // 18: construct.v1.SubscribeResponse.task_event:type_name -> construct.v1.TaskEvent
-	6,  // 19: construct.v1.TaskService.CreateTask:input_type -> construct.v1.CreateTaskRequest
-	8,  // 20: construct.v1.TaskService.GetTask:input_type -> construct.v1.GetTaskRequest
-	10, // 21: construct.v1.TaskService.ListTasks:input_type -> construct.v1.ListTasksRequest
-	12, // 22: construct.v1.TaskService.UpdateTask:input_type -> construct.v1.UpdateTaskRequest
-	14, // 23: construct.v1.TaskService.DeleteTask:input_type -> construct.v1.DeleteTaskRequest
-	16, // 24: construct.v1.TaskService.Subscribe:input_type -> construct.v1.SubscribeRequest
-	19, // 25: construct.v1.TaskService.SuspendTask:input_type -> construct.v1.SuspendTaskRequest
-	7,  // 26: construct.v1.TaskService.CreateTask:output_type -> construct.v1.CreateTaskResponse
-	9,  // 27: construct.v1.TaskService.GetTask:output_type -> construct.v1.GetTaskResponse
-	11, // 28: construct.v1.TaskService.ListTasks:output_type -> construct.v1.ListTasksResponse
-	13, // 29: construct.v1.TaskService.UpdateTask:output_type -> construct.v1.UpdateTaskResponse
-	15, // 30: construct.v1.TaskService.DeleteTask:output_type -> construct.v1.DeleteTaskResponse
-	18, // 31: construct.v1.TaskService.Subscribe:output_type -> construct.v1.SubscribeResponse
-	20, // 32: construct.v1.TaskService.SuspendTask:output_type -> construct.v1.SuspendTaskResponse
-	26, // [26:33] is the sub-list for method output_type
-	19, // [19:26] is the sub-list for method input_type
-	19, // [19:19] is the sub-list for extension type_name
-	19, // [19:19] is the sub-list for extension extendee
-	0,  // [0:19] is the sub-list for field type_name
+	6,  // 16: construct.v1.TaskService.CreateTask:input_type -> construct.v1.CreateTaskRequest
+	8,  // 17: construct.v1.TaskService.GetTask:input_type -> construct.v1.GetTaskRequest
+	10, // 18: construct.v1.TaskService.ListTasks:input_type -> construct.v1.ListTasksRequest
+	12, // 19: construct.v1.TaskService.UpdateTask:input_type -> construct.v1.UpdateTaskRequest
+	14, // 20: construct.v1.TaskService.DeleteTask:input_type -> construct.v1.DeleteTaskRequest
+	16, // 21: construct.v1.TaskService.SuspendTask:input_type -> construct.v1.SuspendTaskRequest
+	7,  // 22: construct.v1.TaskService.CreateTask:output_type -> construct.v1.CreateTaskResponse
+	9,  // 23: construct.v1.TaskService.GetTask:output_type -> construct.v1.GetTaskResponse
+	11, // 24: construct.v1.TaskService.ListTasks:output_type -> construct.v1.ListTasksResponse
+	13, // 25: construct.v1.TaskService.UpdateTask:output_type -> construct.v1.UpdateTaskResponse
+	15, // 26: construct.v1.TaskService.DeleteTask:output_type -> construct.v1.DeleteTaskResponse
+	17, // 27: construct.v1.TaskService.SuspendTask:output_type -> construct.v1.SuspendTaskResponse
+	22, // [22:28] is the sub-list for method output_type
+	16, // [16:22] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for extension type_name
+	16, // [16:16] is the sub-list for extension extendee
+	0,  // [0:16] is the sub-list for field type_name
 }
 
 func init() { file_construct_v1_task_proto_init() }
@@ -1499,22 +1298,17 @@ func file_construct_v1_task_proto_init() {
 		return
 	}
 	file_construct_v1_common_proto_init()
-	file_construct_v1_message_proto_init()
 	file_construct_v1_task_proto_msgTypes[2].OneofWrappers = []any{}
 	file_construct_v1_task_proto_msgTypes[9].OneofWrappers = []any{}
 	file_construct_v1_task_proto_msgTypes[11].OneofWrappers = []any{}
-	file_construct_v1_task_proto_msgTypes[17].OneofWrappers = []any{
-		(*SubscribeResponse_Message)(nil),
-		(*SubscribeResponse_TaskEvent)(nil),
-	}
-	file_construct_v1_task_proto_msgTypes[21].OneofWrappers = []any{}
+	file_construct_v1_task_proto_msgTypes[18].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_construct_v1_task_proto_rawDesc), len(file_construct_v1_task_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   22,
+			NumMessages:   19,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
