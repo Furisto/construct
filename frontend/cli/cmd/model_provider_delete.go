@@ -28,20 +28,25 @@ models that depend on this provider.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client := getAPIClient(cmd.Context())
 
-			var modelProviderIDs = make(map[string]string)
+			type providerEntry struct {
+				idOrName string
+				id       string
+			}
+			var providers []providerEntry
 			for _, idOrName := range args {
 				modelProviderID, err := getModelProviderID(cmd.Context(), client, idOrName)
 				if err != nil {
 					return fmt.Errorf("failed to resolve model provider %s: %w", idOrName, err)
 				}
-				modelProviderIDs[idOrName] = modelProviderID
+				providers = append(providers, providerEntry{idOrName: idOrName, id: modelProviderID})
 			}
 
 			if !options.Force && !confirmDeletion(cmd.InOrStdin(), cmd.OutOrStdout(), "model-provider", args) {
 				return nil
 			}
 
-			for idOrName, modelProviderID := range modelProviderIDs {
+			for _, provider := range providers {
+				idOrName, modelProviderID := provider.idOrName, provider.id
 				models, err := client.Model().ListModels(cmd.Context(), &connect.Request[v1.ListModelsRequest]{
 					Msg: &v1.ListModelsRequest{
 						Filter: &v1.ListModelsRequest_Filter{
