@@ -717,20 +717,20 @@ func (r *TaskReconciler) reconcileExecuteTools(ctx context.Context, taskID uuid.
 	return Result{Retry: true}, nil
 }
 
-func (r *TaskReconciler) callTools(ctx context.Context, task *memory.Task, message *memory.Message) ([]*ToolResult, map[string]int64, error) {
+func (r *TaskReconciler) callTools(ctx context.Context, task *memory.Task, message *memory.Message) ([]*tooltypes.ToolResult, map[string]int64, error) {
 	logger := r.logger.With(
 		KeyTaskID, task.ID,
 		KeyMessageID, message.ID,
 	)
 	LogOperationStart(logger, "call tools")
 
-	var toolResults []*ToolResult
+	var toolResults []*tooltypes.ToolResult
 	toolStats := make(map[string]int64)
 
 	for _, block := range message.Content.Blocks {
 		switch block.Kind {
 		case types.MessageBlockKindToolCall:
-			var toolCall ToolCall
+			var toolCall tooltypes.ToolCall
 			err := json.Unmarshal([]byte(block.Payload), &toolCall)
 			if err != nil {
 				logger.ErrorContext(ctx, "failed to unmarshal tool call", "error", err)
@@ -764,7 +764,7 @@ func (r *TaskReconciler) callTools(ctx context.Context, task *memory.Task, messa
 				}
 
 				// Create unified ToolResult directly
-				toolResult := &ToolResult{
+				toolResult := &tooltypes.ToolResult{
 					Tool: toolCall.Tool,
 					Output: &tooltypes.ToolOutput{
 						Interpreter: &tooltypes.InterpreterOutput{
@@ -774,7 +774,7 @@ func (r *TaskReconciler) callTools(ctx context.Context, task *memory.Task, messa
 						},
 					},
 					Succeeded: err == nil,
-					Provider: &ProviderData{
+					Provider: &tooltypes.ProviderData{
 						Kind: toolCall.Provider.Kind,
 						ID:   toolCall.Provider.ID,
 					},
@@ -801,7 +801,7 @@ func (r *TaskReconciler) callTools(ctx context.Context, task *memory.Task, messa
 	return toolResults, toolStats, nil
 }
 
-func (r *TaskReconciler) persistToolResults(ctx context.Context, taskID uuid.UUID, toolResults []*ToolResult, tx *memory.Client) (*memory.Message, error) {
+func (r *TaskReconciler) persistToolResults(ctx context.Context, taskID uuid.UUID, toolResults []*tooltypes.ToolResult, tx *memory.Client) (*memory.Message, error) {
 	toolBlocks := make([]types.MessageBlock, 0, len(toolResults))
 	for _, toolResult := range toolResults {
 		jsonResult, err := json.Marshal(toolResult)
@@ -842,7 +842,7 @@ func logInterpreterArgs(ctx context.Context, taskID uuid.UUID, toolID string, ar
 	logInterpreter(ctx, taskID, toolID, a.Script, "args_interpreter")
 }
 
-func logInterpreterResult(ctx context.Context, taskID uuid.UUID, toolID string, result *ToolResult) {
+func logInterpreterResult(ctx context.Context, taskID uuid.UUID, toolID string, result *tooltypes.ToolResult) {
 	jsonResult, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to marshal interpreter result", "error", err)
