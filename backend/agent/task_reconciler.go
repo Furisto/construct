@@ -21,10 +21,9 @@ import (
 	"github.com/furisto/construct/backend/model"
 	"github.com/furisto/construct/backend/prompt"
 	"github.com/furisto/construct/backend/skill"
-	"github.com/furisto/construct/backend/tool/base"
 	"github.com/furisto/construct/backend/tool/codeact"
+	tooltypes "github.com/furisto/construct/backend/tool/types"
 	"github.com/furisto/construct/shared"
-	"github.com/furisto/construct/shared/conv"
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/afero"
@@ -718,63 +717,79 @@ func (r *TaskReconciler) reconcileExecuteTools(ctx context.Context, taskID uuid.
 	return Result{Retry: true}, nil
 }
 
-func (r *TaskReconciler) callTools(ctx context.Context, task *memory.Task, message *memory.Message) ([]base.ToolResult, map[string]int64, error) {
+func (r *TaskReconciler) callTools(ctx context.Context, task *memory.Task, message *memory.Message) ([]*ToolResult, map[string]int64, error) {
 	logger := r.logger.With(
 		KeyTaskID, task.ID,
 		KeyMessageID, message.ID,
 	)
 	LogOperationStart(logger, "call tools")
 
-	var toolResults []base.ToolResult
+	var toolResults []*ToolResult
 	toolStats := make(map[string]int64)
 
 	for _, block := range message.Content.Blocks {
 		switch block.Kind {
-		case types.MessageBlockKindCodeInterpreterCall:
-			var toolCall model.ToolCallBlock
+		case types.MessageBlockKindToolCall:
+			var toolCall ToolCall
 			err := json.Unmarshal([]byte(block.Payload), &toolCall)
 			if err != nil {
 				logger.ErrorContext(ctx, "failed to unmarshal tool call", "error", err)
 				return nil, nil, fmt.Errorf("failed to unmarshal tool call: %w", err)
 			}
-			logInterpreterArgs(ctx, task.ID, toolCall.ID, toolCall.Args)
 
-			toolStart := time.Now()
-			result, err := r.interpreter.Interpret(ctx, afero.NewOsFs(), toolCall.Args, &codeact.Task{
-				ID:               task.ID,
-				ProjectDirectory: task.ProjectDirectory,
-			})
-			toolDuration := time.Since(toolStart)
+			if toolCall.Tool == "code_interpreter" && toolCall.Input != nil && toolCall.Input.Interpreter != nil {
+				// Log interpreter args
+				inputJSON, _ := json.Marshal(toolCall.Input.Interpreter)
+				logInterpreterArgs(ctx, task.ID, toolCall.Provider.ID, inputJSON)
 
-			if errors.Is(ctx.Err(), context.Canceled) {
-				err = errors.New("tool execution was cancelled by user. Wait for further instructions")
-			}
+				toolStart := time.Now()
+				result, err := r.interpreter.Interpret(ctx, afero.NewOsFs(), toolCall.Input.Interpreter, &codeact.Task{
+					ID:               task.ID,
+					ProjectDirectory: task.ProjectDirectory,
+				})
+				toolDuration := time.Since(toolStart)
 
-			success := err == nil
-			if !success {
-				LogError(logger, "code interpreter execution failed", err, KeyToolDuration, toolDuration.Milliseconds())
-			} else {
-				logger.DebugContext(ctx, "code interpreter execution completed",
-					"duration_ms", toolDuration.Milliseconds(),
-					"success", true,
-				)
-			}
-			interpreterResult := &codeact.InterpreterToolResult{
-				ID:            toolCall.ID,
-				Output:        result.ConsoleOutput,
-				FunctionCalls: result.FunctionCalls,
-				Error:         conv.ErrorToString(err),
-			}
-			toolResults = append(toolResults, interpreterResult)
+				if errors.Is(ctx.Err(), context.Canceled) {
+					err = errors.New("tool execution was cancelled by user. Wait for further instructions")
+				}
 
-			for tool, count := range result.ToolStats {
-				toolStats[tool] += count
-				logger.DebugContext(ctx, "tool invoked",
-					KeyToolName, tool,
-					"count", count,
-				)
+				success := err == nil
+				if !success {
+					LogError(logger, "code interpreter execution failed", err, KeyToolDuration, toolDuration.Milliseconds())
+				} else {
+					logger.DebugContext(ctx, "code interpreter execution completed",
+						"duration_ms", toolDuration.Milliseconds(),
+						"success", true,
+					)
+				}
+
+				// Create unified ToolResult directly
+				toolResult := &ToolResult{
+					Tool: toolCall.Tool,
+					Output: &tooltypes.ToolOutput{
+						Interpreter: &tooltypes.InterpreterOutput{
+							ConsoleOutput: result.ConsoleOutput,
+							FunctionCalls: result.FunctionCalls,
+							ToolStats:     result.ToolStats,
+						},
+					},
+					Succeeded: err == nil,
+					Provider: &ProviderData{
+						Kind: toolCall.Provider.Kind,
+						ID:   toolCall.Provider.ID,
+					},
+				}
+				toolResults = append(toolResults, toolResult)
+
+				for tool, count := range result.ToolStats {
+					toolStats[tool] += count
+					logger.DebugContext(ctx, "tool invoked",
+						KeyToolName, tool,
+						"count", count,
+					)
+				}
+				logInterpreterResult(ctx, task.ID, toolCall.Provider.ID, toolResult)
 			}
-			logInterpreterResult(ctx, task.ID, toolCall.ID, interpreterResult)
 		}
 	}
 
@@ -786,26 +801,18 @@ func (r *TaskReconciler) callTools(ctx context.Context, task *memory.Task, messa
 	return toolResults, toolStats, nil
 }
 
-func (r *TaskReconciler) persistToolResults(ctx context.Context, taskID uuid.UUID, toolResults []base.ToolResult, tx *memory.Client) (*memory.Message, error) {
+func (r *TaskReconciler) persistToolResults(ctx context.Context, taskID uuid.UUID, toolResults []*ToolResult, tx *memory.Client) (*memory.Message, error) {
 	toolBlocks := make([]types.MessageBlock, 0, len(toolResults))
-	for _, result := range toolResults {
-		jsonResult, err := json.Marshal(result)
+	for _, toolResult := range toolResults {
+		jsonResult, err := json.Marshal(toolResult)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal tool result: %w", err)
 		}
 
-		switch result.(type) {
-		case *codeact.InterpreterToolResult:
-			toolBlocks = append(toolBlocks, types.MessageBlock{
-				Kind:    types.MessageBlockKindCodeInterpreterResult,
-				Payload: string(jsonResult),
-			})
-		default:
-			toolBlocks = append(toolBlocks, types.MessageBlock{
-				Kind:    types.MessageBlockKindNativeToolResult,
-				Payload: string(jsonResult),
-			})
-		}
+		toolBlocks = append(toolBlocks, types.MessageBlock{
+			Kind:    types.MessageBlockKindToolResult,
+			Payload: string(jsonResult),
+		})
 	}
 
 	return tx.Message.Create().
@@ -835,7 +842,7 @@ func logInterpreterArgs(ctx context.Context, taskID uuid.UUID, toolID string, ar
 	logInterpreter(ctx, taskID, toolID, a.Script, "args_interpreter")
 }
 
-func logInterpreterResult(ctx context.Context, taskID uuid.UUID, toolID string, result *codeact.InterpreterToolResult) {
+func logInterpreterResult(ctx context.Context, taskID uuid.UUID, toolID string, result *ToolResult) {
 	jsonResult, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to marshal interpreter result", "error", err)

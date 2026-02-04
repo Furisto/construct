@@ -3,11 +3,9 @@ package types
 type MessageBlockKind string
 
 const (
-	MessageBlockKindText                  MessageBlockKind = "text"
-	MessageBlockKindNativeToolCall        MessageBlockKind = "native_tool_call"
-	MessageBlockKindNativeToolResult      MessageBlockKind = "native_tool_result"
-	MessageBlockKindCodeInterpreterCall   MessageBlockKind = "code_interpreter_call"
-	MessageBlockKindCodeInterpreterResult MessageBlockKind = "code_interpreter_result"
+	MessageBlockKindText       MessageBlockKind = "text"
+	MessageBlockKindToolCall   MessageBlockKind = "tool_call"
+	MessageBlockKindToolResult MessageBlockKind = "tool_result"
 )
 
 type MessageContent struct {
