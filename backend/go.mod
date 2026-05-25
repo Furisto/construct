@@ -1,9 +1,9 @@
 module github.com/furisto/construct/backend
 
-go 1.24.1
+go 1.25.0
 
 require (
-	connectrpc.com/connect v1.18.1
+	connectrpc.com/connect v1.20.0
 	entgo.io/ent v0.14.4
 	github.com/JohannesKaufmann/html-to-markdown v1.6.0
 	github.com/anthropics/anthropic-sdk-go v1.13.0
@@ -31,7 +31,7 @@ require (
 	golang.org/x/sync v0.17.0
 	google.golang.org/genai v1.21.0
 	google.golang.org/genproto v0.0.0-20240903143218-8af14fe29dc1
-	google.golang.org/protobuf v1.36.8
+	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/client-go v0.34.1
 	modernc.org/sqlite v1.33.1
@@ -40,7 +40,7 @@ require (
 require (
 	al.essio.dev/pkg/shellescape v1.5.1 // indirect
 	ariga.io/atlas v0.31.1-0.20250212144724-069be8033e83 // indirect
-	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.6-20250307204501-0409229c3780.1 // indirect
+	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20260415201107-50325440f8f2.1 // indirect
 	cloud.google.com/go v0.116.0 // indirect
 	cloud.google.com/go/auth v0.9.3 // indirect
 	cloud.google.com/go/compute/metadata v0.6.0 // indirect
