@@ -1,6 +1,6 @@
 module github.com/furisto/construct/api/go
 
-go 1.24.1
+go 1.25.0
 
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.6-20250307204501-0409229c3780.1
@@ -12,5 +12,5 @@ require (
 
 require (
 	github.com/google/go-cmp v0.7.0 // indirect
-	golang.org/x/net v0.43.0 // indirect
+	golang.org/x/net v0.55.0 // indirect
 )
