@@ -18,7 +18,7 @@ Public core/type items are checked with `deny(missing_docs)`.
 
 ## Build and test
 
-From `rust/`, with a current stable Rust toolchain:
+From `rust/`, with Rust 1.89.0 or newer (the locked uuid dependency requires 1.89):
 
 ```sh
 cargo build --workspace
@@ -31,6 +31,10 @@ cargo build --workspace --all-features
 cargo test --workspace --all-features
 cargo clippy --workspace --all-features --all-targets -- -D warnings
 ```
+
+`.github/workflows/rust.yml` pins both Linux jobs to stable release 1.89.0,
+matching the inherited workspace MSRV. The jobs run all-feature checks and real
+Go interop separately. When increasing the MSRV, update the workflow pin too.
 
 Core's `testing` feature exposes `MemorySecretProvider`, `MemoryStore`, and
 `ScriptedModelProvider`. Consumers should enable it only in dev-dependencies.

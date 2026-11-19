@@ -36,7 +36,7 @@ pub struct MethodDescriptor {
     pub server_streaming: bool,
 }
 
-#[allow(clippy::useless_borrows_in_formatting)]
+#[allow(unknown_lints, clippy::useless_borrows_in_formatting)]
 pub mod google {
     pub mod r#type {
         include!(concat!(env!("OUT_DIR"), "/google.r#type.rs"));
@@ -44,7 +44,7 @@ pub mod google {
     }
 }
 
-#[allow(clippy::useless_borrows_in_formatting)]
+#[allow(unknown_lints, clippy::useless_borrows_in_formatting)]
 pub mod construct {
     pub mod v1 {
         include!(concat!(env!("OUT_DIR"), "/construct.v1.rs"));

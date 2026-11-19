@@ -1,0 +1,64 @@
+name: Rust
+
+on:
+  pull_request:
+    paths:
+      - 'rust/**'
+      - 'api/def/**'
+      - '.github/workflows/rust.yml'
+  push:
+    paths:
+      - 'rust/**'
+      - 'api/def/**'
+      - '.github/workflows/rust.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_VERSION: '1.89.0'
+
+jobs:
+  check:
+    name: Format, lint, build and test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+      - run: cargo build --workspace --all-features --locked
+      - run: cargo test --workspace --all-features --locked
+      - run: cargo check -p construct-core --no-default-features --locked
+
+  go-interop:
+    name: Go interoperability
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.1'
+          cache-dependency-path: |
+            api/go/go.sum
+            backend/go.sum
+            frontend/cli/go.sum
+            shared/go.sum
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - run: rust/scripts/go-interop.sh
