@@ -16,7 +16,7 @@ construct-connect = { path = "../construct-connect" }
 construct-proto = { path = "../construct-proto" }
 construct-types = { path = "../construct-types" }
 clap = { version = "=4.5.54", features = ["derive"] }
-tokio = { workspace = true, features = ["signal", "io-std"] }
+tokio = { workspace = true, features = ["signal", "io-std", "process"] }
 tokio-util = "0.7"
 serde.workspace = true
 serde_json.workspace = true
@@ -30,9 +30,16 @@ libc = "0.2"
 regex = "1"
 chrono = "0.4"
 thiserror = "2"
-uuid = "1"
-tempfile = "3"
 rpassword = "7"
+pbjson-types.workspace = true
+uuid = "1"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-webpki-roots"] }
+url = { version = "2", features = ["serde"] }
+semver = "1"
+flate2 = "1"
+tar = "0.4"
+sha2 = "0.10"
+tempfile = "3"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 dbus-secret-service = { version = "4.1", features = ["crypto-rust", "vendored"] }
