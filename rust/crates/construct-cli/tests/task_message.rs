@@ -605,7 +605,7 @@ async fn message_list_all_agent_name_id_task_role_json_short_yaml_empty_errors()
 }
 
 #[tokio::test]
-async fn non_text_parts_render_through_task_filtered_list_and_get() {
+async fn non_text_parts_are_omitted_like_go_in_list_and_get() {
     for action in ["list", "get"] {
         for format in ["default", "json", "yaml"] {
             let mut h = Harness::new().await;
@@ -682,22 +682,12 @@ async fn non_text_parts_render_through_task_filtered_list_and_get() {
                 let item = if action == "list" { &value[1] } else { &value };
                 item["content"].as_str().unwrap().to_owned()
             };
-            let mut position = 0;
-            for part in [
-                "Before ",
-                "[tool call]",
-                "execute_command",
-                "pwd",
-                "[tool result]",
-                "/workspace",
-                "[error] tool unavailable",
-                "[empty part]",
-                " After",
-            ] {
-                position += content[position..]
-                    .find(part)
-                    .unwrap_or_else(|| panic!("missing {part} in {content}"))
-                    + part.len();
+            // Go concatenates only text parts; tool calls, results and errors are not rendered.
+            if format == "default" {
+                assert!(!content.contains("Content"), "{content}");
+                assert!(!content.contains("tool"), "{content}");
+            } else {
+                assert_eq!(content, "Before  After");
             }
             h.fake.done();
         }

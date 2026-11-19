@@ -326,3 +326,18 @@ including explicit Unix/TCP and both systemd socket families. Go currently adver
 but does not implement `context add --setup-code`; the test generates the code using
 Go, exchanges it using the Rust generated client, and supplies the resulting token
 to Go's HTTP context. No model calls, credentials, or system keyring are needed.
+
+## Task/message parity suite
+
+`rust/scripts/parity-tasks.sh` runs the same task and message scenarios (create, get,
+list, `exec` text/JSON/YAML with tool calls and tool errors, stdin and `--file`
+context, `--continue`, message list/get with tool calls in every output format,
+TUI `resume`, delete, raw API responses, SQLite rows and model requests) against
+Go CLI/Go daemon, Rust CLI/Rust daemon and both cross combinations, using the
+loopback mock in `rust/scripts/parity-mock.py` (no API key). It normalizes IDs,
+times and paths and writes `report.md` plus per-scenario diffs under `~/parity/run-*`;
+it exits nonzero on any unexplained `DIFF`. Known, intentional differences are
+reported by class: `STREAM` (same text, stdout/stderr split; Go writes exec JSON/YAML
+to stderr), `USAGE` (Rust omits Cobra's usage block after errors), `REPLAY` (the Go
+daemon re-sends the replayed user message live, so Go prints it twice) and `CONTINUE`
+(Go `exec --continue` exits on the replayed earlier answer; Rust waits for the new one).

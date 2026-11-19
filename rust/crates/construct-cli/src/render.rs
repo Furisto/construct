@@ -106,13 +106,13 @@ impl Renderer {
                             }
                         }
                         if !options.no_headers {
+                            let bold = std::io::stdout().is_terminal()
+                                && std::env::var_os("NO_COLOR").is_none();
                             for (i, h) in headers.iter().enumerate() {
                                 if i > 0 {
                                     write!(writer, "  ")?;
                                 }
-                                if std::io::stdout().is_terminal()
-                                    && std::env::var_os("NO_COLOR").is_none()
-                                {
+                                if bold {
                                     write!(writer, "\x1b[1m{h}\x1b[0m")?;
                                 } else {
                                     write!(writer, "{h}")?;

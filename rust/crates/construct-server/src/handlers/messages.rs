@@ -76,7 +76,14 @@ impl pb::MessageService for Services {
         }
         let messages = self
             .store
-            .list_messages(filter, ListOptions::default())
+            .list_messages(
+                filter,
+                // Go's ListMessages applies no ORDER BY, so SQLite returns insertion order.
+                ListOptions {
+                    sort_order: SortOrder::Ascending,
+                    ..Default::default()
+                },
+            )
             .await
             .api("message")?;
         let messages = messages

@@ -171,6 +171,7 @@ pub fn feed(state: &Session, width: u16) -> Text<'static> {
         return Text::raw("────────────────────────────────────────────────────\nWelcome! Type your message below.\nPress Ctrl + ? for help at any time.\nPress Ctrl + C to clear the input area.\nPress Ctrl + C twice to exit.\nPress Esc to stop the agent execution.\n────────────────────────────────────────────────────");
     }
     for entry in &state.feed {
+        let before = lines.len();
         match entry {
             FeedContent::User(text) => {
                 lines.push(Line::styled("╭─ You", Style::default().fg(Color::DarkGray)));
@@ -191,11 +192,6 @@ pub fn feed(state: &Session, width: u16) -> Text<'static> {
                     label
                 };
                 lines.push(Line::styled(label, Style::default().fg(Color::Gray)));
-                if let Some(tool_call::Input::CodeInterpreter(input)) = &call.input {
-                    lines.extend(
-                        markdown(&super::code_markdown(&input.code), width.saturating_sub(4)).lines,
-                    );
-                }
             }
             FeedContent::ToolResult(result) => {
                 let formatted = super::format_tool_result(result, usize::from(width));
@@ -222,7 +218,10 @@ pub fn feed(state: &Session, width: u16) -> Text<'static> {
             }
             FeedContent::Typing => lines.push(Line::raw("Thinking…")),
         }
-        lines.push(Line::raw(""));
+        // Results Go does not render (e.g. create_file) add no spacing either.
+        if lines.len() > before {
+            lines.push(Line::raw(""));
+        }
     }
     if !state.partial.is_empty() {
         lines.extend(markdown(&state.partial, width).lines);

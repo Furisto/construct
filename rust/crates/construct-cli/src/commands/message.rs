@@ -151,8 +151,6 @@ struct Display {
     created_at: String,
     updated_at: String,
     usage: Usage,
-    #[serde(skip)]
-    has_non_text: bool,
 }
 impl DisplayResource for Display {
     fn fields(&self) -> Vec<Field<'_>> {
@@ -163,9 +161,6 @@ impl DisplayResource for Display {
             Field::new("Model", &self.model),
             Field::new("Role", &self.role),
         ];
-        if self.has_non_text {
-            fields.push(Field::new("Content", &self.content));
-        }
         fields.extend([
             Field::new("CreatedAt", go_time(&self.created_at)).full(),
             Field::new("UpdatedAt", go_time(&self.updated_at)).full(),
@@ -182,25 +177,15 @@ fn go_time(value: &str) -> String {
 fn display(message: Message) -> Result<Display> {
     let metadata = message.metadata.ok_or("message metadata missing")?;
     let spec = message.spec.ok_or("message spec missing")?;
-    let mut content = String::new();
-    let mut has_non_text = false;
-    for part in spec.content {
-        has_non_text |= !matches!(&part.data, Some(message_part::Data::Text(_)));
-        match part.data {
-            Some(message_part::Data::Text(text)) => content.push_str(&text.content),
-            Some(message_part::Data::ToolCall(call)) => {
-                content.push_str(&format!("[tool call] {}", serde_json::to_string(&call)?))
-            }
-            Some(message_part::Data::ToolResult(result)) => content.push_str(&format!(
-                "[tool result] {}",
-                serde_json::to_string(&result)?
-            )),
-            Some(message_part::Data::Error(error)) => {
-                content.push_str(&format!("[error] {}", error.message))
-            }
-            None => content.push_str("[empty part]"),
-        }
-    }
+    // Like Go, only text parts contribute to content; tool calls/results render empty.
+    let content: String = spec
+        .content
+        .into_iter()
+        .filter_map(|part| match part.data {
+            Some(message_part::Data::Text(text)) => Some(text.content),
+            _ => None,
+        })
+        .collect();
     let usage = message
         .status
         .and_then(|s| s.usage)
@@ -227,7 +212,6 @@ fn display(message: Message) -> Result<Display> {
         created_at: timestamp(&metadata.created_at)?,
         updated_at: timestamp(&metadata.updated_at)?,
         usage,
-        has_non_text,
     })
 }
 pub async fn run(app: &mut App, matches: &clap::ArgMatches) -> Result<()> {
@@ -315,15 +299,10 @@ pub async fn run(app: &mut App, matches: &clap::ArgMatches) -> Result<()> {
                 .map_err(|e| format!("failed to list messages: {e}"))?
                 .message
                 .messages;
-            let mut items = messages
+            let items = messages
                 .into_iter()
                 .map(display)
                 .collect::<Result<Vec<_>>>()?;
-            if items.iter().any(|item| item.has_non_text) {
-                for item in &mut items {
-                    item.has_non_text = true;
-                }
-            }
             app.renderer.render(app.stdout.as_mut(), &items, &render)?;
         }
         Action::Delete { ids, force } => {
