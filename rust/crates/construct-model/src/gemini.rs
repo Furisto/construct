@@ -48,7 +48,7 @@ impl GeminiProvider {
     }
 }
 
-#[async_trait::async_trait]
+#[construct_core::async_trait]
 impl ModelProvider for GeminiProvider {
     async fn invoke_model(
         &self,
@@ -517,6 +517,18 @@ mod tests {
 
     #[test]
     fn history_and_schema_conversion() {
+        let calls: Vec<Message> = serde_json::from_value(json!([
+            {"source":"model","content":[{"tool":"search","args":{"q":"x"},"id":"ignored"}]},
+            {"source":"system","content":[{"name":"search","result":"{}","succeeded":true}]}
+        ]))
+        .unwrap();
+        assert_eq!(
+            request_body("sys", &calls, &[]).unwrap()["contents"],
+            json!([
+                {"role":"model","parts":[{"functionCall":{"name":"search","args":{"q":"x"}}}]},
+                {"role":"user","parts":[{"functionResponse":{"name":"search"}}]}
+            ])
+        );
         assert_eq!(
             request_body("sys", &[Message::default()], &[]).unwrap()["contents"],
             json!([{"role":"user"}])
