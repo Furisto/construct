@@ -1,0 +1,495 @@
+[
+  {
+    "name": "print_primitives",
+    "script": "print(\"hello world\", 42, -12, 0.1, 1e21, -0, NaN, Infinity, -Infinity, true, false, null, undefined); print();",
+    "files": {
+      "nested/only.rs": "fn main() {}\n",
+      "sample.txt": "apple\nbanana\ncarrot\n"
+    },
+    "console_output": "hello world 42 -12 0.1 1e+21 -0 NaN +Inf -Inf true false \u003cnil\u003e \u003cnil\u003e\n\n",
+    "error": null,
+    "output_json": "{\"console_output\":\"hello world 42 -12 0.1 1e+21 -0 NaN +Inf -Inf true false \\u003cnil\\u003e \\u003cnil\\u003e\\n\\n\",\"function_calls\":[]}",
+    "events": []
+  },
+  {
+    "name": "print_nested",
+    "script": "print([1,\"two words\",null,undefined,[0.1,true]], {z:2,a:{y:[false,null],b:\"space here\"}});",
+    "files": {
+      "nested/only.rs": "fn main() {}\n",
+      "sample.txt": "apple\nbanana\ncarrot\n"
+    },
+    "console_output": "[1 two words \u003cnil\u003e \u003cnil\u003e [0.1 true]] map[a:map[b:space here y:[false \u003cnil\u003e]] z:2]\n",
+    "error": null,
+    "output_json": "{\"console_output\":\"[1 two words \\u003cnil\\u003e \\u003cnil\\u003e [0.1 true]] map[a:map[b:space here y:[false \\u003cnil\\u003e]] z:2]\\n\",\"function_calls\":[]}",
+    "events": []
+  },
+  {
+    "name": "read_full",
+    "script": "print(read_file(\"{{ROOT}}/sample.txt\"));",
+    "files": {
+      "nested/only.rs": "fn main() {}\n",
+      "sample.txt": "apple\nbanana\ncarrot\n"
+    },
+    "console_output": "\u0026{{{ROOT}}/sample.txt apple\nbanana\ncarrot}\n",
+    "error": null,
+    "output_json": "{\"console_output\":\"\\u0026{{{ROOT}}/sample.txt apple\\nbanana\\ncarrot}\\n\",\"function_calls\":[{\"tool_name\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\"}},\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"content\":\"apple\\nbanana\\ncarrot\"}},\"index\":0}],\"tool_stats\":{\"read_file\":1}}",
+    "events": [
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\"}}}"
+      },
+      {
+        "type": "tool.result",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"content\":\"apple\\nbanana\\ncarrot\"}}}"
+      }
+    ]
+  },
+  {
+    "name": "read_range",
+    "script": "print(read_file(\"{{ROOT}}/sample.txt\",2,3));",
+    "files": {
+      "nested/only.rs": "fn main() {}\n",
+      "sample.txt": "apple\nbanana\ncarrot\n"
+    },
+    "console_output": "\u0026{{{ROOT}}/sample.txt // skipped 1 lines\nbanana\ncarrot\n// 0 lines remaining}\n",
+    "error": null,
+    "output_json": "{\"console_output\":\"\\u0026{{{ROOT}}/sample.txt // skipped 1 lines\\nbanana\\ncarrot\\n// 0 lines remaining}\\n\",\"function_calls\":[{\"tool_name\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"start_line\":2,\"end_line\":3}},\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"content\":\"// skipped 1 lines\\nbanana\\ncarrot\\n// 0 lines remaining\"}},\"index\":0}],\"tool_stats\":{\"read_file\":1}}",
+    "events": [
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"start_line\":2,\"end_line\":3}}}"
+      },
+      {
+        "type": "tool.result",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"content\":\"// skipped 1 lines\\nbanana\\ncarrot\\n// 0 lines remaining\"}}}"
+      }
+    ]
+  },
+  {
+    "name": "create_edit",
+    "script": "print(create_file(\"{{ROOT}}/created.txt\",\"before\\n\")); print(edit_file(\"{{ROOT}}/created.txt\",[{old:\"before\",new:\"after\"}])); print(read_file(\"{{ROOT}}/created.txt\"));",
+    "files": {
+      "nested/only.rs": "fn main() {}\n",
+      "sample.txt": "apple\nbanana\ncarrot\n"
+    },
+    "console_output": "\u0026{false}\n\u0026{true {{ROOT}}/created.txt 1 1  [] [] {--- a/created.txt\n+++ b/created.txt\n@@ -1,1 +1,1 @@\n-before\n+after\n 1 1}}\n\u0026{{{ROOT}}/created.txt after}\n",
+    "error": null,
+    "output_json": "{\"console_output\":\"\\u0026{false}\\n\\u0026{true {{ROOT}}/created.txt 1 1  [] [] {--- a/created.txt\\n+++ b/created.txt\\n@@ -1,1 +1,1 @@\\n-before\\n+after\\n 1 1}}\\n\\u0026{{{ROOT}}/created.txt after}\\n\",\"function_calls\":[{\"tool_name\":\"create_file\",\"input\":{\"create_file\":{\"Path\":\"{{ROOT}}/created.txt\",\"Content\":\"before\\n\"}},\"output\":{\"create_file\":{\"overwritten\":false}},\"index\":0},{\"tool_name\":\"edit_file\",\"input\":{\"edit_file\":{\"path\":\"{{ROOT}}/created.txt\",\"diffs\":[{\"old\":\"before\",\"new\":\"after\"}]}},\"output\":{\"edit_file\":{\"success\":true,\"path\":\"{{ROOT}}/created.txt\",\"replacements_made\":1,\"expected_replacements\":1,\"patch_info\":{\"patch\":\"--- a/created.txt\\n+++ b/created.txt\\n@@ -1,1 +1,1 @@\\n-before\\n+after\\n\",\"lines_added\":1,\"lines_removed\":1}}},\"index\":1},{\"tool_name\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/created.txt\"}},\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/created.txt\",\"content\":\"after\"}},\"index\":2}],\"tool_stats\":{\"create_file\":1,\"edit_file\":1,\"read_file\":1}}",
+    "events": [
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "create_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"create_file\",\"input\":{\"create_file\":{\"Path\":\"{{ROOT}}/created.txt\",\"Content\":\"before\\n\"}}}"
+      },
+      {
+        "type": "tool.result",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "create_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"create_file\",\"output\":{\"create_file\":{\"overwritten\":false}}}"
+      },
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "edit_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"edit_file\",\"input\":{\"edit_file\":{\"path\":\"{{ROOT}}/created.txt\",\"diffs\":[{\"old\":\"before\",\"new\":\"after\"}]}}}"
+      },
+      {
+        "type": "tool.result",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "edit_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"edit_file\",\"output\":{\"edit_file\":{\"success\":true,\"path\":\"{{ROOT}}/created.txt\",\"replacements_made\":1,\"expected_replacements\":1,\"patch_info\":{\"patch\":\"--- a/created.txt\\n+++ b/created.txt\\n@@ -1,1 +1,1 @@\\n-before\\n+after\\n\",\"lines_added\":1,\"lines_removed\":1}}}}"
+      },
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/created.txt\"}}}"
+      },
+      {
+        "type": "tool.result",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/created.txt\",\"content\":\"after\"}}}"
+      }
+    ]
+  },
+  {
+    "name": "list_files",
+    "script": "print(list_files(\"{{ROOT}}\",false));",
+    "files": {
+      "nested/only.rs": "fn main() {}\n",
+      "sample.txt": "apple\nbanana\ncarrot\n"
+    },
+    "console_output": "\u0026{{{ROOT}} [{{{ROOT}}/nested d 0} {{{ROOT}}/sample.txt f 1}]}\n",
+    "error": null,
+    "output_json": "{\"console_output\":\"\\u0026{{{ROOT}} [{{{ROOT}}/nested d 0} {{{ROOT}}/sample.txt f 1}]}\\n\",\"function_calls\":[{\"tool_name\":\"list_files\",\"input\":{\"list_files\":{\"Path\":\"{{ROOT}}\",\"Recursive\":false}},\"output\":{\"list_files\":{\"path\":\"{{ROOT}}\",\"entries\":[{\"n\":\"{{ROOT}}/nested\",\"t\":\"d\",\"s\":0},{\"n\":\"{{ROOT}}/sample.txt\",\"t\":\"f\",\"s\":1}]}},\"index\":0}],\"tool_stats\":{\"list_files\":1}}",
+    "events": [
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "list_files",
+        "payload_json": "{\"id\":\"\",\"tool\":\"list_files\",\"input\":{\"list_files\":{\"Path\":\"{{ROOT}}\",\"Recursive\":false}}}"
+      },
+      {
+        "type": "tool.result",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "list_files",
+        "payload_json": "{\"id\":\"\",\"tool\":\"list_files\",\"output\":{\"list_files\":{\"path\":\"{{ROOT}}\",\"entries\":[{\"n\":\"{{ROOT}}/nested\",\"t\":\"d\",\"s\":0},{\"n\":\"{{ROOT}}/sample.txt\",\"t\":\"f\",\"s\":1}]}}}"
+      }
+    ]
+  },
+  {
+    "name": "find_file",
+    "script": "print(find_file({path:\"{{ROOT}}\",pattern:\"**/*.rs\"}));",
+    "files": {
+      "nested/only.rs": "fn main() {}\n",
+      "sample.txt": "apple\nbanana\ncarrot\n"
+    },
+    "console_output": "\u0026{[{{ROOT}}/nested/only.rs] 1 0}\n",
+    "error": null,
+    "output_json": "{\"console_output\":\"\\u0026{[{{ROOT}}/nested/only.rs] 1 0}\\n\",\"function_calls\":[{\"tool_name\":\"find_file\",\"input\":{\"find_file\":{\"pattern\":\"**/*.rs\",\"path\":\"{{ROOT}}\",\"exclude_pattern\":\"\",\"max_results\":50}},\"output\":{\"find_file\":{\"files\":[\"{{ROOT}}/nested/only.rs\"],\"total_files\":1,\"truncated_count\":0}},\"index\":0}],\"tool_stats\":{\"find_file\":1}}",
+    "events": [
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "find_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"find_file\",\"input\":{\"find_file\":{\"pattern\":\"**/*.rs\",\"path\":\"{{ROOT}}\",\"exclude_pattern\":\"\",\"max_results\":50}}}"
+      },
+      {
+        "type": "tool.result",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "find_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"find_file\",\"output\":{\"find_file\":{\"files\":[\"{{ROOT}}/nested/only.rs\"],\"total_files\":1,\"truncated_count\":0}}}"
+      }
+    ]
+  },
+  {
+    "name": "grep",
+    "script": "print(grep({path:\"{{ROOT}}/sample.txt\",query:\"banana\",case_sensitive:true}));",
+    "files": {
+      "nested/only.rs": "fn main() {}\n",
+      "sample.txt": "apple\nbanana\ncarrot\n"
+    },
+    "console_output": "\u0026{[{{{ROOT}}/sample.txt -1-apple\n:2:banana\n-3-carrot\n}] 1 0 1}\n",
+    "error": null,
+    "output_json": "{\"console_output\":\"\\u0026{[{{{ROOT}}/sample.txt -1-apple\\n:2:banana\\n-3-carrot\\n}] 1 0 1}\\n\",\"function_calls\":[{\"tool_name\":\"grep\",\"input\":{\"grep\":{\"query\":\"banana\",\"path\":\"{{ROOT}}/sample.txt\",\"include_pattern\":\"\",\"exclude_pattern\":\"\",\"case_sensitive\":true,\"max_results\":50,\"context\":0}},\"output\":{\"grep\":{\"matches\":[{\"file_path\":\"{{ROOT}}/sample.txt\",\"value\":\"-1-apple\\n:2:banana\\n-3-carrot\\n\"}],\"total_matches\":1,\"truncated_matches\":0,\"searched_files\":1}},\"index\":0}],\"tool_stats\":{\"grep\":1}}",
+    "events": [
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "grep",
+        "payload_json": "{\"id\":\"\",\"tool\":\"grep\",\"input\":{\"grep\":{\"query\":\"banana\",\"path\":\"{{ROOT}}/sample.txt\",\"include_pattern\":\"\",\"exclude_pattern\":\"\",\"case_sensitive\":true,\"max_results\":50,\"context\":0}}}"
+      },
+      {
+        "type": "tool.result",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "grep",
+        "payload_json": "{\"id\":\"\",\"tool\":\"grep\",\"output\":{\"grep\":{\"matches\":[{\"file_path\":\"{{ROOT}}/sample.txt\",\"value\":\"-1-apple\\n:2:banana\\n-3-carrot\\n\"}],\"total_matches\":1,\"truncated_matches\":0,\"searched_files\":1}}}"
+      }
+    ]
+  },
+  {
+    "name": "command_success",
+    "script": "print(execute_command(\"printf 'hello world\\\\n'\"));",
+    "files": {
+      "nested/only.rs": "fn main() {}\n",
+      "sample.txt": "apple\nbanana\ncarrot\n"
+    },
+    "console_output": "\u0026{hello world\n  0 printf 'hello world\\n'}\n",
+    "error": null,
+    "output_json": "{\"console_output\":\"\\u0026{hello world\\n  0 printf 'hello world\\\\n'}\\n\",\"function_calls\":[{\"tool_name\":\"execute_command\",\"input\":{\"execute_command\":{\"Command\":\"printf 'hello world\\\\n'\",\"WorkingDirectory\":\"{{ROOT}}\"}},\"output\":{\"execute_command\":{\"stdout\":\"hello world\\n\",\"stderr\":\"\",\"exitCode\":0,\"command\":\"printf 'hello world\\\\n'\"}},\"index\":0}],\"tool_stats\":{\"execute_command\":1}}",
+    "events": [
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "execute_command",
+        "payload_json": "{\"id\":\"\",\"tool\":\"execute_command\",\"input\":{\"execute_command\":{\"Command\":\"printf 'hello world\\\\n'\",\"WorkingDirectory\":\"{{ROOT}}\"}}}"
+      },
+      {
+        "type": "tool.result",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "execute_command",
+        "payload_json": "{\"id\":\"\",\"tool\":\"execute_command\",\"output\":{\"execute_command\":{\"stdout\":\"hello world\\n\",\"stderr\":\"\",\"exitCode\":0,\"command\":\"printf 'hello world\\\\n'\"}}}"
+      }
+    ]
+  },
+  {
+    "name": "command_nonzero",
+    "script": "try { execute_command(\"exit 7\"); } catch(e) { print(e.message); } print(\"continued\");",
+    "files": {
+      "nested/only.rs": "fn main() {}\n",
+      "sample.txt": "apple\nbanana\ncarrot\n"
+    },
+    "console_output": "error executing command\n\nSuggestions:\n- Check if the command is valid and executable.\n- Ensure the command is properly formatted for the target operating system.\n- Check the provided system error for more details\n\nDetails:\n- command: exit 7\n- error: exit status 7\n- output: \n- toolName: \ncontinued\n",
+    "error": null,
+    "output_json": "{\"console_output\":\"error executing command\\n\\nSuggestions:\\n- Check if the command is valid and executable.\\n- Ensure the command is properly formatted for the target operating system.\\n- Check the provided system error for more details\\n\\nDetails:\\n- command: exit 7\\n- error: exit status 7\\n- output: \\n- toolName: \\ncontinued\\n\",\"function_calls\":[],\"tool_stats\":{\"execute_command\":1}}",
+    "events": [
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "execute_command",
+        "payload_json": "{\"id\":\"\",\"tool\":\"execute_command\",\"input\":{\"execute_command\":{\"Command\":\"exit 7\",\"WorkingDirectory\":\"{{ROOT}}\"}}}"
+      }
+    ]
+  },
+  {
+    "name": "caught_tool_error",
+    "script": "try { read_file(\"relative\"); } catch(e) { print(e.message); } print(read_file(\"{{ROOT}}/sample.txt\",1,1));",
+    "files": {
+      "nested/only.rs": "fn main() {}\n",
+      "sample.txt": "apple\nbanana\ncarrot\n"
+    },
+    "console_output": "path must be absolute\n\nSuggestions:\n- Please provide a valid absolute path to the file you want to read\n- Check the provided system error for more details\n\nDetails:\n- toolName: \n\u0026{{{ROOT}}/sample.txt apple\n// 2 lines remaining}\n",
+    "error": null,
+    "output_json": "{\"console_output\":\"path must be absolute\\n\\nSuggestions:\\n- Please provide a valid absolute path to the file you want to read\\n- Check the provided system error for more details\\n\\nDetails:\\n- toolName: \\n\\u0026{{{ROOT}}/sample.txt apple\\n// 2 lines remaining}\\n\",\"function_calls\":[{\"tool_name\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"start_line\":1,\"end_line\":1}},\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"content\":\"apple\\n// 2 lines remaining\"}},\"index\":0}],\"tool_stats\":{\"read_file\":2}}",
+    "events": [
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"relative\"}}}"
+      },
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"start_line\":1,\"end_line\":1}}}"
+      },
+      {
+        "type": "tool.result",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"content\":\"apple\\n// 2 lines remaining\"}}}"
+      }
+    ]
+  },
+  {
+    "name": "uncaught_tool_error",
+    "script": "print(\"before\"); read_file(\"relative\"); print(\"after\");",
+    "files": {
+      "nested/only.rs": "fn main() {}\n",
+      "sample.txt": "apple\nbanana\ncarrot\n"
+    },
+    "console_output": "before\n",
+    "error": "path must be absolute\n\nSuggestions:\n- Please provide a valid absolute path to the file you want to read\n- Check the provided system error for more details\n\nDetails:\n- toolName: ",
+    "output_json": "{\"console_output\":\"before\\n\",\"function_calls\":[],\"tool_stats\":{\"read_file\":1}}",
+    "events": [
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"relative\"}}}"
+      }
+    ]
+  },
+  {
+    "name": "uncaught_type_error",
+    "script": "print(\"before\"); throw new TypeError(\"bad input\");",
+    "files": {
+      "nested/only.rs": "fn main() {}\n",
+      "sample.txt": "apple\nbanana\ncarrot\n"
+    },
+    "console_output": "before\n",
+    "error": "TypeError: bad input at \u003ceval\u003e:2:24(6)",
+    "output_json": "{\"console_output\":\"before\\n\",\"function_calls\":[]}",
+    "events": []
+  },
+  {
+    "name": "uncaught_reference_error",
+    "script": "print(\"before\"); missing_name;",
+    "files": {
+      "nested/only.rs": "fn main() {}\n",
+      "sample.txt": "apple\nbanana\ncarrot\n"
+    },
+    "console_output": "before\n",
+    "error": "ReferenceError: missing_name is not defined at \u003ceval\u003e:2:18(4)",
+    "output_json": "{\"console_output\":\"before\\n\",\"function_calls\":[]}",
+    "events": []
+  },
+  {
+    "name": "empty",
+    "script": "",
+    "files": {
+      "nested/only.rs": "fn main() {}\n",
+      "sample.txt": "apple\nbanana\ncarrot\n"
+    },
+    "console_output": "",
+    "error": null,
+    "output_json": "{\"console_output\":\"\",\"function_calls\":[]}",
+    "events": []
+  },
+  {
+    "name": "strict_mode",
+    "script": "unassigned_global = 1;",
+    "files": {
+      "nested/only.rs": "fn main() {}\n",
+      "sample.txt": "apple\nbanana\ncarrot\n"
+    },
+    "console_output": "",
+    "error": "ReferenceError: unassigned_global is not defined at \u003ceval\u003e:2:1(2)",
+    "output_json": "{\"console_output\":\"\",\"function_calls\":[]}",
+    "events": []
+  },
+  {
+    "name": "durable_stats_events",
+    "script": "read_file(\"{{ROOT}}/sample.txt\",1,1); try { read_file(\"relative\"); } catch(e) {} read_file(\"{{ROOT}}/sample.txt\",2,2); print(\"done\");",
+    "files": {
+      "nested/only.rs": "fn main() {}\n",
+      "sample.txt": "apple\nbanana\ncarrot\n"
+    },
+    "console_output": "done\n",
+    "error": null,
+    "output_json": "{\"console_output\":\"done\\n\",\"function_calls\":[{\"tool_name\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"start_line\":1,\"end_line\":1}},\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"content\":\"apple\\n// 2 lines remaining\"}},\"index\":0},{\"tool_name\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"start_line\":2,\"end_line\":2}},\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"content\":\"// skipped 1 lines\\nbanana\\n// 1 lines remaining\"}},\"index\":1}],\"tool_stats\":{\"read_file\":3}}",
+    "events": [
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"start_line\":1,\"end_line\":1}}}"
+      },
+      {
+        "type": "tool.result",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"content\":\"apple\\n// 2 lines remaining\"}}}"
+      },
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"relative\"}}}"
+      },
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"start_line\":2,\"end_line\":2}}}"
+      },
+      {
+        "type": "tool.result",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"content\":\"// skipped 1 lines\\nbanana\\n// 1 lines remaining\"}}}"
+      }
+    ]
+  },
+  {
+    "name": "result_fields_and_copy",
+    "script": "const result=read_file(\"{{ROOT}}/sample.txt\",1,1); print(result.content); print(JSON.stringify(result)); print({...result}); const list=list_files(\"{{ROOT}}\",false); print(list.entries[0]);",
+    "files": {
+      "nested/only.rs": "fn main() {}\n",
+      "sample.txt": "apple\nbanana\ncarrot\n"
+    },
+    "console_output": "apple\n// 2 lines remaining\n{\"path\":\"{{ROOT}}/sample.txt\",\"content\":\"apple\\n// 2 lines remaining\"}\nmap[content:apple\n// 2 lines remaining path:{{ROOT}}/sample.txt]\n\u0026{{{ROOT}}/nested d 0}\n",
+    "error": null,
+    "output_json": "{\"console_output\":\"apple\\n// 2 lines remaining\\n{\\\"path\\\":\\\"{{ROOT}}/sample.txt\\\",\\\"content\\\":\\\"apple\\\\n// 2 lines remaining\\\"}\\nmap[content:apple\\n// 2 lines remaining path:{{ROOT}}/sample.txt]\\n\\u0026{{{ROOT}}/nested d 0}\\n\",\"function_calls\":[{\"tool_name\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"start_line\":1,\"end_line\":1}},\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"content\":\"apple\\n// 2 lines remaining\"}},\"index\":0},{\"tool_name\":\"list_files\",\"input\":{\"list_files\":{\"Path\":\"{{ROOT}}\",\"Recursive\":false}},\"output\":{\"list_files\":{\"path\":\"{{ROOT}}\",\"entries\":[{\"n\":\"{{ROOT}}/nested\",\"t\":\"d\",\"s\":0},{\"n\":\"{{ROOT}}/sample.txt\",\"t\":\"f\",\"s\":1}]}},\"index\":1}],\"tool_stats\":{\"list_files\":1,\"read_file\":1}}",
+    "events": [
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"start_line\":1,\"end_line\":1}}}"
+      },
+      {
+        "type": "tool.result",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"content\":\"apple\\n// 2 lines remaining\"}}}"
+      },
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "list_files",
+        "payload_json": "{\"id\":\"\",\"tool\":\"list_files\",\"input\":{\"list_files\":{\"Path\":\"{{ROOT}}\",\"Recursive\":false}}}"
+      },
+      {
+        "type": "tool.result",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "list_files",
+        "payload_json": "{\"id\":\"\",\"tool\":\"list_files\",\"output\":{\"list_files\":{\"path\":\"{{ROOT}}\",\"entries\":[{\"n\":\"{{ROOT}}/nested\",\"t\":\"d\",\"s\":0},{\"n\":\"{{ROOT}}/sample.txt\",\"t\":\"f\",\"s\":1}]}}}"
+      }
+    ]
+  },
+  {
+    "name": "empty_search_results",
+    "script": "print(find_file({path:\"{{ROOT}}\",pattern:\"**/*.absent\"})); print(grep({path:\"{{ROOT}}/sample.txt\",query:\"absent\"}));",
+    "files": {
+      "nested/only.rs": "fn main() {}\n",
+      "sample.txt": "apple\nbanana\ncarrot\n"
+    },
+    "console_output": "\u0026{[] 0 0}\n\u0026{[] 0 0 0}\n",
+    "error": null,
+    "output_json": "{\"console_output\":\"\\u0026{[] 0 0}\\n\\u0026{[] 0 0 0}\\n\",\"function_calls\":[{\"tool_name\":\"find_file\",\"input\":{\"find_file\":{\"pattern\":\"**/*.absent\",\"path\":\"{{ROOT}}\",\"exclude_pattern\":\"\",\"max_results\":50}},\"output\":{\"find_file\":{\"files\":[],\"total_files\":0,\"truncated_count\":0}},\"index\":0},{\"tool_name\":\"grep\",\"input\":{\"grep\":{\"query\":\"absent\",\"path\":\"{{ROOT}}/sample.txt\",\"include_pattern\":\"\",\"exclude_pattern\":\"\",\"case_sensitive\":false,\"max_results\":50,\"context\":0}},\"output\":{\"grep\":{\"matches\":[],\"total_matches\":0,\"truncated_matches\":0,\"searched_files\":0}},\"index\":1}],\"tool_stats\":{\"find_file\":1,\"grep\":1}}",
+    "events": [
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "find_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"find_file\",\"input\":{\"find_file\":{\"pattern\":\"**/*.absent\",\"path\":\"{{ROOT}}\",\"exclude_pattern\":\"\",\"max_results\":50}}}"
+      },
+      {
+        "type": "tool.result",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "find_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"find_file\",\"output\":{\"find_file\":{\"files\":[],\"total_files\":0,\"truncated_count\":0}}}"
+      },
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "grep",
+        "payload_json": "{\"id\":\"\",\"tool\":\"grep\",\"input\":{\"grep\":{\"query\":\"absent\",\"path\":\"{{ROOT}}/sample.txt\",\"include_pattern\":\"\",\"exclude_pattern\":\"\",\"case_sensitive\":false,\"max_results\":50,\"context\":0}}}"
+      },
+      {
+        "type": "tool.result",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "grep",
+        "payload_json": "{\"id\":\"\",\"tool\":\"grep\",\"output\":{\"grep\":{\"matches\":[],\"total_matches\":0,\"truncated_matches\":0,\"searched_files\":0}}}"
+      }
+    ]
+  }
+]

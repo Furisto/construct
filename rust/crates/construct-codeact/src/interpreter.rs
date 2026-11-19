@@ -1,0 +1,184 @@
+use crate::{CodeActTool, Interceptor, Session, Task};
+use construct_core::tool::ToolContext;
+use construct_types::tools::{InterpreterInput, InterpreterOutput};
+use rquickjs::{function::Rest, Context, Ctx, Function, Runtime, Value};
+use std::{cell::RefCell, fmt, rc::Rc, sync::Arc};
+use tokio::runtime::Handle;
+
+/// Uncaught script failure. Output is returned separately even on failure.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct InterpreterError(pub String);
+impl fmt::Display for InterpreterError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+impl std::error::Error for InterpreterError {}
+
+/// QuickJS-backed interpreter. Each interpretation owns a fresh VM and session.
+#[derive(Clone)]
+pub struct Interpreter {
+    tools: Vec<Arc<dyn CodeActTool>>,
+    interceptors: Vec<Arc<dyn Interceptor>>,
+}
+
+impl Interpreter {
+    /// Bind tools and wrappers. The last interceptor wraps all earlier entries.
+    pub fn new(tools: Vec<Arc<dyn CodeActTool>>, interceptors: Vec<Arc<dyn Interceptor>>) -> Self {
+        Self {
+            tools,
+            interceptors,
+        }
+    }
+    /// Go's interpreter tool name.
+    pub fn name(&self) -> &str {
+        "code_interpreter"
+    }
+    /// Go's interpreter description, verbatim.
+    pub fn description(&self) -> &str {
+        "Can be used to call tools using Javascript syntax. Write a complete javascript program and use only the functions that have been specified. If you use any other functions the tool call will fail."
+    }
+    /// Go's reflected properties, without the reflector's outer metadata.
+    pub fn input_schema(&self) -> serde_json::Value {
+        serde_json::json!({"type":"object","properties":{"script":{"type":"string"}}})
+    }
+    /// Run on a blocking worker, returning captured output even after an error.
+    pub async fn interpret(
+        &self,
+        context: ToolContext,
+        input: InterpreterInput,
+        task: Task,
+    ) -> (InterpreterOutput, Option<InterpreterError>) {
+        let this = self.clone();
+        let handle = Handle::current();
+        match tokio::task::spawn_blocking(move || this.run(context, input, task, handle)).await {
+            Ok(result) => result,
+            Err(error) => (
+                InterpreterOutput::default(),
+                Some(InterpreterError(error.to_string())),
+            ),
+        }
+    }
+    fn run(
+        &self,
+        context: ToolContext,
+        input: InterpreterInput,
+        task: Task,
+        handle: Handle,
+    ) -> (InterpreterOutput, Option<InterpreterError>) {
+        let cancellation = context.cancellation.clone();
+        let session = Rc::new(RefCell::new(Session::new(context, task)));
+        let result = (|| -> Result<(), InterpreterError> {
+            let vm = Runtime::new().map_err(|e| InterpreterError(e.to_string()))?;
+            let token = cancellation.clone();
+            vm.set_interrupt_handler(Some(Box::new(move || token.is_cancelled())));
+            let context = Context::full(&vm).map_err(|e| InterpreterError(e.to_string()))?;
+            context.with(|ctx| {
+                for tool in &self.tools {
+                    let tool = tool.clone();
+                    let state = session.clone();
+                    let interceptors = self.interceptors.clone();
+                    let handle = handle.clone();
+                    let name = tool.name().to_owned();
+                    let function = binding(&ctx, state, tool, handle, interceptors)
+                        .map_err(|e| InterpreterError(e.to_string()))?;
+                    ctx.globals()
+                        .set(name, function)
+                        .map_err(|e| InterpreterError(e.to_string()))?;
+                }
+                match ctx.eval::<Value, _>(ensure_strict_mode(&input.script)) {
+                    Ok(_) => Ok(()),
+                    Err(error) => {
+                        if cancellation.is_cancelled() {
+                            return Err(InterpreterError("execution cancelled".into()));
+                        }
+                        if error.is_exception() {
+                            let value = ctx.catch();
+                            if let Some(object) = value.as_object() {
+                                if let Ok(message) =
+                                    object.get::<_, String>(crate::bindings::TOOL_ERROR_MESSAGE)
+                                {
+                                    return Err(InterpreterError(message));
+                                }
+                            }
+                            let string: Function = ctx
+                                .eval("String")
+                                .map_err(|e| InterpreterError(e.to_string()))?;
+                            let message: String = string
+                                .call((value,))
+                                .map_err(|e| InterpreterError(e.to_string()))?;
+                            Err(InterpreterError(message))
+                        } else {
+                            Err(InterpreterError(error.to_string()))
+                        }
+                    }
+                }
+            })
+        })();
+        let mut session = session.borrow_mut();
+        (
+            InterpreterOutput {
+                console_output: std::mem::take(&mut session.console),
+                function_calls: Some(
+                    session
+                        .function_calls
+                        .take()
+                        .map_or_else(Vec::new, |s| s.calls),
+                ),
+                tool_stats: Some(std::mem::take(&mut session.tool_stats)),
+            },
+            result.err(),
+        )
+    }
+}
+
+fn binding<'js>(
+    ctx: &Ctx<'js>,
+    state: Rc<RefCell<Session>>,
+    tool: Arc<dyn CodeActTool>,
+    handle: Handle,
+    interceptors: Vec<Arc<dyn Interceptor>>,
+) -> rquickjs::Result<Function<'js>> {
+    Function::new(
+        ctx.clone(),
+        move |ctx: Ctx<'js>, Rest(args): Rest<Value<'js>>| {
+            let mut session = state
+                .try_borrow_mut()
+                .map_err(|_| rquickjs::Exception::throw_type(&ctx, "reentrant tool binding"))?;
+            invoke(
+                &ctx,
+                &mut session,
+                tool.as_ref(),
+                &args,
+                &handle,
+                &interceptors,
+            )
+        },
+    )
+}
+
+fn invoke<'js>(
+    ctx: &Ctx<'js>,
+    session: &mut Session,
+    tool: &dyn CodeActTool,
+    args: &[Value<'js>],
+    runtime: &Handle,
+    interceptors: &[Arc<dyn Interceptor>],
+) -> rquickjs::Result<Value<'js>> {
+    if let Some((outer, inner)) = interceptors.split_last() {
+        outer.intercept(ctx, session, tool, args, &|session| {
+            invoke(ctx, session, tool, args, runtime, inner)
+        })
+    } else {
+        tool.call(ctx, session, args, runtime)
+    }
+}
+
+/// Reproduce Go's literal prefix check (including its unquoted-prefix quirk).
+pub fn ensure_strict_mode(script: &str) -> String {
+    if script.starts_with("use strict;") {
+        script.into()
+    } else {
+        format!("'use strict';\n{script}")
+    }
+}

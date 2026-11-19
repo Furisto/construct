@@ -12,6 +12,7 @@ contracts for parallel Rust implementations; they do not yet run a Rust daemon.
 | `construct-types` | Domain records, stored Go JSON, tools, provider messages, skill lockfiles, event patterns |
 | `construct-core` | Dyn-safe model/tool/secret/store/event contracts and reference in-memory event router |
 | `construct-tools` | Host filesystem, command, HTTP and Store-backed communication tools; [parity and compatibility notes](crates/construct-tools/README.md) |
+| `construct-codeact` | QuickJS CodeAct interpreter, positional bindings, durable calls, statistics and events; [compatibility notes](crates/construct-codeact/README.md) |
 
 Crates live in `crates/`. Core depends only on domain types and infrastructure,
 never generated protobuf types, concrete database drivers, provider SDKs, or CLI.
