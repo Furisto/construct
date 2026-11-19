@@ -43,6 +43,15 @@ impl Server {
     pub fn address(&self) -> io::Result<String> {
         self.listener.address()
     }
+    /// Serve another listener using the same API router, authentication state and runtime.
+    pub fn additional_listener(&self, listener: Listener) -> Self {
+        Self {
+            router: self.router.clone(),
+            listener,
+            provider: None,
+            events: self.events.clone(),
+        }
+    }
     /// Serve until shutdown, close the runtime event router, and drain active requests.
     pub async fn serve(self, shutdown: impl Future<Output = ()>) -> io::Result<()> {
         let shutdown = async {

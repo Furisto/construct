@@ -1,19 +1,17 @@
+mod foreground;
 mod service;
 mod token;
 
 use crate::{app::App, Result};
-use clap::{Arg, ArgMatches, Args, Command, FromArgMatches};
+use clap::{ArgMatches, Args, Command, FromArgMatches};
 
 pub fn command() -> Command {
     Command::new("daemon")
         .about("Run and manage the daemon")
         .display_order(11)
         .subcommands([
-            Command::new("run").about("Run the daemon").arg(
-                Arg::new("arguments")
-                    .num_args(0..)
-                    .allow_hyphen_values(true)
-                    .trailing_var_arg(true),
+            foreground::Options::augment_args(
+                Command::new("run").about("Run the daemon process in the foreground"),
             ),
             service::Install::augment_args(
                 Command::new("install")
@@ -35,7 +33,7 @@ pub async fn run(app: &mut App, matches: &ArgMatches) -> Result<()> {
         return Ok(());
     };
     match subcommand {
-        ("run", _) => super::stub("daemon run"),
+        ("run", args) => foreground::run(app, foreground::Options::from_arg_matches(args)?).await,
         ("install", args) => service::install(app, service::Install::from_arg_matches(args)?).await,
         ("uninstall", args) => {
             service::uninstall(app, service::Uninstall::from_arg_matches(args)?).await

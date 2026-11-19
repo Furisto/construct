@@ -12,6 +12,14 @@ name = "construct"
 path = "src/main.rs"
 
 [dependencies]
+construct-agent = { path = "../construct-agent" }
+construct-codeact = { path = "../construct-codeact" }
+construct-core = { path = "../construct-core" }
+construct-event = { path = "../construct-event" }
+construct-secret = { path = "../construct-secret" }
+construct-server = { path = "../construct-server" }
+construct-skill = { path = "../construct-skill" }
+construct-tools = { path = "../construct-tools" }
 construct-connect = { path = "../construct-connect" }
 construct-proto = { path = "../construct-proto" }
 construct-types = { path = "../construct-types" }

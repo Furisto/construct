@@ -74,7 +74,11 @@ pub async fn run(matches: clap::ArgMatches) -> Result<()> {
             _ => unreachable!(),
         }
     };
-    tokio::select! {result=future=>result,_=tokio::signal::ctrl_c()=>{cancellation.cancel();Ok(())}}
+    if name == "daemon" && args.subcommand_name() == Some("run") {
+        future.await
+    } else {
+        tokio::select! {result=future=>result,_=tokio::signal::ctrl_c()=>{cancellation.cancel();Ok(())}}
+    }
 }
 #[cfg(test)]
 mod tests {

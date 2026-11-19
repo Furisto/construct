@@ -1,7 +1,7 @@
 # Rust foundation
 
 The existing Go implementation remains unchanged. These crates provide the shared
-contracts for parallel Rust implementations; they do not yet run a Rust daemon.
+contracts and implementations for the Rust daemon and CLI.
 
 ## Crate map
 
@@ -60,8 +60,17 @@ Until cutover, the published release artifacts still contain the Go binary.
 
 Daemon install, stop, and uninstall manage the same systemd/launchd unit
 locations as the Go CLI; use `--system` for system units. The units invoke
-`construct daemon run`, which remains a stub in the Rust CLI until the backend
-is wired. Use the Go daemon to exercise the Rust CLI's token commands meanwhile.
+`construct daemon run`, which runs the agent workers and authenticated API in the
+foreground. `--listen-unix PATH` and `--listen-http HOST:PORT` may be used together;
+both listeners share setup codes, tokens, SQLite storage and the agent runtime.
+With both flags, the Unix endpoint is selected as the current CLI context. With
+only HTTP, the context name uses Go's `tcp-<hash>` prefix and the context kind is
+`http`. Without flags, systemd/launchd socket activation is detected.
+
+The daemon reads the existing config file and XDG data directory. Set
+`secret.provider: file` to store the encryption key in `<data-dir>/secrets`;
+otherwise the system keyring is used. SIGINT/SIGTERM stops both listeners,
+cancels agent execution and drains workers and active requests.
 
 `construct-store` implements the repositories with SQLx's bundled SQLite driver.
 `SqliteStore::open(path)` adds missing Ent tables/indexes without rebuilding
