@@ -13,6 +13,7 @@ contracts for parallel Rust implementations; they do not yet run a Rust daemon.
 | `construct-core` | Dyn-safe model/tool/secret/store/event contracts and reference in-memory event router |
 | `construct-event` | Go-compatible domain event constructors, live router, and SQLite event hook |
 | `construct-skill` | SKILL.md parser, repo/user/system discovery, git/URL install/update/delete, `SkillService` handler |
+| `construct-server` | API authentication, error mapping, and domain/protobuf conversions (no handlers/listeners yet) |
 
 Crates live in `crates/`. Core depends only on domain types and infrastructure,
 never generated protobuf types, concrete database drivers, provider SDKs, or CLI.

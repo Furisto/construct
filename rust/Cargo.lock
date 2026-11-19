@@ -557,6 +557,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "construct-server"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "chrono",
+ "construct-connect",
+ "construct-core",
+ "construct-event",
+ "construct-proto",
+ "construct-types",
+ "http-body-util",
+ "pbjson-types",
+ "rand",
+ "serde_json",
+ "sha2",
+ "thiserror",
+ "tokio",
+ "tower",
+ "uuid",
+]
+
+[[package]]
 name = "construct-skill"
 version = "0.1.0"
 dependencies = [

@@ -27,7 +27,10 @@ pub use channel::{Channel, ClientConfig, Endpoint};
 pub use codec::Codec;
 pub use error::{Code, ConnectError};
 pub use http;
-pub use server::{serve_tcp, serve_unix, with_interceptor, Interceptor, UnixListenerSource};
+pub use server::{
+    serve_tcp, serve_unix, with_interceptor, with_request_interceptor, Interceptor,
+    RequestInterceptor, UnixListenerSource,
+};
 
 use futures_util::Stream;
 use http::HeaderMap;
@@ -47,6 +50,8 @@ pub struct Request<T> {
     pub metadata: HeaderMap,
     pub transport: Option<Transport>,
     pub timeout: Option<Duration>,
+    /// Server-local request context inserted by request interceptors.
+    pub extensions: http::Extensions,
 }
 
 impl<T> Request<T> {
@@ -56,6 +61,7 @@ impl<T> Request<T> {
             metadata: HeaderMap::new(),
             transport: None,
             timeout: None,
+            extensions: http::Extensions::new(),
         }
     }
 }
