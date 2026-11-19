@@ -1,0 +1,182 @@
+[
+  {
+    "name": "successful command with output",
+    "input": {
+      "Command": "echo 'Hello World'",
+      "WorkingDirectory": ""
+    },
+    "before": [],
+    "after": [],
+    "result": {
+      "stdout": "Hello World\n",
+      "stderr": "",
+      "exitCode": 0,
+      "command": "echo 'Hello World'"
+    },
+    "result_json": "{\"stdout\":\"Hello World\\n\",\"stderr\":\"\",\"exitCode\":0,\"command\":\"echo 'Hello World'\"}"
+  },
+  {
+    "name": "successful command without output",
+    "input": {
+      "Command": "true",
+      "WorkingDirectory": ""
+    },
+    "before": [],
+    "after": [],
+    "result": {
+      "stdout": "",
+      "stderr": "",
+      "exitCode": 0,
+      "command": "true"
+    },
+    "result_json": "{\"stdout\":\"\",\"stderr\":\"\",\"exitCode\":0,\"command\":\"true\"}"
+  },
+  {
+    "name": "command that fails",
+    "input": {
+      "Command": "false",
+      "WorkingDirectory": ""
+    },
+    "before": [],
+    "after": [],
+    "result": null,
+    "result_json": "null",
+    "error": {
+      "Message": "error executing command",
+      "Suggestions": [
+        "Check if the command is valid and executable.",
+        "Ensure the command is properly formatted for the target operating system.",
+        "Check the provided system error for more details"
+      ],
+      "Details": {
+        "command": "false",
+        "error": "exit status 1",
+        "output": ""
+      }
+    }
+  },
+  {
+    "name": "command with stderr output",
+    "input": {
+      "Command": "echo 'error message' >&2",
+      "WorkingDirectory": ""
+    },
+    "before": [],
+    "after": [],
+    "result": {
+      "stdout": "error message\n",
+      "stderr": "",
+      "exitCode": 0,
+      "command": "echo 'error message' >&2"
+    },
+    "result_json": "{\"stdout\":\"error message\\n\",\"stderr\":\"\",\"exitCode\":0,\"command\":\"echo 'error message' \\u003e\\u00262\"}"
+  },
+  {
+    "name": "command with both stdout and stderr",
+    "input": {
+      "Command": "echo 'stdout'; echo 'stderr' >&2",
+      "WorkingDirectory": ""
+    },
+    "before": [],
+    "after": [],
+    "result": {
+      "stdout": "stdout\nstderr\n",
+      "stderr": "",
+      "exitCode": 0,
+      "command": "echo 'stdout'; echo 'stderr' >&2"
+    },
+    "result_json": "{\"stdout\":\"stdout\\nstderr\\n\",\"stderr\":\"\",\"exitCode\":0,\"command\":\"echo 'stdout'; echo 'stderr' \\u003e\\u00262\"}"
+  },
+  {
+    "name": "command with exit code 2",
+    "input": {
+      "Command": "exit 2",
+      "WorkingDirectory": ""
+    },
+    "before": [],
+    "after": [],
+    "result": null,
+    "result_json": "null",
+    "error": {
+      "Message": "error executing command",
+      "Suggestions": [
+        "Check if the command is valid and executable.",
+        "Ensure the command is properly formatted for the target operating system.",
+        "Check the provided system error for more details"
+      ],
+      "Details": {
+        "command": "exit 2",
+        "error": "exit status 2",
+        "output": ""
+      }
+    }
+  },
+  {
+    "name": "command with special characters",
+    "input": {
+      "Command": "echo 'Hello \"World\" with $pecial chars!'",
+      "WorkingDirectory": ""
+    },
+    "before": [],
+    "after": [],
+    "result": {
+      "stdout": "Hello \"World\" with $pecial chars!\n",
+      "stderr": "",
+      "exitCode": 0,
+      "command": "echo 'Hello \"World\" with $pecial chars!'"
+    },
+    "result_json": "{\"stdout\":\"Hello \\\"World\\\" with $pecial chars!\\n\",\"stderr\":\"\",\"exitCode\":0,\"command\":\"echo 'Hello \\\"World\\\" with $pecial chars!'\"}"
+  },
+  {
+    "name": "multiline command",
+    "input": {
+      "Command": "echo 'line1'; echo 'line2'",
+      "WorkingDirectory": ""
+    },
+    "before": [],
+    "after": [],
+    "result": {
+      "stdout": "line1\nline2\n",
+      "stderr": "",
+      "exitCode": 0,
+      "command": "echo 'line1'; echo 'line2'"
+    },
+    "result_json": "{\"stdout\":\"line1\\nline2\\n\",\"stderr\":\"\",\"exitCode\":0,\"command\":\"echo 'line1'; echo 'line2'\"}"
+  },
+  {
+    "name": "empty command",
+    "input": {
+      "Command": "",
+      "WorkingDirectory": ""
+    },
+    "before": [],
+    "after": [],
+    "result": null,
+    "result_json": "null",
+    "error": {
+      "Message": "Invalid argument",
+      "Suggestions": [
+        "Check the provided system error for more details"
+      ],
+      "Details": {
+        "command": "command is required"
+      }
+    }
+  },
+  {
+    "name": "command with spaces",
+    "input": {
+      "Command": "echo hello world",
+      "WorkingDirectory": ""
+    },
+    "before": [],
+    "after": [],
+    "result": {
+      "stdout": "hello world\n",
+      "stderr": "",
+      "exitCode": 0,
+      "command": "echo hello world"
+    },
+    "result_json": "{\"stdout\":\"hello world\\n\",\"stderr\":\"\",\"exitCode\":0,\"command\":\"echo hello world\"}"
+  }
+]

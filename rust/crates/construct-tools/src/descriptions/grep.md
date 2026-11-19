@@ -1,0 +1,104 @@
+
+## Description
+The grep tool performs fast text-based regex searches to find exact pattern matches within files or directories. It leverages efficient searching algorithms to quickly scan through your codebase and locate specific patterns.
+
+## Parameters
+- **query** (*string*, required): The regex pattern to search for. Must be a valid regex pattern; special characters must be escaped appropriately.
+- **path** (*string*, required): Absolute path to the directory or file to search within. Forward slashes (/) work on all platforms.
+- **include_pattern** (*string*, optional): Glob pattern for files to include in the search (e.g., "*.js" for JavaScript files only). Allows focusing your search on specific file types.
+- **exclude_pattern** (*string*, optional): Glob pattern for files to exclude from the search. Useful for ignoring build artifacts, dependencies, or other irrelevant files.
+- **case_sensitive** (*boolean*, optional): Whether the search should be case sensitive. Defaults to false.
+- **max_results** (*number*, optional): Maximum number of results to return. Defaults to 50 to prevent overwhelming output.
+
+## Expected Output
+Returns an object containing the search results:
+```
+{
+  "matches": [
+    {
+      "file_path": "/path/to/file.js",
+      "value": -4-Preceeding context\n:5:Matched line\n-6-Following context"
+    },
+    // Additional matches...
+  ],
+  "total_matches": 3,
+  "truncated_matches": 0,
+  "searched_files": 125
+}
+```
+
+**Details:**
+- **matches**: Array of match objects, each containing:
+  - **file_path**: Absolute path to the file containing the match
+  - **value**: The matched line plus surrounding context lines, combined into a single string. Each line is prefixed with the line number and either : for a match or - for a context line.
+- **total_matches**: Total number of matches found and returned
+- **truncated_matches**: Number of additional matches that were found but excluded from results due to max_results limit. 0 indicates no truncation occurred.
+- **searched_files**: Number of files that were searched
+
+## CRITICAL REQUIREMENTS
+- **Precise Pattern Specification**: Your regex pattern must be properly escaped for accurate matching.
+  ```
+  // To search for "user.login()", escape special characters:
+  grep({
+    query: "user\\.login\\(\\)",
+    path: "/workspace/src"
+  })
+  ```
+- **Search Path Verification**: Always use absolute paths starting with "/" for consistent results.
+- **Scope Management**: Use include/exclude patterns to control search scope and improve performance:
+  ```
+  // Only search JavaScript files, exclude tests
+  grep({
+    query: "function init",
+    path: "/workspace/project",
+    include_pattern: "*.js",
+    exclude_pattern: "**/__tests__/**"
+  })
+  ```
+- **Performance Considerations**:
+  - Narrow your search scope with specific paths and patterns for faster results
+  - Be specific with your regex to avoid excessive matches
+  - Use reasonable max_results limits for large codebases
+- **Complex Pattern Handling**: For complex patterns, test iteratively:
+  ```
+  // First search broadly
+  grep({
+    query: "api\\.connect",
+    path: "/workspace/src"
+  })
+  
+  // Then refine with more specific pattern
+  grep({
+    query: "api\\.connect\\(['\"]production['\"]\\)",
+    path: "/workspace/src/services"
+  })
+  ```
+
+## When to use
+- **Finding Symbol Definitions**: When you need to locate specific function, class, or variable definitions.
+- **Code Pattern Discovery**: When identifying patterns across multiple files (error handling, API calls, etc.).
+- **API Usage Exploration**: When discovering how specific APIs or functions are used throughout the codebase.
+- **Error Text Location**: When tracking down where specific error messages are defined or thrown.
+- **Dependency Identification**: When finding all imports or requires of a specific module.
+- **Configuration Search**: When locating specific configuration patterns across multiple files.
+
+## Usage Examples
+
+### Finding Function Definitions
+```
+grep({
+  query: "function\\s+getUserData\\s*\\(",
+  path: "/workspace/src",
+  include_pattern: "*.js",
+  exclude_pattern: "**/node_modules/**"
+})
+```
+
+### Finding API Calls with Context
+```
+grep({
+  query: "fetch\(",
+  path: "/workspace/src/components",
+  include_pattern: "*.{js,jsx,ts,tsx}"
+})
+```

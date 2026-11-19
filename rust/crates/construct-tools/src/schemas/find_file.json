@@ -1,0 +1,23 @@
+{
+  "type": "object",
+  "properties": {
+    "pattern": {
+      "type": "string"
+    },
+    "path": {
+      "type": "string"
+    },
+    "exclude_pattern": {
+      "type": "string"
+    },
+    "max_results": {
+      "type": "integer"
+    }
+  },
+  "required": [
+    "pattern",
+    "path",
+    "exclude_pattern",
+    "max_results"
+  ]
+}

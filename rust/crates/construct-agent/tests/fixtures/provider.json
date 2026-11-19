@@ -1,0 +1,19 @@
+{
+  "ciphertext": "AcXca5ex3EXqr14CF8/3voKZt6ZQf1dQgcDzQrbzDptqgqcwdEBtKu3YzSHme/fP/0r6yxXwMEUHY2c=",
+  "id": "00000000-0000-0000-0000-000000000001",
+  "keyset": {
+    "primaryKeyId": 3319557015,
+    "key": [
+      {
+        "keyData": {
+          "typeUrl": "type.googleapis.com/google.crypto.tink.AesGcmKey",
+          "value": "GiAWA9cy6v84ERK+P5NPWskaioTaQQOc6A0+LO27vuX27A==",
+          "keyMaterialType": "SYMMETRIC"
+        },
+        "status": "ENABLED",
+        "keyId": 3319557015,
+        "outputPrefixType": "TINK"
+      }
+    ]
+  }
+}

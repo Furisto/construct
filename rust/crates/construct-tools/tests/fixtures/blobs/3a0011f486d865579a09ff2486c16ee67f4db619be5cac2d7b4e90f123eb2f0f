@@ -1,0 +1,1 @@
+fmt.Fprintf(cmd.OutOrStdout(), "🤖 Starting Agent Runtime...\n")

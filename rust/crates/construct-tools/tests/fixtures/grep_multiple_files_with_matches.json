@@ -1,0 +1,20 @@
+{
+  "context": 2,
+  "input": "{\"type\":\"begin\",\"data\":{\"path\":{\"text\":\"/path/file1.go\"}}}\n{\"type\":\"match\",\"data\":{\"path\":{\"text\":\"/path/file1.go\"},\"line_number\":5,\"lines\":{\"text\":\"match in file1\"}}}\n{\"type\":\"end\",\"data\":{\"path\":{\"text\":\"/path/file1.go\"}}}\n{\"type\":\"begin\",\"data\":{\"path\":{\"text\":\"/path/file2.go\"}}}\n{\"type\":\"match\",\"data\":{\"path\":{\"text\":\"/path/file2.go\"},\"line_number\":10,\"lines\":{\"text\":\"match in file2\"}}}\n{\"type\":\"end\",\"data\":{\"path\":{\"text\":\"/path/file2.go\"}}}",
+  "max": 50,
+  "result": {
+    "matches": [
+      {
+        "file_path": "/path/file1.go",
+        "value": ":5:match in file1"
+      },
+      {
+        "file_path": "/path/file2.go",
+        "value": ":10:match in file2"
+      }
+    ],
+    "total_matches": 2,
+    "truncated_matches": 0,
+    "searched_files": 2
+  }
+}

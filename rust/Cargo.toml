@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/construct-proto", "crates/construct-connect", "crates/construct-types", "crates/construct-core", "crates/construct-cli", "crates/construct-store", "crates/construct-event", "crates/construct-secret", "crates/construct-skill", "crates/construct-server"]
+members = ["crates/construct-proto", "crates/construct-connect", "crates/construct-types", "crates/construct-core", "crates/construct-cli", "crates/construct-store", "crates/construct-event", "crates/construct-secret", "crates/construct-skill", "crates/construct-server", "crates/construct-model", "crates/construct-tools", "crates/construct-codeact", "crates/construct-agent"]
 resolver = "2"
 
 [workspace.package]
@@ -7,6 +7,10 @@ edition = "2021"
 rust-version = "1.89"
 
 [workspace.dependencies]
+prometheus = { version = "0.14", features = ["process"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "stream"] }
+rand = "0.9"
+httpdate = "1"
 prost = "0.13"
 prost-build = "0.13"
 pbjson = "0.7"

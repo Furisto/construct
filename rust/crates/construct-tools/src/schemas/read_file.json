@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "properties": {
+    "path": {
+      "type": "string"
+    },
+    "start_line": {
+      "type": "integer"
+    },
+    "end_line": {
+      "type": "integer"
+    }
+  },
+  "required": [
+    "path"
+  ]
+}

@@ -15,6 +15,9 @@ contracts for parallel Rust implementations; they do not yet run a Rust daemon.
 | `construct-event` | Go-compatible domain event constructors, live router, and SQLite event hook |
 | `construct-skill` | SKILL.md parser, repo/user/system discovery, git/URL install/update/delete, `SkillService` handler |
 | `construct-server` | Authenticated API server, Unix/TCP and systemd/launchd listeners, runtime/analytics contracts, and domain/protobuf conversions |
+| `construct-tools` | Host filesystem, command, HTTP and Store-backed communication tools; [parity and compatibility notes](crates/construct-tools/README.md) |
+| `construct-codeact` | QuickJS CodeAct interpreter, positional bindings, durable calls, statistics and events; [compatibility notes](crates/construct-codeact/README.md) |
+| `construct-agent` | Task reconciliation/runtime, CodeAct orchestration, message conversion, prompts, providers, titles, workqueue metrics and analytics; [compatibility notes](crates/construct-agent/README.md) |
 
 Crates live in `crates/`. Core depends only on domain types and infrastructure,
 never generated protobuf types, concrete database drivers, provider SDKs, or CLI.

@@ -1,0 +1,3 @@
+func hello() {
+    return 100
+}

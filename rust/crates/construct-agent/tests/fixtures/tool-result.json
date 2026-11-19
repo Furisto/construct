@@ -1,0 +1,16 @@
+{
+  "blocks": [
+    {
+      "kind": "tool_result",
+      "payload": "{\"provider\":{\"kind\":\"anthropic\",\"id\":\"call-1\"},\"tool\":\"code_interpreter\",\"output\":{\"interpreter\":{\"console_output\":\"stdout\",\"function_calls\":[{\"tool_name\":\"\",\"input\":{},\"output\":{\"execute_command\":{\"stdout\":\"\",\"stderr\":\"failure\",\"exitCode\":0,\"command\":\"\"}},\"index\":0}]}},\"succeeded\":false}"
+    }
+  ],
+  "model": [
+    {
+      "id": "call-1",
+      "name": "code_interpreter",
+      "result": "stdout\nfailure",
+      "succeeded": false
+    }
+  ]
+}

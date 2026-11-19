@@ -1,0 +1,206 @@
+// Run via rust/scripts/codeact-goldens.py; never installed into backend/.
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"log/slog"
+	"net"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+
+	"github.com/furisto/construct/backend/event"
+	"github.com/furisto/construct/backend/tool/codeact"
+	"github.com/furisto/construct/backend/tool/types"
+	"github.com/google/uuid"
+	"github.com/spf13/afero"
+)
+
+type recordedEvent struct {
+	Type        string    `json:"type"`
+	TaskID      uuid.UUID `json:"task_id"`
+	Action      string    `json:"action"`
+	Tool        string    `json:"tool"`
+	PayloadJSON string    `json:"payload_json"`
+}
+type publisher struct{ Events []recordedEvent }
+
+func (p *publisher) PublishToolCall(id uuid.UUID, value types.ToolCallEvent) {
+	e := event.NewToolCalledEvent(id, value)
+	b, err := json.Marshal(e.Payload)
+	must(err)
+	p.Events = append(p.Events, recordedEvent{e.Type, id, string(e.Action), value.Tool, string(b)})
+}
+func (p *publisher) PublishToolResult(id uuid.UUID, value types.ToolResultEvent) {
+	e := event.NewToolResultEvent(id, value)
+	b, err := json.Marshal(e.Payload)
+	must(err)
+	p.Events = append(p.Events, recordedEvent{e.Type, id, string(e.Action), value.Tool, string(b)})
+}
+
+type fixture struct {
+	Name          string                  `json:"name"`
+	Script        string                  `json:"script"`
+	Files         map[string]string       `json:"files"`
+	ConsoleOutput string                  `json:"console_output"`
+	Error         *string                 `json:"error"`
+	OutputJSON    string                  `json:"output_json"`
+	Events        []recordedEvent         `json:"events"`
+	HTTPResponses map[string]httpResponse `json:"http_responses,omitempty"`
+}
+
+type httpResponse struct {
+	Status      int    `json:"status"`
+	ContentType string `json:"content_type"`
+	Body        string `json:"body"`
+}
+
+func must(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
+// ToolError.Error ranges over a Go map. Sort only its detail lines, not output
+// objects, suggestions, or normal console lines.
+func normalizeDetails(text string) string {
+	lines := strings.Split(text, "\n")
+	for i := 0; i < len(lines); i++ {
+		if lines[i] != "Details:" {
+			continue
+		}
+		start := i + 1
+		end := start
+		for end < len(lines) && strings.HasPrefix(lines[end], "- ") {
+			end++
+		}
+		sort.Strings(lines[start:end])
+		i = end - 1
+	}
+	return strings.Join(lines, "\n")
+}
+
+func main() {
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	responses := map[string]httpResponse{
+		"/json":  {200, "application/json", `{"answer":42,"message":"hello world"}`},
+		"/html":  {200, "text/html", `<html><head><title>Golden page</title></head><body><article><h1>Golden heading</h1><p>This is the deterministic article content, with enough words to be extracted as the main body of this page.</p></article></body></html>`},
+		"/error": {503, "text/plain", "unavailable"},
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response, ok := responses[r.URL.Path]
+		if !ok {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", response.ContentType)
+		w.WriteHeader(response.Status)
+		_, err := io.WriteString(w, response.Body)
+		must(err)
+	}))
+	defer server.Close()
+	_, port, err := net.SplitHostPort(server.Listener.Addr().String())
+	must(err)
+	scripts := []struct{ name, script string }{
+		{"print_primitives", `print("hello world", 42, -12, 0.1, 1e21, -0, NaN, Infinity, -Infinity, true, false, null, undefined); print();`},
+		{"print_nested", `print([1,"two words",null,undefined,[0.1,true]], {z:2,a:{y:[false,null],b:"space here"}});`},
+		{"read_full", `print(read_file("{{ROOT}}/sample.txt"));`},
+		{"read_range", `print(read_file("{{ROOT}}/sample.txt",2,3));`},
+		{"create_edit", `print(create_file("{{ROOT}}/created.txt","before\n")); print(edit_file("{{ROOT}}/created.txt",[{old:"before",new:"after"}])); print(read_file("{{ROOT}}/created.txt"));`},
+		{"list_files", `print(list_files("{{ROOT}}",false));`},
+		{"find_file", `print(find_file({path:"{{ROOT}}",pattern:"**/*.rs"}));`},
+		{"grep", `print(grep({path:"{{ROOT}}/sample.txt",query:"banana",case_sensitive:true}));`},
+		{"command_success", `print(execute_command("printf 'hello world\\n'"));`},
+		{"command_nonzero", `try { execute_command("exit 7"); } catch(e) { print(e.message); } print("continued");`},
+		{"caught_tool_error", `try { read_file("relative"); } catch(e) { print(e.message); } print(read_file("{{ROOT}}/sample.txt",1,1));`},
+		{"uncaught_tool_error", `print("before"); read_file("relative"); print("after");`},
+		{"uncaught_type_error", `print("before"); throw new TypeError("bad input");`},
+		{"uncaught_reference_error", `print("before"); missing_name;`},
+		{"empty", ``},
+		{"strict_mode", `unassigned_global = 1;`},
+		{"durable_stats_events", `read_file("{{ROOT}}/sample.txt",1,1); try { read_file("relative"); } catch(e) {} read_file("{{ROOT}}/sample.txt",2,2); print("done");`},
+		{"result_fields_and_copy", `const result=read_file("{{ROOT}}/sample.txt",1,1); print(result.content); print(JSON.stringify(result)); print({...result}); const list=list_files("{{ROOT}}",false); print(list.entries[0]);`},
+		{"empty_search_results", `print(find_file({path:"{{ROOT}}",pattern:"**/*.absent"})); print(grep({path:"{{ROOT}}/sample.txt",query:"absent"}));`},
+		{"nested_coercion_fresh", `let n=0; print(read_file({toString(){ n++; return list_files("{{ROOT}}",false).path + "/sample.txt"; }},1,1)); print("coercions",n);`},
+		{"nested_side_effect", `print(read_file({toString(){execute_command("printf x >> '{{ROOT}}/effects.txt'");return "{{ROOT}}/sample.txt";}},1,1));print(read_file("{{ROOT}}/effects.txt"));`},
+		{"nested_coercion_existing", `read_file("{{ROOT}}/sample.txt",2,2); let n=0; print(read_file({toString(){ n++; return list_files("{{ROOT}}",false).path + "/sample.txt"; }},1,1)); print("coercions",n);`},
+		{"nested_getter", `let n=0; print(list_files({get path(){n++; return read_file("{{ROOT}}/sample.txt",1,1).path.replace("/sample.txt","");},recursive:false})); print("getters",n);`},
+		{"nested_print_getter", `print("outer", {get value(){print("inner",read_file("{{ROOT}}/sample.txt",1,1).content);return "getter";}});`},
+		{"print_ignores_to_string", `const value={}; Object.defineProperty(value,"toString",{value(){print("unexpected");return read_file("{{ROOT}}/sample.txt").content;}}); print(value);`},
+		{"nested_coercion_print", `print(read_file({toString(){print("coercing");return "{{ROOT}}/sample.txt";}},1,1));`},
+		{"nested_caught_error", `print(read_file({toString(){try{read_file("relative");}catch(e){print("caught nested error");}return "{{ROOT}}/sample.txt";}},1,1));`},
+		{"nested_uncaught_error", `read_file({toString(){return read_file("relative").path;}});`},
+		{"nested_late_fresh", `let n=0; print(read_file({toString(){if(++n===3)list_files("{{ROOT}}",false);return "{{ROOT}}/sample.txt";}},1,1));`},
+		{"nested_late_existing", `read_file("{{ROOT}}/sample.txt",2,2);let n=0; print(read_file({toString(){if(++n===3)list_files("{{ROOT}}",false);return "{{ROOT}}/sample.txt";}},1,1));`},
+		{"fetch_json", `print(fetch({url:"http://127.0.0.1:{{PORT}}/json"}));`},
+		{"fetch_html", `print(fetch({url:"http://127.0.0.1:{{PORT}}/html"}));`},
+		{"fetch_error", `try{fetch({url:"http://127.0.0.1:{{PORT}}/error"});}catch(e){print(e.message);}print("continued");`},
+	}
+	fixtures := []fixture{}
+	for _, script := range scripts {
+		root, err := os.MkdirTemp("", "construct-codeact-golden-")
+		must(err)
+		files := map[string]string{"sample.txt": "apple\nbanana\ncarrot\n", "nested/only.rs": "fn main() {}\n"}
+		for name, content := range files {
+			path := filepath.Join(root, name)
+			must(os.MkdirAll(filepath.Dir(path), 0755))
+			must(os.WriteFile(path, []byte(content), 0644))
+		}
+		p := &publisher{Events: []recordedEvent{}}
+		interpreter := codeact.NewInterpreter([]codeact.Tool{
+			codeact.NewCreateFileTool(), codeact.NewReadFileTool(), codeact.NewEditFileTool(),
+			codeact.NewListFilesTool(), codeact.NewGrepTool(), codeact.NewFindFileTool(),
+			codeact.NewExecuteCommandTool(), codeact.NewFetchTool(), codeact.NewPrintTool(),
+		}, []codeact.Interceptor{
+			codeact.InterceptorFunc(codeact.ToolStatisticsInterceptor),
+			codeact.InterceptorFunc(codeact.DurableFunctionInterceptor),
+			codeact.NewToolEventPublisher(p),
+			codeact.InterceptorFunc(codeact.ResetTemporarySessionValuesInterceptor),
+		})
+		task := &codeact.Task{ID: uuid.MustParse("00000000-0000-0000-0000-000000000001"), ProjectDirectory: root}
+		input := &codeact.InterpreterInput{Script: strings.ReplaceAll(strings.ReplaceAll(script.script, "{{ROOT}}", root), "{{PORT}}", port)}
+		output, runErr := interpreter.Interpret(context.Background(), afero.NewOsFs(), input, task)
+		output.ConsoleOutput = normalizeDetails(output.ConsoleOutput)
+		b, err := json.Marshal(output)
+		must(err)
+		f := fixture{Name: script.name, Script: script.script, Files: files, ConsoleOutput: output.ConsoleOutput, OutputJSON: string(b), Events: p.Events}
+		if strings.Contains(script.script, "{{PORT}}") {
+			f.HTTPResponses = responses
+		}
+		if runErr != nil {
+			message := normalizeDetails(runErr.Error())
+			f.Error = &message
+		}
+		// Replace paths inside strings before the outer JSON encoding escapes them.
+		f.ConsoleOutput = strings.ReplaceAll(f.ConsoleOutput, root, "{{ROOT}}")
+		f.OutputJSON = strings.ReplaceAll(f.OutputJSON, root, "{{ROOT}}")
+		if f.Error != nil {
+			message := strings.ReplaceAll(*f.Error, root, "{{ROOT}}")
+			f.Error = &message
+		}
+		for i := range f.Events {
+			f.Events[i].PayloadJSON = strings.ReplaceAll(f.Events[i].PayloadJSON, root, "{{ROOT}}")
+		}
+		f.ConsoleOutput = strings.ReplaceAll(f.ConsoleOutput, ":"+port, ":{{PORT}}")
+		f.OutputJSON = strings.ReplaceAll(f.OutputJSON, ":"+port, ":{{PORT}}")
+		if f.Error != nil {
+			message := strings.ReplaceAll(*f.Error, ":"+port, ":{{PORT}}")
+			f.Error = &message
+		}
+		for i := range f.Events {
+			f.Events[i].PayloadJSON = strings.ReplaceAll(f.Events[i].PayloadJSON, ":"+port, ":{{PORT}}")
+		}
+		fixtures = append(fixtures, f)
+		must(os.RemoveAll(root))
+	}
+	b, err := json.MarshalIndent(fixtures, "", "  ")
+	must(err)
+	must(os.WriteFile(os.Args[1], append(b, '\n'), 0644))
+	fmt.Printf("Generated %d Go CodeAct goldens: %s\n", len(fixtures), os.Args[1])
+}

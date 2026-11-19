@@ -32,7 +32,11 @@ func ConvertMemoryMessageToProto(m *memory.Message) (*v1.Message, error) {
 	}
 
 	var contentParts []*v1.MessagePart
+	hasToolCalls := false
 	for _, block := range m.Content.Blocks {
+		if block.Kind == types.MessageBlockKindToolCall {
+			hasToolCalls = true
+		}
 		switch block.Kind {
 		case types.MessageBlockKindText:
 			contentParts = append(contentParts, &v1.MessagePart{
@@ -572,7 +576,8 @@ func ConvertMemoryMessageToProto(m *memory.Message) (*v1.Message, error) {
 			Content: contentParts,
 		},
 		Status: &v1.MessageStatus{
-			Usage: messageUsage,
+			Usage:           messageUsage,
+			IsFinalResponse: m.Source == types.MessageSourceAssistant && !m.ProcessedTime.IsZero() && !hasToolCalls,
 		},
 	}, nil
 }

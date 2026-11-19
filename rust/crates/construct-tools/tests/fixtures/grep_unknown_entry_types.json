@@ -1,0 +1,16 @@
+{
+  "context": 2,
+  "input": "{\"type\":\"begin\",\"data\":{\"path\":{\"text\":\"/path/file.go\"}}}\n{\"type\":\"unknown_type\",\"data\":{\"path\":{\"text\":\"/path/file.go\"},\"line_number\":1,\"lines\":{\"text\":\"should be ignored\"}}}\n{\"type\":\"match\",\"data\":{\"path\":{\"text\":\"/path/file.go\"},\"line_number\":2,\"lines\":{\"text\":\"valid match\"}}}\n{\"type\":\"weird_type\",\"data\":{\"some\":\"data\"}}\n{\"type\":\"context\",\"data\":{\"path\":{\"text\":\"/path/file.go\"},\"line_number\":3,\"lines\":{\"text\":\"valid context\"}}}\n{\"type\":\"end\",\"data\":{\"path\":{\"text\":\"/path/file.go\"}}}",
+  "max": 50,
+  "result": {
+    "matches": [
+      {
+        "file_path": "/path/file.go",
+        "value": ":2:valid match-3-valid context"
+      }
+    ],
+    "total_matches": 1,
+    "truncated_matches": 0,
+    "searched_files": 1
+  }
+}
