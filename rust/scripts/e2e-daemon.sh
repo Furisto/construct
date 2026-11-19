@@ -135,7 +135,7 @@ PY
 setup="$("$RUST" --context local daemon token create-setup e2e-tcp --output json | python3 -c 'import json,sys; print(json.load(sys.stdin)["setup_code"])')"
 "$RUST" context add tcp-e2e --endpoint "http://127.0.0.1:$port" --setup-code "$setup"
 unset setup
-rust_task="$("$RUST" --context tcp-e2e task create --agent "$agent" --workspace "$run/workspace")"
+rust_task="$("$RUST" --context tcp-e2e task create --agent "$agent" --workspace "$run/workspace" 2>&1)"
 "$RUST" --context tcp-e2e message create "$rust_task" RUST_TCP
 wait_reply "$RUST" "$rust_task" RUST_TCP tcp-e2e
 "$RUST" --context tcp-e2e message create "$go_task" GO_RESUMED
