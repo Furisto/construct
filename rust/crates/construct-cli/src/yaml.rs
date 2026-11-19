@@ -187,6 +187,7 @@ mod tests {
             "contexts:\n    local:\n        address: /tmp/test\n        kind: unix\n"
         );
         assert_eq!(to_string(&"yes").unwrap(), "\"yes\"\n");
+        assert_eq!(to_string(&"").unwrap(), "\"\"\n");
         assert_eq!(
             to_string(&"2026-11-19 15:14:28").unwrap(),
             "\"2026-11-19 15:14:28\"\n"

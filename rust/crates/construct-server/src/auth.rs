@@ -273,7 +273,8 @@ impl RequestInterceptor for AuthInterceptor {
                 &request.headers,
                 request.extensions.get::<Transport>().copied(),
             )
-            .await?
+            .await
+            .map_err(|e| ConnectError::new(Code::Unauthenticated, e.to_string()))?
         {
             request.extensions.insert(identity);
         }
