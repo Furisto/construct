@@ -1,0 +1,2 @@
+/backend/prompt/*.md text eol=lf
+/rust/crates/construct-tools/tests/fixtures/blobs/* -text

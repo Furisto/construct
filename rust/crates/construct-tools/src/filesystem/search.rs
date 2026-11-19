@@ -10,9 +10,10 @@ pub struct FindFile;
 pub struct Grep;
 
 fn ripgrep_available() -> bool {
+    let executable = if cfg!(windows) { "rg.exe" } else { "rg" };
     std::env::var_os("PATH").is_some_and(|p| {
         std::env::split_paths(&p).any(|d| {
-            let path = d.join("rg");
+            let path = d.join(executable);
             if !path.is_file() {
                 return false;
             }
@@ -381,7 +382,10 @@ mod tests {
                 Ok(files) => assert_eq!(
                     json!(files
                         .into_iter()
-                        .map(|f| f.replace(root.path().to_str().unwrap(), "/workspace"))
+                        .map(|f| {
+                            let relative = Path::new(&f).strip_prefix(root.path()).unwrap();
+                            format!("/workspace/{}", relative.display())
+                        })
                         .collect::<Vec<_>>()),
                     case["result"]["files"]
                 ),

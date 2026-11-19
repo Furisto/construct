@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Loopback-only Anthropic SSE fixture for e2e-daemon.sh; no real credentials."""
+"""Loopback-only Anthropic SSE fixture for daemon smoke tests; no real credentials."""
 import argparse
 import json
 import re
@@ -13,6 +13,7 @@ def main():
     parser.add_argument("--workspace", type=Path, required=True)
     parser.add_argument("--port-file", type=Path, required=True)
     parser.add_argument("--requests", type=Path, required=True)
+    parser.add_argument("--windows-shell", action="store_true")
     args = parser.parse_args()
     lock = threading.Lock()
 
@@ -37,6 +38,8 @@ def main():
                 finish = "end_turn"
             elif not has_result:
                 script = f'create_file({json.dumps(str(args.workspace / ("proof-" + marker + ".txt")))}, {json.dumps("CODEACT_OK " + marker)}); print({json.dumps("CODEACT_OK " + marker)});'
+                if args.windows_shell:
+                    script += 'execute_command("[IO.File]::WriteAllText((Join-Path (Get-Location).Path shell-proof.txt), \'POWERSHELL_OK\')");'
                 text = None
                 finish = "tool_use"
             else:

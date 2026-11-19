@@ -186,6 +186,8 @@ impl SkillManager {
                 .unwrap_or(&src_dir)
                 .to_string_lossy()
                 .into_owned();
+            #[cfg(windows)]
+            let rel = rel.replace('\\', "/");
             let git = GitSource {
                 provider: source.provider.clone(),
                 clone_url: source.clone_url.clone(),

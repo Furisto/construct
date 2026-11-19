@@ -1,11 +1,13 @@
 //! Shell command execution with combined output and cancellation.
-use crate::{custom, decode, description, schema};
+#[cfg(not(windows))]
+use crate::description;
+use crate::{custom, decode, schema};
 use construct_core::tool::{Tool, ToolContext, ToolError, ToolErrorCode};
 use construct_types::tools::{ExecuteCommandInput, ExecuteCommandResult, ToolOutput};
 use serde_json::Value;
 use std::process::Stdio;
 
-/// Executes Go's `set -eu` wrapper with `/bin/sh -c`.
+/// Executes commands in the platform shell.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct ExecuteCommand;
 
@@ -15,6 +17,15 @@ impl Tool for ExecuteCommand {
         "execute_command"
     }
     fn description(&self) -> &str {
+        #[cfg(windows)]
+        {
+            concat!(
+                "# Description\n\nExecute a non-interactive Windows PowerShell command, collecting its combined output. ",
+                "Use PowerShell syntax and specify WorkingDirectory to run outside the daemon's current directory. ",
+                "Use only commands that are safe for the user's environment and prefer specialized tools."
+            )
+        }
+        #[cfg(not(windows))]
         description(self.name())
     }
     fn input_schema(&self) -> Value {
@@ -53,10 +64,8 @@ impl Tool for ExecuteCommand {
         let stdout = output
             .try_clone()
             .map_err(|e| fail(e.to_string(), String::new()))?;
-        let script = format!("#!/bin/sh\n\t\tset -eu\n\t\t{}\n\t\t", input.command);
-        let mut command = tokio::process::Command::new("/bin/sh");
+        let mut command = shell_command(&input.command);
         command
-            .args(["-c", &script])
             .stdout(Stdio::from(stdout))
             .stderr(Stdio::from(stderr))
             .kill_on_drop(true);
@@ -66,11 +75,11 @@ impl Tool for ExecuteCommand {
         let mut child = command
             .spawn()
             .map_err(|e| fail(e.to_string(), String::new()))?;
-        let status = tokio::select! {
-            status = child.wait() => status.map_err(|e| fail(e.to_string(), String::new()))?,
+        let (status, cancelled) = tokio::select! {
+            status = child.wait() => (status.map_err(|e| fail(e.to_string(), String::new()))?, false),
             () = ctx.cancellation.cancelled() => {
                 child.kill().await.map_err(|e|fail(e.to_string(),String::new()))?;
-                child.wait().await.map_err(|e|fail(e.to_string(),String::new()))?
+                (child.wait().await.map_err(|e|fail(e.to_string(),String::new()))?, true)
             },
         };
         let bytes = tokio::task::spawn_blocking(move || {
@@ -85,6 +94,9 @@ impl Tool for ExecuteCommand {
         .map_err(|e| fail(e.to_string(), String::new()))?
         .map_err(|e| fail(e.to_string(), String::new()))?;
         let stdout = crate::go_string(&bytes);
+        if cancelled && cfg!(windows) {
+            return Err(fail("context canceled".into(), stdout));
+        }
         if !status.success() {
             return Err(fail(crate::process_error(status), stdout));
         }
@@ -98,4 +110,38 @@ impl Tool for ExecuteCommand {
             ..Default::default()
         })
     }
+}
+
+#[cfg(not(windows))]
+fn shell_command(input: &str) -> tokio::process::Command {
+    let script = format!("#!/bin/sh\n\t\tset -eu\n\t\t{input}\n\t\t");
+    let mut command = tokio::process::Command::new("/bin/sh");
+    command.args(["-c", &script]);
+    command
+}
+
+#[cfg(windows)]
+fn shell_command(input: &str) -> tokio::process::Command {
+    use base64::{engine::general_purpose::STANDARD, Engine};
+    let script = format!(
+        "$ErrorActionPreference = 'Stop'\n$ProgressPreference = 'SilentlyContinue'\n[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)\n{input}\nif ($LASTEXITCODE) {{ exit $LASTEXITCODE }}"
+    );
+    let encoded = STANDARD.encode(
+        script
+            .encode_utf16()
+            .flat_map(u16::to_le_bytes)
+            .collect::<Vec<_>>(),
+    );
+    let system_root = std::env::var_os("SystemRoot").unwrap_or_else(|| r"C:\Windows".into());
+    let executable = std::path::PathBuf::from(system_root)
+        .join("System32/WindowsPowerShell/v1.0/powershell.exe");
+    let mut command = tokio::process::Command::new(executable);
+    command.args([
+        "-NoLogo",
+        "-NoProfile",
+        "-NonInteractive",
+        "-EncodedCommand",
+        &encoded,
+    ]);
+    command
 }

@@ -1,8 +1,12 @@
 //! Explicit and platform-activated listeners, independent of the API router.
 use construct_connect::{async_trait, Transport};
 use sha2::{Digest, Sha256};
-use std::{fmt, io, path::PathBuf};
-use tokio::net::{TcpListener, UnixListener};
+#[cfg(unix)]
+use std::path::PathBuf;
+use std::{fmt, io};
+use tokio::net::TcpListener;
+#[cfg(unix)]
+use tokio::net::UnixListener;
 
 /// How a listener was acquired, not the transport of its accepted connections.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -69,6 +73,7 @@ pub struct EndpointContext {
 #[derive(Debug)]
 pub enum Listener {
     /// Unix-domain listener, including activated sockets.
+    #[cfg(unix)]
     Unix(UnixListener),
     /// IPv4/IPv6 listener, including activated sockets.
     Tcp(TcpListener),
@@ -77,6 +82,7 @@ impl Listener {
     /// Connection trust classification, independent of activation mechanism.
     pub fn transport(&self) -> Transport {
         match self {
+            #[cfg(unix)]
             Self::Unix(_) => Transport::Unix,
             Self::Tcp(_) => Transport::Tcp,
         }
@@ -85,6 +91,7 @@ impl Listener {
     pub fn address(&self) -> io::Result<String> {
         match self {
             Self::Tcp(l) => Ok(l.local_addr()?.to_string()),
+            #[cfg(unix)]
             Self::Unix(l) => {
                 let address = l.local_addr()?;
                 if let Some(path) = address.as_pathname() {
@@ -125,9 +132,11 @@ pub trait Provider: Send + Sync {
     }
 }
 /// Explicit Unix socket, with Go's replacement and 0666 permission behavior.
+#[cfg(unix)]
 pub struct UnixSocketProvider {
     path: PathBuf,
 }
+#[cfg(unix)]
 impl UnixSocketProvider {
     /// Select a Unix socket path; its parent directory must already exist.
     pub fn new(path: impl Into<PathBuf>) -> Self {
@@ -135,6 +144,7 @@ impl UnixSocketProvider {
     }
 }
 #[async_trait]
+#[cfg(unix)]
 impl Provider for UnixSocketProvider {
     async fn create(&self) -> Result<Listener, Error> {
         use std::os::unix::fs::PermissionsExt;
@@ -352,7 +362,12 @@ impl Provider for LaunchdSocketProvider {
 /// Select Unix flag, HTTP flag, then platform activation, in Go's precedence order.
 pub fn detect_provider(http_address: &str, unix_socket: &str) -> Result<Box<dyn Provider>, Error> {
     if !unix_socket.is_empty() {
+        #[cfg(unix)]
         return Ok(Box::new(UnixSocketProvider::new(unix_socket)));
+        #[cfg(not(unix))]
+        return Err(error(
+            "Unix sockets are unavailable on this platform; use --listen-http",
+        ));
     }
     if !http_address.is_empty() {
         return Ok(Box::new(TcpProvider::new(http_address)));
@@ -365,12 +380,19 @@ pub fn detect_provider(http_address: &str, unix_socket: &str) -> Result<Box<dyn 
     if is_launchd_socket_activation() {
         return Ok(Box::new(LaunchdSocketProvider));
     }
-    let activation = if cfg!(target_os = "macos") {
-        "launchd"
-    } else {
-        "systemd"
-    };
-    Err(error(format!("no valid listener has been detected. Specify either a unix socket, tcp address or use {activation} socket activation")))
+    #[cfg(not(unix))]
+    return Err(error(
+        "no valid listener has been detected; specify --listen-http HOST:PORT",
+    ));
+    #[cfg(unix)]
+    {
+        let activation = if cfg!(target_os = "macos") {
+            "launchd"
+        } else {
+            "systemd"
+        };
+        Err(error(format!("no valid listener has been detected. Specify either a unix socket, tcp address or use {activation} socket activation")))
+    }
 }
 
 #[cfg(test)]
@@ -397,12 +419,18 @@ mod tests {
     }
     #[test]
     fn explicit_precedence_and_contexts() {
+        #[cfg(unix)]
         assert_eq!(
             detect_provider("bad:123", "/example.sock")
                 .unwrap()
                 .activation_type(),
             ActivationType::Unix
         );
+        #[cfg(not(unix))]
+        {
+            assert!(detect_provider("127.0.0.1:0", "/example.sock").is_err());
+            assert!(detect_provider("", "").is_err());
+        }
         assert_eq!(
             detect_provider("127.0.0.1:0", "")
                 .unwrap()
@@ -440,8 +468,9 @@ mod tests {
         }
         assert_eq!(listen_fds("+2").unwrap(), 2);
     }
+    #[cfg(unix)]
     #[tokio::test]
-    async fn explicit_creation_errors_permissions_and_close() {
+    async fn explicit_unix_creation_errors_permissions_and_close() {
         use std::os::unix::fs::PermissionsExt;
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("api.sock");
@@ -463,6 +492,9 @@ mod tests {
             .unwrap_err()
             .to_string()
             .starts_with("failed to listen on unix socket: "));
+    }
+    #[tokio::test]
+    async fn explicit_tcp_creation_and_errors() {
         assert!(TcpProvider::new("http://invalid")
             .create()
             .await

@@ -10,7 +10,8 @@ use base64::{
 use chrono::{Duration, Utc};
 use construct_connect::{http, Code, ConnectError, RequestInterceptor, Transport};
 use construct_core::store::{ListOptions, StoreError, TokenFilter, TokenStore};
-use construct_types::Timestamp;
+use construct_proto::construct::v1::{CreateTokenRequest, CreateTokenResponse};
+use construct_types::{entity, memory::TokenType, Timestamp};
 use rand::{rngs::OsRng, RngCore};
 use sha2::{Digest, Sha256};
 use std::{
@@ -18,6 +19,7 @@ use std::{
     fmt,
     sync::{Arc, Mutex},
 };
+use uuid::Uuid;
 
 const TOKEN_ENCODING: GeneralPurpose = GeneralPurpose::new(
     &alphabet::URL_SAFE,
@@ -26,6 +28,78 @@ const TOKEN_ENCODING: GeneralPurpose = GeneralPurpose::new(
         .with_decode_padding_mode(DecodePaddingMode::RequireNone)
         .with_decode_allow_trailing_bits(true),
 );
+
+/// Issue a non-admin bearer token after the caller has authorized local administration.
+pub async fn issue_api_token(
+    store: &dyn TokenStore,
+    tokens: &TokenProvider,
+    request: CreateTokenRequest,
+) -> Result<CreateTokenResponse, ConnectError> {
+    if request.name.is_empty() {
+        return Err(ConnectError::new(Code::InvalidArgument, "name is required"));
+    }
+    let expiry = expiry_duration(
+        request.expires_in,
+        DEFAULT_TOKEN_EXPIRY,
+        MAX_TOKEN_EXPIRY,
+        "expires_in",
+        "8760h0m0s",
+    )?;
+    let (token, hash) = tokens
+        .generate_token()
+        .map_err(|error| crate::error::api_error(&error))?;
+    let time = Timestamp(Utc::now());
+    let expires = Timestamp(time.0 + expiry);
+    store
+        .create_token(entity::Token {
+            id: Uuid::new_v4(),
+            name: request.name.clone(),
+            r#type: TokenType::from(TokenType::API_TOKEN),
+            token_hash: hash,
+            description: request.description.unwrap_or_default(),
+            expires_at: expires.clone(),
+            create_time: time.clone(),
+            update_time: time,
+        })
+        .await
+        .map_err(|error| match error {
+            StoreError::ConstraintViolation(_) => duplicate(&request.name),
+            error => crate::error::api_error(&error),
+        })?;
+    Ok(CreateTokenResponse {
+        token,
+        expires_at: Some(crate::conv::convert_time_to_timestamp(&expires)),
+    })
+}
+
+pub(crate) fn expiry_duration(
+    value: Option<pbjson_types::Duration>,
+    default: Duration,
+    max: Duration,
+    field: &str,
+    max_text: &str,
+) -> Result<Duration, ConnectError> {
+    let Some(value) = value else {
+        return Ok(default);
+    };
+    let nanos = i128::from(value.seconds) * 1_000_000_000 + i128::from(value.nanos);
+    let duration =
+        Duration::nanoseconds(nanos.clamp(i128::from(i64::MIN), i128::from(i64::MAX)) as i64);
+    if duration > max {
+        return Err(ConnectError::new(
+            Code::InvalidArgument,
+            format!("{field} exceeds maximum of {max_text}"),
+        ));
+    }
+    Ok(duration)
+}
+
+pub(crate) fn duplicate(name: &str) -> ConnectError {
+    ConnectError::new(
+        Code::AlreadyExists,
+        format!("token with name {name:?} already exists"),
+    )
+}
 
 /// Random bytes in a bearer token.
 pub const TOKEN_LENGTH: usize = 32;

@@ -1,22 +1,17 @@
+#[cfg(unix)]
+use construct_connect::serve_unix;
 use construct_connect::{
-    async_trait, http::HeaderMap, serve_tcp, serve_unix, with_interceptor, Channel, ClientConfig,
-    Code, Codec, ConnectError, Endpoint, Interceptor, Request, Response, Router, Streaming,
-    Transport,
+    async_trait, http::HeaderMap, serve_tcp, with_interceptor, Channel, ClientConfig, Code, Codec,
+    ConnectError, Endpoint, Interceptor, Request, Response, Router, Streaming, Transport,
 };
 use construct_proto::construct::v1::*;
 use futures_util::{stream, StreamExt};
-use std::{
-    path::PathBuf,
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc,
-    },
-    time::Duration,
-};
-use tokio::{
-    net::{TcpListener, UnixListener},
-    sync::oneshot,
-};
+#[cfg(unix)]
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::{path::PathBuf, sync::Arc, time::Duration};
+#[cfg(unix)]
+use tokio::net::UnixListener;
+use tokio::{net::TcpListener, sync::oneshot};
 
 struct Tasks;
 
@@ -141,7 +136,7 @@ struct Server {
 }
 
 impl Server {
-    async fn start(unix: bool) -> Self {
+    async fn start(use_unix: bool) -> Self {
         let tasks: Arc<dyn TaskService> = Arc::new(Tasks);
         let services = TaskServiceServer::from_arc(tasks)
             .router()
@@ -151,7 +146,8 @@ impl Server {
         let stop = async {
             let _ = receiver.await;
         };
-        if unix {
+        #[cfg(unix)]
+        if use_unix {
             static NEXT: AtomicUsize = AtomicUsize::new(0);
             let path = std::env::temp_dir().join(format!(
                 "construct-{}-{}.sock",
@@ -160,7 +156,7 @@ impl Server {
             ));
             let listener = UnixListener::bind(&path).unwrap();
             let task = tokio::spawn(serve_unix(listener, router, stop));
-            Self {
+            return Self {
                 endpoint: Endpoint::Unix {
                     path: path.clone(),
                     prefix: "/api".into(),
@@ -169,18 +165,18 @@ impl Server {
                 shutdown,
                 task,
                 socket: Some(path),
-            }
-        } else {
-            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-            let endpoint = Endpoint::Http(format!("http://{}/api", listener.local_addr().unwrap()));
-            let task = tokio::spawn(serve_tcp(listener, router, stop));
-            Self {
-                endpoint,
-                transport: Transport::Tcp,
-                shutdown,
-                task,
-                socket: None,
-            }
+            };
+        }
+        assert!(!use_unix);
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let endpoint = Endpoint::Http(format!("http://{}/api", listener.local_addr().unwrap()));
+        let task = tokio::spawn(serve_tcp(listener, router, stop));
+        Self {
+            endpoint,
+            transport: Transport::Tcp,
+            shutdown,
+            task,
+            socket: None,
         }
     }
 
@@ -376,11 +372,26 @@ async fn tcp_proto() {
 async fn tcp_json() {
     exercise(false, Codec::Json).await;
 }
+#[cfg(unix)]
 #[tokio::test]
 async fn unix_proto() {
     exercise(true, Codec::Proto).await;
 }
+#[cfg(unix)]
 #[tokio::test]
 async fn unix_json() {
     exercise(true, Codec::Json).await;
+}
+
+#[cfg(not(unix))]
+#[test]
+fn unix_endpoint_is_rejected() {
+    let config = ClientConfig::new(Endpoint::Unix {
+        path: "api.sock".into(),
+        prefix: "/api".into(),
+    });
+    assert_eq!(
+        Channel::new(config).err().unwrap().code,
+        Code::Unimplemented
+    );
 }

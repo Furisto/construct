@@ -3,9 +3,11 @@ use crate::{
     listener::{Listener, Provider},
     HandlerOptions,
 };
+#[cfg(unix)]
+use construct_connect::serve_unix;
 use construct_connect::{
     axum::{routing::get, Router},
-    serve_tcp, serve_unix,
+    serve_tcp,
 };
 use std::{future::Future, io, sync::Arc};
 
@@ -59,6 +61,7 @@ impl Server {
             self.events.close();
         };
         let result = match self.listener {
+            #[cfg(unix)]
             Listener::Unix(listener) => serve_unix(listener, self.router, shutdown).await,
             Listener::Tcp(listener) => serve_tcp(listener, self.router, shutdown).await,
         };

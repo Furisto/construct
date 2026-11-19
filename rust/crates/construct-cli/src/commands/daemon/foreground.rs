@@ -6,7 +6,7 @@ use construct_core::store::Store;
 use construct_event::EventRouter;
 use construct_secret::{load_or_generate, Encryption, FileProvider, KeyringProvider};
 use construct_server::{
-    listener::{detect_provider, Provider, TcpProvider, UnixSocketProvider},
+    listener::{detect_provider, Provider},
     AgentRuntime, HandlerOptions, Server,
 };
 use construct_skill::{SkillManager, UserDirs};
@@ -37,18 +37,24 @@ impl AgentRuntime for RuntimeAdapter {
 }
 
 pub async fn run(app: &mut App, options: Options) -> Result<()> {
+    #[cfg(unix)]
     let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
+    #[cfg(windows)]
+    let mut interrupt = tokio::signal::windows::ctrl_c()?;
+    #[cfg(unix)]
     let mut interrupt = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())?;
+    let shutdown_signal = async {
+        #[cfg(unix)]
+        tokio::select! { _ = terminate.recv() => {}, _ = interrupt.recv() => {} }
+        #[cfg(windows)]
+        interrupt.recv().await;
+    };
     let unix = options.listen_unix.as_deref().unwrap_or_default();
     let http = options.listen_http.as_deref().unwrap_or_default();
-    let providers: Vec<Arc<dyn Provider>> = if !unix.is_empty() && !http.is_empty() {
-        vec![
-            Arc::new(UnixSocketProvider::new(unix)),
-            Arc::new(TcpProvider::new(http)),
-        ]
-    } else {
-        vec![Arc::from(detect_provider(http, unix)?)]
-    };
+    let mut providers: Vec<Arc<dyn Provider>> = vec![Arc::from(detect_provider(http, unix)?)];
+    if !unix.is_empty() && !http.is_empty() {
+        providers.push(Arc::from(detect_provider(http, "")?));
+    }
     let data = app.user.data_dir()?;
     let encryption = Arc::new(
         if app.config.get("secret.provider").and_then(|v| v.as_str()) == Some("file") {
@@ -119,7 +125,7 @@ pub async fn run(app: &mut App, options: Options) -> Result<()> {
                     kind: context.kind.into(),
                     auth: None,
                 },
-                true,
+                cfg!(unix),
             )?;
         }
         writeln!(app.stdout, "🤖 Starting Agent Runtime...")?;
@@ -137,8 +143,7 @@ pub async fn run(app: &mut App, options: Options) -> Result<()> {
             .collect();
         let mut agent_result = None;
         let mut result = tokio::select! {
-            _ = terminate.recv() => Ok(()),
-            _ = interrupt.recv() => Ok(()),
+            _ = shutdown_signal => Ok(()),
             _ = cancellation.cancelled() => Ok(()),
             result = &mut agent => { agent_result = Some(result); Ok(()) },
             result = serving.next() => result.unwrap_or(Ok(())).map_err(crate::Error::from),

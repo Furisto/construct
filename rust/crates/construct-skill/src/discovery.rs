@@ -156,6 +156,7 @@ mod tests {
             home: None,
             config_dir: "/cfg/construct".into(),
         });
+        let user_skills = Path::new("/cfg/construct").join("skills");
         let patterns: Vec<_> = paths
             .iter()
             .map(|p| (p.pattern.as_str(), p.scope.as_str(), p.is_relative))
@@ -167,7 +168,7 @@ mod tests {
                 (".codex/skills", "repo", true),
                 (".claude/skills", "repo", true),
                 (".github/skills", "repo", true),
-                ("/cfg/construct/skills", "user", false),
+                (user_skills.to_str().unwrap(), "user", false),
                 ("~/.config/construct/skills", "user", false),
                 ("~/.codex/skills", "user", false),
                 ("~/.claude/skills", "user", false),
@@ -185,9 +186,8 @@ mod tests {
         assert_eq!(skills.len(), 1);
         assert_eq!(skills[0].scope, Some(SkillScope::Repo));
         assert_eq!(
-            skills[0].location,
+            Path::new(&skills[0].location),
             cwd.join(".construct/skills/local/SKILL.md")
-                .to_string_lossy()
         );
     }
 
