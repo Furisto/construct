@@ -1,0 +1,256 @@
+[
+  {
+    "name": "escape sequence in string literal - actual newline to literal escape",
+    "input": {
+      "path": "/workspace/daemon_run.go",
+      "diffs": [
+        {
+          "old": "fmt.Fprintf(cmd.OutOrStdout(), \"🤖 Starting Agent Runtime...\n\")",
+          "new": "fmt.Fprintf(cmd.OutOrStdout(), \"🤖 Starting Agent Runtime...\n\") // updated"
+        }
+      ]
+    },
+    "before": [
+      {
+        "path": "/workspace",
+        "directory": true
+      },
+      {
+        "path": "/workspace/daemon_run.go",
+        "directory": false,
+        "blob": "3a0011f486d865579a09ff2486c16ee67f4db619be5cac2d7b4e90f123eb2f0f"
+      }
+    ],
+    "after": [
+      {
+        "path": "/workspace",
+        "directory": true
+      },
+      {
+        "path": "/workspace/daemon_run.go",
+        "directory": false,
+        "blob": "3a0011f486d865579a09ff2486c16ee67f4db619be5cac2d7b4e90f123eb2f0f"
+      }
+    ],
+    "result": null,
+    "result_json": "null",
+    "error": {
+      "Message": "validation failed",
+      "Suggestions": [
+        "Please fix the validation errors and try again",
+        "Check the provided system error for more details"
+      ],
+      "Details": {
+        "path": "/workspace/daemon_run.go",
+        "validation_errors": [
+          {
+            "diff_index": 0,
+            "error_type": "not_found",
+            "error_message": "old text not found in file",
+            "suggested_fix": "Check that the old text exactly matches the file content, including whitespace and indentation"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "multiple escape sequences in string",
+    "input": {
+      "path": "/workspace/test.go",
+      "diffs": [
+        {
+          "old": "s := \"line1\nline2\ttabbed\"",
+          "new": "s := \"line1\nline2\ttabbed\" // fixed"
+        }
+      ]
+    },
+    "before": [
+      {
+        "path": "/workspace",
+        "directory": true
+      },
+      {
+        "path": "/workspace/test.go",
+        "directory": false,
+        "blob": "a610c2e3008cd5512cda47368bc9ee93d164f3cd02ef1afc6502be4b6939ff63"
+      }
+    ],
+    "after": [
+      {
+        "path": "/workspace",
+        "directory": true
+      },
+      {
+        "path": "/workspace/test.go",
+        "directory": false,
+        "blob": "a610c2e3008cd5512cda47368bc9ee93d164f3cd02ef1afc6502be4b6939ff63"
+      }
+    ],
+    "result": null,
+    "result_json": "null",
+    "error": {
+      "Message": "validation failed",
+      "Suggestions": [
+        "Please fix the validation errors and try again",
+        "Check the provided system error for more details"
+      ],
+      "Details": {
+        "path": "/workspace/test.go",
+        "validation_errors": [
+          {
+            "diff_index": 0,
+            "error_type": "not_found",
+            "error_message": "old text not found in file",
+            "suggested_fix": "Check that the old text exactly matches the file content, including whitespace and indentation"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "preserve actual newlines between code lines",
+    "input": {
+      "path": "/workspace/multiline.go",
+      "diffs": [
+        {
+          "old": "func hello() {\n    return 42\n}",
+          "new": "func hello() {\n    return 100\n}"
+        }
+      ]
+    },
+    "before": [
+      {
+        "path": "/workspace",
+        "directory": true
+      },
+      {
+        "path": "/workspace/multiline.go",
+        "directory": false,
+        "blob": "bb0f14171fad5a0a644aa09faab5ac3b81b5f8bb8fdce7116cf62cdd0c196020"
+      }
+    ],
+    "after": [
+      {
+        "path": "/workspace",
+        "directory": true
+      },
+      {
+        "path": "/workspace/multiline.go",
+        "directory": false,
+        "blob": "be5913b9f973cb41762515095613f362abe4b4cdadace383924cfaff099c7ae3"
+      }
+    ],
+    "result": {
+      "success": true,
+      "path": "/workspace/multiline.go",
+      "replacements_made": 1,
+      "expected_replacements": 1,
+      "patch_info": {
+        "patch": "--- a/multiline.go\n+++ b/multiline.go\n@@ -1,3 +1,3 @@\n func hello() {\n-    return 42\n+    return 100\n }\n",
+        "lines_added": 1,
+        "lines_removed": 1
+      }
+    },
+    "result_json": "{\"success\":true,\"path\":\"/workspace/multiline.go\",\"replacements_made\":1,\"expected_replacements\":1,\"patch_info\":{\"patch\":\"--- a/multiline.go\\n+++ b/multiline.go\\n@@ -1,3 +1,3 @@\\n func hello() {\\n-    return 42\\n+    return 100\\n }\\n\",\"lines_added\":1,\"lines_removed\":1}}"
+  },
+  {
+    "name": "exact match without escape sequences",
+    "input": {
+      "path": "/workspace/simple.go",
+      "diffs": [
+        {
+          "old": "fmt.Println(\"Hello\")",
+          "new": "fmt.Println(\"Hello, World\")"
+        }
+      ]
+    },
+    "before": [
+      {
+        "path": "/workspace",
+        "directory": true
+      },
+      {
+        "path": "/workspace/simple.go",
+        "directory": false,
+        "blob": "e7b75a8f654e1e5cc6a8ec8955ddaad213238dc6319d2951eb5938a523ed08e2"
+      }
+    ],
+    "after": [
+      {
+        "path": "/workspace",
+        "directory": true
+      },
+      {
+        "path": "/workspace/simple.go",
+        "directory": false,
+        "blob": "0a33fb1aac954aaf9b9b9d408c372256af22e088460181dc76120098d43d9399"
+      }
+    ],
+    "result": {
+      "success": true,
+      "path": "/workspace/simple.go",
+      "replacements_made": 1,
+      "expected_replacements": 1,
+      "patch_info": {
+        "patch": "--- a/simple.go\n+++ b/simple.go\n@@ -1,1 +1,1 @@\n-fmt.Println(\"Hello\")\n+fmt.Println(\"Hello, World\")\n",
+        "lines_added": 1,
+        "lines_removed": 1
+      }
+    },
+    "result_json": "{\"success\":true,\"path\":\"/workspace/simple.go\",\"replacements_made\":1,\"expected_replacements\":1,\"patch_info\":{\"patch\":\"--- a/simple.go\\n+++ b/simple.go\\n@@ -1,1 +1,1 @@\\n-fmt.Println(\\\"Hello\\\")\\n+fmt.Println(\\\"Hello, World\\\")\\n\",\"lines_added\":1,\"lines_removed\":1}}"
+  },
+  {
+    "name": "whitespace differences with escape sequences",
+    "input": {
+      "path": "/workspace/indented.go",
+      "diffs": [
+        {
+          "old": "msg := \"test\nvalue\"",
+          "new": "msg := \"test\nvalue\" // fixed indent"
+        }
+      ]
+    },
+    "before": [
+      {
+        "path": "/workspace",
+        "directory": true
+      },
+      {
+        "path": "/workspace/indented.go",
+        "directory": false,
+        "blob": "0446fbdd72a9f20cef3ff4a5018c6b936a2e9ea0a6f920716b87c4daa0e97ef1"
+      }
+    ],
+    "after": [
+      {
+        "path": "/workspace",
+        "directory": true
+      },
+      {
+        "path": "/workspace/indented.go",
+        "directory": false,
+        "blob": "0446fbdd72a9f20cef3ff4a5018c6b936a2e9ea0a6f920716b87c4daa0e97ef1"
+      }
+    ],
+    "result": null,
+    "result_json": "null",
+    "error": {
+      "Message": "validation failed",
+      "Suggestions": [
+        "Please fix the validation errors and try again",
+        "Check the provided system error for more details"
+      ],
+      "Details": {
+        "path": "/workspace/indented.go",
+        "validation_errors": [
+          {
+            "diff_index": 0,
+            "error_type": "not_found",
+            "error_message": "old text not found in file",
+            "suggested_fix": "Check that the old text exactly matches the file content, including whitespace and indentation"
+          }
+        ]
+      }
+    }
+  }
+]

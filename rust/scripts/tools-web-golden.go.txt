@@ -1,0 +1,52 @@
+package web
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+func TestGoldenWeb(t *testing.T) {
+	cases := []struct{ Name, Type, Body string }{
+		{"article", "text/html", `<!DOCTYPE html><html><head><title>Test Page</title></head><body><article><h1>Hello World</h1><p>This is a test paragraph.</p></article></body></html>`},
+		{"json", "application/json", `{"name":"test","values":[1,2,3]}`},
+		{"xhtml", "application/xhtml+xml", `<!DOCTYPE html><html><head><title>XHTML Page</title></head><body><p>XHTML content</p></body></html>`},
+		{"auth", "text/html", `<!DOCTYPE html><html><head><title>Auth Page</title></head><body><p>Authenticated</p></body></html>`},
+		{"ua", "text/html", `<!DOCTYPE html><html><head><title>UA Test</title></head><body><p>OK</p></body></html>`},
+	}
+	type record struct {
+		Name       string `json:"name"`
+		Type       string `json:"type"`
+		Body       string `json:"body"`
+		ResultJSON string `json:"result_json"`
+	}
+	out := []record{}
+	for _, c := range cases {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", c.Type)
+			w.Write([]byte(c.Body))
+		}))
+		result, err := Fetch(context.Background(), http.DefaultClient, &FetchInput{URL: server.URL})
+		if err != nil {
+			t.Fatal(err)
+		}
+		raw, err := json.Marshal(result)
+		if err != nil {
+			t.Fatal(err)
+		}
+		out = append(out, record{c.Name, c.Type, c.Body, strings.ReplaceAll(strings.ReplaceAll(string(raw), server.URL, "{{URL}}"), strings.TrimPrefix(server.URL, "http://"), "{{HOST}}")})
+		server.Close()
+	}
+	data, err := json.MarshalIndent(out, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(os.Getenv("CONSTRUCT_GOLDEN_DIR"), "web.json"), data, 0644); err != nil {
+		t.Fatal(err)
+	}
+}
