@@ -247,16 +247,53 @@ pub mod xai {
         Err("model not supported")
     }
 }
-/// Porting seam for the gemini provider (not yet ported).
+/// Gemini's complete Go catalog.
 pub mod gemini {
     use super::*;
-    /// Placeholder catalog; provider implementation fills this in.
+    /// All supported models in Go order, including Go's pricing.
     pub fn supported_models() -> Vec<Model> {
-        Vec::new()
+        [
+            (
+                "01970000-0001-7000-8000-000000000001",
+                "gemini-2.5-pro",
+                1048576,
+                1.125,
+                10.0,
+            ),
+            (
+                "01970000-0002-7000-8000-000000000002",
+                "gemini-2.5-flash",
+                1048576,
+                1.25,
+                5.0,
+            ),
+            (
+                "01970000-0003-7000-8000-000000000003",
+                "gemini-2.5-flash-lite",
+                1000000,
+                0.075,
+                0.3,
+            ),
+        ]
+        .into_iter()
+        .map(|(id, name, context_window, input, output)| Model {
+            id: uuid::Uuid::parse_str(id).unwrap(),
+            name: name.into(),
+            provider: ProviderKind::GEMINI.into(),
+            capabilities: Some(vec![Capability::IMAGE.into(), Capability::AUDIO.into()]),
+            context_window,
+            pricing: ModelPricing {
+                input,
+                output,
+                cache_write: 0.0,
+                cache_read: 0.0,
+            },
+        })
+        .collect()
     }
-    /// Placeholder default until the provider catalog is ported.
+    /// Go defaults to Gemini 2.5 Pro.
     pub fn default_model() -> Result<Model, &'static str> {
-        Err("model not supported")
+        Ok(supported_models().remove(0))
     }
 }
 #[cfg(test)]
@@ -274,7 +311,16 @@ mod tests {
             default_model(&ProviderKind::ANTHROPIC.into()).unwrap().id,
             models[0].id
         );
-        for kind in ["openai", "gemini", "xai", "deepseek", "bedrock", "unknown"] {
+        let gemini = supported_models(&ProviderKind::GEMINI.into());
+        assert_eq!(gemini.len(), 3);
+        assert_eq!(gemini[0].name, "gemini-2.5-pro");
+        assert_eq!(gemini[2].context_window, 1000000);
+        assert_eq!(gemini[0].pricing.input, 1.125);
+        assert_eq!(
+            default_model(&ProviderKind::GEMINI.into()).unwrap().id,
+            gemini[0].id
+        );
+        for kind in ["openai", "xai", "deepseek", "bedrock", "unknown"] {
             assert!(supported_models(&kind.into()).is_empty());
             assert_eq!(
                 default_model(&kind.into()).unwrap_err(),

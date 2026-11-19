@@ -4,6 +4,7 @@
 pub mod anthropic;
 pub mod catalog;
 pub mod condenser;
+pub mod gemini;
 pub mod http;
 pub mod resilience;
 
