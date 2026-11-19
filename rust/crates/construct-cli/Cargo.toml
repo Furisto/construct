@@ -1,0 +1,38 @@
+[package]
+name = "construct-cli"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "construct"
+
+[[bin]]
+name = "construct"
+path = "src/main.rs"
+
+[dependencies]
+construct-connect = { path = "../construct-connect" }
+construct-proto = { path = "../construct-proto" }
+construct-types = { path = "../construct-types" }
+clap = { version = "=4.5.54", features = ["derive"] }
+tokio = { workspace = true, features = ["signal", "io-std"] }
+tokio-util = "0.7"
+serde.workspace = true
+serde_json.workspace = true
+serde_yaml = "0.9"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
+keyring = { version = "3.6", features = ["sync-secret-service", "crypto-rust", "apple-native", "windows-native", "vendored"] }
+base64 = "0.22"
+hex = "0.4"
+libc = "0.2"
+regex = "1"
+chrono = "0.4"
+thiserror = "2"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+dbus-secret-service = { version = "4.1", features = ["crypto-rust", "vendored"] }
+
+[dev-dependencies]
+tempfile = "3"
