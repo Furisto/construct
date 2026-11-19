@@ -19,6 +19,7 @@ construct-event = { path = "../construct-event" }
 construct-secret = { path = "../construct-secret" }
 construct-server = { path = "../construct-server" }
 construct-skill = { path = "../construct-skill" }
+construct-store = { path = "../construct-store" }
 construct-tools = { path = "../construct-tools" }
 construct-connect = { path = "../construct-connect" }
 construct-proto = { path = "../construct-proto" }

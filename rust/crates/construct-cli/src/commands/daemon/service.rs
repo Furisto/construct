@@ -616,7 +616,7 @@ pub(super) async fn uninstall(app: &mut App, options: Uninstall) -> Result<()> {
     Ok(())
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
 

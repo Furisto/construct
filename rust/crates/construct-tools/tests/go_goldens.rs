@@ -2,10 +2,9 @@ use construct_core::{
     tool::{Tool, ToolContext},
     CancellationToken,
 };
-use construct_tools::{
-    filesystem::{CreateFile, EditFile, ListFiles, ReadFile},
-    system::ExecuteCommand,
-};
+use construct_tools::filesystem::{CreateFile, EditFile, ListFiles, ReadFile};
+#[cfg(unix)]
+use construct_tools::system::ExecuteCommand;
 use construct_types::to_go_json;
 use serde_json::Value;
 use std::{fs, path::Path};
@@ -18,6 +17,20 @@ fn context() -> ToolContext {
         cancellation: CancellationToken::new(),
         events: None,
     }
+}
+
+fn normalize_paths(json: &str, root: &str) -> String {
+    #[cfg(windows)]
+    {
+        let paths = regex::Regex::new(&format!(r#"{}[^"]*"#, regex::escape(root))).unwrap();
+        paths
+            .replace_all(json, |path: &regex::Captures<'_>| {
+                path[0][root.len()..].replace("\\\\", "/")
+            })
+            .into_owned()
+    }
+    #[cfg(not(windows))]
+    json.replace(root, "")
 }
 
 async fn check(tool: &dyn Tool, fixture: &str) {
@@ -38,6 +51,8 @@ async fn check(tool: &dyn Tool, fixture: &str) {
                     .into();
             }
         }
+        let root_json = serde_json::to_string(root.to_str().unwrap()).unwrap();
+        let root_json = &root_json[1..root_json.len() - 1];
         let result = tool.execute(&context(), input).await;
         let name = case["name"].as_str().unwrap();
         if let Some(expected) = case.get("error") {
@@ -48,9 +63,7 @@ async fn check(tool: &dyn Tool, fixture: &str) {
                 expected["Suggestions"],
                 "{name}"
             );
-            let details = serde_json::json!(error.details)
-                .to_string()
-                .replace(root.to_str().unwrap(), "");
+            let details = normalize_paths(&serde_json::json!(error.details).to_string(), root_json);
             assert_eq!(
                 serde_json::from_str::<Value>(&details).unwrap(),
                 expected["Details"],
@@ -58,9 +71,10 @@ async fn check(tool: &dyn Tool, fixture: &str) {
             );
         } else {
             let output = result.unwrap_or_else(|e| panic!("{name}: {e}"));
-            let json = String::from_utf8(to_go_json(&output).unwrap())
-                .unwrap()
-                .replace(root.to_str().unwrap(), "");
+            let json = normalize_paths(
+                &String::from_utf8(to_go_json(&output).unwrap()).unwrap(),
+                root_json,
+            );
             let actual: Value = serde_json::from_str(&json).unwrap();
             assert_eq!(actual[tool.name()], case["result"], "{name}");
             // Compare the exact Go-compatible byte encoding, not only parsed JSON.
@@ -133,6 +147,7 @@ async fn go_edit_file_5_cases_including_go_skipped_cases() {
     check(&EditFile, include_str!("fixtures/TestGoldenEditFile.json")).await;
 }
 #[tokio::test]
+#[cfg(unix)]
 async fn go_execute_command_10_cases() {
     check(
         &ExecuteCommand,

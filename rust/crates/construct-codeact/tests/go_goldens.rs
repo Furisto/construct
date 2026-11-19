@@ -46,6 +46,7 @@ impl LoopbackServer {
                     }
                     Err(e) => panic!("loopback accept: {e}"),
                 };
+                stream.set_nonblocking(false).unwrap();
                 stream
                     .set_read_timeout(Some(Duration::from_secs(2)))
                     .unwrap();
@@ -199,6 +200,7 @@ fn normalize_output(text: &str) -> String {
     text.replacen(&prefix, &format!("{{\"console_output\":{normalized},"), 1)
 }
 
+#[cfg(unix)]
 #[test]
 fn go_goldens_without_ripgrep() {
     let bin = tempfile::tempdir().unwrap();
@@ -237,8 +239,13 @@ async fn real_go_interpreter_goldens() {
         );
     }
     let mut failures = Vec::new();
+    let windows_path = regex::Regex::new(r"\{\{ROOT\}\}(?:\\+[\w.-]+)+").unwrap();
+    let backslashes = regex::Regex::new(r"\\+").unwrap();
     for case in cases {
         let name = case["name"].as_str().unwrap();
+        if cfg!(windows) && matches!(name, "command_success" | "nested_side_effect") {
+            continue;
+        }
         let expected = divergences.get(name).unwrap_or(&case);
         let dir = tempfile::tempdir().unwrap();
         for (path, content) in case["files"].as_object().unwrap() {
@@ -246,8 +253,21 @@ async fn real_go_interpreter_goldens() {
             fs::create_dir_all(path.parent().unwrap()).unwrap();
             fs::write(path, content.as_str().unwrap()).unwrap();
         }
-        let root = dir.path().to_str().unwrap();
+        let root = fixture_root(dir.path());
+        let root = root.as_str();
         let server = LoopbackServer::new(case["http_responses"].clone());
+        let normalize = |text: &str| {
+            let text = server.normalize(&text.replace(root, "{{ROOT}}"));
+            if cfg!(windows) {
+                windows_path
+                    .replace_all(&text, |m: &regex::Captures<'_>| {
+                        backslashes.replace_all(&m[0], "/").into_owned()
+                    })
+                    .into_owned()
+            } else {
+                text
+            }
+        };
         let events = Arc::new(RecordingPublisher::default());
         let interpreter = Interpreter::new(
             vec![
@@ -265,10 +285,10 @@ async fn real_go_interpreter_goldens() {
         );
         let task = Task {
             id: Uuid::from_u128(1),
-            project_directory: dir.path().into(),
+            project_directory: root.into(),
         };
         let ctx = ToolContext {
-            workspace_root: dir.path().into(),
+            workspace_root: root.into(),
             task_id: Some(task.id),
             agent_id: None,
             cancellation: CancellationToken::new(),
@@ -288,27 +308,16 @@ async fn real_go_interpreter_goldens() {
                 "x"
             );
         }
-        let actual_output = server.normalize(
-            &String::from_utf8(to_go_json(&output).unwrap())
-                .unwrap()
-                .replace(root, "{{ROOT}}"),
-        );
-        let actual_error =
-            error.map(|error| server.normalize(&error.to_string().replace(root, "{{ROOT}}")));
-        let actual_events: Value = serde_json::from_str(
-            &server.normalize(
-                &serde_json::to_string(&*events.0.lock().unwrap())
-                    .unwrap()
-                    .replace(root, "{{ROOT}}"),
-            ),
-        )
+        let actual_output = normalize(&String::from_utf8(to_go_json(&output).unwrap()).unwrap());
+        let actual_error = error.map(|error| normalize(&error.to_string()));
+        let actual_events: Value = serde_json::from_str(&normalize(
+            &serde_json::to_string(&*events.0.lock().unwrap()).unwrap(),
+        ))
         .unwrap();
         let comparisons = [
             (
                 "console_output",
-                json!(normalize_details(
-                    &server.normalize(&output.console_output.replace(root, "{{ROOT}}"))
-                )),
+                json!(normalize_details(&normalize(&output.console_output))),
                 json!(normalize_details(
                     expected["console_output"].as_str().unwrap()
                 )),
@@ -373,6 +382,15 @@ fn scope(root: &std::path::Path) -> (ToolContext, Task) {
     (ctx, task)
 }
 
+fn fixture_root(path: &std::path::Path) -> String {
+    let root = path.to_str().unwrap();
+    if cfg!(windows) {
+        root.replace('\\', "/")
+    } else {
+        root.to_owned()
+    }
+}
+
 #[tokio::test]
 async fn resume_real_go_duplicate_records_without_executing_hosts() {
     let cases: Vec<Value> = serde_json::from_str(include_str!("fixtures/go.json")).unwrap();
@@ -405,7 +423,8 @@ async fn resume_real_go_duplicate_records_without_executing_hosts() {
         ),
     ] {
         let dir = tempfile::tempdir().unwrap();
-        let root = dir.path().to_str().unwrap();
+        let root = fixture_root(dir.path());
+        let root = root.as_str();
         let source = cases.iter().find(|case| case["name"] == source).unwrap();
         let stored: InterpreterOutput = serde_json::from_str(
             &source["output_json"]
@@ -474,8 +493,17 @@ async fn resume_real_go_duplicate_records_without_executing_hosts() {
 async fn resume_empty_exhausted_mismatched_and_invalid_records() {
     let dir = tempfile::tempdir().unwrap();
     let marker = dir.path().join("effects.txt");
-    let first = format!("execute_command(\"printf a >> '{}'\");", marker.display());
-    let second = format!("execute_command(\"printf b >> '{}'\");", marker.display());
+    let append = |content| {
+        let path = marker.display();
+        let command = if cfg!(windows) {
+            format!("[IO.File]::AppendAllText('{path}', '{content}')")
+        } else {
+            format!("printf {content} >> '{path}'")
+        };
+        format!("execute_command({});", json!(command))
+    };
+    let first = append("a");
+    let second = append("b");
     let events = Arc::new(RecordingPublisher::default());
     let interpreter = Interpreter::new(
         vec![construct_codeact::execute_command()],

@@ -13,6 +13,8 @@ use construct_connect::Request;
 use construct_proto::construct::v1::{
     CreateSetupCodeRequest, CreateTokenRequest, ListTokensRequest, RevokeTokenRequest,
 };
+use construct_server::auth::{issue_api_token, TokenProvider};
+use construct_store::SqliteStore;
 use pbjson_types::{Duration, Timestamp};
 use serde::Serialize;
 use uuid::Uuid;
@@ -27,6 +29,12 @@ pub(super) fn command() -> Command {
                 .mut_arg("format", |arg| arg.default_value("card"))
                 .arg(named("name"))
                 .arg(Arg::new("description").long("description"))
+                .arg(
+                    Arg::new("local")
+                        .long("local")
+                        .help("Create the token in this user's local daemon database (useful with a TCP-only daemon)")
+                        .action(ArgAction::SetTrue),
+                )
                 .arg(expiry("expires", "90d")),
             RenderOptions::augment_args(
                 Command::new("create-setup").about("Generate a one-time setup code"),
@@ -79,13 +87,21 @@ pub(super) async fn run(app: &mut App, matches: &ArgMatches) -> Result<()> {
                 expires_in: Some(expires_in),
                 description: optional("description"),
             };
-            let response = app
-                .client()?
-                .auth
-                .create_token(Request::new(request))
-                .await
-                .map_err(|err| format!("failed to create token: {err}"))?
-                .message;
+            let response = if args.get_flag("local") {
+                let path = app.user.data.join("construct.db");
+                if !path.is_file() {
+                    return Err("local daemon database not found; start the daemon first".into());
+                }
+                let store = SqliteStore::open(path).await?;
+                issue_api_token(&store, &TokenProvider::new(), request).await
+            } else {
+                app.client()?
+                    .auth
+                    .create_token(Request::new(request))
+                    .await
+                    .map(|response| response.message)
+            }
+            .map_err(|err| format!("failed to create token: {err}"))?;
             let display = CreatedToken {
                 name,
                 token: response.token,

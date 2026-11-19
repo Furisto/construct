@@ -20,5 +20,8 @@ readability = { version = "0.3", default-features = false }
 html2md = "0.2"
 tempfile = "3"
 
+[target.'cfg(windows)'.dependencies]
+base64 = "0.22"
+
 [dev-dependencies]
 construct-core = { path = "../construct-core", features = ["testing"] }

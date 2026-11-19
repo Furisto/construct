@@ -160,13 +160,28 @@ mod tests {
         let linux = UserInfo::resolve("/home/a", "linux", "1000", &env);
         assert_eq!(linux.config, Path::new("/home/a/.config/construct"));
         assert_eq!(linux.runtime, Path::new("/run/user/1000/construct"));
-        env.insert("XDG_CONFIG_HOME".into(), "/config".into());
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().to_string_lossy();
+        env.insert("XDG_CONFIG_HOME".into(), config.into_owned());
         let mac = UserInfo::resolve("/Users/a", "macos", "501", &env);
-        assert_eq!(mac.config, Path::new("/config/construct"));
+        assert_eq!(mac.config, dir.path().join("construct"));
         assert_eq!(
             mac.data,
             Path::new("/Users/a/Library/Application Support/construct")
         );
         assert_eq!(mac.runtime, Path::new("/tmp/construct"));
+    }
+
+    #[test]
+    fn windows_defaults_to_local_app_data() {
+        let dir = tempfile::tempdir().unwrap();
+        let home = dir.path().join("home");
+        let app_data = dir.path().join("local");
+        let env = BTreeMap::from([("LOCALAPPDATA".into(), app_data.display().to_string())]);
+        let windows = UserInfo::resolve(&home, "windows", "", &env);
+        let expected = app_data.join("construct");
+        for path in [windows.config, windows.data, windows.log, windows.runtime] {
+            assert_eq!(path, expected);
+        }
     }
 }

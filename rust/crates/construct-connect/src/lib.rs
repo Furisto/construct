@@ -28,9 +28,10 @@ pub use codec::Codec;
 pub use error::{Code, ConnectError};
 pub use http;
 pub use server::{
-    serve_tcp, serve_unix, with_interceptor, with_request_interceptor, Interceptor,
-    RequestInterceptor, UnixListenerSource,
+    serve_tcp, with_interceptor, with_request_interceptor, Interceptor, RequestInterceptor,
 };
+#[cfg(unix)]
+pub use server::{serve_unix, UnixListenerSource};
 
 use futures_util::Stream;
 use http::HeaderMap;

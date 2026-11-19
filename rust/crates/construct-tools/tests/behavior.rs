@@ -52,6 +52,7 @@ async fn report_validation_and_go_json() {
     );
 }
 
+#[cfg(unix)]
 #[tokio::test]
 async fn command_cancellation_and_wrapper() {
     let ctx = context();
@@ -79,6 +80,7 @@ async fn command_cancellation_and_wrapper() {
     assert_eq!(error.message, "error executing command");
 }
 
+#[cfg(unix)]
 #[tokio::test]
 async fn command_cancellation_reaps_child_and_retains_combined_output() {
     let dir = tempfile::tempdir().unwrap();
@@ -117,6 +119,56 @@ async fn command_cancellation_reaps_child_and_retains_combined_output() {
         let pid = std::fs::read_to_string(marker).unwrap();
         assert!(!std::path::Path::new(&format!("/proc/{}", pid.trim())).exists());
     }
+}
+
+#[cfg(windows)]
+#[tokio::test]
+async fn command_uses_native_shell_and_can_be_cancelled() {
+    let dir = tempfile::tempdir().unwrap();
+    let ctx = context();
+    let result = ExecuteCommand
+        .execute(
+            &ctx,
+            json!({"Command":"[Console]::Write('quoted ✓: ' + (Get-Location).Path)","WorkingDirectory":dir.path()}),
+        )
+        .await
+        .unwrap()
+        .execute_command
+        .unwrap();
+    let path = result.stdout.strip_prefix("quoted ✓: ").unwrap();
+    assert!(std::path::Path::new(path).is_absolute());
+    assert_eq!(
+        std::fs::canonicalize(path).unwrap(),
+        dir.path().canonicalize().unwrap()
+    );
+    let error = ExecuteCommand
+        .execute(&ctx, json!({"Command":"cmd.exe /c exit 7"}))
+        .await
+        .unwrap_err();
+    assert_eq!(error.details["error"], "exit status 7");
+
+    let cancellation = ctx.cancellation.clone();
+    let marker = dir.path().join("ready");
+    let command = json!({
+        "Command": "[Console]::Write('partial'); New-Item -ItemType File -Name ready | Out-Null; Start-Sleep -Seconds 30",
+        "WorkingDirectory": dir.path()
+    });
+    let task = tokio::spawn(async move { ExecuteCommand.execute(&ctx, command).await });
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while !marker.exists() {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .unwrap();
+    cancellation.cancel();
+    let error = tokio::time::timeout(Duration::from_secs(5), task)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap_err();
+    assert_eq!(error.details["error"], "context canceled");
+    assert_eq!(error.details["output"], "partial");
 }
 
 #[tokio::test]
@@ -322,6 +374,7 @@ async fn find_and_grep_real_processes() {
     );
 }
 
+#[cfg(unix)]
 #[test]
 fn real_search_fallback_without_ripgrep_on_path() {
     let bin = tempfile::tempdir().unwrap();

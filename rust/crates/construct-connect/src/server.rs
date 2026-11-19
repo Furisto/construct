@@ -19,9 +19,13 @@ use hyper_util::{
 };
 use prost::Message;
 use serde::{de::DeserializeOwned, Serialize};
-use std::{convert::Infallible, future::Future, io, path::PathBuf, sync::Arc, time::Duration};
+#[cfg(unix)]
+use std::path::PathBuf;
+use std::{convert::Infallible, future::Future, io, sync::Arc, time::Duration};
+#[cfg(unix)]
+use tokio::net::UnixListener;
 use tokio::{
-    net::{TcpListener, UnixListener},
+    net::TcpListener,
     sync::watch,
     task::JoinSet,
     time::{timeout_at, Instant},
@@ -338,26 +342,31 @@ pub async fn serve_tcp(
     result
 }
 
+#[cfg(unix)]
 pub enum UnixListenerSource {
     Path(PathBuf),
     Listener(UnixListener),
 }
 
+#[cfg(unix)]
 impl From<UnixListener> for UnixListenerSource {
     fn from(value: UnixListener) -> Self {
         Self::Listener(value)
     }
 }
+#[cfg(unix)]
 impl From<PathBuf> for UnixListenerSource {
     fn from(value: PathBuf) -> Self {
         Self::Path(value)
     }
 }
+#[cfg(unix)]
 impl From<&std::path::Path> for UnixListenerSource {
     fn from(value: &std::path::Path) -> Self {
         Self::Path(value.to_owned())
     }
 }
+#[cfg(unix)]
 impl From<&str> for UnixListenerSource {
     fn from(value: &str) -> Self {
         Self::Path(value.into())
@@ -365,6 +374,7 @@ impl From<&str> for UnixListenerSource {
 }
 
 /// Serve a caller-owned Unix listener, or bind a new path (never unlinking an existing socket).
+#[cfg(unix)]
 pub async fn serve_unix(
     source: impl Into<UnixListenerSource>,
     router: Router,

@@ -4,12 +4,7 @@ use crate::{
     Result,
 };
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::BTreeMap,
-    fs,
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{collections::BTreeMap, fs, path::PathBuf, sync::Arc};
 
 pub const KEYRING_REF_PREFIX: &str = "keyring://construct/";
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -62,7 +57,7 @@ impl EndpointContext {
         if self.kind != "unix" && self.kind != "http" {
             return Err(format!("invalid kind: {}", self.kind).into());
         }
-        if self.kind == "unix" && !Path::new(&self.address).is_absolute() {
+        if self.kind == "unix" && !self.address.starts_with('/') {
             return Err(format!("unix address must be an absolute path: {}", self.address).into());
         }
         if self.kind == "http"

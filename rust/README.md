@@ -72,6 +72,45 @@ The daemon reads the existing config file and XDG data directory. Set
 otherwise the system keyring is used. SIGINT/SIGTERM stops both listeners,
 cancels agent execution and drains workers and active requests.
 
+### Windows foreground daemon
+
+Build with the MSVC Rust toolchain and Visual Studio C++ Build Tools with a
+Windows SDK. Put `rg.exe` on PATH for the agent's grep tool. Windows supports
+the foreground daemon over authenticated TCP. Unix sockets, service
+installation, and administrator RPCs (such as setup-code creation and token
+revocation) are not available. Start the daemon in one terminal:
+
+```powershell
+construct daemon run --listen-http 127.0.0.1:8080
+```
+
+Then issue an API token directly in the local daemon database and enter it at
+the hidden prompt when adding the Windows context:
+
+```powershell
+construct daemon token create windows-cli --local
+construct context add windows-local --endpoint http://127.0.0.1:8080 --auth-token --set-current
+construct agent list
+```
+
+`--local` requires write access to the daemon's existing database, and the
+resulting token is not an administrator token. Keep the plain HTTP listener on
+loopback unless a TLS reverse proxy protects remote access. Windows stores CLI
+tokens and the default daemon encryption key in Credential Manager, using the
+same names and bytes as Go. CodeAct's command tool uses Windows PowerShell
+instead of `/bin/sh`. Press Ctrl+C in the daemon terminal to shut it down.
+
+To run the native TCP and Credential Manager smoke test with Python and Go,
+from the repository root:
+
+```powershell
+cargo build --manifest-path rust/Cargo.toml --workspace --all-features --locked
+$helper = Join-Path $env:TEMP 'construct-keyring-interop.go'
+Copy-Item rust/scripts/keyring-interop.go.txt $helper
+go build -o "$env:TEMP/construct-keyring-interop.exe" $helper
+python rust/scripts/e2e-windows.py rust/target/debug/construct.exe "$env:TEMP/construct-keyring-interop.exe"
+```
+
 `construct-store` implements the repositories with SQLx's bundled SQLite driver.
 `SqliteStore::open(path)` adds missing Ent tables/indexes without rebuilding
 existing tables, and sets the Go daemon's foreign-key/WAL/busy-timeout pragmas.

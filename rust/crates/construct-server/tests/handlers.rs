@@ -1,7 +1,7 @@
 use chrono::{Duration as ChronoDuration, Utc};
-use construct_connect::{
-    serve_tcp, serve_unix, Channel, ClientConfig, Code, ConnectError, Endpoint, Request,
-};
+#[cfg(unix)]
+use construct_connect::serve_unix;
+use construct_connect::{serve_tcp, Channel, ClientConfig, Code, ConnectError, Endpoint, Request};
 use construct_core::store::*;
 use construct_event::{EventHook, EventPublisher, EventRouter, EventSubscriber, SubscribeOptions};
 use construct_proto::{construct::v1 as pb, google::r#type::Decimal};
@@ -16,10 +16,9 @@ use std::{
     time::Duration,
 };
 use tempfile::TempDir;
-use tokio::{
-    net::{TcpListener, UnixListener},
-    task::JoinHandle,
-};
+#[cfg(unix)]
+use tokio::net::UnixListener;
+use tokio::{net::TcpListener, task::JoinHandle};
 use uuid::Uuid;
 
 #[derive(Default)]
@@ -57,7 +56,7 @@ impl Analytics for AnalyticsLog {
     }
 }
 struct Fixture {
-    unix: Channel,
+    local_admin: Channel,
     tcp: Channel,
     store: Arc<SqliteStore>,
     events: Arc<EventRouter>,
@@ -99,16 +98,32 @@ impl Fixture {
         let mut opts = HandlerOptions::new(runtime, skills);
         opts.analytics = analytics.clone();
         let router = api_router(opts);
-        let socket = dir.path().join("api.sock");
-        let unix_listener = UnixListener::bind(&socket).unwrap();
+        #[cfg(unix)]
+        let (admin_endpoint, admin_task) = {
+            let socket = dir.path().join("api.sock");
+            let listener = UnixListener::bind(&socket).unwrap();
+            let endpoint = Endpoint::Unix {
+                path: socket,
+                prefix: String::new(),
+            };
+            let task = tokio::spawn(serve_unix(listener, router.clone(), std::future::pending()));
+            (endpoint, task)
+        };
+        #[cfg(not(unix))]
+        let (admin_endpoint, admin_task) = {
+            // Only this fixture router simulates Unix transport. The regular TCP router still enforces bearer auth.
+            let router = router.clone().layer(construct_connect::axum::Extension(
+                construct_connect::Transport::Unix,
+            ));
+            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let endpoint = Endpoint::Http(format!("http://{}", listener.local_addr().unwrap()));
+            let task = tokio::spawn(serve_tcp(listener, router, std::future::pending()));
+            (endpoint, task)
+        };
         let tcp_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = tcp_listener.local_addr().unwrap();
         let tasks = vec![
-            tokio::spawn(serve_unix(
-                unix_listener,
-                router.clone(),
-                std::future::pending(),
-            )),
+            admin_task,
             tokio::spawn(serve_tcp(tcp_listener, router, std::future::pending())),
         ];
         let channel = |endpoint| {
@@ -117,10 +132,7 @@ impl Fixture {
             Channel::new(cfg).unwrap()
         };
         Self {
-            unix: channel(Endpoint::Unix {
-                path: socket,
-                prefix: String::new(),
-            }),
+            local_admin: channel(admin_endpoint),
             tcp: channel(Endpoint::Http(format!("http://{address}"))),
             store,
             events,
@@ -270,7 +282,7 @@ macro_rules! id_errors {
 #[tokio::test]
 async fn auth_go_cases_and_admin_guards() {
     let f = Fixture::new().await;
-    let c = pb::AuthServiceClient::new(f.unix.clone());
+    let c = pb::AuthServiceClient::new(f.local_admin.clone());
     error(
         c.create_token(req(pb::CreateTokenRequest::default())).await,
         Code::InvalidArgument,
@@ -474,7 +486,7 @@ async fn auth_go_cases_and_admin_guards() {
 #[tokio::test]
 async fn providers_go_cases_encryption_and_builtin_agents() {
     let f = Fixture::new().await;
-    let c = pb::ModelProviderServiceClient::new(f.unix.clone());
+    let c = pb::ModelProviderServiceClient::new(f.local_admin.clone());
     assert!(c
         .list_model_providers(req(pb::ListModelProvidersRequest::default()))
         .await
@@ -687,7 +699,7 @@ async fn providers_go_cases_encryption_and_builtin_agents() {
 #[tokio::test]
 async fn models_go_cases_crud_filters_and_pricing() {
     let f = Fixture::new().await;
-    let c = pb::ModelServiceClient::new(f.unix.clone());
+    let c = pb::ModelServiceClient::new(f.local_admin.clone());
     assert!(c
         .list_models(req(pb::ListModelsRequest::default()))
         .await
@@ -899,7 +911,7 @@ async fn models_go_cases_crud_filters_and_pricing() {
 #[tokio::test]
 async fn agents_go_cases_and_analytics() {
     let f = Fixture::new().await;
-    let c = pb::AgentServiceClient::new(f.unix.clone());
+    let c = pb::AgentServiceClient::new(f.local_admin.clone());
     assert!(c
         .list_agents(req(pb::ListAgentsRequest::default()))
         .await
@@ -1060,7 +1072,7 @@ async fn agents_go_cases_and_analytics() {
 #[tokio::test]
 async fn tasks_go_cases_count_filter_order_limit_and_events() {
     let f = Fixture::new().await;
-    let c = pb::TaskServiceClient::new(f.unix.clone());
+    let c = pb::TaskServiceClient::new(f.local_admin.clone());
     assert!(c
         .list_tasks(req(pb::ListTasksRequest::default()))
         .await
@@ -1261,8 +1273,8 @@ async fn tasks_go_cases_count_filter_order_limit_and_events() {
 #[tokio::test]
 async fn messages_go_cases_resume_suspend_and_internal_signals() {
     let f = Fixture::new().await;
-    let c = pb::MessageServiceClient::new(f.unix.clone());
-    let tasks = pb::TaskServiceClient::new(f.unix.clone());
+    let c = pb::MessageServiceClient::new(f.local_admin.clone());
+    let tasks = pb::TaskServiceClient::new(f.local_admin.clone());
     assert!(c
         .list_messages(req(pb::ListMessagesRequest::default()))
         .await
@@ -1460,7 +1472,7 @@ async fn messages_go_cases_resume_suspend_and_internal_signals() {
 #[tokio::test]
 async fn unix_tcp_auth_exchange_and_replay_live_final_response() {
     let f = Fixture::new().await;
-    let unix = pb::AuthServiceClient::new(f.unix.clone());
+    let unix = pb::AuthServiceClient::new(f.local_admin.clone());
     let tcp = pb::AuthServiceClient::new(f.tcp.clone());
     let agents = pb::AgentServiceClient::new(f.tcp.clone());
     assert_eq!(
@@ -1603,7 +1615,7 @@ async fn event_replay_after_invalid_replay_conversion_and_cancellation() {
     let (_, _, a, t) = f.seed().await;
     let first = f.message(t.id, Some(a.id), "user", -10).await;
     let second = f.message(t.id, Some(a.id), "assistant", -5).await;
-    let c = pb::EventServiceClient::new(f.unix.clone());
+    let c = pb::EventServiceClient::new(f.local_admin.clone());
     let mut stream = c
         .subscribe(req(pb::EventSubscribeRequest {
             task_id: Some(t.id.to_string()),
@@ -1660,7 +1672,7 @@ async fn event_replay_after_invalid_replay_conversion_and_cancellation() {
 #[tokio::test]
 async fn skills_router_delegates_to_manager() {
     let f = Fixture::new().await;
-    let c = pb::SkillServiceClient::new(f.unix.clone());
+    let c = pb::SkillServiceClient::new(f.local_admin.clone());
     assert!(c
         .list_skills(req(pb::ListSkillsRequest {}))
         .await

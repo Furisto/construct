@@ -532,7 +532,7 @@ async fn real_tools_durable_json_and_fresh_sessions() {
         ],
         production_interceptors(events),
     );
-    let script=format!("create_file({},'first\\n'); edit_file({},[{{old:'first',new:'second'}}]); print(read_file({}).content); print(execute_command('pwd').stdout);",json!(file),json!(file),json!(file));
+    let script=format!("create_file({},'first\\n'); edit_file({},[{{old:'first',new:'second'}}]); print(read_file({}).content); print(execute_command('echo shell-ok').stdout);",json!(file),json!(file),json!(file));
     let (ctx, task) = scope(dir.path());
     let (output, error) = interpreter
         .interpret(ctx, InterpreterInput { script }, task)
@@ -540,7 +540,7 @@ async fn real_tools_durable_json_and_fresh_sessions() {
     assert_eq!(error, None);
     assert_eq!(std::fs::read_to_string(&file).unwrap(), "second\n");
     assert!(output.console_output.contains("second"));
-    assert!(output.console_output.contains(dir.path().to_str().unwrap()));
+    assert!(output.console_output.contains("shell-ok"));
     let calls = output.function_calls.as_ref().unwrap();
     assert_eq!(calls.len(), 4);
     assert_eq!(

@@ -11,12 +11,14 @@ use hyper::{
     rt::{Read, ReadBufCursor, Write},
 };
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
+#[cfg(unix)]
+use hyper_util::rt::TokioIo;
 use hyper_util::{
     client::legacy::{
         connect::{Connected, Connection, HttpConnector},
         Client,
     },
-    rt::{TokioExecutor, TokioIo},
+    rt::TokioExecutor,
 };
 use prost::Message;
 use serde::{de::DeserializeOwned, Serialize};
@@ -30,10 +32,9 @@ use std::{
     task::{Context, Poll},
     time::Duration,
 };
-use tokio::{
-    net::UnixStream,
-    time::{timeout_at, Instant},
-};
+#[cfg(unix)]
+use tokio::net::UnixStream;
+use tokio::time::{timeout_at, Instant};
 use tower_service::Service;
 
 type BoxError = Box<dyn Error + Send + Sync>;
@@ -83,18 +84,26 @@ pub struct Channel {
 
 impl Channel {
     pub fn new(config: ClientConfig) -> Result<Self, ConnectError> {
-        let (base, unix) = match &config.endpoint {
-            Endpoint::Http(base) => (base.trim_end_matches('/').to_owned(), None),
+        #[cfg(unix)]
+        let mut unix = None;
+        let base = match &config.endpoint {
+            Endpoint::Http(base) => base.trim_end_matches('/').to_owned(),
+            #[cfg(not(unix))]
+            Endpoint::Unix { .. } => {
+                return Err(ConnectError::new(
+                    Code::Unimplemented,
+                    "Unix sockets are unavailable on this platform; use an HTTP endpoint",
+                ));
+            }
+            #[cfg(unix)]
             Endpoint::Unix { path, prefix } => {
+                unix = Some(path.clone());
                 let prefix = prefix.trim_matches('/');
-                (
-                    if prefix.is_empty() {
-                        "http://unix".into()
-                    } else {
-                        format!("http://unix/{prefix}")
-                    },
-                    Some(path.clone()),
-                )
+                if prefix.is_empty() {
+                    "http://unix".into()
+                } else {
+                    format!("http://unix/{prefix}")
+                }
             }
         };
         let uri: Uri = base.parse().map_err(|e| {
@@ -116,7 +125,11 @@ impl Channel {
             .enable_http2()
             .build();
         Ok(Self {
-            client: Client::builder(TokioExecutor::new()).build(Connector { https, unix }),
+            client: Client::builder(TokioExecutor::new()).build(Connector {
+                https,
+                #[cfg(unix)]
+                unix,
+            }),
             base: base.into(),
             config: Arc::new(config),
         })
@@ -281,11 +294,13 @@ async fn within<F: Future>(
 #[derive(Clone)]
 struct Connector {
     https: HttpsConnector<HttpConnector>,
+    #[cfg(unix)]
     unix: Option<PathBuf>,
 }
 
 enum ConnectedIo {
     Http(Box<<HttpsConnector<HttpConnector> as Service<Uri>>::Response>),
+    #[cfg(unix)]
     Unix(TokioIo<UnixStream>),
 }
 
@@ -299,16 +314,16 @@ impl Service<Uri> for Connector {
     }
 
     fn call(&mut self, uri: Uri) -> Self::Future {
+        #[cfg(unix)]
         if let Some(path) = self.unix.clone() {
-            Box::pin(async move {
+            return Box::pin(async move {
                 Ok(ConnectedIo::Unix(TokioIo::new(
                     UnixStream::connect(path).await?,
                 )))
-            })
-        } else {
-            let future = self.https.call(uri);
-            Box::pin(async move { future.await.map(|io| ConnectedIo::Http(Box::new(io))) })
+            });
         }
+        let future = self.https.call(uri);
+        Box::pin(async move { future.await.map(|io| ConnectedIo::Http(Box::new(io))) })
     }
 }
 
@@ -316,6 +331,7 @@ impl Connection for ConnectedIo {
     fn connected(&self) -> Connected {
         match self {
             Self::Http(io) => io.connected(),
+            #[cfg(unix)]
             Self::Unix(_) => Connected::new(),
         }
     }
@@ -329,6 +345,7 @@ impl Read for ConnectedIo {
     ) -> Poll<io::Result<()>> {
         match self.get_mut() {
             Self::Http(io) => Pin::new(io).poll_read(cx, buf),
+            #[cfg(unix)]
             Self::Unix(io) => Pin::new(io).poll_read(cx, buf),
         }
     }
@@ -342,18 +359,21 @@ impl Write for ConnectedIo {
     ) -> Poll<io::Result<usize>> {
         match self.get_mut() {
             Self::Http(io) => Pin::new(io).poll_write(cx, buf),
+            #[cfg(unix)]
             Self::Unix(io) => Pin::new(io).poll_write(cx, buf),
         }
     }
     fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         match self.get_mut() {
             Self::Http(io) => Pin::new(io).poll_flush(cx),
+            #[cfg(unix)]
             Self::Unix(io) => Pin::new(io).poll_flush(cx),
         }
     }
     fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         match self.get_mut() {
             Self::Http(io) => Pin::new(io).poll_shutdown(cx),
+            #[cfg(unix)]
             Self::Unix(io) => Pin::new(io).poll_shutdown(cx),
         }
     }

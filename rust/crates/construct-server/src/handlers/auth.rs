@@ -1,6 +1,7 @@
 use super::*;
 use crate::auth::{
-    Identity, DEFAULT_SETUP_EXPIRY, DEFAULT_TOKEN_EXPIRY, MAX_SETUP_EXPIRY, MAX_TOKEN_EXPIRY,
+    duplicate, expiry_duration as duration, issue_api_token, Identity, DEFAULT_SETUP_EXPIRY,
+    DEFAULT_TOKEN_EXPIRY, MAX_SETUP_EXPIRY, MAX_TOKEN_EXPIRY,
 };
 use construct_types::memory::TokenType;
 
@@ -18,31 +19,6 @@ fn admin<T>(req: &Request<T>) -> Result<(), ConnectError> {
         ))
     }
 }
-fn duration(
-    value: Option<pbjson_types::Duration>,
-    default: chrono::Duration,
-    max: chrono::Duration,
-    field: &str,
-    max_text: &str,
-) -> Result<chrono::Duration, ConnectError> {
-    let Some(value) = value else {
-        return Ok(default);
-    };
-    let nanos = i128::from(value.seconds) * 1_000_000_000 + i128::from(value.nanos);
-    let d = chrono::Duration::nanoseconds(
-        nanos.clamp(i128::from(i64::MIN), i128::from(i64::MAX)) as i64
-    );
-    if d > max {
-        return Err(invalid(format!("{field} exceeds maximum of {max_text}")));
-    }
-    Ok(d)
-}
-fn duplicate(name: &str) -> ConnectError {
-    ConnectError::new(
-        Code::AlreadyExists,
-        format!("token with name {name:?} already exists"),
-    )
-}
 #[async_trait]
 impl pb::AuthService for Services {
     async fn create_token(
@@ -50,43 +26,9 @@ impl pb::AuthService for Services {
         req: Request<pb::CreateTokenRequest>,
     ) -> Result<Response<pb::CreateTokenResponse>, ConnectError> {
         admin(&req)?;
-        let r = req.message;
-        if r.name.is_empty() {
-            return Err(invalid("name is required"));
-        }
-        let expiry = duration(
-            r.expires_in,
-            DEFAULT_TOKEN_EXPIRY,
-            MAX_TOKEN_EXPIRY,
-            "expires_in",
-            "8760h0m0s",
-        )?;
-        let (token, hash) = self.tokens.generate_token().map_err(internal)?;
-        let time = now();
-        let expires = Timestamp(time.0 + expiry);
-        self.store
-            .create_token(db::Token {
-                id: Uuid::new_v4(),
-                name: r.name.clone(),
-                r#type: TokenType::from(TokenType::API_TOKEN),
-                token_hash: hash,
-                description: r.description.unwrap_or_default(),
-                expires_at: expires.clone(),
-                create_time: time.clone(),
-                update_time: time,
-            })
-            .await
-            .map_err(|e| {
-                if matches!(e, StoreError::ConstraintViolation(_)) {
-                    duplicate(&r.name)
-                } else {
-                    internal(e)
-                }
-            })?;
-        Ok(Response::new(pb::CreateTokenResponse {
-            token,
-            expires_at: Some(conv::convert_time_to_timestamp(&expires)),
-        }))
+        Ok(Response::new(
+            issue_api_token(self.store.as_ref(), &self.tokens, req.message).await?,
+        ))
     }
     async fn create_setup_code(
         &self,

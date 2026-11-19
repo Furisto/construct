@@ -122,8 +122,8 @@ async fn git_install_update_delete_roundtrip() {
     assert!(alpha_dir.join("scripts/run.sh").exists());
     assert!(!alpha_dir.join("README.md").exists());
     assert_eq!(
-        installed[0].skill.location,
-        alpha_dir.join("SKILL.md").to_string_lossy()
+        Path::new(&installed[0].skill.location),
+        alpha_dir.join("SKILL.md")
     );
 
     let lock = lock_json(&config);

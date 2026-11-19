@@ -670,6 +670,7 @@ dependencies = [
  "construct-secret",
  "construct-server",
  "construct-skill",
+ "construct-store",
  "construct-tools",
  "construct-types",
  "crossterm",
@@ -710,6 +711,7 @@ dependencies = [
  "construct-core",
  "construct-tools",
  "construct-types",
+ "regex",
  "rquickjs",
  "serde_json",
  "tempfile",
@@ -894,6 +896,7 @@ dependencies = [
 name = "construct-tools"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "construct-core",
  "construct-types",
  "futures-util",

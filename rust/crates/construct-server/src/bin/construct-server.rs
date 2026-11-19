@@ -98,10 +98,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "{}",
         serde_json::json!({"activation": provider.activation_type().as_str(), "address": address, "context": context})
     );
+    #[cfg(unix)]
     let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
     server
         .serve(async {
+            #[cfg(unix)]
             tokio::select! { _ = tokio::signal::ctrl_c() => {}, _ = terminate.recv() => {} }
+            #[cfg(not(unix))]
+            let _ = tokio::signal::ctrl_c().await;
         })
         .await?;
     Ok(())
