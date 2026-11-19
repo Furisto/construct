@@ -5,24 +5,28 @@ use serde_yaml::Value;
 pub fn to_string<T: ?Sized + Serialize>(value: &T) -> Result<String> {
     fn scalar(value: &Value, indent: usize, step: usize) -> Result<String> {
         if let Value::String(text) = value {
-            if matches!(
-                text.as_str(),
-                "y" | "Y"
-                    | "yes"
-                    | "Yes"
-                    | "YES"
-                    | "on"
-                    | "On"
-                    | "ON"
-                    | "n"
-                    | "N"
-                    | "no"
-                    | "No"
-                    | "NO"
-                    | "off"
-                    | "Off"
-                    | "OFF"
-            ) {
+            let timestamp =
+                chrono::NaiveDateTime::parse_from_str(text, "%Y-%m-%d %H:%M:%S").is_ok();
+            if timestamp
+                || matches!(
+                    text.as_str(),
+                    "y" | "Y"
+                        | "yes"
+                        | "Yes"
+                        | "YES"
+                        | "on"
+                        | "On"
+                        | "ON"
+                        | "n"
+                        | "N"
+                        | "no"
+                        | "No"
+                        | "NO"
+                        | "off"
+                        | "Off"
+                        | "OFF"
+                )
+            {
                 return Ok(serde_json::to_string(text)?);
             }
         }
@@ -110,6 +114,10 @@ mod tests {
             "contexts:\n    local:\n        address: /tmp/test\n        kind: unix\n"
         );
         assert_eq!(to_string(&"yes").unwrap(), "\"yes\"\n");
+        assert_eq!(
+            to_string(&"2026-11-19 15:14:28").unwrap(),
+            "\"2026-11-19 15:14:28\"\n"
+        );
     }
     #[test]
     fn multiline_scalars_preserve_contents_and_nesting() {

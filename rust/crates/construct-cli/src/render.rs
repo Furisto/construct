@@ -1,7 +1,7 @@
 use crate::Result;
 use clap::{Args, ValueEnum};
 use serde::Serialize;
-use std::io::Write;
+use std::io::{IsTerminal, Write};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, ValueEnum)]
 pub enum OutputFormat {
@@ -110,11 +110,14 @@ impl Renderer {
                                 if i > 0 {
                                     write!(writer, "  ")?;
                                 }
-                                write!(
-                                    writer,
-                                    "\x1b[1m{h}\x1b[0m{}",
-                                    " ".repeat(widths[i] - h.len())
-                                )?;
+                                if std::io::stdout().is_terminal()
+                                    && std::env::var_os("NO_COLOR").is_none()
+                                {
+                                    write!(writer, "\x1b[1m{h}\x1b[0m")?;
+                                } else {
+                                    write!(writer, "{h}")?;
+                                }
+                                write!(writer, "{}", " ".repeat(widths[i] - h.len()))?;
                             }
                             writeln!(writer)?;
                         }
@@ -245,5 +248,22 @@ mod tests {
             .render(&mut out, &[Item { name: "<a>".into() }], &options)
             .unwrap();
         assert!(String::from_utf8(out).unwrap().contains("\\u003ca\\u003e"));
+    }
+    #[test]
+    fn redirected_table_headers_are_plain() {
+        if std::io::stdout().is_terminal() {
+            return;
+        }
+        let mut out = Vec::new();
+        Renderer
+            .render(
+                &mut out,
+                &[Item {
+                    name: "test".into(),
+                }],
+                &RenderOptions::default(),
+            )
+            .unwrap();
+        assert_eq!(out, b"Name\ntest\n");
     }
 }
