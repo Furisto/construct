@@ -83,6 +83,8 @@ macro_rules! service {
 service!(AgentService, create_agent(CreateAgentRequest)->CreateAgentResponse, get_agent(GetAgentRequest)->GetAgentResponse, list_agents(ListAgentsRequest)->ListAgentsResponse, update_agent(UpdateAgentRequest)->UpdateAgentResponse, delete_agent(DeleteAgentRequest)->DeleteAgentResponse);
 service!(ModelService, create_model(CreateModelRequest)->CreateModelResponse, get_model(GetModelRequest)->GetModelResponse, list_models(ListModelsRequest)->ListModelsResponse, delete_model(DeleteModelRequest)->DeleteModelResponse);
 service!(ModelProviderService, create_model_provider(CreateModelProviderRequest)->CreateModelProviderResponse, get_model_provider(GetModelProviderRequest)->GetModelProviderResponse, list_model_providers(ListModelProvidersRequest)->ListModelProvidersResponse, delete_model_provider(DeleteModelProviderRequest)->DeleteModelProviderResponse);
+service!(TaskService, create_task(CreateTaskRequest)->CreateTaskResponse, get_task(GetTaskRequest)->GetTaskResponse, list_tasks(ListTasksRequest)->ListTasksResponse, delete_task(DeleteTaskRequest)->DeleteTaskResponse);
+service!(MessageService, create_message(CreateMessageRequest)->CreateMessageResponse, get_message(GetMessageRequest)->GetMessageResponse, list_messages(ListMessagesRequest)->ListMessagesResponse, delete_message(DeleteMessageRequest)->DeleteMessageResponse);
 
 #[derive(Clone, Default)]
 struct Output(Arc<Mutex<Vec<u8>>>);
@@ -105,7 +107,8 @@ pub struct Harness {
 impl Harness {
     pub async fn new() -> Self {
         use construct_proto::construct::v1::{
-            AgentServiceServer, ModelProviderServiceServer, ModelServiceServer,
+            AgentServiceServer, MessageServiceServer, ModelProviderServiceServer,
+            ModelServiceServer, TaskServiceServer,
         };
         let fake = Fake::default();
         let router = Router::new().nest(
@@ -113,7 +116,9 @@ impl Harness {
             AgentServiceServer::new(fake.clone())
                 .router()
                 .merge(ModelServiceServer::new(fake.clone()).router())
-                .merge(ModelProviderServiceServer::new(fake.clone()).router()),
+                .merge(ModelProviderServiceServer::new(fake.clone()).router())
+                .merge(TaskServiceServer::new(fake.clone()).router())
+                .merge(MessageServiceServer::new(fake.clone()).router()),
         );
         Self::with_router(fake, router).await
     }
@@ -180,6 +185,16 @@ impl Harness {
                     std::iter::once("modelprovider").chain(args.iter().copied()),
                 )?;
                 construct::commands::modelprovider::run(&mut self.app, &matches).await
+            }
+            "task" => {
+                let matches = construct::commands::task::command()
+                    .try_get_matches_from(std::iter::once("task").chain(args.iter().copied()))?;
+                construct::commands::task::run(&mut self.app, &matches).await
+            }
+            "message" => {
+                let matches = construct::commands::message::command()
+                    .try_get_matches_from(std::iter::once("message").chain(args.iter().copied()))?;
+                construct::commands::message::run(&mut self.app, &matches).await
             }
             _ => panic!("unsupported command group: {group}"),
         }
