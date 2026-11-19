@@ -1,4 +1,4 @@
-use crate::{CodeActTool, Interceptor, Session, Task};
+use crate::{CodeActTool, FunctionCallState, Interceptor, Invocation, Session, Task};
 use construct_core::tool::ToolContext;
 use construct_types::tools::{InterpreterInput, InterpreterOutput};
 use rquickjs::{function::Rest, Context, Ctx, Function, Runtime, Value};
@@ -49,9 +49,25 @@ impl Interpreter {
         input: InterpreterInput,
         task: Task,
     ) -> (InterpreterOutput, Option<InterpreterError>) {
+        self.resume(context, input, task, FunctionCallState::default())
+            .await
+    }
+    /// Re-run a script using stored successful results before executing new calls.
+    /// Match tool/input in stored vector order, skipping obsolete Go duplicates.
+    /// Stored numeric indices are ignored; successful logical calls are reindexed.
+    /// Unmatched input fails closed while unconsumed stored records remain.
+    pub async fn resume(
+        &self,
+        context: ToolContext,
+        input: InterpreterInput,
+        task: Task,
+        stored: FunctionCallState,
+    ) -> (InterpreterOutput, Option<InterpreterError>) {
         let this = self.clone();
         let handle = Handle::current();
-        match tokio::task::spawn_blocking(move || this.run(context, input, task, handle)).await {
+        match tokio::task::spawn_blocking(move || this.run(context, input, task, handle, stored))
+            .await
+        {
             Ok(result) => result,
             Err(error) => (
                 InterpreterOutput::default(),
@@ -65,9 +81,12 @@ impl Interpreter {
         input: InterpreterInput,
         task: Task,
         handle: Handle,
+        stored: FunctionCallState,
     ) -> (InterpreterOutput, Option<InterpreterError>) {
         let cancellation = context.cancellation.clone();
-        let session = Rc::new(RefCell::new(Session::new(context, task)));
+        let mut session = Session::new(context, task);
+        session.replay = Some(crate::replay::Replay::new(stored.calls));
+        let session = Rc::new(RefCell::new(session));
         let result = (|| -> Result<(), InterpreterError> {
             let vm = Runtime::new().map_err(|e| InterpreterError(e.to_string()))?;
             let token = cancellation.clone();
@@ -123,7 +142,7 @@ impl Interpreter {
                     session
                         .function_calls
                         .take()
-                        .map_or_else(Vec::new, |s| std::mem::take(&mut s.borrow_mut().calls)),
+                        .map_or_else(Vec::new, |s| s.calls),
                 ),
                 tool_stats: Some(std::mem::take(&mut session.tool_stats)),
             },
@@ -141,29 +160,40 @@ fn binding<'js>(
 ) -> rquickjs::Result<Function<'js>> {
     Function::new(
         ctx.clone(),
-        move |ctx: Ctx<'js>, Rest(args): Rest<Value<'js>>| match invoke(
-            &ctx,
-            &state,
-            tool.as_ref(),
-            &args,
-            &handle,
-            &interceptors,
-        ) {
-            Err(error) if error.is_exception() => {
-                let exception = ctx.catch();
-                if let Some(object) = exception.as_object().filter(|object| {
-                    object
-                        .contains_key(crate::bindings::TOOL_ERROR_MESSAGE)
-                        .unwrap_or(false)
-                }) {
-                    object.prop(
-                        crate::bindings::PROPAGATED_ERROR,
-                        rquickjs::object::Property::from(true),
-                    )?;
+        move |ctx: Ctx<'js>, Rest(args): Rest<Value<'js>>| {
+            state.borrow_mut().result = None;
+            let result = (|| {
+                let (input, input_error) = match tool.input(&ctx, &state, &args) {
+                    Ok(input) => (input, None),
+                    Err(error) => (
+                        None,
+                        Some(crate::middleware::capture_input_error(&ctx, error)?),
+                    ),
+                };
+                let call = Invocation {
+                    input,
+                    arguments: &args,
+                    input_error,
+                };
+                invoke(&ctx, &state, tool.as_ref(), &call, &handle, &interceptors)
+            })();
+            match result {
+                Err(error) if error.is_exception() => {
+                    let exception = ctx.catch();
+                    if let Some(object) = exception.as_object().filter(|object| {
+                        object
+                            .contains_key(crate::bindings::TOOL_ERROR_MESSAGE)
+                            .unwrap_or(false)
+                    }) {
+                        object.prop(
+                            crate::bindings::PROPAGATED_ERROR,
+                            rquickjs::object::Property::from(true),
+                        )?;
+                    }
+                    Err(ctx.throw(exception))
                 }
-                Err(ctx.throw(exception))
+                result => result,
             }
-            result => result,
         },
     )
 }
@@ -172,16 +202,32 @@ fn invoke<'js>(
     ctx: &Ctx<'js>,
     session: &RefCell<Session>,
     tool: &dyn CodeActTool,
-    args: &[Value<'js>],
+    call: &Invocation<'_, 'js>,
     runtime: &Handle,
     interceptors: &[Arc<dyn Interceptor>],
 ) -> rquickjs::Result<Value<'js>> {
     if let Some((outer, inner)) = interceptors.split_last() {
-        outer.intercept(ctx, session, tool, args, &|session| {
-            invoke(ctx, session, tool, args, runtime, inner)
+        outer.intercept(ctx, session, tool, call, &|session| {
+            invoke(ctx, session, tool, call, runtime, inner)
         })
     } else {
-        tool.call(ctx, session, args, runtime)
+        if let Some(error) = &call.input_error {
+            return Err(ctx.throw(error.clone()));
+        }
+        if tool.name() != "print" {
+            if let Some(input) = &call.input {
+                let cached = session
+                    .borrow_mut()
+                    .replay
+                    .as_mut()
+                    .map_or(Ok(None), |replay| replay.take(tool.name(), input))
+                    .map_err(|error| crate::bindings::throw(ctx, error))?;
+                if let Some(output) = cached {
+                    return tool.restore(ctx, session, output);
+                }
+            }
+        }
+        tool.call(ctx, session, call, runtime)
     }
 }
 

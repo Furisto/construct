@@ -128,6 +128,7 @@ func main() {
 		{"result_fields_and_copy", `const result=read_file("{{ROOT}}/sample.txt",1,1); print(result.content); print(JSON.stringify(result)); print({...result}); const list=list_files("{{ROOT}}",false); print(list.entries[0]);`},
 		{"empty_search_results", `print(find_file({path:"{{ROOT}}",pattern:"**/*.absent"})); print(grep({path:"{{ROOT}}/sample.txt",query:"absent"}));`},
 		{"nested_coercion_fresh", `let n=0; print(read_file({toString(){ n++; return list_files("{{ROOT}}",false).path + "/sample.txt"; }},1,1)); print("coercions",n);`},
+		{"nested_side_effect", `print(read_file({toString(){execute_command("printf x >> '{{ROOT}}/effects.txt'");return "{{ROOT}}/sample.txt";}},1,1));print(read_file("{{ROOT}}/effects.txt"));`},
 		{"nested_coercion_existing", `read_file("{{ROOT}}/sample.txt",2,2); let n=0; print(read_file({toString(){ n++; return list_files("{{ROOT}}",false).path + "/sample.txt"; }},1,1)); print("coercions",n);`},
 		{"nested_getter", `let n=0; print(list_files({get path(){n++; return read_file("{{ROOT}}/sample.txt",1,1).path.replace("/sample.txt","");},recursive:false})); print("getters",n);`},
 		{"nested_print_getter", `print("outer", {get value(){print("inner",read_file("{{ROOT}}/sample.txt",1,1).content);return "getter";}});`},

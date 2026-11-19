@@ -4,6 +4,7 @@
 mod bindings;
 mod interpreter;
 mod middleware;
+mod replay;
 mod result;
 
 pub use bindings::*;
@@ -12,7 +13,7 @@ pub use middleware::*;
 
 use construct_core::tool::ToolContext;
 use construct_types::tools::{FunctionCall, ToolOutput};
-use std::{cell::RefCell, collections::BTreeMap, path::PathBuf, rc::Rc};
+use std::{collections::BTreeMap, path::PathBuf};
 use uuid::Uuid;
 
 /// Task identity and working directory supplied to an interpretation.
@@ -29,7 +30,7 @@ pub struct Task {
 pub struct FunctionCallState {
     /// Recorded calls, appended on successful completion.
     pub calls: Vec<FunctionCall>,
-    /// Index captured on entry to the next durable invocation.
+    /// Next successful call's index; legacy values are rebuilt during replay.
     pub index: i64,
 }
 
@@ -45,10 +46,11 @@ pub struct Session {
     pub console: String,
     /// Temporary tool result, cleared by ResetTemporarySessionValues.
     pub result: Option<ToolOutput>,
-    /// Shared durable state, installed lazily on success like Go's session value.
-    pub function_calls: Option<Rc<RefCell<FunctionCallState>>>,
+    /// Successful durable calls in logical completion order.
+    pub function_calls: Option<FunctionCallState>,
     /// Attempt counters (including calls that throw).
     pub tool_stats: BTreeMap<String, i64>,
+    pub(crate) replay: Option<crate::replay::Replay>,
 }
 
 impl Session {
@@ -62,6 +64,7 @@ impl Session {
             result: None,
             function_calls: None,
             tool_stats: BTreeMap::new(),
+            replay: None,
         }
     }
 }

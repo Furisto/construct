@@ -562,6 +562,89 @@
     ]
   },
   {
+    "name": "nested_side_effect",
+    "script": "print(read_file({toString(){execute_command(\"printf x \u003e\u003e '{{ROOT}}/effects.txt'\");return \"{{ROOT}}/sample.txt\";}},1,1));print(read_file(\"{{ROOT}}/effects.txt\"));",
+    "files": {
+      "nested/only.rs": "fn main() {}\n",
+      "sample.txt": "apple\nbanana\ncarrot\n"
+    },
+    "console_output": "\u0026{{{ROOT}}/sample.txt apple\n// 2 lines remaining}\n\u0026{{{ROOT}}/effects.txt xxx}\n",
+    "error": null,
+    "output_json": "{\"console_output\":\"\\u0026{{{ROOT}}/sample.txt apple\\n// 2 lines remaining}\\n\\u0026{{{ROOT}}/effects.txt xxx}\\n\",\"function_calls\":[{\"tool_name\":\"execute_command\",\"input\":{\"execute_command\":{\"Command\":\"printf x \\u003e\\u003e '{{ROOT}}/effects.txt'\",\"WorkingDirectory\":\"{{ROOT}}\"}},\"output\":{\"execute_command\":{\"stdout\":\"\",\"stderr\":\"\",\"exitCode\":0,\"command\":\"printf x \\u003e\\u003e '{{ROOT}}/effects.txt'\"}},\"index\":0},{\"tool_name\":\"execute_command\",\"input\":{\"execute_command\":{\"Command\":\"printf x \\u003e\\u003e '{{ROOT}}/effects.txt'\",\"WorkingDirectory\":\"{{ROOT}}\"}},\"output\":{\"execute_command\":{\"stdout\":\"\",\"stderr\":\"\",\"exitCode\":0,\"command\":\"printf x \\u003e\\u003e '{{ROOT}}/effects.txt'\"}},\"index\":1},{\"tool_name\":\"execute_command\",\"input\":{\"execute_command\":{\"Command\":\"printf x \\u003e\\u003e '{{ROOT}}/effects.txt'\",\"WorkingDirectory\":\"{{ROOT}}\"}},\"output\":{\"execute_command\":{\"stdout\":\"\",\"stderr\":\"\",\"exitCode\":0,\"command\":\"printf x \\u003e\\u003e '{{ROOT}}/effects.txt'\"}},\"index\":2},{\"tool_name\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"start_line\":1,\"end_line\":1}},\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"content\":\"apple\\n// 2 lines remaining\"}},\"index\":1},{\"tool_name\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/effects.txt\"}},\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/effects.txt\",\"content\":\"xxx\"}},\"index\":4}],\"tool_stats\":{\"execute_command\":3,\"read_file\":2}}",
+    "events": [
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "execute_command",
+        "payload_json": "{\"id\":\"\",\"tool\":\"execute_command\",\"input\":{\"execute_command\":{\"Command\":\"printf x \\u003e\\u003e '{{ROOT}}/effects.txt'\",\"WorkingDirectory\":\"{{ROOT}}\"}}}"
+      },
+      {
+        "type": "tool.result",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "execute_command",
+        "payload_json": "{\"id\":\"\",\"tool\":\"execute_command\",\"output\":{\"execute_command\":{\"stdout\":\"\",\"stderr\":\"\",\"exitCode\":0,\"command\":\"printf x \\u003e\\u003e '{{ROOT}}/effects.txt'\"}}}"
+      },
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"start_line\":1,\"end_line\":1}}}"
+      },
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "execute_command",
+        "payload_json": "{\"id\":\"\",\"tool\":\"execute_command\",\"input\":{\"execute_command\":{\"Command\":\"printf x \\u003e\\u003e '{{ROOT}}/effects.txt'\",\"WorkingDirectory\":\"{{ROOT}}\"}}}"
+      },
+      {
+        "type": "tool.result",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "execute_command",
+        "payload_json": "{\"id\":\"\",\"tool\":\"execute_command\",\"output\":{\"execute_command\":{\"stdout\":\"\",\"stderr\":\"\",\"exitCode\":0,\"command\":\"printf x \\u003e\\u003e '{{ROOT}}/effects.txt'\"}}}"
+      },
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "execute_command",
+        "payload_json": "{\"id\":\"\",\"tool\":\"execute_command\",\"input\":{\"execute_command\":{\"Command\":\"printf x \\u003e\\u003e '{{ROOT}}/effects.txt'\",\"WorkingDirectory\":\"{{ROOT}}\"}}}"
+      },
+      {
+        "type": "tool.result",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "execute_command",
+        "payload_json": "{\"id\":\"\",\"tool\":\"execute_command\",\"output\":{\"execute_command\":{\"stdout\":\"\",\"stderr\":\"\",\"exitCode\":0,\"command\":\"printf x \\u003e\\u003e '{{ROOT}}/effects.txt'\"}}}"
+      },
+      {
+        "type": "tool.result",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"content\":\"apple\\n// 2 lines remaining\"}}}"
+      },
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/effects.txt\"}}}"
+      },
+      {
+        "type": "tool.result",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/effects.txt\",\"content\":\"xxx\"}}}"
+      }
+    ]
+  },
+  {
     "name": "nested_coercion_existing",
     "script": "read_file(\"{{ROOT}}/sample.txt\",2,2); let n=0; print(read_file({toString(){ n++; return list_files(\"{{ROOT}}\",false).path + \"/sample.txt\"; }},1,1)); print(\"coercions\",n);",
     "files": {

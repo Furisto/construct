@@ -1,19 +1,19 @@
-use construct_codeact::{production_interceptors, Interpreter, Task};
+use construct_codeact::{production_interceptors, FunctionCallState, Interpreter, Task};
 use construct_core::{
     event::{Event, EventPublisher},
-    tool::ToolContext,
+    tool::{Tool, ToolContext, ToolError},
     CancellationToken,
 };
 use construct_types::{
     to_go_json,
-    tools::{InterpreterInput, ToolCallEvent, ToolResultEvent},
+    tools::{InterpreterInput, InterpreterOutput, ToolCallEvent, ToolOutput, ToolResultEvent},
 };
 use serde_json::{json, Value};
 use std::{
     fs,
     io::{Read, Write},
     net::{TcpListener, TcpStream},
-    sync::atomic::{AtomicBool, Ordering},
+    sync::atomic::{AtomicBool, AtomicUsize, Ordering},
     sync::{Arc, Mutex},
     thread,
     time::Duration,
@@ -225,9 +225,21 @@ fn go_goldens_without_ripgrep() {
 #[tokio::test]
 async fn real_go_interpreter_goldens() {
     let cases: Vec<Value> = serde_json::from_str(include_str!("fixtures/go.json")).unwrap();
+    let divergences: Value = serde_json::from_str(include_str!("fixtures/once.json")).unwrap();
+    for (name, expected) in divergences.as_object().unwrap() {
+        let case = cases.iter().find(|case| case["name"] == *name).unwrap();
+        assert!(expected["known_divergence"]
+            .as_str()
+            .is_some_and(|reason| !reason.is_empty()));
+        assert_ne!(
+            expected["output_json"], case["output_json"],
+            "{name} must remain a Go divergence"
+        );
+    }
     let mut failures = Vec::new();
     for case in cases {
         let name = case["name"].as_str().unwrap();
+        let expected = divergences.get(name).unwrap_or(&case);
         let dir = tempfile::tempdir().unwrap();
         for (path, content) in case["files"].as_object().unwrap() {
             let path = dir.path().join(path);
@@ -270,6 +282,12 @@ async fn real_go_interpreter_goldens() {
                 .replace("{{PORT}}", &server.port.to_string()),
         };
         let (output, error) = interpreter.interpret(ctx, input, task).await;
+        if name == "nested_side_effect" {
+            assert_eq!(
+                fs::read_to_string(dir.path().join("effects.txt")).unwrap(),
+                "x"
+            );
+        }
         let actual_output = server.normalize(
             &String::from_utf8(to_go_json(&output).unwrap())
                 .unwrap()
@@ -291,19 +309,21 @@ async fn real_go_interpreter_goldens() {
                 json!(normalize_details(
                     &server.normalize(&output.console_output.replace(root, "{{ROOT}}"))
                 )),
-                json!(normalize_details(case["console_output"].as_str().unwrap())),
+                json!(normalize_details(
+                    expected["console_output"].as_str().unwrap()
+                )),
             ),
             (
                 "error",
                 json!(normalize_error(actual_error.as_deref())),
-                json!(normalize_error(case["error"].as_str())),
+                json!(normalize_error(expected["error"].as_str())),
             ),
             (
                 "output_json",
                 json!(normalize_output(&actual_output)),
-                json!(normalize_output(case["output_json"].as_str().unwrap())),
+                json!(normalize_output(expected["output_json"].as_str().unwrap())),
             ),
-            ("events", actual_events, case["events"].clone()),
+            ("events", actual_events, expected["events"].clone()),
         ];
         for (field, actual, expected) in comparisons {
             if actual != expected {
@@ -314,4 +334,221 @@ async fn real_go_interpreter_goldens() {
         }
     }
     assert!(failures.is_empty(), "{}", failures.join("\n\n"));
+}
+
+struct RejectExecution {
+    name: &'static str,
+    attempts: Arc<AtomicUsize>,
+}
+
+#[construct_core::async_trait]
+impl Tool for RejectExecution {
+    fn name(&self) -> &str {
+        self.name
+    }
+    fn description(&self) -> &str {
+        "execution must be replayed"
+    }
+    fn input_schema(&self) -> Value {
+        json!({})
+    }
+    async fn execute(&self, _ctx: &ToolContext, _input: Value) -> Result<ToolOutput, ToolError> {
+        self.attempts.fetch_add(1, Ordering::SeqCst);
+        Err(ToolError::custom("unexpected host execution", vec![]))
+    }
+}
+
+fn scope(root: &std::path::Path) -> (ToolContext, Task) {
+    let task = Task {
+        id: Uuid::from_u128(1),
+        project_directory: root.into(),
+    };
+    let ctx = ToolContext {
+        workspace_root: root.into(),
+        task_id: Some(task.id),
+        agent_id: None,
+        cancellation: CancellationToken::new(),
+        events: None,
+    };
+    (ctx, task)
+}
+
+#[tokio::test]
+async fn resume_real_go_duplicate_records_without_executing_hosts() {
+    let cases: Vec<Value> = serde_json::from_str(include_str!("fixtures/go.json")).unwrap();
+    let expected: Value = serde_json::from_str(include_str!("fixtures/once.json")).unwrap();
+    for (source, script, expectation) in [
+        (
+            "nested_coercion_fresh",
+            "nested_coercion_fresh",
+            "nested_coercion_fresh",
+        ),
+        (
+            "nested_coercion_existing",
+            "nested_coercion_existing",
+            "nested_coercion_existing",
+        ),
+        (
+            "nested_late_existing",
+            "nested_late_existing",
+            "nested_late_existing",
+        ),
+        (
+            "nested_late_existing",
+            "nested_coercion_existing",
+            "nested_coercion_existing",
+        ),
+        (
+            "nested_late_fresh",
+            "nested_late_fresh",
+            "nested_late_fresh",
+        ),
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().to_str().unwrap();
+        let source = cases.iter().find(|case| case["name"] == source).unwrap();
+        let stored: InterpreterOutput = serde_json::from_str(
+            &source["output_json"]
+                .as_str()
+                .unwrap()
+                .replace("{{ROOT}}", root),
+        )
+        .unwrap();
+        let calls = stored.function_calls.unwrap();
+        if source["name"] == "nested_coercion_fresh" {
+            assert_eq!(
+                calls.iter().map(|call| call.index).collect::<Vec<_>>(),
+                [0, 1, 2, 1]
+            );
+        } else if source["name"] == "nested_late_existing" {
+            assert_eq!(
+                calls.iter().map(|call| call.index).collect::<Vec<_>>(),
+                [0, 1, 1]
+            );
+        }
+        let state = FunctionCallState {
+            index: calls.len() as i64,
+            calls,
+        };
+        let script = cases.iter().find(|case| case["name"] == script).unwrap()["script"]
+            .as_str()
+            .unwrap()
+            .replace("{{ROOT}}", root);
+        let attempts = Arc::new(AtomicUsize::new(0));
+        let events = Arc::new(RecordingPublisher::default());
+        let mut tools = ["read_file", "list_files"]
+            .into_iter()
+            .map(|name| {
+                construct_codeact::host_tool(Arc::new(RejectExecution {
+                    name,
+                    attempts: attempts.clone(),
+                }))
+            })
+            .collect::<Vec<_>>();
+        tools.push(construct_codeact::print());
+        let interpreter = Interpreter::new(tools, production_interceptors(events.clone()));
+        let (ctx, task) = scope(dir.path());
+        let (output, error) = interpreter
+            .resume(ctx, InterpreterInput { script }, task, state)
+            .await;
+        assert_eq!(error, None, "{}", source["name"]);
+        assert_eq!(attempts.load(Ordering::SeqCst), 0);
+        let actual = String::from_utf8(to_go_json(&output).unwrap())
+            .unwrap()
+            .replace(root, "{{ROOT}}");
+        assert_eq!(
+            actual,
+            expected[expectation]["output_json"].as_str().unwrap()
+        );
+        let actual: Value = serde_json::from_str(
+            &serde_json::to_string(&*events.0.lock().unwrap())
+                .unwrap()
+                .replace(root, "{{ROOT}}"),
+        )
+        .unwrap();
+        assert_eq!(actual, expected[expectation]["events"]);
+    }
+}
+
+#[tokio::test]
+async fn resume_empty_exhausted_mismatched_and_invalid_records() {
+    let dir = tempfile::tempdir().unwrap();
+    let marker = dir.path().join("effects.txt");
+    let first = format!("execute_command(\"printf a >> '{}'\");", marker.display());
+    let second = format!("execute_command(\"printf b >> '{}'\");", marker.display());
+    let events = Arc::new(RecordingPublisher::default());
+    let interpreter = Interpreter::new(
+        vec![construct_codeact::execute_command()],
+        production_interceptors(events.clone()),
+    );
+    let (ctx, task) = scope(dir.path());
+    let (output, error) = interpreter
+        .resume(
+            ctx,
+            InterpreterInput {
+                script: first.clone(),
+            },
+            task,
+            FunctionCallState::default(),
+        )
+        .await;
+    assert_eq!(error, None);
+    assert_eq!(fs::read_to_string(&marker).unwrap(), "a");
+    let saved = output.function_calls.unwrap();
+    events.0.lock().unwrap().clear();
+    let (ctx, task) = scope(dir.path());
+    let (output, error) = interpreter
+        .resume(
+            ctx,
+            InterpreterInput {
+                script: format!("{first}{second}"),
+            },
+            task,
+            FunctionCallState {
+                calls: saved.clone(),
+                index: i64::MAX,
+            },
+        )
+        .await;
+    assert_eq!(error, None);
+    assert_eq!(fs::read_to_string(&marker).unwrap(), "ab");
+    let calls = output.function_calls.unwrap();
+    assert_eq!(
+        calls.iter().map(|call| call.index).collect::<Vec<_>>(),
+        [0, 1]
+    );
+    assert_eq!(output.tool_stats.unwrap()["execute_command"], 2);
+    assert_eq!(events.0.lock().unwrap().len(), 4);
+
+    for invalid_output in [false, true] {
+        events.0.lock().unwrap().clear();
+        let mut calls = saved.clone();
+        let script = if invalid_output {
+            calls[0].output = ToolOutput::default();
+            first.clone()
+        } else {
+            second.clone()
+        };
+        let (ctx, task) = scope(dir.path());
+        let (output, error) = interpreter
+            .resume(
+                ctx,
+                InterpreterInput { script },
+                task,
+                FunctionCallState { calls, index: -1 },
+            )
+            .await;
+        let message = if invalid_output {
+            "stored tool output is missing its result arm"
+        } else {
+            "durable replay input does not match stored calls"
+        };
+        assert!(error.unwrap().0.starts_with(message));
+        assert_eq!(fs::read_to_string(&marker).unwrap(), "ab");
+        assert!(output.function_calls.unwrap().is_empty());
+        assert_eq!(output.tool_stats.unwrap()["execute_command"], 1);
+        let events = events.0.lock().unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0]["type"], "tool.called");
+    }
 }

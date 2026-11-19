@@ -41,7 +41,8 @@
     case 'edit_file': {
         if (args.length < 2) return {invalid: name};
         const diffs = object(args[1]), result = [];
-        for (let i = 0; i < integer(diffs.length); i++) {
+        const length = integer(diffs.length);
+        for (let i = 0; i < length; i++) {
             if (!(i in diffs)) continue;
             const d = object(diffs[i]);
             result.push({old: 'old' in d ? String(d.old) : '', new: 'new' in d ? String(d.new) : ''});
@@ -60,21 +61,31 @@
     }
     case 'fetch': {
         const o = object(a), input = {url: '', timeout: 0};
-        if (o.url !== undefined) input.url = String(o.url);
-        if (o.timeout !== undefined) input.timeout = integer(o.timeout);
-        if (o.headers !== undefined) {
-            const h = object(o.headers); input.headers = {};
-            for (const key of Object.keys(h)) if (h[key] !== undefined) input.headers[key] = String(h[key]);
+        const url = o.url;
+        if (url !== undefined) input.url = String(url);
+        const timeout = o.timeout;
+        if (timeout !== undefined) input.timeout = integer(timeout);
+        const headers = o.headers;
+        if (headers !== undefined) {
+            const h = object(headers); input.headers = {};
+            for (const key of Object.keys(h)) {
+                const value = h[key];
+                if (value !== undefined) input.headers[key] = String(value);
+            }
         }
         return input;
     }
     case 'submit_report': {
         const o = object(a), input = {Summary: '', Completed: false, Deliverables: null, NextSteps: ''};
-        if (o.summary !== undefined) input.Summary = String(o.summary);
-        if (o.next_steps !== undefined) input.NextSteps = String(o.next_steps);
-        if (o.completed !== undefined) input.Completed = Boolean(o.completed);
-        if (o.deliverables !== undefined) {
-            const d = object(o.deliverables);
+        const summary = o.summary;
+        if (summary !== undefined) input.Summary = String(summary);
+        const next = o.next_steps;
+        if (next !== undefined) input.NextSteps = String(next);
+        const completed = o.completed;
+        if (completed !== undefined) input.Completed = Boolean(completed);
+        const deliverables = o.deliverables;
+        if (deliverables !== undefined) {
+            const d = object(deliverables);
             if (Array.isArray(d)) for (const v of d) if (v !== undefined) (input.Deliverables ??= []).push(String(v));
         }
         return input;

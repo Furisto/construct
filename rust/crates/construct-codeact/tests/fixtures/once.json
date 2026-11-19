@@ -1,0 +1,283 @@
+{
+  "nested_coercion_fresh": {
+    "known_divergence": "Convert JS arguments once, including nested effects; assign indices in logical completion order.",
+    "console_output": "&{{{ROOT}}/sample.txt apple\n// 2 lines remaining}\ncoercions 1\n",
+    "error": null,
+    "output_json": "{\"console_output\":\"\\u0026{{{ROOT}}/sample.txt apple\\n// 2 lines remaining}\\ncoercions 1\\n\",\"function_calls\":[{\"tool_name\":\"list_files\",\"input\":{\"list_files\":{\"Path\":\"{{ROOT}}\",\"Recursive\":false}},\"output\":{\"list_files\":{\"path\":\"{{ROOT}}\",\"entries\":[{\"n\":\"{{ROOT}}/nested\",\"t\":\"d\",\"s\":0},{\"n\":\"{{ROOT}}/sample.txt\",\"t\":\"f\",\"s\":1}]}},\"index\":0},{\"tool_name\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"start_line\":1,\"end_line\":1}},\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"content\":\"apple\\n// 2 lines remaining\"}},\"index\":1}],\"tool_stats\":{\"list_files\":1,\"read_file\":1}}",
+    "events": [
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "list_files",
+        "payload_json": "{\"id\":\"\",\"tool\":\"list_files\",\"input\":{\"list_files\":{\"Path\":\"{{ROOT}}\",\"Recursive\":false}}}"
+      },
+      {
+        "type": "tool.result",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "list_files",
+        "payload_json": "{\"id\":\"\",\"tool\":\"list_files\",\"output\":{\"list_files\":{\"path\":\"{{ROOT}}\",\"entries\":[{\"n\":\"{{ROOT}}/nested\",\"t\":\"d\",\"s\":0},{\"n\":\"{{ROOT}}/sample.txt\",\"t\":\"f\",\"s\":1}]}}}"
+      },
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"start_line\":1,\"end_line\":1}}}"
+      },
+      {
+        "type": "tool.result",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"content\":\"apple\\n// 2 lines remaining\"}}}"
+      }
+    ]
+  },
+  "nested_coercion_existing": {
+    "known_divergence": "Convert JS arguments once, including nested effects; assign indices in logical completion order.",
+    "console_output": "&{{{ROOT}}/sample.txt apple\n// 2 lines remaining}\ncoercions 1\n",
+    "error": null,
+    "output_json": "{\"console_output\":\"\\u0026{{{ROOT}}/sample.txt apple\\n// 2 lines remaining}\\ncoercions 1\\n\",\"function_calls\":[{\"tool_name\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"start_line\":2,\"end_line\":2}},\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"content\":\"// skipped 1 lines\\nbanana\\n// 1 lines remaining\"}},\"index\":0},{\"tool_name\":\"list_files\",\"input\":{\"list_files\":{\"Path\":\"{{ROOT}}\",\"Recursive\":false}},\"output\":{\"list_files\":{\"path\":\"{{ROOT}}\",\"entries\":[{\"n\":\"{{ROOT}}/nested\",\"t\":\"d\",\"s\":0},{\"n\":\"{{ROOT}}/sample.txt\",\"t\":\"f\",\"s\":1}]}},\"index\":1},{\"tool_name\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"start_line\":1,\"end_line\":1}},\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"content\":\"apple\\n// 2 lines remaining\"}},\"index\":2}],\"tool_stats\":{\"list_files\":1,\"read_file\":2}}",
+    "events": [
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"start_line\":2,\"end_line\":2}}}"
+      },
+      {
+        "type": "tool.result",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"content\":\"// skipped 1 lines\\nbanana\\n// 1 lines remaining\"}}}"
+      },
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "list_files",
+        "payload_json": "{\"id\":\"\",\"tool\":\"list_files\",\"input\":{\"list_files\":{\"Path\":\"{{ROOT}}\",\"Recursive\":false}}}"
+      },
+      {
+        "type": "tool.result",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "list_files",
+        "payload_json": "{\"id\":\"\",\"tool\":\"list_files\",\"output\":{\"list_files\":{\"path\":\"{{ROOT}}\",\"entries\":[{\"n\":\"{{ROOT}}/nested\",\"t\":\"d\",\"s\":0},{\"n\":\"{{ROOT}}/sample.txt\",\"t\":\"f\",\"s\":1}]}}}"
+      },
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"start_line\":1,\"end_line\":1}}}"
+      },
+      {
+        "type": "tool.result",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"content\":\"apple\\n// 2 lines remaining\"}}}"
+      }
+    ]
+  },
+  "nested_getter": {
+    "known_divergence": "Convert JS arguments once, including nested effects; assign indices in logical completion order.",
+    "console_output": "&{{{ROOT}} [{{{ROOT}}/nested d 0} {{{ROOT}}/sample.txt f 1}]}\ngetters 1\n",
+    "error": null,
+    "output_json": "{\"console_output\":\"\\u0026{{{ROOT}} [{{{ROOT}}/nested d 0} {{{ROOT}}/sample.txt f 1}]}\\ngetters 1\\n\",\"function_calls\":[{\"tool_name\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"start_line\":1,\"end_line\":1}},\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"content\":\"apple\\n// 2 lines remaining\"}},\"index\":0},{\"tool_name\":\"list_files\",\"input\":{\"list_files\":{\"Path\":\"{{ROOT}}\",\"Recursive\":false}},\"output\":{\"list_files\":{\"path\":\"{{ROOT}}\",\"entries\":[{\"n\":\"{{ROOT}}/nested\",\"t\":\"d\",\"s\":0},{\"n\":\"{{ROOT}}/sample.txt\",\"t\":\"f\",\"s\":1}]}},\"index\":1}],\"tool_stats\":{\"list_files\":1,\"read_file\":1}}",
+    "events": [
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"start_line\":1,\"end_line\":1}}}"
+      },
+      {
+        "type": "tool.result",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"content\":\"apple\\n// 2 lines remaining\"}}}"
+      },
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "list_files",
+        "payload_json": "{\"id\":\"\",\"tool\":\"list_files\",\"input\":{\"list_files\":{\"Path\":\"{{ROOT}}\",\"Recursive\":false}}}"
+      },
+      {
+        "type": "tool.result",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "list_files",
+        "payload_json": "{\"id\":\"\",\"tool\":\"list_files\",\"output\":{\"list_files\":{\"path\":\"{{ROOT}}\",\"entries\":[{\"n\":\"{{ROOT}}/nested\",\"t\":\"d\",\"s\":0},{\"n\":\"{{ROOT}}/sample.txt\",\"t\":\"f\",\"s\":1}]}}}"
+      }
+    ]
+  },
+  "nested_coercion_print": {
+    "known_divergence": "Convert JS arguments once, including nested effects; assign indices in logical completion order.",
+    "console_output": "coercing\n&{{{ROOT}}/sample.txt apple\n// 2 lines remaining}\n",
+    "error": null,
+    "output_json": "{\"console_output\":\"coercing\\n\\u0026{{{ROOT}}/sample.txt apple\\n// 2 lines remaining}\\n\",\"function_calls\":[{\"tool_name\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"start_line\":1,\"end_line\":1}},\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"content\":\"apple\\n// 2 lines remaining\"}},\"index\":0}],\"tool_stats\":{\"read_file\":1}}",
+    "events": [
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"start_line\":1,\"end_line\":1}}}"
+      },
+      {
+        "type": "tool.result",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"content\":\"apple\\n// 2 lines remaining\"}}}"
+      }
+    ]
+  },
+  "nested_caught_error": {
+    "known_divergence": "Convert JS arguments once, including nested effects; assign indices in logical completion order.",
+    "console_output": "caught nested error\n&{{{ROOT}}/sample.txt apple\n// 2 lines remaining}\n",
+    "error": null,
+    "output_json": "{\"console_output\":\"caught nested error\\n\\u0026{{{ROOT}}/sample.txt apple\\n// 2 lines remaining}\\n\",\"function_calls\":[{\"tool_name\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"start_line\":1,\"end_line\":1}},\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"content\":\"apple\\n// 2 lines remaining\"}},\"index\":0}],\"tool_stats\":{\"read_file\":2}}",
+    "events": [
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"relative\"}}}"
+      },
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"start_line\":1,\"end_line\":1}}}"
+      },
+      {
+        "type": "tool.result",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"content\":\"apple\\n// 2 lines remaining\"}}}"
+      }
+    ]
+  },
+  "nested_late_fresh": {
+    "known_divergence": "Convert JS arguments once, including nested effects; assign indices in logical completion order.",
+    "console_output": "&{{{ROOT}}/sample.txt apple\n// 2 lines remaining}\n",
+    "error": null,
+    "output_json": "{\"console_output\":\"\\u0026{{{ROOT}}/sample.txt apple\\n// 2 lines remaining}\\n\",\"function_calls\":[{\"tool_name\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"start_line\":1,\"end_line\":1}},\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"content\":\"apple\\n// 2 lines remaining\"}},\"index\":0}],\"tool_stats\":{\"read_file\":1}}",
+    "events": [
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"start_line\":1,\"end_line\":1}}}"
+      },
+      {
+        "type": "tool.result",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"content\":\"apple\\n// 2 lines remaining\"}}}"
+      }
+    ]
+  },
+  "nested_late_existing": {
+    "known_divergence": "Convert JS arguments once, including nested effects; assign indices in logical completion order.",
+    "console_output": "&{{{ROOT}}/sample.txt apple\n// 2 lines remaining}\n",
+    "error": null,
+    "output_json": "{\"console_output\":\"\\u0026{{{ROOT}}/sample.txt apple\\n// 2 lines remaining}\\n\",\"function_calls\":[{\"tool_name\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"start_line\":2,\"end_line\":2}},\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"content\":\"// skipped 1 lines\\nbanana\\n// 1 lines remaining\"}},\"index\":0},{\"tool_name\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"start_line\":1,\"end_line\":1}},\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"content\":\"apple\\n// 2 lines remaining\"}},\"index\":1}],\"tool_stats\":{\"read_file\":2}}",
+    "events": [
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"start_line\":2,\"end_line\":2}}}"
+      },
+      {
+        "type": "tool.result",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"content\":\"// skipped 1 lines\\nbanana\\n// 1 lines remaining\"}}}"
+      },
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"start_line\":1,\"end_line\":1}}}"
+      },
+      {
+        "type": "tool.result",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"content\":\"apple\\n// 2 lines remaining\"}}}"
+      }
+    ]
+  },
+  "nested_side_effect": {
+    "known_divergence": "Convert JS arguments once, including nested effects; assign indices in logical completion order.",
+    "console_output": "&{{{ROOT}}/sample.txt apple\n// 2 lines remaining}\n&{{{ROOT}}/effects.txt x}\n",
+    "error": null,
+    "output_json": "{\"console_output\":\"\\u0026{{{ROOT}}/sample.txt apple\\n// 2 lines remaining}\\n\\u0026{{{ROOT}}/effects.txt x}\\n\",\"function_calls\":[{\"tool_name\":\"execute_command\",\"input\":{\"execute_command\":{\"Command\":\"printf x \\u003e\\u003e '{{ROOT}}/effects.txt'\",\"WorkingDirectory\":\"{{ROOT}}\"}},\"output\":{\"execute_command\":{\"stdout\":\"\",\"stderr\":\"\",\"exitCode\":0,\"command\":\"printf x \\u003e\\u003e '{{ROOT}}/effects.txt'\"}},\"index\":0},{\"tool_name\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"start_line\":1,\"end_line\":1}},\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"content\":\"apple\\n// 2 lines remaining\"}},\"index\":1},{\"tool_name\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/effects.txt\"}},\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/effects.txt\",\"content\":\"x\"}},\"index\":2}],\"tool_stats\":{\"execute_command\":1,\"read_file\":2}}",
+    "events": [
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "execute_command",
+        "payload_json": "{\"id\":\"\",\"tool\":\"execute_command\",\"input\":{\"execute_command\":{\"Command\":\"printf x \\u003e\\u003e '{{ROOT}}/effects.txt'\",\"WorkingDirectory\":\"{{ROOT}}\"}}}"
+      },
+      {
+        "type": "tool.result",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "execute_command",
+        "payload_json": "{\"id\":\"\",\"tool\":\"execute_command\",\"output\":{\"execute_command\":{\"stdout\":\"\",\"stderr\":\"\",\"exitCode\":0,\"command\":\"printf x \\u003e\\u003e '{{ROOT}}/effects.txt'\"}}}"
+      },
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"start_line\":1,\"end_line\":1}}}"
+      },
+      {
+        "type": "tool.result",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/sample.txt\",\"content\":\"apple\\n// 2 lines remaining\"}}}"
+      },
+      {
+        "type": "tool.called",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"input\":{\"read_file\":{\"path\":\"{{ROOT}}/effects.txt\"}}}"
+      },
+      {
+        "type": "tool.result",
+        "task_id": "00000000-0000-0000-0000-000000000001",
+        "action": "created",
+        "tool": "read_file",
+        "payload_json": "{\"id\":\"\",\"tool\":\"read_file\",\"output\":{\"read_file\":{\"path\":\"{{ROOT}}/effects.txt\",\"content\":\"x\"}}}"
+      }
+    ]
+  }
+}

@@ -184,6 +184,22 @@ fn integer_clipping_and_javascript_coercion() {
     );
 }
 
+#[test]
+fn mapping_reads_each_accessor_once() {
+    assert_eq!(
+        mapped(fetch(), "(()=>{let n=0;return [{get url(){return 'http://example/'+(++n)},get timeout(){return ++n},get headers(){return {get x(){return ++n}}}}]})()"),
+        Some(json!({"url":"http://example/1","timeout":2,"headers":{"x":"3"}}))
+    );
+    assert_eq!(
+        mapped(submit_report(), "(()=>{let n=0;return [{get summary(){return ++n},get next_steps(){return ++n},get completed(){return ++n},get deliverables(){return [++n]}}]})()"),
+        Some(json!({"Summary":"1","NextSteps":"2","Completed":true,"Deliverables":["4"]}))
+    );
+    assert_eq!(
+        mapped(edit_file(), "['/a',{get length(){if(this.seen)throw new Error('read twice');this.seen=true;return 1},0:{old:'a',new:'b'}}]"),
+        Some(json!({"path":"/a","diffs":[{"old":"a","new":"b"}]}))
+    );
+}
+
 #[derive(Default)]
 struct Events(Mutex<Vec<Event>>);
 impl EventPublisher for Events {
@@ -270,6 +286,50 @@ async fn handoff_has_no_result_and_reset_removes_previous_result() {
     let events = events.0.lock().unwrap();
     assert_eq!(events.len(), 3);
     assert_eq!(events[2].r#type, "tool.called");
+}
+
+#[tokio::test]
+async fn converted_nested_result_does_not_leak_into_handoff() {
+    let events = Arc::new(Events::default());
+    let (output, error) = run(
+        "print(handoff({toString(){submit_report({summary:'nested',completed:true});return 'other'}}));",
+        vec![submit_report(), host_tool(Arc::new(SuccessfulHandoff)), print()],
+        production_interceptors(events.clone()),
+    ).await;
+    assert_eq!(error, None);
+    assert_eq!(output.console_output, "REPORT SUBMITTED\n<nil>\n");
+    let calls = output.function_calls.unwrap();
+    assert_eq!(
+        calls
+            .iter()
+            .map(|call| (call.tool_name.as_str(), call.index))
+            .collect::<Vec<_>>(),
+        [("submit_report", 0), ("handoff", 1)]
+    );
+    assert_eq!(
+        construct_types::to_go_json(&calls[1].output).unwrap(),
+        b"{}"
+    );
+    assert_eq!(
+        output.tool_stats.unwrap(),
+        std::collections::BTreeMap::from([("handoff".into(), 1), ("submit_report".into(), 1)])
+    );
+    let events = events.0.lock().unwrap();
+    assert_eq!(
+        events
+            .iter()
+            .map(|event| event.r#type.as_str())
+            .collect::<Vec<_>>(),
+        ["tool.called", "tool.result", "tool.called"]
+    );
+    assert_eq!(
+        events[2]
+            .payload
+            .downcast_ref::<ToolCallEvent>()
+            .unwrap()
+            .tool,
+        "handoff"
+    );
 }
 
 struct Fail;
@@ -379,7 +439,7 @@ impl Interceptor for Trace {
         _ctx: &Ctx<'js>,
         session: &RefCell<Session>,
         _tool: &dyn CodeActTool,
-        _args: &[Value<'js>],
+        _call: &Invocation<'_, 'js>,
         next: &Next<'_, 'js>,
     ) -> rquickjs::Result<Value<'js>> {
         session.borrow_mut().console.push_str(self.0);

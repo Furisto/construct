@@ -1,11 +1,11 @@
-use crate::{CodeActTool, Session};
+use crate::{CodeActTool, Invocation, Session};
 use construct_core::event::{Event, EventPayload, EventPublisher};
 use construct_types::{
     tools::{FunctionCall, ToolCallEvent, ToolResultEvent},
     Timestamp,
 };
 use rquickjs::{Ctx, Value};
-use std::{cell::RefCell, rc::Rc, sync::Arc};
+use std::{cell::RefCell, sync::Arc};
 
 /// The next synchronous call in an interceptor chain.
 pub type Next<'a, 'js> = dyn Fn(&RefCell<Session>) -> rquickjs::Result<Value<'js>> + 'a;
@@ -19,7 +19,7 @@ pub trait Interceptor: Send + Sync {
         ctx: &Ctx<'js>,
         session: &RefCell<Session>,
         tool: &dyn CodeActTool,
-        args: &[Value<'js>],
+        call: &Invocation<'_, 'js>,
         next: &Next<'_, 'js>,
     ) -> rquickjs::Result<Value<'js>>;
 }
@@ -32,7 +32,7 @@ impl Interceptor for ToolStatistics {
         _ctx: &Ctx<'js>,
         session: &RefCell<Session>,
         tool: &dyn CodeActTool,
-        _args: &[Value<'js>],
+        _call: &Invocation<'_, 'js>,
         next: &Next<'_, 'js>,
     ) -> rquickjs::Result<Value<'js>> {
         if tool.name() != "print" {
@@ -51,38 +51,26 @@ pub struct DurableFunction;
 impl Interceptor for DurableFunction {
     fn intercept<'js>(
         &self,
-        ctx: &Ctx<'js>,
+        _ctx: &Ctx<'js>,
         session: &RefCell<Session>,
         tool: &dyn CodeActTool,
-        args: &[Value<'js>],
+        call: &Invocation<'_, 'js>,
         next: &Next<'_, 'js>,
     ) -> rquickjs::Result<Value<'js>> {
         if tool.name() == "print" {
             return next(session);
         }
-        let state = session
-            .borrow()
-            .function_calls
-            .clone()
-            .unwrap_or_else(|| Rc::new(RefCell::new(Default::default())));
-        let index = state.borrow().index;
-        let input = match tool.input(ctx, session, args) {
-            Ok(input) => input.unwrap_or_default(),
-            Err(error) => {
-                suppress_input_error(ctx, error)?;
-                Default::default()
-            }
-        };
         let value = next(session)?;
-        let output = session.borrow().result.clone().unwrap_or_default();
-        state.borrow_mut().calls.push(FunctionCall {
+        let mut session = session.borrow_mut();
+        let output = session.result.clone().unwrap_or_default();
+        let state = session.function_calls.get_or_insert_with(Default::default);
+        state.calls.push(FunctionCall {
             tool_name: tool.name().into(),
-            input,
+            input: call.input.clone().unwrap_or_default(),
             output,
-            index,
+            index: state.index,
         });
-        state.borrow_mut().index += 1;
-        session.borrow_mut().function_calls = Some(state);
+        state.index += 1;
         Ok(value)
     }
 }
@@ -95,7 +83,7 @@ impl Interceptor for ResetTemporarySessionValues {
         _ctx: &Ctx<'js>,
         session: &RefCell<Session>,
         _tool: &dyn CodeActTool,
-        _args: &[Value<'js>],
+        _call: &Invocation<'_, 'js>,
         next: &Next<'_, 'js>,
     ) -> rquickjs::Result<Value<'js>> {
         session.borrow_mut().result = None;
@@ -123,29 +111,25 @@ impl ToolEventPublisher {
 impl Interceptor for ToolEventPublisher {
     fn intercept<'js>(
         &self,
-        ctx: &Ctx<'js>,
+        _ctx: &Ctx<'js>,
         session: &RefCell<Session>,
         tool: &dyn CodeActTool,
-        args: &[Value<'js>],
+        call: &Invocation<'_, 'js>,
         next: &Next<'_, 'js>,
     ) -> rquickjs::Result<Value<'js>> {
         if tool.name() == "print" {
             return next(session);
         }
-        match tool.input(ctx, session, args) {
-            Ok(Some(input)) => self.publish(
+        if let Some(input) = &call.input {
+            self.publish(
                 session,
                 "tool.called",
                 Arc::new(ToolCallEvent {
                     tool: tool.name().into(),
-                    input,
+                    input: input.clone(),
                     ..Default::default()
                 }),
-            ),
-            Ok(None) => {}
-            Err(error) => {
-                suppress_input_error(ctx, error)?;
-            }
+            );
         }
         let value = next(session)?;
         let output = session.borrow().result.clone();
@@ -164,7 +148,10 @@ impl Interceptor for ToolEventPublisher {
     }
 }
 
-fn suppress_input_error(ctx: &Ctx<'_>, error: rquickjs::Error) -> rquickjs::Result<()> {
+pub(crate) fn capture_input_error<'js>(
+    ctx: &Ctx<'js>,
+    error: rquickjs::Error,
+) -> rquickjs::Result<Value<'js>> {
     if !error.is_exception() {
         return Err(error);
     }
@@ -176,7 +163,7 @@ fn suppress_input_error(ctx: &Ctx<'_>, error: rquickjs::Error) -> rquickjs::Resu
                 .get::<_, bool>(crate::bindings::PROPAGATED_ERROR)
                 .unwrap_or(false)
     }) {
-        Ok(())
+        Ok(value)
     } else {
         Err(ctx.throw(value))
     }

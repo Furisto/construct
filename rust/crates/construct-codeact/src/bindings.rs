@@ -3,10 +3,19 @@ use construct_core::{
     store::Store,
     tool::{Tool, ToolError},
 };
-use construct_types::tools::ToolInput;
+use construct_types::tools::{ToolInput, ToolOutput};
 use rquickjs::{Array, Ctx, Function, Value};
 use std::{cell::RefCell, sync::Arc};
 use tokio::runtime::Handle;
+
+/// One invocation's converted input, shared by middleware and execution.
+pub struct Invocation<'a, 'js> {
+    /// Input converted exactly once before middleware starts.
+    pub input: Option<ToolInput>,
+    /// Original values, used by print's export formatting rather than coercion.
+    pub arguments: &'a [Value<'js>],
+    pub(crate) input_error: Option<Value<'js>>,
+}
 
 /// A synchronous VM binding. Arguments stay in the VM to preserve undefined,
 /// JavaScript coercions, getters and array-like objects.
@@ -28,9 +37,18 @@ pub trait CodeActTool: Send + Sync {
         &self,
         ctx: &Ctx<'js>,
         session: &RefCell<Session>,
-        args: &[Value<'js>],
+        call: &Invocation<'_, 'js>,
         runtime: &Handle,
     ) -> rquickjs::Result<Value<'js>>;
+    /// Restore a stored result without executing the host effect again.
+    fn restore<'js>(
+        &self,
+        ctx: &Ctx<'js>,
+        session: &RefCell<Session>,
+        output: ToolOutput,
+    ) -> rquickjs::Result<Value<'js>> {
+        result_value(ctx, session, self.name(), output)
+    }
 }
 
 /// Wrap a host tool with Go's positional binding for its name.
@@ -126,11 +144,12 @@ impl CodeActTool for HostTool {
         &self,
         ctx: &Ctx<'js>,
         session: &RefCell<Session>,
-        args: &[Value<'js>],
+        call: &Invocation<'_, 'js>,
         runtime: &Handle,
     ) -> rquickjs::Result<Value<'js>> {
-        let input = self
-            .input(ctx, session, args)?
+        let input = call
+            .input
+            .as_ref()
             .ok_or_else(|| rquickjs::Exception::throw_type(ctx, "missing tool input"))?;
         let input = serde_json::to_value(input).expect("tool input JSON")[self.name()].clone();
         if self.name() == "edit_file" && input["diffs"].as_array().is_none_or(|a| a.is_empty()) {
@@ -146,20 +165,35 @@ impl CodeActTool for HostTool {
         let output = runtime
             .block_on(self.0.execute(&context, input))
             .map_err(|e| throw(ctx, e))?;
-        if self.name() == "handoff" {
-            return Ok(Value::new_undefined(ctx.clone()));
-        }
-        if self.name() == "submit_report" {
-            session.borrow_mut().console.push_str("REPORT SUBMITTED\n");
-        }
-        let json = construct_types::to_go_json(&output).expect("tool output JSON");
-        let object: std::collections::BTreeMap<String, Box<serde_json::value::RawValue>> =
-            serde_json::from_slice(&json).expect("tool output object");
-        session.borrow_mut().result = Some(output);
-        let value = ctx.json_parse(object.get(self.name()).map_or("null", |arm| arm.get()))?;
-        crate::result::tag(&value, &format!("&{}", self.name()))?;
-        Ok(value)
+        self.restore(ctx, session, output)
     }
+}
+
+fn result_value<'js>(
+    ctx: &Ctx<'js>,
+    session: &RefCell<Session>,
+    name: &str,
+    output: ToolOutput,
+) -> rquickjs::Result<Value<'js>> {
+    if name == "handoff" {
+        return Ok(Value::new_undefined(ctx.clone()));
+    }
+    let json = construct_types::to_go_json(&output).expect("tool output JSON");
+    let object: std::collections::BTreeMap<String, Box<serde_json::value::RawValue>> =
+        serde_json::from_slice(&json).expect("tool output object");
+    let arm = object.get(name).ok_or_else(|| {
+        throw(
+            ctx,
+            ToolError::custom("stored tool output is missing its result arm", vec![]),
+        )
+    })?;
+    if name == "submit_report" {
+        session.borrow_mut().console.push_str("REPORT SUBMITTED\n");
+    }
+    session.borrow_mut().result = Some(output);
+    let value = ctx.json_parse(arm.get())?;
+    crate::result::tag(&value, &format!("&{name}"))?;
+    Ok(value)
 }
 
 fn invalid(name: &str, arguments: serde_json::Value) -> ToolError {
@@ -242,11 +276,11 @@ impl CodeActTool for Print {
         &self,
         ctx: &Ctx<'js>,
         session: &RefCell<Session>,
-        args: &[Value<'js>],
+        call: &Invocation<'_, 'js>,
         _runtime: &Handle,
     ) -> rquickjs::Result<Value<'js>> {
         let mut output = String::new();
-        for (index, arg) in args.iter().enumerate() {
+        for (index, arg) in call.arguments.iter().enumerate() {
             if index != 0 {
                 output.push(' ');
             }
