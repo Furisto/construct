@@ -14,6 +14,8 @@ printf 'Building real Go daemon: %s\n' "$CONSTRUCT_GO_BIN"
 CGO_ENABLED=0 go build -o "$CONSTRUCT_GO_BIN" ./frontend/cli
 CGO_ENABLED=0 go build -o "$CONSTRUCT_GO_STORE_FIXTURE" ./rust/crates/construct-store/tests/gofixture/main.go
 
+bash "$script_dir/secret-interop.sh"
+
 # Each test writes secret.provider=file into an isolated XDG config directory.
 # No Secret Service, D-Bus session, credentials, or external model calls required.
 cargo test --manifest-path "$repo_root/rust/Cargo.toml" \
