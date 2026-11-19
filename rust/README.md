@@ -12,6 +12,9 @@ contracts for parallel Rust implementations; they do not yet run a Rust daemon.
 | `construct-types` | Domain records, stored Go JSON, tools, provider messages, skill lockfiles, event patterns |
 | `construct-core` | Dyn-safe model/tool/secret/store/event contracts and reference in-memory event router |
 | `construct-cli` | `construct` library/binary, extensible command modules, config/contexts, keyring, API wiring and renderers |
+| `construct-event` | Go-compatible domain event constructors, live router, and SQLite event hook |
+| `construct-skill` | SKILL.md parser, repo/user/system discovery, git/URL install/update/delete, `SkillService` handler |
+| `construct-server` | Authenticated API server, Unix/TCP and systemd/launchd listeners, runtime/analytics contracts, and domain/protobuf conversions |
 
 Crates live in `crates/`. Core depends only on domain types and infrastructure,
 never generated protobuf types, concrete database drivers, provider SDKs, or CLI.
@@ -56,6 +59,23 @@ Daemon install, stop, and uninstall manage the same systemd/launchd unit
 locations as the Go CLI; use `--system` for system units. The units invoke
 `construct daemon run`, which remains a stub in the Rust CLI until the backend
 is wired. Use the Go daemon to exercise the Rust CLI's token commands meanwhile.
+
+`construct-store` implements the repositories with SQLx's bundled SQLite driver.
+`SqliteStore::open(path)` adds missing Ent tables/indexes without rebuilding
+existing tables, and sets the Go daemon's foreign-key/WAL/busy-timeout pragmas.
+Records must be fully initialized, including valid enum values and timestamps.
+Transactions own a pooled connection; drop/cancellation rolls back. Mutation
+observers receive only committed changes, covering the same operations as Go's
+event hooks. Lists apply non-time predicates in SQL before decoding, using the
+message task index and EXISTS for task/message membership. Name ordering and
+pagination run in SQL when there is no time bound. Time bounds/order and their
+pagination run on SQL-matched records in Rust to preserve nanosecond accuracy
+across Go's offsets, variable fractions and monotonic timestamp suffixes.
+
+The interop script also builds an Ent fixture program and sets
+`CONSTRUCT_GO_STORE_FIXTURE`. The store interop test otherwise skips; it checks
+all six record types bidirectionally, raw Go JSON bytes and `sqlite_master` schema
+equivalence, including running Ent migration on the Rust-created database.
 
 ### Real Go interoperability (Linux)
 
@@ -215,6 +235,14 @@ an API/store replay concern (Go's router ignores it). Select next() against a
 CancellationToken and drop on cancellation. Match-pattern tables are ported in
 construct-types; core tests port the router lifecycle/filter/backpressure cases.
 
+`construct-event` re-exports that same router and adds constructors and
+`EventHook`. To send committed entity changes to the router, register
+`Arc::new(EventHook::new(router.clone()))` in the hook list passed to
+`SqliteStore::open_with_hooks`, where `router` is an `Arc<EventRouter>`.
+The hook emits agent, model and model provider CRUD events, and task create/delete
+events. Task updates, message and tool events, and internal task coordination
+events are published explicitly by their producers.
+
 ### Store and per-entity repositories
 
 Implement AgentStore, TaskStore, MessageStore, ModelStore, ModelProviderStore,
@@ -260,7 +288,29 @@ serializable conflict behavior is intentionally stricter than row-level SQL.
 ### Skills and CLI sessions
 
 Use construct-types::skill LockFile/LockEntry/GitSource/URLSource for disk JSON.
-There is intentionally no speculative skill-manager or CLI trait in core: this
-step defines their shared store/secrets/tools/events dependencies, not installer
-policy or presentation. Keep those adapters separate from protobuf codegen and
-the database/model implementations.
+`construct-skill` ports Go `backend/skill` and `backend/api/skill.go`; it pins
+rustls to the ring provider (gix and reqwest are built without one). There is
+still no CLI trait in core: keep presentation adapters separate from protobuf
+codegen and the database/model implementations.
+
+### Minimal API host
+
+`cargo run -p construct-server --bin construct-server -- --listen-unix /absolute/api.sock --data-dir /path/to/data`
+starts the authenticated API at `/api/` and health endpoint at `/healthz`.
+Use `--listen-http 127.0.0.1:8080` for TCP; TCP always requires token authentication,
+including systemd-activated TCP sockets. Without listener flags, the host detects
+systemd FD 3 on Linux or launchd's `Listeners` group on macOS. SIGINT/SIGTERM closes
+event subscriptions and gracefully drains requests. This host does not execute agents.
+
+The host supports the `file` secret provider (default), a persistent Go-compatible
+encryption key under `data-dir/secrets`, and `--db` to override `data-dir/construct.db`.
+It prints bound address and explicit-launch context metadata as JSON; it does not
+modify Go CLI contexts. `ActivationType::endpoint_context` maps TCP to context kind
+`http` and adds the required `http://` scheme, avoiding Go's `tcp` context-kind bug.
+Use the printed context name/address with Go's `context add --endpoint ...`.
+
+`rust/scripts/go-interop.sh` also tests the real Go CLI against this Rust host,
+including explicit Unix/TCP and both systemd socket families. Go currently advertises
+but does not implement `context add --setup-code`; the test generates the code using
+Go, exchanges it using the Rust generated client, and supplies the resulting token
+to Go's HTTP context. No model calls, credentials, or system keyring are needed.

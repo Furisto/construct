@@ -229,3 +229,74 @@ async fn invalid_endpoint_and_timeout_are_errors_not_panics() {
         .await;
     assert_eq!(result.unwrap_err().code, Code::InvalidArgument);
 }
+
+#[tokio::test]
+async fn request_interceptor_passes_path_and_extensions_to_both_handler_kinds() {
+    use construct_connect::{with_request_interceptor, RequestInterceptor};
+    use std::sync::Arc;
+    use tower::ServiceExt;
+
+    struct Context;
+    #[construct_connect::async_trait]
+    impl RequestInterceptor for Context {
+        async fn intercept(&self, parts: &mut http::request::Parts) -> Result<(), ConnectError> {
+            assert_eq!(parts.uri.path(), "/example.Service/Call");
+            assert_eq!(parts.headers["x-test"], "context");
+            if parts.headers.contains_key("x-reject") {
+                return Err(ConnectError::new(Code::Unauthenticated, "denied"));
+            }
+            parts.extensions.insert(String::from("identity"));
+            Ok(())
+        }
+    }
+
+    for streaming in [false, true] {
+        let router = Router::new().route(
+            "/example.Service/Call",
+            post(move |request: HttpRequest| async move {
+                if streaming {
+                    generated::server_streaming(request, |req: Request<Empty>| async move {
+                        assert_eq!(req.extensions.get::<String>().unwrap(), "identity");
+                        assert_eq!(req.metadata["x-test"], "context");
+                        Ok(Response::new(Box::pin(stream::empty()) as Streaming<Empty>))
+                    })
+                    .await
+                } else {
+                    generated::unary(request, |req: Request<Empty>| async move {
+                        assert_eq!(req.extensions.get::<String>().unwrap(), "identity");
+                        assert_eq!(req.metadata["x-test"], "context");
+                        Ok(Response::new(Empty {}))
+                    })
+                    .await
+                }
+            }),
+        );
+        let router = with_request_interceptor(router, Arc::new(Context));
+        for reject in [false, true] {
+            let mut req = if streaming {
+                request(
+                    "application/connect+proto",
+                    Bytes::from_static(&[0, 0, 0, 0, 0]),
+                )
+            } else {
+                request("application/json", "{}")
+            };
+            req.headers_mut()
+                .insert("x-test", "context".parse().unwrap());
+            if reject {
+                req.headers_mut().insert("x-reject", "yes".parse().unwrap());
+            }
+            let response = router.clone().oneshot(req).await.unwrap();
+            assert_eq!(
+                response.status().as_u16(),
+                if reject && !streaming { 401 } else { 200 }
+            );
+            if reject {
+                let body = to_bytes(response.into_body(), 4096).await.unwrap();
+                assert!(std::str::from_utf8(&body[if streaming { 5 } else { 0 }..])
+                    .unwrap()
+                    .contains("unauthenticated"));
+            }
+        }
+    }
+}

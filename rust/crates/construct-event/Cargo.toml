@@ -1,0 +1,16 @@
+[package]
+name = "construct-event"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+construct-core = { path = "../construct-core" }
+construct-store = { path = "../construct-store" }
+construct-types = { path = "../construct-types" }
+uuid = "1"
+
+[dev-dependencies]
+futures-util.workspace = true
+tempfile = "3"
+tokio.workspace = true

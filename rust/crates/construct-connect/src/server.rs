@@ -37,6 +37,43 @@ pub trait Interceptor: Send + Sync + 'static {
     ) -> Result<(), ConnectError>;
 }
 
+/// Request-aware hook supporting procedure authorization and handler-local context.
+#[crate::async_trait]
+pub trait RequestInterceptor: Send + Sync + 'static {
+    /// Inspect the request and optionally insert typed extensions before decoding.
+    async fn intercept(&self, request: &mut http::request::Parts) -> Result<(), ConnectError>;
+}
+
+/// Apply a request-aware hook to unary and streaming service routes.
+pub fn with_request_interceptor(
+    router: Router,
+    interceptor: Arc<dyn RequestInterceptor>,
+) -> Router {
+    router.layer(middleware::from_fn(
+        move |request: HttpRequest, next: Next| {
+            let interceptor = interceptor.clone();
+            async move {
+                let (mut parts, body) = request.into_parts();
+                match interceptor.intercept(&mut parts).await {
+                    Ok(()) => next.run(HttpRequest::from_parts(parts, body)).await,
+                    Err(error) => {
+                        let streaming = parts
+                            .headers
+                            .get("content-type")
+                            .and_then(|h| h.to_str().ok())
+                            .is_some_and(|h| h.starts_with("application/connect+"));
+                        error_response(
+                            error,
+                            streaming,
+                            Codec::from_headers(&parts.headers, streaming).unwrap_or_default(),
+                        )
+                    }
+                }
+            }
+        },
+    ))
+}
+
 /// Apply an authentication/authorization hook before any service handler runs.
 pub fn with_interceptor(router: Router, interceptor: Arc<dyn Interceptor>) -> Router {
     router.layer(middleware::from_fn(
@@ -129,6 +166,7 @@ async fn decode_request<I: Message + Default + DeserializeOwned>(
         metadata: parts.headers,
         transport: parts.extensions.get::<Transport>().copied(),
         timeout: None,
+        extensions: parts.extensions,
     })
 }
 

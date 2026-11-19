@@ -41,6 +41,18 @@ struct Subscriber {
     sender: mpsc::Sender<Arc<Event>>,
 }
 
+fn parse_task_id(task_id: &str) -> Option<Uuid> {
+    let bytes = task_id.as_bytes();
+    // google/uuid accepts any single-byte wrappers and ASCII case-folds the URN prefix.
+    let raw = match bytes.len() {
+        38 => &bytes[1..37],
+        45 if bytes[..9].eq_ignore_ascii_case(b"urn:uuid:") => &bytes[9..],
+        32 | 36 => bytes,
+        _ => return None,
+    };
+    Uuid::try_parse_ascii(raw).ok()
+}
+
 #[derive(Default)]
 struct State {
     subscribers: HashMap<u64, Subscriber>,
@@ -127,7 +139,7 @@ impl EventSubscriber for EventRouter {
         if !options.internal {
             patterns.retain(|p| !is_internal_event(p));
         }
-        let task_id = Uuid::parse_str(&options.task_id).ok();
+        let task_id = parse_task_id(&options.task_id);
         let id = state.next_id;
         state.next_id += 1;
         state.subscribers.insert(
