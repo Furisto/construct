@@ -110,11 +110,7 @@ impl Renderer {
                                 if i > 0 {
                                     write!(writer, "  ")?;
                                 }
-                                write!(
-                                    writer,
-                                    "\x1b[1m{h}\x1b[0m{}",
-                                    " ".repeat(widths[i] - h.len())
-                                )?;
+                                write!(writer, "{h}{}", " ".repeat(widths[i] - h.len()))?;
                             }
                             writeln!(writer)?;
                         }
@@ -245,5 +241,17 @@ mod tests {
             .render(&mut out, &[Item { name: "<a>".into() }], &options)
             .unwrap();
         assert!(String::from_utf8(out).unwrap().contains("\\u003ca\\u003e"));
+        let mut out = Vec::new();
+        options.format = OutputFormat::Table;
+        Renderer
+            .render(
+                &mut out,
+                &[Item {
+                    name: "test".into(),
+                }],
+                &options,
+            )
+            .unwrap();
+        assert_eq!(out, b"Name\ntest\n");
     }
 }

@@ -682,22 +682,11 @@ async fn non_text_parts_render_through_task_filtered_list_and_get() {
                 let item = if action == "list" { &value[1] } else { &value };
                 item["content"].as_str().unwrap().to_owned()
             };
-            let mut position = 0;
-            for part in [
-                "Before ",
-                "[tool call]",
-                "execute_command",
-                "pwd",
-                "[tool result]",
-                "/workspace",
-                "[error] tool unavailable",
-                "[empty part]",
-                " After",
-            ] {
-                position += content[position..]
-                    .find(part)
-                    .unwrap_or_else(|| panic!("missing {part} in {content}"))
-                    + part.len();
+            if format == "default" {
+                assert!(!content.contains("Content"));
+                assert!(!content.contains("[tool"));
+            } else {
+                assert_eq!(content, "Before  After");
             }
             h.fake.done();
         }

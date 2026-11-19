@@ -4,7 +4,18 @@ use serde_yaml::Value;
 
 pub fn to_string<T: ?Sized + Serialize>(value: &T) -> Result<String> {
     fn scalar(value: &Value, indent: usize, step: usize) -> Result<String> {
+        if let Value::Number(number) = value {
+            if number.is_f64() && number.as_f64().is_some_and(|n| n.fract() == 0.0) {
+                return Ok(format!("{:.0}", number.as_f64().unwrap()));
+            }
+        }
         if let Value::String(text) = value {
+            if text.is_empty() {
+                return Ok("\"\"".into());
+            }
+            if chrono::NaiveDateTime::parse_from_str(text, "%Y-%m-%d %H:%M:%S").is_ok() {
+                return Ok(serde_json::to_string(text)?);
+            }
             if matches!(
                 text.as_str(),
                 "y" | "Y"
@@ -48,20 +59,20 @@ pub fn to_string<T: ?Sized + Serialize>(value: &T) -> Result<String> {
         matches!(value, Value::Mapping(v) if !v.is_empty())
             || matches!(value, Value::Sequence(v) if !v.is_empty())
     }
-    fn emit(value: &Value, indent: usize, output: &mut String) -> Result<()> {
+    fn emit(value: &Value, indent: usize, step: usize, output: &mut String) -> Result<()> {
         let pad = " ".repeat(indent);
         match value {
             Value::Mapping(map) if !map.is_empty() => {
                 for (key, value) in map {
                     output.push_str(&pad);
-                    output.push_str(&scalar(key, indent + 4, 4)?);
+                    output.push_str(&scalar(key, indent + step, step)?);
                     output.push(':');
                     if compound(value) {
                         output.push('\n');
-                        emit(value, indent + 4, output)?;
+                        emit(value, indent + step, 4, output)?;
                     } else {
                         output.push(' ');
-                        output.push_str(&scalar(value, indent + 4, 4)?);
+                        output.push_str(&scalar(value, indent + step, step)?);
                         output.push('\n');
                     }
                 }
@@ -72,7 +83,7 @@ pub fn to_string<T: ?Sized + Serialize>(value: &T) -> Result<String> {
                     output.push_str("- ");
                     if compound(item) {
                         let mut nested = String::new();
-                        emit(item, indent + 2, &mut nested)?;
+                        emit(item, indent + 2, 2, &mut nested)?;
                         output.push_str(
                             nested
                                 .strip_prefix(&" ".repeat(indent + 2))
@@ -93,7 +104,7 @@ pub fn to_string<T: ?Sized + Serialize>(value: &T) -> Result<String> {
         Ok(())
     }
     let mut output = String::new();
-    emit(&serde_yaml::to_value(value)?, 0, &mut output)?;
+    emit(&serde_yaml::to_value(value)?, 0, 4, &mut output)?;
     Ok(output)
 }
 
@@ -110,6 +121,16 @@ mod tests {
             "contexts:\n    local:\n        address: /tmp/test\n        kind: unix\n"
         );
         assert_eq!(to_string(&"yes").unwrap(), "\"yes\"\n");
+        assert_eq!(to_string(&"").unwrap(), "\"\"\n");
+        assert_eq!(to_string(&0.0).unwrap(), "0\n");
+        assert_eq!(
+            to_string(&"2026-11-19 15:18:13").unwrap(),
+            "\"2026-11-19 15:18:13\"\n"
+        );
+        assert_eq!(
+            to_string(&serde_json::json!([{"usage": {"cost": 0.0}}])).unwrap(),
+            "- usage:\n    cost: 0\n"
+        );
     }
     #[test]
     fn multiline_scalars_preserve_contents_and_nesting() {

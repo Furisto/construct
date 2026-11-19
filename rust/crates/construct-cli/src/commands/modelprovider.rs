@@ -327,7 +327,7 @@ pub async fn run(app: &mut App, matches: &clap::ArgMatches) -> Result<()> {
                 .model_provider
                 .ok_or("model provider missing")?;
             writeln!(
-                app.stdout,
+                app.stderr,
                 "{}",
                 provider
                     .metadata

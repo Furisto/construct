@@ -156,6 +156,7 @@ impl Harness {
             .unwrap();
         let output = Output::default();
         app.stdout = Box::new(output.clone());
+        app.stderr = Box::new(output.clone());
         app.stdin = Box::new(Cursor::new(Vec::<u8>::new()));
         Self {
             dir,

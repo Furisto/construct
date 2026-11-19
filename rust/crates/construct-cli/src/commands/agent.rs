@@ -453,7 +453,7 @@ pub async fn run(app: &mut App, matches: &clap::ArgMatches) -> Result<()> {
                 .agent
                 .ok_or("agent missing")?;
             writeln!(
-                app.stdout,
+                app.stderr,
                 "{}",
                 agent.metadata.ok_or("agent metadata missing")?.id
             )?;
