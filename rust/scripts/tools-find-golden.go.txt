@@ -1,0 +1,33 @@
+package filesystem
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/spf13/afero"
+)
+
+func TestGoldenFindFallback(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	fs.MkdirAll("/workspace", 0755)
+	afero.WriteFile(fs, "/workspace/a.txt", []byte("hello"), 0644)
+	cases := []FindFileInput{{Path: "/workspace", Pattern: "*.txt", MaxResults: 10}, {Path: "/workspace", Pattern: "**/*", MaxResults: 10}, {Path: "/workspace", Pattern: "[", MaxResults: 10}}
+	out := []map[string]any{}
+	for _, input := range cases {
+		result, err := performDoublestarFind(fs, &input)
+		entry := map[string]any{"input": input, "result": result}
+		if err != nil {
+			entry["error"] = err
+		}
+		out = append(out, entry)
+	}
+	data, err := json.MarshalIndent(out, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(os.Getenv("CONSTRUCT_GOLDEN_DIR"), "find_fallback.json"), data, 0644); err != nil {
+		t.Fatal(err)
+	}
+}

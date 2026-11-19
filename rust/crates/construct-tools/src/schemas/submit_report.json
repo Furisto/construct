@@ -1,0 +1,26 @@
+{
+  "type": "object",
+  "properties": {
+    "Summary": {
+      "type": "string"
+    },
+    "Completed": {
+      "type": "boolean"
+    },
+    "Deliverables": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "NextSteps": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "Summary",
+    "Completed",
+    "Deliverables",
+    "NextSteps"
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "type": "object",
+  "properties": {
+    "TaskID": {
+      "type": "string"
+    },
+    "CurrentAgentID": {
+      "type": "string"
+    },
+    "RequestedAgent": {
+      "type": "string"
+    },
+    "HandoverMessage": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "TaskID",
+    "CurrentAgentID",
+    "RequestedAgent",
+    "HandoverMessage"
+  ]
+}

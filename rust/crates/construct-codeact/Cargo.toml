@@ -1,0 +1,18 @@
+[package]
+name = "construct-codeact"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+construct-core = { path = "../construct-core" }
+construct-types = { path = "../construct-types" }
+construct-tools = { path = "../construct-tools" }
+serde_json = { workspace = true, features = ["raw_value"] }
+tokio.workspace = true
+uuid = { version = "1", features = ["v4"] }
+rquickjs = "0.9"
+
+[dev-dependencies]
+tempfile = "3"
+construct-core = { path = "../construct-core", features = ["testing"] }

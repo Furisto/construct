@@ -1,0 +1,11 @@
+{
+  "context": 2,
+  "input": "",
+  "max": 50,
+  "result": {
+    "matches": [],
+    "total_matches": 0,
+    "truncated_matches": 0,
+    "searched_files": 0
+  }
+}

@@ -78,7 +78,7 @@ impl ToolError {
         let (message,specific):(&str,&[&str])=match code{
 ToolErrorCode::PathIsNotAbsolute=>("Path is not absolute",&["Ensure you're using an absolute path starting with '/'.","Use the list_files tool to get the absolute path of a file."]),
 ToolErrorCode::PathIsDirectory=>("Path is a directory",&["You must specify a file path, not a directory."]),
-ToolErrorCode::PathIsNotDirectory=>("Path is not a directory",&["You must specify a directory path, not a file."]),
+ToolErrorCode::PathIsNotDirectory=>("Path is not a directory",&["You must specify a directory path, not a file path."]),
 ToolErrorCode::PermissionDenied=>("Permission denied",&["Ensure you have write permissions for the file."]),
 ToolErrorCode::FileNotFound=>("File not found",&["Ensure the file exists using the list_files tool."]),
 ToolErrorCode::DirectoryNotFound=>("Directory not found",&["Ensure the directory exists using the list_files tool."]),

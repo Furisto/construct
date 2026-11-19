@@ -1,0 +1,16 @@
+{
+  "context": 2,
+  "input": "{\"type\":\"begin\",\"data\":{\"path\":{\"text\":\"/path/file.go\"}}}\n{\"type\":\"context\",\"data\":{\"path\":{\"text\":\"/path/file.go\"},\"line_number\":1,\"lines\":{\"text\":\"package main\"}}}\n{\"type\":\"match\",\"data\":{\"path\":{\"text\":\"/path/file.go\"},\"line_number\":2,\"lines\":{\"text\":\"func main() {\"}}}\n{\"type\":\"context\",\"data\":{\"path\":{\"text\":\"/path/file.go\"},\"line_number\":3,\"lines\":{\"text\":\"    fmt.Println(\\\"hello\\\")\"}}}\n{\"type\":\"end\",\"data\":{\"path\":{\"text\":\"/path/file.go\"}}}",
+  "max": 50,
+  "result": {
+    "matches": [
+      {
+        "file_path": "/path/file.go",
+        "value": "-1-package main:2:func main() {-3-    fmt.Println(\"hello\")"
+      }
+    ],
+    "total_matches": 1,
+    "truncated_matches": 0,
+    "searched_files": 1
+  }
+}

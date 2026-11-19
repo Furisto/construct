@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "properties": {
+    "Path": {
+      "type": "string"
+    },
+    "Recursive": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "Path",
+    "Recursive"
+  ]
+}

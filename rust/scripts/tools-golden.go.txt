@@ -1,0 +1,82 @@
+package base
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/spf13/afero"
+)
+
+// WriteGoldens records the actual Go implementation, rather than hand-written expectations.
+func WriteGoldens[I any, O any](t *testing.T, setup *ToolTestSetup[I, O], scenarios []ToolTestScenario[I, O]) {
+	type entry struct {
+		Path      string `json:"path"`
+		Directory bool   `json:"directory"`
+		Bytes     []int  `json:"bytes,omitempty"`
+	}
+	type golden struct {
+		Name       string     `json:"name"`
+		Input      I          `json:"input"`
+		Before     []entry    `json:"before"`
+		After      []entry    `json:"after"`
+		Result     O          `json:"result"`
+		ResultJSON string     `json:"result_json"`
+		Error      *ToolError `json:"error,omitempty"`
+	}
+	snapshot := func(fs afero.Fs) []entry {
+		entries := []entry{}
+		afero.Walk(fs, "/", func(path string, info os.FileInfo, err error) error {
+			if err != nil || path == "/" {
+				return err
+			}
+			e := entry{Path: path, Directory: info.IsDir()}
+			if !info.IsDir() {
+				data, _ := afero.ReadFile(fs, path)
+				e.Bytes = []int{}
+				for _, b := range data {
+					e.Bytes = append(e.Bytes, int(b))
+				}
+			}
+			entries = append(entries, e)
+			return nil
+		})
+		return entries
+	}
+	out := []golden{}
+	for _, s := range scenarios {
+		fs := afero.NewMemMapFs()
+		if s.SeedFilesystem != nil {
+			s.SeedFilesystem(context.Background(), fs)
+		}
+		// The Rust Tool contract accepts JSON, not Go strings containing arbitrary bytes.
+		rawInput, _ := json.Marshal(s.TestInput)
+		json.Unmarshal(rawInput, &s.TestInput)
+		g := golden{Name: s.Name, Input: s.TestInput, Before: snapshot(fs)}
+		result, err := setup.Call(context.Background(), &ToolTestServices{FS: fs}, s.TestInput)
+		g.Result = result
+		raw, _ := json.Marshal(result)
+		g.ResultJSON = string(raw)
+		if err != nil {
+			if e, ok := err.(*ToolError); ok {
+				g.Error = e
+			} else {
+				panic(err)
+			}
+		}
+		g.After = snapshot(fs)
+		out = append(out, g)
+	}
+	data, err := json.MarshalIndent(out, "", "  ")
+	if err != nil {
+		panic(err)
+	}
+	path := filepath.Join(os.Getenv("CONSTRUCT_GOLDEN_DIR"), t.Name()+".json")
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		panic(err)
+	}
+	fmt.Println("generated", path, "cases", len(out))
+}

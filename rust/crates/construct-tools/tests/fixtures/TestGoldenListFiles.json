@@ -1,0 +1,606 @@
+[
+  {
+    "name": "path is not absolute",
+    "input": {
+      "Path": "relative/path",
+      "Recursive": false
+    },
+    "before": [],
+    "after": [],
+    "result": null,
+    "result_json": "null",
+    "error": {
+      "Message": "Path is not absolute",
+      "Suggestions": [
+        "Check the provided system error for more details",
+        "Ensure you're using an absolute path starting with '/'.",
+        "Use the list_files tool to get the absolute path of a file."
+      ],
+      "Details": {
+        "path": "relative/path"
+      }
+    }
+  },
+  {
+    "name": "directory does not exist",
+    "input": {
+      "Path": "/nonexistent",
+      "Recursive": false
+    },
+    "before": [],
+    "after": [],
+    "result": null,
+    "result_json": "null",
+    "error": {
+      "Message": "Directory not found",
+      "Suggestions": [
+        "Check the provided system error for more details",
+        "Ensure the directory exists using the list_files tool."
+      ],
+      "Details": {
+        "path": "/nonexistent"
+      }
+    }
+  },
+  {
+    "name": "path is not a directory",
+    "input": {
+      "Path": "/file.txt",
+      "Recursive": false
+    },
+    "before": [
+      {
+        "path": "/file.txt",
+        "directory": false,
+        "blob": "ed7002b439e9ac845f22357d822bac1444730fbdb6016d3ec9432297b9ec9f73"
+      }
+    ],
+    "after": [
+      {
+        "path": "/file.txt",
+        "directory": false,
+        "blob": "ed7002b439e9ac845f22357d822bac1444730fbdb6016d3ec9432297b9ec9f73"
+      }
+    ],
+    "result": null,
+    "result_json": "null",
+    "error": {
+      "Message": "Path is not a directory",
+      "Suggestions": [
+        "Check the provided system error for more details",
+        "You must specify a directory path, not a file path."
+      ],
+      "Details": {
+        "path": "/file.txt"
+      }
+    }
+  },
+  {
+    "name": "empty directory non-recursive",
+    "input": {
+      "Path": "/empty",
+      "Recursive": false
+    },
+    "before": [
+      {
+        "path": "/empty",
+        "directory": true
+      }
+    ],
+    "after": [
+      {
+        "path": "/empty",
+        "directory": true
+      }
+    ],
+    "result": {
+      "path": "/empty",
+      "entries": []
+    },
+    "result_json": "{\"path\":\"/empty\",\"entries\":[]}"
+  },
+  {
+    "name": "empty directory recursive",
+    "input": {
+      "Path": "/empty",
+      "Recursive": true
+    },
+    "before": [
+      {
+        "path": "/empty",
+        "directory": true
+      }
+    ],
+    "after": [
+      {
+        "path": "/empty",
+        "directory": true
+      }
+    ],
+    "result": {
+      "path": "/empty",
+      "entries": []
+    },
+    "result_json": "{\"path\":\"/empty\",\"entries\":[]}"
+  },
+  {
+    "name": "directory with files non-recursive",
+    "input": {
+      "Path": "/workspace",
+      "Recursive": false
+    },
+    "before": [
+      {
+        "path": "/workspace",
+        "directory": true
+      },
+      {
+        "path": "/workspace/file1.txt",
+        "directory": false,
+        "blob": "d0b425e00e15a0d36b9b361f02bab63563aed6cb4665083905386c55d5b679fa"
+      },
+      {
+        "path": "/workspace/file2.js",
+        "directory": false,
+        "blob": "46289932de1604479260f0178bba3a5f7019d133b263efc139c9a18d856bebf1"
+      },
+      {
+        "path": "/workspace/subdir",
+        "directory": true
+      }
+    ],
+    "after": [
+      {
+        "path": "/workspace",
+        "directory": true
+      },
+      {
+        "path": "/workspace/file1.txt",
+        "directory": false,
+        "blob": "d0b425e00e15a0d36b9b361f02bab63563aed6cb4665083905386c55d5b679fa"
+      },
+      {
+        "path": "/workspace/file2.js",
+        "directory": false,
+        "blob": "46289932de1604479260f0178bba3a5f7019d133b263efc139c9a18d856bebf1"
+      },
+      {
+        "path": "/workspace/subdir",
+        "directory": true
+      }
+    ],
+    "result": {
+      "path": "/workspace",
+      "entries": [
+        {
+          "n": "/workspace/file1.txt",
+          "t": "f",
+          "s": 1
+        },
+        {
+          "n": "/workspace/file2.js",
+          "t": "f",
+          "s": 1
+        },
+        {
+          "n": "/workspace/subdir",
+          "t": "d",
+          "s": 0
+        }
+      ]
+    },
+    "result_json": "{\"path\":\"/workspace\",\"entries\":[{\"n\":\"/workspace/file1.txt\",\"t\":\"f\",\"s\":1},{\"n\":\"/workspace/file2.js\",\"t\":\"f\",\"s\":1},{\"n\":\"/workspace/subdir\",\"t\":\"d\",\"s\":0}]}"
+  },
+  {
+    "name": "directory with files recursive",
+    "input": {
+      "Path": "/workspace",
+      "Recursive": true
+    },
+    "before": [
+      {
+        "path": "/workspace",
+        "directory": true
+      },
+      {
+        "path": "/workspace/README.md",
+        "directory": false,
+        "blob": "b4567ebb3ee277058d5f091362aea7e9b532637412b5d7c48ab3475f4499b079"
+      },
+      {
+        "path": "/workspace/docs",
+        "directory": true
+      },
+      {
+        "path": "/workspace/docs/guide.md",
+        "directory": false,
+        "blob": "c6144136c5fdde00c066bed01a81aecaf8f239036f9ecabc432e5386d5b7a49a"
+      },
+      {
+        "path": "/workspace/src",
+        "directory": true
+      },
+      {
+        "path": "/workspace/src/components",
+        "directory": true
+      },
+      {
+        "path": "/workspace/src/components/Button.js",
+        "directory": false,
+        "blob": "d12fe0bd7227e37141bb8e106823596121a452d1c9b4f050ffa94bcb0c3b7528"
+      },
+      {
+        "path": "/workspace/src/main.js",
+        "directory": false,
+        "blob": "92c5b44863a8eda951f59665507f45a5c7e5954169874baeb807ff0816455d22"
+      }
+    ],
+    "after": [
+      {
+        "path": "/workspace",
+        "directory": true
+      },
+      {
+        "path": "/workspace/README.md",
+        "directory": false,
+        "blob": "b4567ebb3ee277058d5f091362aea7e9b532637412b5d7c48ab3475f4499b079"
+      },
+      {
+        "path": "/workspace/docs",
+        "directory": true
+      },
+      {
+        "path": "/workspace/docs/guide.md",
+        "directory": false,
+        "blob": "c6144136c5fdde00c066bed01a81aecaf8f239036f9ecabc432e5386d5b7a49a"
+      },
+      {
+        "path": "/workspace/src",
+        "directory": true
+      },
+      {
+        "path": "/workspace/src/components",
+        "directory": true
+      },
+      {
+        "path": "/workspace/src/components/Button.js",
+        "directory": false,
+        "blob": "d12fe0bd7227e37141bb8e106823596121a452d1c9b4f050ffa94bcb0c3b7528"
+      },
+      {
+        "path": "/workspace/src/main.js",
+        "directory": false,
+        "blob": "92c5b44863a8eda951f59665507f45a5c7e5954169874baeb807ff0816455d22"
+      }
+    ],
+    "result": {
+      "path": "/workspace",
+      "entries": [
+        {
+          "n": "/workspace/README.md",
+          "t": "f",
+          "s": 1
+        },
+        {
+          "n": "/workspace/docs",
+          "t": "d",
+          "s": 0
+        },
+        {
+          "n": "/workspace/docs/guide.md",
+          "t": "f",
+          "s": 1
+        },
+        {
+          "n": "/workspace/src",
+          "t": "d",
+          "s": 0
+        },
+        {
+          "n": "/workspace/src/components",
+          "t": "d",
+          "s": 0
+        },
+        {
+          "n": "/workspace/src/components/Button.js",
+          "t": "f",
+          "s": 1
+        },
+        {
+          "n": "/workspace/src/main.js",
+          "t": "f",
+          "s": 1
+        }
+      ]
+    },
+    "result_json": "{\"path\":\"/workspace\",\"entries\":[{\"n\":\"/workspace/README.md\",\"t\":\"f\",\"s\":1},{\"n\":\"/workspace/docs\",\"t\":\"d\",\"s\":0},{\"n\":\"/workspace/docs/guide.md\",\"t\":\"f\",\"s\":1},{\"n\":\"/workspace/src\",\"t\":\"d\",\"s\":0},{\"n\":\"/workspace/src/components\",\"t\":\"d\",\"s\":0},{\"n\":\"/workspace/src/components/Button.js\",\"t\":\"f\",\"s\":1},{\"n\":\"/workspace/src/main.js\",\"t\":\"f\",\"s\":1}]}"
+  },
+  {
+    "name": "large file size calculation",
+    "input": {
+      "Path": "/test",
+      "Recursive": false
+    },
+    "before": [
+      {
+        "path": "/test",
+        "directory": true
+      },
+      {
+        "path": "/test/large.txt",
+        "directory": false,
+        "blob": "b2a3a502fdfc34f4e3edfa94b7f3109cd972d87a4fec63ab21a6673379ccf7ad"
+      },
+      {
+        "path": "/test/medium.txt",
+        "directory": false,
+        "blob": "d06603d375d65d00443144fa71d605c56449e442cc6b0d67951946df94c2222f"
+      }
+    ],
+    "after": [
+      {
+        "path": "/test",
+        "directory": true
+      },
+      {
+        "path": "/test/large.txt",
+        "directory": false,
+        "blob": "b2a3a502fdfc34f4e3edfa94b7f3109cd972d87a4fec63ab21a6673379ccf7ad"
+      },
+      {
+        "path": "/test/medium.txt",
+        "directory": false,
+        "blob": "d06603d375d65d00443144fa71d605c56449e442cc6b0d67951946df94c2222f"
+      }
+    ],
+    "result": {
+      "path": "/test",
+      "entries": [
+        {
+          "n": "/test/large.txt",
+          "t": "f",
+          "s": 2
+        },
+        {
+          "n": "/test/medium.txt",
+          "t": "f",
+          "s": 2
+        }
+      ]
+    },
+    "result_json": "{\"path\":\"/test\",\"entries\":[{\"n\":\"/test/large.txt\",\"t\":\"f\",\"s\":2},{\"n\":\"/test/medium.txt\",\"t\":\"f\",\"s\":2}]}"
+  },
+  {
+    "name": "nested directory structure recursive",
+    "input": {
+      "Path": "/project",
+      "Recursive": true
+    },
+    "before": [
+      {
+        "path": "/project",
+        "directory": true
+      },
+      {
+        "path": "/project/package.json",
+        "directory": false,
+        "blob": "2e5e80eaa69604993bbf11fbfd1c88794324545b6ae164e7e8ebd2ad503f94b6"
+      },
+      {
+        "path": "/project/src",
+        "directory": true
+      },
+      {
+        "path": "/project/src/index.js",
+        "directory": false,
+        "blob": "390e67a37f69fe3facad53b2dbd659962c80957d56d96b566d96d586e0a36db8"
+      },
+      {
+        "path": "/project/src/utils",
+        "directory": true
+      },
+      {
+        "path": "/project/src/utils/helpers",
+        "directory": true
+      },
+      {
+        "path": "/project/src/utils/helpers/format.js",
+        "directory": false,
+        "blob": "51be193b5c1267e43c87a2c20199ac8b3534461b99758a5df6778be60e75be3d"
+      },
+      {
+        "path": "/project/tests",
+        "directory": true
+      },
+      {
+        "path": "/project/tests/integration",
+        "directory": true
+      },
+      {
+        "path": "/project/tests/integration/test2.js",
+        "directory": false,
+        "blob": "081768b0faeaff48e5b7d220e8a9476780b71fc86236a69a2c62b8c5a93d0b2b"
+      },
+      {
+        "path": "/project/tests/unit",
+        "directory": true
+      },
+      {
+        "path": "/project/tests/unit/test1.js",
+        "directory": false,
+        "blob": "f72a4f3693d971b521ec92acffd17ff473f704f733ae1ca3fc260063a860fd9e"
+      }
+    ],
+    "after": [
+      {
+        "path": "/project",
+        "directory": true
+      },
+      {
+        "path": "/project/package.json",
+        "directory": false,
+        "blob": "2e5e80eaa69604993bbf11fbfd1c88794324545b6ae164e7e8ebd2ad503f94b6"
+      },
+      {
+        "path": "/project/src",
+        "directory": true
+      },
+      {
+        "path": "/project/src/index.js",
+        "directory": false,
+        "blob": "390e67a37f69fe3facad53b2dbd659962c80957d56d96b566d96d586e0a36db8"
+      },
+      {
+        "path": "/project/src/utils",
+        "directory": true
+      },
+      {
+        "path": "/project/src/utils/helpers",
+        "directory": true
+      },
+      {
+        "path": "/project/src/utils/helpers/format.js",
+        "directory": false,
+        "blob": "51be193b5c1267e43c87a2c20199ac8b3534461b99758a5df6778be60e75be3d"
+      },
+      {
+        "path": "/project/tests",
+        "directory": true
+      },
+      {
+        "path": "/project/tests/integration",
+        "directory": true
+      },
+      {
+        "path": "/project/tests/integration/test2.js",
+        "directory": false,
+        "blob": "081768b0faeaff48e5b7d220e8a9476780b71fc86236a69a2c62b8c5a93d0b2b"
+      },
+      {
+        "path": "/project/tests/unit",
+        "directory": true
+      },
+      {
+        "path": "/project/tests/unit/test1.js",
+        "directory": false,
+        "blob": "f72a4f3693d971b521ec92acffd17ff473f704f733ae1ca3fc260063a860fd9e"
+      }
+    ],
+    "result": {
+      "path": "/project",
+      "entries": [
+        {
+          "n": "/project/package.json",
+          "t": "f",
+          "s": 1
+        },
+        {
+          "n": "/project/src",
+          "t": "d",
+          "s": 0
+        },
+        {
+          "n": "/project/src/index.js",
+          "t": "f",
+          "s": 1
+        },
+        {
+          "n": "/project/src/utils",
+          "t": "d",
+          "s": 0
+        },
+        {
+          "n": "/project/src/utils/helpers",
+          "t": "d",
+          "s": 0
+        },
+        {
+          "n": "/project/src/utils/helpers/format.js",
+          "t": "f",
+          "s": 1
+        },
+        {
+          "n": "/project/tests",
+          "t": "d",
+          "s": 0
+        },
+        {
+          "n": "/project/tests/integration",
+          "t": "d",
+          "s": 0
+        },
+        {
+          "n": "/project/tests/integration/test2.js",
+          "t": "f",
+          "s": 1
+        },
+        {
+          "n": "/project/tests/unit",
+          "t": "d",
+          "s": 0
+        },
+        {
+          "n": "/project/tests/unit/test1.js",
+          "t": "f",
+          "s": 1
+        }
+      ]
+    },
+    "result_json": "{\"path\":\"/project\",\"entries\":[{\"n\":\"/project/package.json\",\"t\":\"f\",\"s\":1},{\"n\":\"/project/src\",\"t\":\"d\",\"s\":0},{\"n\":\"/project/src/index.js\",\"t\":\"f\",\"s\":1},{\"n\":\"/project/src/utils\",\"t\":\"d\",\"s\":0},{\"n\":\"/project/src/utils/helpers\",\"t\":\"d\",\"s\":0},{\"n\":\"/project/src/utils/helpers/format.js\",\"t\":\"f\",\"s\":1},{\"n\":\"/project/tests\",\"t\":\"d\",\"s\":0},{\"n\":\"/project/tests/integration\",\"t\":\"d\",\"s\":0},{\"n\":\"/project/tests/integration/test2.js\",\"t\":\"f\",\"s\":1},{\"n\":\"/project/tests/unit\",\"t\":\"d\",\"s\":0},{\"n\":\"/project/tests/unit/test1.js\",\"t\":\"f\",\"s\":1}]}"
+  },
+  {
+    "name": "root directory with content",
+    "input": {
+      "Path": "/",
+      "Recursive": false
+    },
+    "before": [
+      {
+        "path": "/bin",
+        "directory": true
+      },
+      {
+        "path": "/bin/executable",
+        "directory": false,
+        "blob": "ce4d2c05413f9716411aa45c7fe16dc19edd3a88249732eaae5cefee4fc8bd63"
+      },
+      {
+        "path": "/root.txt",
+        "directory": false,
+        "blob": "3d11afb68c4201f4c42f50009ad7cb3215268c5e17a7e87ac54cf1e5a703635d"
+      }
+    ],
+    "after": [
+      {
+        "path": "/bin",
+        "directory": true
+      },
+      {
+        "path": "/bin/executable",
+        "directory": false,
+        "blob": "ce4d2c05413f9716411aa45c7fe16dc19edd3a88249732eaae5cefee4fc8bd63"
+      },
+      {
+        "path": "/root.txt",
+        "directory": false,
+        "blob": "3d11afb68c4201f4c42f50009ad7cb3215268c5e17a7e87ac54cf1e5a703635d"
+      }
+    ],
+    "result": {
+      "path": "/",
+      "entries": [
+        {
+          "n": "/bin",
+          "t": "d",
+          "s": 0
+        },
+        {
+          "n": "/root.txt",
+          "t": "f",
+          "s": 1
+        }
+      ]
+    },
+    "result_json": "{\"path\":\"/\",\"entries\":[{\"n\":\"/bin\",\"t\":\"d\",\"s\":0},{\"n\":\"/root.txt\",\"t\":\"f\",\"s\":1}]}"
+  }
+]

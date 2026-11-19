@@ -1,0 +1,801 @@
+[
+  {
+    "name": "successful creation of new text file",
+    "input": {
+      "Path": "/workspace/new_file.txt",
+      "Content": "Hello, World!\nThis is a new file."
+    },
+    "before": [],
+    "after": [
+      {
+        "path": "/workspace",
+        "directory": true
+      },
+      {
+        "path": "/workspace/new_file.txt",
+        "directory": false,
+        "blob": "1cc3efbd727f844ae4ef499243a1011841791a2f0b344557e5680dbfcfd96523"
+      }
+    ],
+    "result": {
+      "overwritten": false
+    },
+    "result_json": "{\"overwritten\":false}"
+  },
+  {
+    "name": "successful overwriting of existing file",
+    "input": {
+      "Path": "/workspace/test.txt",
+      "Content": "New content for existing file"
+    },
+    "before": [
+      {
+        "path": "/workspace",
+        "directory": true
+      },
+      {
+        "path": "/workspace/binary.bin",
+        "directory": false,
+        "blob": "ff5d8507b6a72bee2debce2c0054798deaccdc5d8a1b945b6280ce8aa9cba52e"
+      },
+      {
+        "path": "/workspace/config.json",
+        "directory": false,
+        "blob": "35b0d9cde2802e3661540ccf3282d64bb422ebc5b22ecb95ce023dfbe4845669"
+      },
+      {
+        "path": "/workspace/deep",
+        "directory": true
+      },
+      {
+        "path": "/workspace/deep/nested",
+        "directory": true
+      },
+      {
+        "path": "/workspace/empty.txt",
+        "directory": false,
+        "blob": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "/workspace/large.txt",
+        "directory": false,
+        "blob": "6ff9798211e4af681c1579eb9394ea0ece43df612f1b8c49d1b01e602ac4aadf"
+      },
+      {
+        "path": "/workspace/special-file_with@symbols.txt",
+        "directory": false,
+        "blob": "28b562dee8499a7248c8373e491b9d2cca2520d85727692a7f60439cbca7f43a"
+      },
+      {
+        "path": "/workspace/src",
+        "directory": true
+      },
+      {
+        "path": "/workspace/src/main.go",
+        "directory": false,
+        "blob": "5a04a8bb3ef8c028e2e087ae8fe2bb4c546da5d3038c8c5a0c981f2cbd52a0e4"
+      },
+      {
+        "path": "/workspace/test.txt",
+        "directory": false,
+        "blob": "9591a0591150615f935769785c70aefcde35e2472cc0ab52649271c8230207d5"
+      },
+      {
+        "path": "/workspace/unicode.txt",
+        "directory": false,
+        "blob": "6add3641a2a784d4946406c245f0b03992882d46ae116da71b86fb6da5f67735"
+      }
+    ],
+    "after": [
+      {
+        "path": "/workspace",
+        "directory": true
+      },
+      {
+        "path": "/workspace/binary.bin",
+        "directory": false,
+        "blob": "ff5d8507b6a72bee2debce2c0054798deaccdc5d8a1b945b6280ce8aa9cba52e"
+      },
+      {
+        "path": "/workspace/config.json",
+        "directory": false,
+        "blob": "35b0d9cde2802e3661540ccf3282d64bb422ebc5b22ecb95ce023dfbe4845669"
+      },
+      {
+        "path": "/workspace/deep",
+        "directory": true
+      },
+      {
+        "path": "/workspace/deep/nested",
+        "directory": true
+      },
+      {
+        "path": "/workspace/empty.txt",
+        "directory": false,
+        "blob": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "/workspace/large.txt",
+        "directory": false,
+        "blob": "6ff9798211e4af681c1579eb9394ea0ece43df612f1b8c49d1b01e602ac4aadf"
+      },
+      {
+        "path": "/workspace/special-file_with@symbols.txt",
+        "directory": false,
+        "blob": "28b562dee8499a7248c8373e491b9d2cca2520d85727692a7f60439cbca7f43a"
+      },
+      {
+        "path": "/workspace/src",
+        "directory": true
+      },
+      {
+        "path": "/workspace/src/main.go",
+        "directory": false,
+        "blob": "5a04a8bb3ef8c028e2e087ae8fe2bb4c546da5d3038c8c5a0c981f2cbd52a0e4"
+      },
+      {
+        "path": "/workspace/test.txt",
+        "directory": false,
+        "blob": "c83fefe4407dbad1d9864ec7eb10219a2ae7977a9f60ac137d7bbddec39cbc0e"
+      },
+      {
+        "path": "/workspace/unicode.txt",
+        "directory": false,
+        "blob": "6add3641a2a784d4946406c245f0b03992882d46ae116da71b86fb6da5f67735"
+      }
+    ],
+    "result": {
+      "overwritten": true
+    },
+    "result_json": "{\"overwritten\":true}"
+  },
+  {
+    "name": "successful creation of empty file",
+    "input": {
+      "Path": "/workspace/empty_new.txt",
+      "Content": ""
+    },
+    "before": [],
+    "after": [
+      {
+        "path": "/workspace",
+        "directory": true
+      },
+      {
+        "path": "/workspace/empty_new.txt",
+        "directory": false,
+        "blob": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    ],
+    "result": {
+      "overwritten": false
+    },
+    "result_json": "{\"overwritten\":false}"
+  },
+  {
+    "name": "successful creation with nested directory structure",
+    "input": {
+      "Path": "/workspace/deep/nested/path/new_file.txt",
+      "Content": "File in nested directory"
+    },
+    "before": [],
+    "after": [
+      {
+        "path": "/workspace",
+        "directory": true
+      },
+      {
+        "path": "/workspace/deep",
+        "directory": true
+      },
+      {
+        "path": "/workspace/deep/nested",
+        "directory": true
+      },
+      {
+        "path": "/workspace/deep/nested/path",
+        "directory": true
+      },
+      {
+        "path": "/workspace/deep/nested/path/new_file.txt",
+        "directory": false,
+        "blob": "b1e86fa0f04d889c016ba1355481fbcac3d433274398dc32aa6eaffd24f436b3"
+      }
+    ],
+    "result": {
+      "overwritten": false
+    },
+    "result_json": "{\"overwritten\":false}"
+  },
+  {
+    "name": "successful creation of JSON file",
+    "input": {
+      "Path": "/workspace/new_config.json",
+      "Content": "{\"name\": \"new_project\", \"version\": \"2.0.0\", \"description\": \"A new project\"}"
+    },
+    "before": [],
+    "after": [
+      {
+        "path": "/workspace",
+        "directory": true
+      },
+      {
+        "path": "/workspace/new_config.json",
+        "directory": false,
+        "blob": "c10c613c291e5132b95a5e8110897968454f06c97e5da0daf9b7e169299d1505"
+      }
+    ],
+    "result": {
+      "overwritten": false
+    },
+    "result_json": "{\"overwritten\":false}"
+  },
+  {
+    "name": "successful creation with unicode content",
+    "input": {
+      "Path": "/workspace/unicode_new.txt",
+      "Content": "¡Hola mundo! 🌍 Здравствуй мир! こんにちは世界！"
+    },
+    "before": [],
+    "after": [
+      {
+        "path": "/workspace",
+        "directory": true
+      },
+      {
+        "path": "/workspace/unicode_new.txt",
+        "directory": false,
+        "blob": "77e8c11a1c3b4579b2b372a3df2540b8b97df551374812accc925fb47358341e"
+      }
+    ],
+    "result": {
+      "overwritten": false
+    },
+    "result_json": "{\"overwritten\":false}"
+  },
+  {
+    "name": "successful creation with special characters in filename",
+    "input": {
+      "Path": "/workspace/special-file_with@symbols#new.txt",
+      "Content": "File with special characters in name"
+    },
+    "before": [],
+    "after": [
+      {
+        "path": "/workspace",
+        "directory": true
+      },
+      {
+        "path": "/workspace/special-file_with@symbols#new.txt",
+        "directory": false,
+        "blob": "2e5be10dc81f4851c3c94e509cb5ae24ff8a5a4199a109353f912bffef1f5046"
+      }
+    ],
+    "result": {
+      "overwritten": false
+    },
+    "result_json": "{\"overwritten\":false}"
+  },
+  {
+    "name": "successful creation with large content",
+    "input": {
+      "Path": "/workspace/large_new.txt",
+      "Content": "Large file content for testing:\nThis is line 0 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 1 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 2 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 3 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 4 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 5 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 6 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 7 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 8 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 9 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 0 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 1 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 2 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 3 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 4 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 5 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 6 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 7 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 8 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 9 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 0 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 1 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 2 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 3 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 4 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 5 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 6 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 7 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 8 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 9 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 0 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 1 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 2 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 3 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 4 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 5 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 6 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 7 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 8 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 9 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 0 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 1 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 2 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 3 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 4 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 5 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 6 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 7 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 8 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 9 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 0 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 1 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 2 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 3 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 4 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 5 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 6 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 7 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 8 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 9 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 0 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 1 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 2 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 3 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 4 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 5 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 6 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 7 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 8 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 9 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 0 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 1 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 2 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 3 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 4 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 5 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 6 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 7 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 8 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 9 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 0 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 1 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 2 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 3 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 4 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 5 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 6 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 7 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 8 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 9 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 0 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 1 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 2 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 3 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 4 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 5 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 6 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 7 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 8 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\nThis is line 9 of a large file for create_file testing purposes. It contains some repeated content to make it larger.\n"
+    },
+    "before": [],
+    "after": [
+      {
+        "path": "/workspace",
+        "directory": true
+      },
+      {
+        "path": "/workspace/large_new.txt",
+        "directory": false,
+        "blob": "c4cd7ec660eaa1fb3835629b3f5d94e7f6d360d55e3e70439baa0a5f5ffc0fae"
+      }
+    ],
+    "result": {
+      "overwritten": false
+    },
+    "result_json": "{\"overwritten\":false}"
+  },
+  {
+    "name": "successful creation with binary-like content",
+    "input": {
+      "Path": "/workspace/binary_new.bin",
+      "Content": "\u0000\u0001\u0002\u0003���"
+    },
+    "before": [],
+    "after": [
+      {
+        "path": "/workspace",
+        "directory": true
+      },
+      {
+        "path": "/workspace/binary_new.bin",
+        "directory": false,
+        "blob": "15d3c73e8654afd66cf3f5e21dfc6dd4035d4b69df2feaf27eb16a0ba216be4f"
+      }
+    ],
+    "result": {
+      "overwritten": false
+    },
+    "result_json": "{\"overwritten\":false}"
+  },
+  {
+    "name": "successful creation with multiline content and special formatting",
+    "input": {
+      "Path": "/workspace/formatted.txt",
+      "Content": "Line 1\n\tIndented line 2\n    Spaced line 3\n\nEmpty line above\r\nWindows line ending"
+    },
+    "before": [],
+    "after": [
+      {
+        "path": "/workspace",
+        "directory": true
+      },
+      {
+        "path": "/workspace/formatted.txt",
+        "directory": false,
+        "blob": "3b731df6919fb862aad5ea785774440b1a6c6f0e40e058a8c506f1ea4dd23370"
+      }
+    ],
+    "result": {
+      "overwritten": false
+    },
+    "result_json": "{\"overwritten\":false}"
+  },
+  {
+    "name": "successful overwriting of JSON file with new structure",
+    "input": {
+      "Path": "/workspace/config.json",
+      "Content": "{\"name\": \"updated_project\", \"version\": \"3.0.0\", \"author\": \"John Doe\", \"license\": \"MIT\"}"
+    },
+    "before": [
+      {
+        "path": "/workspace",
+        "directory": true
+      },
+      {
+        "path": "/workspace/binary.bin",
+        "directory": false,
+        "blob": "ff5d8507b6a72bee2debce2c0054798deaccdc5d8a1b945b6280ce8aa9cba52e"
+      },
+      {
+        "path": "/workspace/config.json",
+        "directory": false,
+        "blob": "35b0d9cde2802e3661540ccf3282d64bb422ebc5b22ecb95ce023dfbe4845669"
+      },
+      {
+        "path": "/workspace/deep",
+        "directory": true
+      },
+      {
+        "path": "/workspace/deep/nested",
+        "directory": true
+      },
+      {
+        "path": "/workspace/empty.txt",
+        "directory": false,
+        "blob": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "/workspace/large.txt",
+        "directory": false,
+        "blob": "6ff9798211e4af681c1579eb9394ea0ece43df612f1b8c49d1b01e602ac4aadf"
+      },
+      {
+        "path": "/workspace/special-file_with@symbols.txt",
+        "directory": false,
+        "blob": "28b562dee8499a7248c8373e491b9d2cca2520d85727692a7f60439cbca7f43a"
+      },
+      {
+        "path": "/workspace/src",
+        "directory": true
+      },
+      {
+        "path": "/workspace/src/main.go",
+        "directory": false,
+        "blob": "5a04a8bb3ef8c028e2e087ae8fe2bb4c546da5d3038c8c5a0c981f2cbd52a0e4"
+      },
+      {
+        "path": "/workspace/test.txt",
+        "directory": false,
+        "blob": "9591a0591150615f935769785c70aefcde35e2472cc0ab52649271c8230207d5"
+      },
+      {
+        "path": "/workspace/unicode.txt",
+        "directory": false,
+        "blob": "6add3641a2a784d4946406c245f0b03992882d46ae116da71b86fb6da5f67735"
+      }
+    ],
+    "after": [
+      {
+        "path": "/workspace",
+        "directory": true
+      },
+      {
+        "path": "/workspace/binary.bin",
+        "directory": false,
+        "blob": "ff5d8507b6a72bee2debce2c0054798deaccdc5d8a1b945b6280ce8aa9cba52e"
+      },
+      {
+        "path": "/workspace/config.json",
+        "directory": false,
+        "blob": "c6426a0ffb8dcf929f709a65582f7505f68cf66746b91d48168bb341120840a1"
+      },
+      {
+        "path": "/workspace/deep",
+        "directory": true
+      },
+      {
+        "path": "/workspace/deep/nested",
+        "directory": true
+      },
+      {
+        "path": "/workspace/empty.txt",
+        "directory": false,
+        "blob": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "/workspace/large.txt",
+        "directory": false,
+        "blob": "6ff9798211e4af681c1579eb9394ea0ece43df612f1b8c49d1b01e602ac4aadf"
+      },
+      {
+        "path": "/workspace/special-file_with@symbols.txt",
+        "directory": false,
+        "blob": "28b562dee8499a7248c8373e491b9d2cca2520d85727692a7f60439cbca7f43a"
+      },
+      {
+        "path": "/workspace/src",
+        "directory": true
+      },
+      {
+        "path": "/workspace/src/main.go",
+        "directory": false,
+        "blob": "5a04a8bb3ef8c028e2e087ae8fe2bb4c546da5d3038c8c5a0c981f2cbd52a0e4"
+      },
+      {
+        "path": "/workspace/test.txt",
+        "directory": false,
+        "blob": "9591a0591150615f935769785c70aefcde35e2472cc0ab52649271c8230207d5"
+      },
+      {
+        "path": "/workspace/unicode.txt",
+        "directory": false,
+        "blob": "6add3641a2a784d4946406c245f0b03992882d46ae116da71b86fb6da5f67735"
+      }
+    ],
+    "result": {
+      "overwritten": true
+    },
+    "result_json": "{\"overwritten\":true}"
+  },
+  {
+    "name": "relative path error",
+    "input": {
+      "Path": "relative/path/file.txt",
+      "Content": "Some content"
+    },
+    "before": [],
+    "after": [],
+    "result": null,
+    "result_json": "null",
+    "error": {
+      "Message": "Path is not absolute",
+      "Suggestions": [
+        "Check the provided system error for more details",
+        "Ensure you're using an absolute path starting with '/'.",
+        "Use the list_files tool to get the absolute path of a file."
+      ],
+      "Details": {
+        "path": "relative/path/file.txt"
+      }
+    }
+  },
+  {
+    "name": "current directory relative path error",
+    "input": {
+      "Path": "./file.txt",
+      "Content": "Some content"
+    },
+    "before": [],
+    "after": [],
+    "result": null,
+    "result_json": "null",
+    "error": {
+      "Message": "Path is not absolute",
+      "Suggestions": [
+        "Check the provided system error for more details",
+        "Ensure you're using an absolute path starting with '/'.",
+        "Use the list_files tool to get the absolute path of a file."
+      ],
+      "Details": {
+        "path": "./file.txt"
+      }
+    }
+  },
+  {
+    "name": "parent directory relative path error",
+    "input": {
+      "Path": "../file.txt",
+      "Content": "Some content"
+    },
+    "before": [],
+    "after": [],
+    "result": null,
+    "result_json": "null",
+    "error": {
+      "Message": "Path is not absolute",
+      "Suggestions": [
+        "Check the provided system error for more details",
+        "Ensure you're using an absolute path starting with '/'.",
+        "Use the list_files tool to get the absolute path of a file."
+      ],
+      "Details": {
+        "path": "../file.txt"
+      }
+    }
+  },
+  {
+    "name": "path is directory error",
+    "input": {
+      "Path": "/workspace/src",
+      "Content": "Cannot write to directory"
+    },
+    "before": [
+      {
+        "path": "/workspace",
+        "directory": true
+      },
+      {
+        "path": "/workspace/binary.bin",
+        "directory": false,
+        "blob": "ff5d8507b6a72bee2debce2c0054798deaccdc5d8a1b945b6280ce8aa9cba52e"
+      },
+      {
+        "path": "/workspace/config.json",
+        "directory": false,
+        "blob": "35b0d9cde2802e3661540ccf3282d64bb422ebc5b22ecb95ce023dfbe4845669"
+      },
+      {
+        "path": "/workspace/deep",
+        "directory": true
+      },
+      {
+        "path": "/workspace/deep/nested",
+        "directory": true
+      },
+      {
+        "path": "/workspace/empty.txt",
+        "directory": false,
+        "blob": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "/workspace/large.txt",
+        "directory": false,
+        "blob": "6ff9798211e4af681c1579eb9394ea0ece43df612f1b8c49d1b01e602ac4aadf"
+      },
+      {
+        "path": "/workspace/special-file_with@symbols.txt",
+        "directory": false,
+        "blob": "28b562dee8499a7248c8373e491b9d2cca2520d85727692a7f60439cbca7f43a"
+      },
+      {
+        "path": "/workspace/src",
+        "directory": true
+      },
+      {
+        "path": "/workspace/src/main.go",
+        "directory": false,
+        "blob": "5a04a8bb3ef8c028e2e087ae8fe2bb4c546da5d3038c8c5a0c981f2cbd52a0e4"
+      },
+      {
+        "path": "/workspace/test.txt",
+        "directory": false,
+        "blob": "9591a0591150615f935769785c70aefcde35e2472cc0ab52649271c8230207d5"
+      },
+      {
+        "path": "/workspace/unicode.txt",
+        "directory": false,
+        "blob": "6add3641a2a784d4946406c245f0b03992882d46ae116da71b86fb6da5f67735"
+      }
+    ],
+    "after": [
+      {
+        "path": "/workspace",
+        "directory": true
+      },
+      {
+        "path": "/workspace/binary.bin",
+        "directory": false,
+        "blob": "ff5d8507b6a72bee2debce2c0054798deaccdc5d8a1b945b6280ce8aa9cba52e"
+      },
+      {
+        "path": "/workspace/config.json",
+        "directory": false,
+        "blob": "35b0d9cde2802e3661540ccf3282d64bb422ebc5b22ecb95ce023dfbe4845669"
+      },
+      {
+        "path": "/workspace/deep",
+        "directory": true
+      },
+      {
+        "path": "/workspace/deep/nested",
+        "directory": true
+      },
+      {
+        "path": "/workspace/empty.txt",
+        "directory": false,
+        "blob": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "/workspace/large.txt",
+        "directory": false,
+        "blob": "6ff9798211e4af681c1579eb9394ea0ece43df612f1b8c49d1b01e602ac4aadf"
+      },
+      {
+        "path": "/workspace/special-file_with@symbols.txt",
+        "directory": false,
+        "blob": "28b562dee8499a7248c8373e491b9d2cca2520d85727692a7f60439cbca7f43a"
+      },
+      {
+        "path": "/workspace/src",
+        "directory": true
+      },
+      {
+        "path": "/workspace/src/main.go",
+        "directory": false,
+        "blob": "5a04a8bb3ef8c028e2e087ae8fe2bb4c546da5d3038c8c5a0c981f2cbd52a0e4"
+      },
+      {
+        "path": "/workspace/test.txt",
+        "directory": false,
+        "blob": "9591a0591150615f935769785c70aefcde35e2472cc0ab52649271c8230207d5"
+      },
+      {
+        "path": "/workspace/unicode.txt",
+        "directory": false,
+        "blob": "6add3641a2a784d4946406c245f0b03992882d46ae116da71b86fb6da5f67735"
+      }
+    ],
+    "result": null,
+    "result_json": "null",
+    "error": {
+      "Message": "Path is a directory",
+      "Suggestions": [
+        "Check the provided system error for more details",
+        "You must specify a file path, not a directory."
+      ],
+      "Details": {
+        "path": "/workspace/src"
+      }
+    }
+  },
+  {
+    "name": "successful creation at root level",
+    "input": {
+      "Path": "/root_file.txt",
+      "Content": "File at root level"
+    },
+    "before": [],
+    "after": [
+      {
+        "path": "/root_file.txt",
+        "directory": false,
+        "blob": "c09d46bfcbdfbde51601fbc33d835f9596da0e043af4624ea49acb4951db4c1b"
+      }
+    ],
+    "result": {
+      "overwritten": false
+    },
+    "result_json": "{\"overwritten\":false}"
+  },
+  {
+    "name": "successful creation with very long path",
+    "input": {
+      "Path": "/workspace/very/deep/nested/directory/structure/with/many/levels/that/goes/quite/far/down/the/tree/final_file.txt",
+      "Content": "Deep nested file"
+    },
+    "before": [],
+    "after": [
+      {
+        "path": "/workspace",
+        "directory": true
+      },
+      {
+        "path": "/workspace/very",
+        "directory": true
+      },
+      {
+        "path": "/workspace/very/deep",
+        "directory": true
+      },
+      {
+        "path": "/workspace/very/deep/nested",
+        "directory": true
+      },
+      {
+        "path": "/workspace/very/deep/nested/directory",
+        "directory": true
+      },
+      {
+        "path": "/workspace/very/deep/nested/directory/structure",
+        "directory": true
+      },
+      {
+        "path": "/workspace/very/deep/nested/directory/structure/with",
+        "directory": true
+      },
+      {
+        "path": "/workspace/very/deep/nested/directory/structure/with/many",
+        "directory": true
+      },
+      {
+        "path": "/workspace/very/deep/nested/directory/structure/with/many/levels",
+        "directory": true
+      },
+      {
+        "path": "/workspace/very/deep/nested/directory/structure/with/many/levels/that",
+        "directory": true
+      },
+      {
+        "path": "/workspace/very/deep/nested/directory/structure/with/many/levels/that/goes",
+        "directory": true
+      },
+      {
+        "path": "/workspace/very/deep/nested/directory/structure/with/many/levels/that/goes/quite",
+        "directory": true
+      },
+      {
+        "path": "/workspace/very/deep/nested/directory/structure/with/many/levels/that/goes/quite/far",
+        "directory": true
+      },
+      {
+        "path": "/workspace/very/deep/nested/directory/structure/with/many/levels/that/goes/quite/far/down",
+        "directory": true
+      },
+      {
+        "path": "/workspace/very/deep/nested/directory/structure/with/many/levels/that/goes/quite/far/down/the",
+        "directory": true
+      },
+      {
+        "path": "/workspace/very/deep/nested/directory/structure/with/many/levels/that/goes/quite/far/down/the/tree",
+        "directory": true
+      },
+      {
+        "path": "/workspace/very/deep/nested/directory/structure/with/many/levels/that/goes/quite/far/down/the/tree/final_file.txt",
+        "directory": false,
+        "blob": "6c661d56b6dd5c22d110cfd07826118e675bfb2212419652b03ff1a8109fcf51"
+      }
+    ],
+    "result": {
+      "overwritten": false
+    },
+    "result_json": "{\"overwritten\":false}"
+  },
+  {
+    "name": "successful creation with path containing dots",
+    "input": {
+      "Path": "/workspace/file.with.dots.in.name.txt",
+      "Content": "File with dots in name"
+    },
+    "before": [],
+    "after": [
+      {
+        "path": "/workspace",
+        "directory": true
+      },
+      {
+        "path": "/workspace/file.with.dots.in.name.txt",
+        "directory": false,
+        "blob": "0d3530464a794a5cc46dff38de86fbab5d785c42d71d7cf3774ecf4e7366a737"
+      }
+    ],
+    "result": {
+      "overwritten": false
+    },
+    "result_json": "{\"overwritten\":false}"
+  }
+]

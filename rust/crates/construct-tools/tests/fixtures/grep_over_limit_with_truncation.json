@@ -1,0 +1,24 @@
+{
+  "context": 2,
+  "input": "{\"type\":\"begin\",\"data\":{\"path\":{\"text\":\"/path/file1.go\"}}}\n{\"type\":\"match\",\"data\":{\"path\":{\"text\":\"/path/file1.go\"},\"line_number\":5,\"lines\":{\"text\":\"match 1\"}}}\n{\"type\":\"end\",\"data\":{\"path\":{\"text\":\"/path/file1.go\"}}}\n{\"type\":\"begin\",\"data\":{\"path\":{\"text\":\"/path/file2.go\"}}}\n{\"type\":\"match\",\"data\":{\"path\":{\"text\":\"/path/file2.go\"},\"line_number\":10,\"lines\":{\"text\":\"match 2\"}}}\n{\"type\":\"end\",\"data\":{\"path\":{\"text\":\"/path/file2.go\"}}}\n{\"type\":\"begin\",\"data\":{\"path\":{\"text\":\"/path/file3.go\"}}}\n{\"type\":\"match\",\"data\":{\"path\":{\"text\":\"/path/file3.go\"},\"line_number\":15,\"lines\":{\"text\":\"match 3\"}}}\n{\"type\":\"end\",\"data\":{\"path\":{\"text\":\"/path/file3go\"}}}\n{\"type\":\"begin\",\"data\":{\"path\":{\"text\":\"/path/file4.go\"}}}\n{\"type\":\"match\",\"data\":{\"path\":{\"text\":\"/path/file4.go\"},\"line_number\":20,\"lines\":{\"text\":\"match 4\"}}}\n{\"type\":\"end\",\"data\":{\"path\":{\"text\":\"/path/file4.go\"}}}\n{\"type\":\"begin\",\"data\":{\"path\":{\"text\":\"/path/file5.go\"}}}\n{\"type\":\"match\",\"data\":{\"path\":{\"text\":\"/path/file5.go\"},\"line_number\":25,\"lines\":{\"text\":\"match 5\"}}}\n{\"type\":\"end\",\"data\":{\"path\":{\"text\":\"/path/file5.go\"}}}",
+  "max": 3,
+  "result": {
+    "matches": [
+      {
+        "file_path": "/path/file1.go",
+        "value": ":5:match 1"
+      },
+      {
+        "file_path": "/path/file2.go",
+        "value": ":10:match 2"
+      },
+      {
+        "file_path": "/path/file3.go",
+        "value": ":15:match 3"
+      }
+    ],
+    "total_matches": 5,
+    "truncated_matches": 2,
+    "searched_files": 5
+  }
+}

@@ -1,0 +1,32 @@
+[
+  {
+    "name": "article",
+    "type": "text/html",
+    "body": "\u003c!DOCTYPE html\u003e\u003chtml\u003e\u003chead\u003e\u003ctitle\u003eTest Page\u003c/title\u003e\u003c/head\u003e\u003cbody\u003e\u003carticle\u003e\u003ch1\u003eHello World\u003c/h1\u003e\u003cp\u003eThis is a test paragraph.\u003c/p\u003e\u003c/article\u003e\u003c/body\u003e\u003c/html\u003e",
+    "result_json": "{\"url\":\"{{URL}}\",\"title\":\"Test Page\",\"content\":\"## Hello World\\n\\nThis is a test paragraph.\",\"content_type\":\"html\",\"byte_size\":149,\"truncated\":false}"
+  },
+  {
+    "name": "json",
+    "type": "application/json",
+    "body": "{\"name\":\"test\",\"values\":[1,2,3]}",
+    "result_json": "{\"url\":\"{{URL}}\",\"title\":\"{{HOST}}\",\"content\":\"{\\\"name\\\":\\\"test\\\",\\\"values\\\":[1,2,3]}\",\"content_type\":\"json\",\"byte_size\":32,\"truncated\":false}"
+  },
+  {
+    "name": "xhtml",
+    "type": "application/xhtml+xml",
+    "body": "\u003c!DOCTYPE html\u003e\u003chtml\u003e\u003chead\u003e\u003ctitle\u003eXHTML Page\u003c/title\u003e\u003c/head\u003e\u003cbody\u003e\u003cp\u003eXHTML content\u003c/p\u003e\u003c/body\u003e\u003c/html\u003e",
+    "result_json": "{\"url\":\"{{URL}}\",\"title\":\"XHTML Page\",\"content\":\"XHTML content\",\"content_type\":\"html\",\"byte_size\":99,\"truncated\":false}"
+  },
+  {
+    "name": "auth",
+    "type": "text/html",
+    "body": "\u003c!DOCTYPE html\u003e\u003chtml\u003e\u003chead\u003e\u003ctitle\u003eAuth Page\u003c/title\u003e\u003c/head\u003e\u003cbody\u003e\u003cp\u003eAuthenticated\u003c/p\u003e\u003c/body\u003e\u003c/html\u003e",
+    "result_json": "{\"url\":\"{{URL}}\",\"title\":\"Auth Page\",\"content\":\"Authenticated\",\"content_type\":\"html\",\"byte_size\":98,\"truncated\":false}"
+  },
+  {
+    "name": "ua",
+    "type": "text/html",
+    "body": "\u003c!DOCTYPE html\u003e\u003chtml\u003e\u003chead\u003e\u003ctitle\u003eUA Test\u003c/title\u003e\u003c/head\u003e\u003cbody\u003e\u003cp\u003eOK\u003c/p\u003e\u003c/body\u003e\u003c/html\u003e",
+    "result_json": "{\"url\":\"{{URL}}\",\"title\":\"UA Test\",\"content\":\"OK\",\"content_type\":\"html\",\"byte_size\":85,\"truncated\":false}"
+  }
+]

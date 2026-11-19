@@ -1,0 +1,35 @@
+{
+  "type": "object",
+  "properties": {
+    "query": {
+      "type": "string"
+    },
+    "path": {
+      "type": "string"
+    },
+    "include_pattern": {
+      "type": "string"
+    },
+    "exclude_pattern": {
+      "type": "string"
+    },
+    "case_sensitive": {
+      "type": "boolean"
+    },
+    "max_results": {
+      "type": "integer"
+    },
+    "context": {
+      "type": "integer"
+    }
+  },
+  "required": [
+    "query",
+    "path",
+    "include_pattern",
+    "exclude_pattern",
+    "case_sensitive",
+    "max_results",
+    "context"
+  ]
+}

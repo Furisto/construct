@@ -1,0 +1,52 @@
+[
+  {
+    "input": {
+      "pattern": "*.txt",
+      "path": "/workspace",
+      "exclude_pattern": "",
+      "max_results": 10
+    },
+    "result": {
+      "files": [
+        "/workspace/a.txt"
+      ],
+      "total_files": 1,
+      "truncated_count": 0
+    }
+  },
+  {
+    "input": {
+      "pattern": "**/*",
+      "path": "/workspace",
+      "exclude_pattern": "",
+      "max_results": 10
+    },
+    "result": {
+      "files": [
+        "/workspace/a.txt"
+      ],
+      "total_files": 1,
+      "truncated_count": 0
+    }
+  },
+  {
+    "error": {
+      "Message": "glob pattern error",
+      "Suggestions": [
+        "Check that your glob pattern is valid",
+        "Check the provided system error for more details"
+      ],
+      "Details": {
+        "error": "syntax error in pattern",
+        "pattern": "["
+      }
+    },
+    "input": {
+      "pattern": "[",
+      "path": "/workspace",
+      "exclude_pattern": "",
+      "max_results": 10
+    },
+    "result": null
+  }
+]

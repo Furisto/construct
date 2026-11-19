@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "properties": {
+    "Command": {
+      "type": "string"
+    },
+    "WorkingDirectory": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "Command",
+    "WorkingDirectory"
+  ]
+}
