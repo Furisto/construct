@@ -80,9 +80,8 @@ This is not a byte-for-byte replacement for Sobek for arbitrary JavaScript:
 - Function references cannot print Go's process-specific function pointer
   addresses. Exotic exported JS values and prototype mutation are not golden
   parity guarantees. Reentrant binding calls from argument coercion/accessors
-  throw `TypeError: reentrant tool binding` rather than borrowing session state
-  recursively. Ordinary nested expressions such as `print(read_file(path))`
-  work normally.
+  are supported, including the production interceptors' repeated coercions,
+  shared result slot, and Go's captured durable-state/index quirks.
 - Retained result metadata models non-mutating reflected structs/slices, not all
   Sobek reflection behavior: JS mutation is not written back into already
   recorded `ToolOutput` values, and omitted fields/nil slices remain governed by
@@ -99,7 +98,7 @@ This is not a byte-for-byte replacement for Sobek for arbitrary JavaScript:
 
 ## Real Go interpreter goldens
 
-`tests/fixtures/go.json` contains **19 real Go interpreter executions**. Each
+`tests/fixtures/go.json` contains **32 real Go interpreter executions**. Each
 stores the exact script, fixed seeded file contents, console output, nullable
 interpreter error, Go `encoding/json` bytes for `InterpreterOutput`, and ordered
 events with their exact Go JSON payload bytes. The Go runner uses precisely the
@@ -126,7 +125,24 @@ The corpus covers primitive/nested print values, numeric thresholds and negative
 zero, full/ranged reads, create/edit, list/find/grep, empty search results, command
 success and caught nonzero exit, caught/uncaught tool errors, uncaught TypeError
 and ReferenceError, strict mode, empty scripts, durable indexes, attempt counts,
-events, and struct identity versus plain-JS object copies.
+events, and struct identity versus plain-JS object copies. Nested cases cover
+coercions, argument getters, print-export getters, caught/uncaught nested errors,
+and nested calls before and after a durable state has been installed. A coercion
+can run three times (events, durable input, execution). Durable indices are
+captured before input coercion: recorded indices can therefore be non-monotonic
+or repeated. If an outer call creates a fresh state before a nested call first
+installs one, the outer call subsequently replaces it, losing the nested record.
+These quirks are asserted, not repaired. Print formats all arguments before
+appending its line, so nested getter output appears before the outer line.
+Print exports objects rather than calling their `toString`; a non-enumerable
+`toString` probe is asserted not to run. Custom bindings and interceptors receive
+`&RefCell<Session>` and must not hold a borrow across JS or `next` calls. Durable
+state is shared through `Rc<RefCell<FunctionCallState>>`, mirroring Go's pointer.
+
+Fetch cases use identical committed JSON/HTML/error response bodies served by
+Go's `httptest` and a Rust loopback-only HTTP server. No external network request
+is made. They compare full result structs, errors, durable calls, stats and events.
+The Rust corpus also replays in a child process with ripgrep hidden from PATH.
 
 `tests/go_goldens.rs` compares console/error strings and **serialized output and
 payload bytes**, not merely decoded JSON equality. Normalization is limited to:
@@ -138,12 +154,15 @@ payload bytes**, not merely decoded JSON equality. Normalization is limited to:
    interpreter errors. Error type and message remain exact assertions.
 4. Event timestamps are excluded from the recorded projection; event type,
    action, task ID, tool, input/output payload JSON, and ordering are all compared.
+5. The ephemeral loopback HTTP port is replaced by `{{PORT}}`; scheme, host,
+   paths, response bodies and all other HTTP/result bytes are left unchanged.
 
 The normalization test proves suggestions/ordinary lines are not reordered,
 different error messages still differ, and non-console JSON bytes are untouched.
-There are no remaining unnormalized differences in this corpus. HTTP fetch is
-registered but not invoked: external network/backend behavior remains covered
-by the host-tool tests and their documented compatibility boundaries.
+There are no remaining unnormalized differences in this corpus. The Rust grep
+fallback retains newlines to match Go's ripgrep-generated golden even without
+ripgrep; Go's own grep fallback strips those newlines. Other external
+network/backend behavior remains subject to the host-tool compatibility limits.
 
 ## Checks
 

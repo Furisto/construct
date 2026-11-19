@@ -8,6 +8,7 @@ use construct_types::tools::{InterpreterInput, ToolCallEvent, ToolOutput, ToolRe
 use rquickjs::{Array, Context, Ctx, Runtime, Value};
 use serde_json::{json, Value as Json};
 use std::{
+    cell::RefCell,
     path::Path,
     sync::{Arc, Mutex},
 };
@@ -34,7 +35,7 @@ fn mapped(tool: Arc<dyn CodeActTool>, expression: &str) -> Option<Json> {
     let vm = Runtime::new().unwrap();
     let context = Context::full(&vm).unwrap();
     let (ctx, task) = scope(Path::new("/project"));
-    let session = Session::new(ctx, task);
+    let session = RefCell::new(Session::new(ctx, task));
     context.with(|ctx| {
         let args: Array = ctx.eval(expression).unwrap();
         let args = args
@@ -146,7 +147,7 @@ fn empty_and_invalid_mapping() {
         let vm = Runtime::new().unwrap();
         let context = Context::full(&vm).unwrap();
         let (scope, task) = scope(Path::new("/project"));
-        let session = Session::new(scope, task);
+        let session = RefCell::new(Session::new(scope, task));
         context.with(|ctx| {
             let args: Array = ctx.eval(expression).unwrap();
             let args = args
@@ -376,14 +377,14 @@ impl Interceptor for Trace {
     fn intercept<'js>(
         &self,
         _ctx: &Ctx<'js>,
-        session: &mut Session,
+        session: &RefCell<Session>,
         _tool: &dyn CodeActTool,
         _args: &[Value<'js>],
         next: &Next<'_, 'js>,
     ) -> rquickjs::Result<Value<'js>> {
-        session.console.push_str(self.0);
+        session.borrow_mut().console.push_str(self.0);
         let result = next(session);
-        session.console.push_str(self.0);
+        session.borrow_mut().console.push_str(self.0);
         result
     }
 }

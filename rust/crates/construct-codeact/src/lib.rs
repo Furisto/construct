@@ -12,7 +12,7 @@ pub use middleware::*;
 
 use construct_core::tool::ToolContext;
 use construct_types::tools::{FunctionCall, ToolOutput};
-use std::{collections::BTreeMap, path::PathBuf};
+use std::{cell::RefCell, collections::BTreeMap, path::PathBuf, rc::Rc};
 use uuid::Uuid;
 
 /// Task identity and working directory supplied to an interpretation.
@@ -27,9 +27,9 @@ pub struct Task {
 /// Durable call sequence; failed calls never advance the index.
 #[derive(Default)]
 pub struct FunctionCallState {
-    /// Successful calls, in execution order.
+    /// Recorded calls, appended on successful completion.
     pub calls: Vec<FunctionCall>,
-    /// Index assigned to the next successful call.
+    /// Index captured on entry to the next durable invocation.
     pub index: i64,
 }
 
@@ -45,8 +45,8 @@ pub struct Session {
     pub console: String,
     /// Temporary tool result, cleared by ResetTemporarySessionValues.
     pub result: Option<ToolOutput>,
-    /// Successful durable calls, allocated lazily like Go's session value.
-    pub function_calls: Option<FunctionCallState>,
+    /// Shared durable state, installed lazily on success like Go's session value.
+    pub function_calls: Option<Rc<RefCell<FunctionCallState>>>,
     /// Attempt counters (including calls that throw).
     pub tool_stats: BTreeMap<String, i64>,
 }

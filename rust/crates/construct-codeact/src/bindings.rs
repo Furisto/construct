@@ -5,11 +5,12 @@ use construct_core::{
 };
 use construct_types::tools::ToolInput;
 use rquickjs::{Array, Ctx, Function, Value};
-use std::sync::Arc;
+use std::{cell::RefCell, sync::Arc};
 use tokio::runtime::Handle;
 
 /// A synchronous VM binding. Arguments stay in the VM to preserve undefined,
 /// JavaScript coercions, getters and array-like objects.
+/// Release session borrows before invoking JavaScript, which may call tools.
 pub trait CodeActTool: Send + Sync {
     /// JavaScript global function name.
     fn name(&self) -> &str;
@@ -19,14 +20,14 @@ pub trait CodeActTool: Send + Sync {
     fn input<'js>(
         &self,
         ctx: &Ctx<'js>,
-        session: &Session,
+        session: &RefCell<Session>,
         args: &[Value<'js>],
     ) -> rquickjs::Result<Option<ToolInput>>;
     /// Execute synchronously on the interpreter's blocking thread.
     fn call<'js>(
         &self,
         ctx: &Ctx<'js>,
-        session: &mut Session,
+        session: &RefCell<Session>,
         args: &[Value<'js>],
         runtime: &Handle,
     ) -> rquickjs::Result<Value<'js>>;
@@ -40,6 +41,7 @@ pub fn host_tool(tool: Arc<dyn Tool>) -> Arc<dyn CodeActTool> {
 struct HostTool(Arc<dyn Tool>);
 
 pub(crate) const TOOL_ERROR_MESSAGE: &str = "__construct_tool_error_message";
+pub(crate) const PROPAGATED_ERROR: &str = "__construct_propagated_binding_error";
 
 pub(crate) fn throw(ctx: &Ctx<'_>, mut error: ToolError) -> rquickjs::Error {
     error.details.insert("toolName".into(), "".into());
@@ -68,7 +70,7 @@ impl CodeActTool for HostTool {
     fn input<'js>(
         &self,
         ctx: &Ctx<'js>,
-        session: &Session,
+        session: &RefCell<Session>,
         args: &[Value<'js>],
     ) -> rquickjs::Result<Option<ToolInput>> {
         let mapper: Function = ctx.eval(include_str!("mapping.js"))?;
@@ -76,13 +78,19 @@ impl CodeActTool for HostTool {
         for (index, value) in args.iter().enumerate() {
             array.set(index, value.clone())?;
         }
-        let value: Value = mapper.call((
-            self.name(),
-            array.clone(),
-            session.task.id.to_string(),
-            session.agent_id.to_string(),
-            session.task.project_directory.to_string_lossy().as_ref(),
-        ))?;
+        let (task, agent, directory) = {
+            let session = session.borrow();
+            (
+                session.task.id.to_string(),
+                session.agent_id.to_string(),
+                session
+                    .task
+                    .project_directory
+                    .to_string_lossy()
+                    .into_owned(),
+            )
+        };
+        let value: Value = mapper.call((self.name(), array.clone(), task, agent, directory))?;
         let json = ctx
             .json_stringify(value)?
             .expect("mapping returns JSON")
@@ -117,7 +125,7 @@ impl CodeActTool for HostTool {
     fn call<'js>(
         &self,
         ctx: &Ctx<'js>,
-        session: &mut Session,
+        session: &RefCell<Session>,
         args: &[Value<'js>],
         runtime: &Handle,
     ) -> rquickjs::Result<Value<'js>> {
@@ -134,19 +142,20 @@ impl CodeActTool for HostTool {
                 ),
             ));
         }
+        let context = session.borrow().context.clone();
         let output = runtime
-            .block_on(self.0.execute(&session.context, input))
+            .block_on(self.0.execute(&context, input))
             .map_err(|e| throw(ctx, e))?;
         if self.name() == "handoff" {
             return Ok(Value::new_undefined(ctx.clone()));
         }
         if self.name() == "submit_report" {
-            session.console.push_str("REPORT SUBMITTED\n");
+            session.borrow_mut().console.push_str("REPORT SUBMITTED\n");
         }
         let json = construct_types::to_go_json(&output).expect("tool output JSON");
         let object: std::collections::BTreeMap<String, Box<serde_json::value::RawValue>> =
             serde_json::from_slice(&json).expect("tool output object");
-        session.result = Some(output);
+        session.borrow_mut().result = Some(output);
         let value = ctx.json_parse(object.get(self.name()).map_or("null", |arm| arm.get()))?;
         crate::result::tag(&value, &format!("&{}", self.name()))?;
         Ok(value)
@@ -224,7 +233,7 @@ impl CodeActTool for Print {
     fn input<'js>(
         &self,
         _ctx: &Ctx<'js>,
-        _session: &Session,
+        _session: &RefCell<Session>,
         _args: &[Value<'js>],
     ) -> rquickjs::Result<Option<ToolInput>> {
         Ok(None)
@@ -232,17 +241,19 @@ impl CodeActTool for Print {
     fn call<'js>(
         &self,
         ctx: &Ctx<'js>,
-        session: &mut Session,
+        session: &RefCell<Session>,
         args: &[Value<'js>],
         _runtime: &Handle,
     ) -> rquickjs::Result<Value<'js>> {
+        let mut output = String::new();
         for (index, arg) in args.iter().enumerate() {
             if index != 0 {
-                session.console.push(' ');
+                output.push(' ');
             }
-            session.console.push_str(&format_value(ctx, arg)?);
+            output.push_str(&format_value(ctx, arg)?);
         }
-        session.console.push('\n');
+        output.push('\n');
+        session.borrow_mut().console.push_str(&output);
         Ok(Value::new_undefined(ctx.clone()))
     }
 }

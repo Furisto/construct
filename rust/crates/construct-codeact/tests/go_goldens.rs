@@ -11,12 +11,88 @@ use construct_types::{
 use serde_json::{json, Value};
 use std::{
     fs,
+    io::{Read, Write},
+    net::{TcpListener, TcpStream},
+    sync::atomic::{AtomicBool, Ordering},
     sync::{Arc, Mutex},
+    thread,
+    time::Duration,
 };
 use uuid::Uuid;
 
 #[derive(Default)]
 struct RecordingPublisher(Mutex<Vec<Value>>);
+
+struct LoopbackServer {
+    port: u16,
+    stop: Arc<AtomicBool>,
+    worker: Option<thread::JoinHandle<()>>,
+}
+
+impl LoopbackServer {
+    fn new(responses: Value) -> Self {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let port = listener.local_addr().unwrap().port();
+        listener.set_nonblocking(true).unwrap();
+        let stop = Arc::new(AtomicBool::new(false));
+        let stopped = stop.clone();
+        let worker = thread::spawn(move || {
+            while !stopped.load(Ordering::Relaxed) {
+                let (mut stream, _) = match listener.accept() {
+                    Ok(connection) => connection,
+                    Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                        thread::sleep(Duration::from_millis(1));
+                        continue;
+                    }
+                    Err(e) => panic!("loopback accept: {e}"),
+                };
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(2)))
+                    .unwrap();
+                let mut request = Vec::new();
+                let mut buffer = [0; 1024];
+                while !request.ends_with(b"\r\n\r\n") {
+                    match stream.read(&mut buffer) {
+                        Ok(0) => break,
+                        Ok(n) => request.extend_from_slice(&buffer[..n]),
+                        Err(_) => break,
+                    }
+                }
+                if request.is_empty() {
+                    continue;
+                }
+                let request = String::from_utf8(request).unwrap();
+                let path = request.split_whitespace().nth(1).unwrap();
+                let response = &responses[path];
+                let status = response["status"].as_u64().unwrap();
+                let reason = match status {
+                    200 => "OK",
+                    503 => "Service Unavailable",
+                    _ => panic!("unexpected fixture status"),
+                };
+                let body = response["body"].as_str().unwrap();
+                write!(stream, "HTTP/1.1 {status} {reason}\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", response["content_type"].as_str().unwrap(), body.len()).unwrap();
+            }
+        });
+        Self {
+            port,
+            stop,
+            worker: Some(worker),
+        }
+    }
+
+    fn normalize(&self, text: &str) -> String {
+        text.replace(&format!(":{}", self.port), ":{{PORT}}")
+    }
+}
+
+impl Drop for LoopbackServer {
+    fn drop(&mut self) {
+        self.stop.store(true, Ordering::Relaxed);
+        let _ = TcpStream::connect(("127.0.0.1", self.port));
+        self.worker.take().unwrap().join().unwrap();
+    }
+}
 impl EventPublisher for RecordingPublisher {
     fn publish(&self, event: Event) {
         let (tool, payload_json) = match event.r#type.as_str() {
@@ -123,6 +199,29 @@ fn normalize_output(text: &str) -> String {
     text.replacen(&prefix, &format!("{{\"console_output\":{normalized},"), 1)
 }
 
+#[test]
+fn go_goldens_without_ripgrep() {
+    let bin = tempfile::tempdir().unwrap();
+    for name in ["grep", "sh"] {
+        let executable = std::env::split_paths(&std::env::var_os("PATH").unwrap())
+            .map(|path| path.join(name))
+            .find(|path| path.is_file())
+            .unwrap_or_else(|| panic!("system {name}"));
+        fs::copy(executable, bin.path().join(name)).unwrap();
+    }
+    let output = std::process::Command::new(std::env::current_exe().unwrap())
+        .args(["--exact", "real_go_interpreter_goldens", "--nocapture"])
+        .env("PATH", bin.path())
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 #[tokio::test]
 async fn real_go_interpreter_goldens() {
     let cases: Vec<Value> = serde_json::from_str(include_str!("fixtures/go.json")).unwrap();
@@ -136,6 +235,7 @@ async fn real_go_interpreter_goldens() {
             fs::write(path, content.as_str().unwrap()).unwrap();
         }
         let root = dir.path().to_str().unwrap();
+        let server = LoopbackServer::new(case["http_responses"].clone());
         let events = Arc::new(RecordingPublisher::default());
         let interpreter = Interpreter::new(
             vec![
@@ -163,24 +263,33 @@ async fn real_go_interpreter_goldens() {
             events: None,
         };
         let input = InterpreterInput {
-            script: case["script"].as_str().unwrap().replace("{{ROOT}}", root),
+            script: case["script"]
+                .as_str()
+                .unwrap()
+                .replace("{{ROOT}}", root)
+                .replace("{{PORT}}", &server.port.to_string()),
         };
         let (output, error) = interpreter.interpret(ctx, input, task).await;
-        let actual_output = String::from_utf8(to_go_json(&output).unwrap())
-            .unwrap()
-            .replace(root, "{{ROOT}}");
-        let actual_error = error.map(|error| error.to_string().replace(root, "{{ROOT}}"));
-        let actual_events: Value = serde_json::from_str(
-            &serde_json::to_string(&*events.0.lock().unwrap())
+        let actual_output = server.normalize(
+            &String::from_utf8(to_go_json(&output).unwrap())
                 .unwrap()
                 .replace(root, "{{ROOT}}"),
+        );
+        let actual_error =
+            error.map(|error| server.normalize(&error.to_string().replace(root, "{{ROOT}}")));
+        let actual_events: Value = serde_json::from_str(
+            &server.normalize(
+                &serde_json::to_string(&*events.0.lock().unwrap())
+                    .unwrap()
+                    .replace(root, "{{ROOT}}"),
+            ),
         )
         .unwrap();
         let comparisons = [
             (
                 "console_output",
                 json!(normalize_details(
-                    &output.console_output.replace(root, "{{ROOT}}")
+                    &server.normalize(&output.console_output.replace(root, "{{ROOT}}"))
                 )),
                 json!(normalize_details(case["console_output"].as_str().unwrap())),
             ),

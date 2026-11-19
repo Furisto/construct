@@ -123,7 +123,7 @@ impl Interpreter {
                     session
                         .function_calls
                         .take()
-                        .map_or_else(Vec::new, |s| s.calls),
+                        .map_or_else(Vec::new, |s| std::mem::take(&mut s.borrow_mut().calls)),
                 ),
                 tool_stats: Some(std::mem::take(&mut session.tool_stats)),
             },
@@ -141,25 +141,36 @@ fn binding<'js>(
 ) -> rquickjs::Result<Function<'js>> {
     Function::new(
         ctx.clone(),
-        move |ctx: Ctx<'js>, Rest(args): Rest<Value<'js>>| {
-            let mut session = state
-                .try_borrow_mut()
-                .map_err(|_| rquickjs::Exception::throw_type(&ctx, "reentrant tool binding"))?;
-            invoke(
-                &ctx,
-                &mut session,
-                tool.as_ref(),
-                &args,
-                &handle,
-                &interceptors,
-            )
+        move |ctx: Ctx<'js>, Rest(args): Rest<Value<'js>>| match invoke(
+            &ctx,
+            &state,
+            tool.as_ref(),
+            &args,
+            &handle,
+            &interceptors,
+        ) {
+            Err(error) if error.is_exception() => {
+                let exception = ctx.catch();
+                if let Some(object) = exception.as_object().filter(|object| {
+                    object
+                        .contains_key(crate::bindings::TOOL_ERROR_MESSAGE)
+                        .unwrap_or(false)
+                }) {
+                    object.prop(
+                        crate::bindings::PROPAGATED_ERROR,
+                        rquickjs::object::Property::from(true),
+                    )?;
+                }
+                Err(ctx.throw(exception))
+            }
+            result => result,
         },
     )
 }
 
 fn invoke<'js>(
     ctx: &Ctx<'js>,
-    session: &mut Session,
+    session: &RefCell<Session>,
     tool: &dyn CodeActTool,
     args: &[Value<'js>],
     runtime: &Handle,
