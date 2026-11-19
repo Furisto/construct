@@ -121,178 +121,279 @@ fn last_char(s: &[u8]) -> Option<(char, usize)> {
 }
 
 #[derive(Default)]
-struct Events(Vec<Event>);
+struct Events(Vec<(Event, Marker)>);
 
 impl MarkedEventReceiver for Events {
-    fn on_event(&mut self, ev: Event, _mark: Marker) {
-        self.0.push(ev);
+    fn on_event(&mut self, ev: Event, mark: Marker) {
+        self.0.push((ev, mark));
     }
 }
 
 #[derive(Clone)]
-enum Node {
+enum Kind {
     Scalar(String, TScalarStyle, Option<Tag>),
     Sequence,
-    Mapping,
+    Mapping(Vec<(Node, Node)>),
 }
+
+/// A yaml.v3 `Node`: kind, 1-based line within the frontmatter, and whether it was an alias.
+#[derive(Clone)]
+struct Node {
+    kind: Kind,
+    line: usize,
+    alias: bool,
+}
+
+const YAML_TAG_PREFIX: &str = "tag:yaml.org,2002:";
 
 impl Node {
-    fn kind(&self) -> &'static str {
-        match self {
-            Node::Scalar(..) => "!!str",
-            Node::Sequence => "!!seq",
-            Node::Mapping => "!!map",
-        }
-    }
-
-    /// Go yaml.v3 decoding into a `string`: nulls are empty, other scalars keep their text.
-    fn into_string(self) -> Result<String, ParseError> {
-        match self {
-            Node::Scalar(value, style, tag) => {
-                if is_null(&value, style, tag.as_ref()) {
-                    Ok(String::new())
-                } else {
-                    Ok(value)
+    /// yaml.v3 `shortTag` of the node's explicit or resolved tag.
+    fn tag(&self) -> String {
+        match &self.kind {
+            Kind::Sequence => "!!seq".into(),
+            Kind::Mapping(_) => "!!map".into(),
+            Kind::Scalar(value, style, tag) => match tag {
+                Some(t) if t.handle == "!!" || t.handle == YAML_TAG_PREFIX => {
+                    format!("!!{}", t.suffix)
                 }
+                Some(t) => format!("{}{}", t.handle, t.suffix),
+                None if *style == TScalarStyle::Plain => resolve_plain(value).into(),
+                None => "!!str".into(),
+            },
+        }
+    }
+
+    fn is_null(&self) -> bool {
+        matches!(self.kind, Kind::Scalar(..)) && self.tag() == "!!null"
+    }
+
+    /// yaml.v3 duplicate-key identity: node kind and `Value` (empty for collections).
+    fn key_identity(&self) -> (u8, &str) {
+        match &self.kind {
+            _ if self.alias => (3, ""),
+            Kind::Scalar(value, ..) => (0, value.as_str()),
+            Kind::Sequence => (1, ""),
+            Kind::Mapping(_) => (2, ""),
+        }
+    }
+}
+
+/// yaml.v3 `resolve` for untagged plain scalars, as far as the tag name.
+fn resolve_plain(value: &str) -> &'static str {
+    static FLOAT: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+    let float = FLOAT.get_or_init(|| {
+        regex::Regex::new(r"^[-+]?(\.[0-9]+|[0-9]+(\.[0-9]*)?)([eE][-+]?[0-9]+)?$").unwrap()
+    });
+    match value {
+        "" | "~" | "null" | "Null" | "NULL" => "!!null",
+        "true" | "True" | "TRUE" | "false" | "False" | "FALSE" => "!!bool",
+        ".inf" | ".Inf" | ".INF" | "+.inf" | "+.Inf" | "+.INF" | "-.inf" | "-.Inf" | "-.INF"
+        | ".nan" | ".NaN" | ".NAN" => "!!float",
+        "<<" => "!!merge",
+        v if is_go_int(&v.replace('_', "")) => "!!int",
+        v if float.is_match(&v.replace('_', "")) => "!!float",
+        _ => "!!str",
+    }
+}
+
+/// Go `strconv.ParseInt(s, 0, 64)` syntax (range not checked).
+fn is_go_int(s: &str) -> bool {
+    let digits = s.strip_prefix(['+', '-']).unwrap_or(s);
+    let (radix, body) = match digits.get(..2) {
+        Some("0x" | "0X") => (16, &digits[2..]),
+        Some("0o" | "0O") => (8, &digits[2..]),
+        Some("0b" | "0B") => (2, &digits[2..]),
+        _ if digits.len() > 1 && digits.starts_with('0') => (8, &digits[1..]),
+        _ => (10, digits),
+    };
+    !body.is_empty() && body.chars().all(|c| c.is_digit(radix))
+}
+
+/// Collects yaml.v3 `unmarshal errors` while decoding continues, like Go's `d.terrors`.
+#[derive(Default)]
+struct Unmarshal {
+    errors: Vec<String>,
+}
+
+impl Unmarshal {
+    /// yaml.v3 `terror`.
+    fn type_error(&mut self, node: &Node, target: &str) {
+        let mut value = String::new();
+        if let Kind::Scalar(text, ..) = &node.kind {
+            value = if text.len() > 10 {
+                let mut cut = 7;
+                while !text.is_char_boundary(cut) {
+                    cut -= 1;
+                }
+                format!(" `{}...`", &text[..cut])
+            } else {
+                format!(" `{text}`")
+            };
+        }
+        self.errors.push(format!(
+            "line {}: cannot unmarshal {}{value} into {target}",
+            node.line,
+            node.tag()
+        ));
+    }
+
+    /// Decode into a Go `string`: nulls are empty, `!!binary` is base64-decoded, other
+    /// scalars keep their text, collections are type errors.
+    fn string(&mut self, node: &Node) -> Result<Option<String>, ParseError> {
+        let Kind::Scalar(value, ..) = &node.kind else {
+            self.type_error(node, "string");
+            return Ok(None);
+        };
+        Ok(Some(match node.tag().as_str() {
+            "!!null" => String::new(),
+            "!!binary" => {
+                use base64::Engine;
+                let data = base64::engine::general_purpose::STANDARD
+                    .decode(value)
+                    .map_err(|_| {
+                        ParseError::Yaml("yaml: !!binary value contains invalid base64 data".into())
+                    })?;
+                String::from_utf8_lossy(&data).into_owned()
             }
-            other => Err(ParseError::Yaml(format!(
-                "yaml: unmarshal errors:\n  cannot unmarshal {} into Go struct field Skill of type string",
-                other.kind()
-            ))),
-        }
+            _ => value.clone(),
+        }))
     }
 }
 
-fn is_null(value: &str, style: TScalarStyle, tag: Option<&Tag>) -> bool {
-    match tag {
-        Some(tag) => {
-            tag.suffix == "null" && (tag.handle == "tag:yaml.org,2002:" || tag.handle == "!!")
-        }
-        None => {
-            style == TScalarStyle::Plain && matches!(value, "" | "~" | "null" | "Null" | "NULL")
-        }
-    }
-}
-
-struct Decoder {
-    events: Vec<Event>,
+struct Builder<'a> {
+    events: &'a [(Event, Marker)],
     pos: usize,
     anchors: HashMap<usize, Node>,
 }
 
-impl Decoder {
-    fn next_node(&mut self) -> Result<Node, ParseError> {
-        let event = self
-            .events
-            .get(self.pos)
-            .cloned()
-            .ok_or_else(|| ParseError::Yaml("yaml: unexpected end of document".into()))?;
+impl Builder<'_> {
+    fn node(&mut self) -> Result<Option<Node>, ParseError> {
+        let Some((event, mark)) = self.events.get(self.pos).cloned() else {
+            return Ok(None);
+        };
         self.pos += 1;
-        let (node, anchor) = match event {
-            Event::Scalar(value, style, anchor, tag) => (Node::Scalar(value, style, tag), anchor),
+        let line = mark.line();
+        let (kind, anchor) = match event {
+            Event::Scalar(value, style, anchor, tag) => (Kind::Scalar(value, style, tag), anchor),
             Event::Alias(id) => {
-                return self
-                    .anchors
-                    .get(&id)
-                    .cloned()
-                    .ok_or_else(|| ParseError::Yaml("yaml: unknown anchor referenced".into()))
+                let mut node =
+                    self.anchors.get(&id).cloned().ok_or_else(|| {
+                        ParseError::Yaml("yaml: unknown anchor referenced".into())
+                    })?;
+                node.alias = true;
+                return Ok(Some(node));
             }
             Event::SequenceStart(anchor, _) => {
-                self.skip_until(|e| matches!(e, Event::SequenceEnd))?;
-                (Node::Sequence, anchor)
+                while !matches!(
+                    self.events.get(self.pos),
+                    Some((Event::SequenceEnd, _)) | None
+                ) {
+                    self.node()?;
+                }
+                self.pos += 1;
+                (Kind::Sequence, anchor)
             }
             Event::MappingStart(anchor, _) => {
-                self.skip_until(|e| matches!(e, Event::MappingEnd))?;
-                (Node::Mapping, anchor)
+                let mut pairs = Vec::new();
+                while !matches!(
+                    self.events.get(self.pos),
+                    Some((Event::MappingEnd, _)) | None
+                ) {
+                    if let (Some(k), Some(v)) = (self.node()?, self.node()?) {
+                        pairs.push((k, v));
+                    }
+                }
+                self.pos += 1;
+                (Kind::Mapping(pairs), anchor)
             }
-            _ => {
-                return Err(ParseError::Yaml(
-                    "yaml: did not find expected node content".into(),
-                ))
-            }
+            _ => return Ok(None),
+        };
+        let node = Node {
+            kind,
+            line,
+            alias: false,
         };
         if anchor != 0 {
             self.anchors.insert(anchor, node.clone());
         }
-        Ok(node)
-    }
-
-    fn skip_until(&mut self, end: impl Fn(&Event) -> bool) -> Result<(), ParseError> {
-        loop {
-            match self.events.get(self.pos) {
-                Some(e) if end(e) => {
-                    self.pos += 1;
-                    return Ok(());
-                }
-                Some(_) => {
-                    self.next_node()?;
-                }
-                None => return Err(ParseError::Yaml("yaml: unexpected end of document".into())),
-            }
-        }
+        Ok(Some(node))
     }
 }
 
+/// Format a yaml-rust2 syntax error the way yaml.v3 reports libyaml errors.
+fn syntax_error(text: &str, err: &yaml_rust2::ScanError) -> ParseError {
+    let info = err.info();
+    if info.ends_with("found unknown anchor") {
+        let name: String = text[err.marker().index().min(text.len())..]
+            .trim_start_matches('*')
+            .chars()
+            .take_while(|c| !c.is_whitespace() && !",[]{}".contains(*c))
+            .collect();
+        return ParseError::Yaml(format!("yaml: unknown anchor '{name}' referenced"));
+    }
+    let problem = match info.strip_prefix("while parsing ") {
+        Some(rest) => rest.split_once(", ").map_or(info, |(_, p)| p),
+        None => info,
+    };
+    ParseError::Yaml(format!("yaml: line {}: {problem}", err.marker().line()))
+}
+
+/// yaml.v3 `Unmarshal` of the frontmatter into Go's `skill.Skill{Name, Description}`.
 fn decode_frontmatter(text: &str) -> Result<(String, String), ParseError> {
     let mut events = Events::default();
     Parser::new_from_str(text)
         .load(&mut events, false)
-        .map_err(|e| ParseError::Yaml(format!("yaml: {e}")))?;
-    let mut decoder = Decoder {
-        events: events.0,
-        pos: 0,
+        .map_err(|e| syntax_error(text, &e))?;
+    let first = events
+        .0
+        .iter()
+        .position(|(e, _)| !matches!(e, Event::StreamStart | Event::DocumentStart))
+        .unwrap_or(events.0.len());
+    let mut builder = Builder {
+        events: &events.0,
+        pos: first,
         anchors: HashMap::new(),
     };
-    while matches!(
-        decoder.events.get(decoder.pos),
-        Some(Event::StreamStart | Event::DocumentStart)
-    ) {
-        decoder.pos += 1;
-    }
     let (mut name, mut description) = (String::new(), String::new());
-    match decoder.events.get(decoder.pos) {
-        None | Some(Event::StreamEnd | Event::DocumentEnd) => return Ok((name, description)),
-        Some(Event::MappingStart(anchor, _)) => {
-            if *anchor != 0 {
-                decoder.anchors.insert(*anchor, Node::Mapping);
-            }
-            decoder.pos += 1;
-        }
-        Some(_) => {
-            let node = decoder.next_node()?;
-            if let Node::Scalar(value, style, tag) = &node {
-                if is_null(value, *style, tag.as_ref()) {
-                    return Ok((name, description));
+    let Some(root) = builder.node()? else {
+        return Ok((name, description));
+    };
+    let mut out = Unmarshal::default();
+    match &root.kind {
+        _ if root.is_null() => {}
+        Kind::Mapping(pairs) => {
+            for (i, (first, _)) in pairs.iter().enumerate() {
+                for (later, _) in &pairs[i + 1..] {
+                    if first.key_identity() == later.key_identity() {
+                        out.errors.push(format!(
+                            "line {}: mapping key {} already defined at line {}",
+                            later.line,
+                            crate::prompt::go_quote(first.key_identity().1),
+                            first.line
+                        ));
+                    }
                 }
             }
-            return Err(ParseError::Yaml(format!(
-                "yaml: unmarshal errors:\n  cannot unmarshal {} into Go value of type skill.Skill",
-                node.kind()
-            )));
+            if out.errors.is_empty() {
+                for (key, value) in pairs {
+                    let field = match out.string(key)? {
+                        Some(k) if k == "name" => &mut name,
+                        Some(k) if k == "description" => &mut description,
+                        _ => continue,
+                    };
+                    if let Some(v) = out.string(value)? {
+                        *field = v;
+                    }
+                }
+            }
         }
+        _ => out.type_error(&root, "skill.Skill"),
     }
-    let mut seen: Vec<(String, bool)> = Vec::new();
-    while !matches!(
-        decoder.events.get(decoder.pos),
-        Some(Event::MappingEnd) | None
-    ) {
-        let key = decoder.next_node()?;
-        let value = decoder.next_node()?;
-        let Node::Scalar(key, style, _) = key else {
-            continue;
-        };
-        let identity = (key.clone(), style == TScalarStyle::Plain);
-        if seen.contains(&identity) {
-            return Err(ParseError::Yaml(format!(
-                "yaml: mapping key {key:?} already defined"
-            )));
-        }
-        seen.push(identity);
-        match key.as_str() {
-            "name" => name = value.into_string()?,
-            "description" => description = value.into_string()?,
-            _ => {}
-        }
+    if !out.errors.is_empty() {
+        return Err(ParseError::Yaml(format!(
+            "yaml: unmarshal errors:\n  {}",
+            out.errors.join("\n  ")
+        )));
     }
     Ok((name, description))
 }
@@ -384,6 +485,45 @@ mod tests {
             parsed("---\nname: [unclosed\n---"),
             Err(ParseError::Yaml(_))
         ));
+    }
+
+    /// Expected values are Go's `Parser.Parse` output for the same inputs.
+    #[test]
+    fn matches_go_yaml_v3_results() {
+        let cases = [
+            ("---\nname: [a, b]\ndescription: x\n---\n", "ERR failed to parse YAML frontmatter: yaml: unmarshal errors:\n  line 1: cannot unmarshal !!seq into string"),
+            ("---\nname: x\ndescription: {a: 1}\n---\n", "ERR failed to parse YAML frontmatter: yaml: unmarshal errors:\n  line 2: cannot unmarshal !!map into string"),
+            ("---\nname: [a]\ndescription: [b]\n---\n", "ERR failed to parse YAML frontmatter: yaml: unmarshal errors:\n  line 1: cannot unmarshal !!seq into string\n  line 2: cannot unmarshal !!seq into string"),
+            ("---\nname: a\nname: b\ndescription: dup\n---\n", "ERR failed to parse YAML frontmatter: yaml: unmarshal errors:\n  line 2: mapping key \"name\" already defined at line 1"),
+            ("---\nname: a\n\"name\": b\n---\n", "ERR failed to parse YAML frontmatter: yaml: unmarshal errors:\n  line 2: mapping key \"name\" already defined at line 1"),
+            ("---\nname: a\nname: b\nname: c\n---\n", "ERR failed to parse YAML frontmatter: yaml: unmarshal errors:\n  line 2: mapping key \"name\" already defined at line 1\n  line 3: mapping key \"name\" already defined at line 1\n  line 3: mapping key \"name\" already defined at line 2"),
+            ("---\nfoo: 1\nfoo: 2\nname: [x]\n---\n", "ERR failed to parse YAML frontmatter: yaml: unmarshal errors:\n  line 2: mapping key \"foo\" already defined at line 1"),
+            ("---\njust a string\n---\n", "ERR failed to parse YAML frontmatter: yaml: unmarshal errors:\n  line 1: cannot unmarshal !!str `just a ...` into skill.Skill"),
+            ("---\nlonger than ten chars\n---\n", "ERR failed to parse YAML frontmatter: yaml: unmarshal errors:\n  line 1: cannot unmarshal !!str `longer ...` into skill.Skill"),
+            ("---\n- a\n---\n", "ERR failed to parse YAML frontmatter: yaml: unmarshal errors:\n  line 1: cannot unmarshal !!seq into skill.Skill"),
+            ("---\nname: *nope\n---\n", "ERR failed to parse YAML frontmatter: yaml: unknown anchor 'nope' referenced"),
+            ("---\n\nname: [a]\n---\n", "ERR failed to parse YAML frontmatter: yaml: unmarshal errors:\n  line 1: cannot unmarshal !!seq into string"),
+            ("---\r\nname: [a]\r\n---\r\n", "ERR failed to parse YAML frontmatter: yaml: unmarshal errors:\n  line 1: cannot unmarshal !!seq into string"),
+            ("---\nname: !!int 5\ndescription: !!binary aGk=\n---\n", "OK \"5\" \"hi\""),
+            ("---\n[1]: x\nname: a\ndescription: b\n---\n", "ERR failed to parse YAML frontmatter: yaml: unmarshal errors:\n  line 1: cannot unmarshal !!seq into string"),
+            ("---\nname: &a [x]\ndescription: *a\n---\n", "ERR failed to parse YAML frontmatter: yaml: unmarshal errors:\n  line 1: cannot unmarshal !!seq into string\n  line 1: cannot unmarshal !!seq into string"),
+        ];
+        for (input, want) in cases {
+            let got = match parsed(input) {
+                Ok(s) => format!("OK {:?} {:?}", s.name, s.description),
+                Err(e) => format!("ERR {e}"),
+            };
+            assert_eq!(got, want, "{input:?}");
+        }
+    }
+
+    #[test]
+    fn formats_syntax_errors_like_yaml_v3() {
+        let err = parsed("---\nname: [unclosed\n---").unwrap_err().to_string();
+        assert!(
+            err.starts_with("failed to parse YAML frontmatter: yaml: line "),
+            "{err}"
+        );
     }
 
     #[test]

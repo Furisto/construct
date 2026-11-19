@@ -3,6 +3,17 @@ use clap::{Args, ValueEnum};
 use serde::Serialize;
 use std::io::Write;
 
+/// Whether lipgloss would style Go's output: a terminal stdout, unless `NO_COLOR` is set or
+/// `TERM=dumb`; `CLICOLOR_FORCE` forces styling.
+fn styled_stdout() -> bool {
+    use std::io::IsTerminal;
+    let env = |k| std::env::var(k).unwrap_or_default();
+    if !env("CLICOLOR_FORCE").is_empty() && env("CLICOLOR_FORCE") != "0" {
+        return true;
+    }
+    std::io::stdout().is_terminal() && env("NO_COLOR").is_empty() && env("TERM") != "dumb"
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, ValueEnum)]
 pub enum OutputFormat {
     Json,
@@ -110,11 +121,12 @@ impl Renderer {
                                 if i > 0 {
                                     write!(writer, "  ")?;
                                 }
-                                write!(
-                                    writer,
-                                    "\x1b[1m{h}\x1b[0m{}",
-                                    " ".repeat(widths[i] - h.len())
-                                )?;
+                                let pad = " ".repeat(widths[i] - h.len());
+                                if styled_stdout() {
+                                    write!(writer, "\x1b[1m{h}\x1b[0m{pad}")?;
+                                } else {
+                                    write!(writer, "{h}{pad}")?;
+                                }
                             }
                             writeln!(writer)?;
                         }
