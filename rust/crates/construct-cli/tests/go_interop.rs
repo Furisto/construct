@@ -11,6 +11,7 @@ use construct_proto::construct::v1::{
     create_model_provider_request, CreateModelProviderRequest, CreateTokenRequest,
     ListAgentsRequest, ModelProviderType,
 };
+use serde_json::{json, Value};
 use std::{
     collections::BTreeMap,
     fs::{self, File},
@@ -21,6 +22,7 @@ use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 fn binary() -> Option<PathBuf> {
     let Some(path) = std::env::var_os("CONSTRUCT_GO_BIN") else {
@@ -431,8 +433,6 @@ fn real_keyring_is_go_compatible() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn rust_resource_commands_and_skill_layout_with_go_daemon() {
-    use serde_json::{json, Value};
-    use tokio::io::{AsyncReadExt, AsyncWriteExt};
     let Some(go) = binary() else {
         return;
     };
