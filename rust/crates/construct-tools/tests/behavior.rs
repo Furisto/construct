@@ -329,6 +329,10 @@ fn real_search_fallback_without_ripgrep_on_path() {
         .map(|p| p.join("grep"))
         .find(|p| p.is_file())
         .expect("system grep");
+    // macOS launch constraints kill copied platform binaries, so link instead.
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(grep, bin.path().join("grep")).unwrap();
+    #[cfg(not(unix))]
     std::fs::copy(grep, bin.path().join("grep")).unwrap();
     let output = std::process::Command::new(std::env::current_exe().unwrap())
         .args(["--exact", "find_and_grep_real_processes", "--nocapture"])

@@ -23,6 +23,8 @@ cargo test --manifest-path "$repo_root/rust/Cargo.toml" \
 cargo test --manifest-path "$repo_root/rust/Cargo.toml" \
   -p construct-cli --test go_interop -- --nocapture --test-threads=1
 cargo test --manifest-path "$repo_root/rust/Cargo.toml" \
+  -p construct-cli --test keyring_interop -- --nocapture
+cargo test --manifest-path "$repo_root/rust/Cargo.toml" \
   -p construct-store --test go_interop -- --nocapture --test-threads=1
 cargo test --manifest-path "$repo_root/rust/Cargo.toml" --locked \
   -p construct-server --test go_interop -- --nocapture --test-threads=1
