@@ -12,9 +12,11 @@ construct-proto = { path = "../construct-proto" }
 construct-types = { path = "../construct-types" }
 construct-secret = { path = "../construct-secret" }
 construct-skill = { path = "../construct-skill" }
+construct-store = { path = "../construct-store" }
+libc = "0.2"
 async-stream.workspace = true
 futures-util.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["signal"] }
 tracing = "0.1"
 base64 = "0.22"
 rand = "0.8"
@@ -27,7 +29,7 @@ uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
 construct-core = { path = "../construct-core", features = ["testing"] }
-construct-store = { path = "../construct-store" }
+tokio = { workspace = true, features = ["process", "io-util"] }
 tempfile = "3"
 tower.workspace = true
 http-body-util.workspace = true

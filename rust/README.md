@@ -13,7 +13,7 @@ contracts for parallel Rust implementations; they do not yet run a Rust daemon.
 | `construct-core` | Dyn-safe model/tool/secret/store/event contracts and reference in-memory event router |
 | `construct-event` | Go-compatible domain event constructors, live router, and SQLite event hook |
 | `construct-skill` | SKILL.md parser, repo/user/system discovery, git/URL install/update/delete, `SkillService` handler |
-| `construct-server` | Authenticated eight-service API router, runtime/analytics contracts, event replay, and domain/protobuf conversions |
+| `construct-server` | Authenticated API server, Unix/TCP and systemd/launchd listeners, runtime/analytics contracts, and domain/protobuf conversions |
 
 Crates live in `crates/`. Core depends only on domain types and infrastructure,
 never generated protobuf types, concrete database drivers, provider SDKs, or CLI.
@@ -253,3 +253,25 @@ Use construct-types::skill LockFile/LockEntry/GitSource/URLSource for disk JSON.
 rustls to the ring provider (gix and reqwest are built without one). There is
 still no CLI trait in core: keep presentation adapters separate from protobuf
 codegen and the database/model implementations.
+
+### Minimal API host
+
+`cargo run -p construct-server --bin construct-server -- --listen-unix /absolute/api.sock --data-dir /path/to/data`
+starts the authenticated API at `/api/` and health endpoint at `/healthz`.
+Use `--listen-http 127.0.0.1:8080` for TCP; TCP always requires token authentication,
+including systemd-activated TCP sockets. Without listener flags, the host detects
+systemd FD 3 on Linux or launchd's `Listeners` group on macOS. SIGINT/SIGTERM closes
+event subscriptions and gracefully drains requests. This host does not execute agents.
+
+The host supports the `file` secret provider (default), a persistent Go-compatible
+encryption key under `data-dir/secrets`, and `--db` to override `data-dir/construct.db`.
+It prints bound address and explicit-launch context metadata as JSON; it does not
+modify Go CLI contexts. `ActivationType::endpoint_context` maps TCP to context kind
+`http` and adds the required `http://` scheme, avoiding Go's `tcp` context-kind bug.
+Use the printed context name/address with Go's `context add --endpoint ...`.
+
+`rust/scripts/go-interop.sh` also tests the real Go CLI against this Rust host,
+including explicit Unix/TCP and both systemd socket families. Go currently advertises
+but does not implement `context add --setup-code`; the test generates the code using
+Go, exchanges it using the Rust generated client, and supplies the resulting token
+to Go's HTTP context. No model calls, credentials, or system keyring are needed.
