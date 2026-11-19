@@ -35,6 +35,9 @@ uuid = "1"
 pulldown-cmark = "0.12"
 textwrap = { version = "0.16", default-features = false, features = ["unicode-width", "smawk"] }
 csv = "1"
+ratatui = { version = "0.29", features = ["unstable-rendered-line-info"] }
+crossterm = { version = "0.28", features = ["event-stream"] }
+ansi-to-tui = "7"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 dbus-secret-service = { version = "4.1", features = ["crypto-rust", "vendored"] }

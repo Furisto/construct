@@ -1,4 +1,6 @@
 //! Transport and presentation data shared by interactive and scripted sessions.
+pub mod session;
+pub mod ui;
 use crate::{app::ApiClient, Result};
 use construct_connect::Request;
 use construct_proto::construct::v1::*;

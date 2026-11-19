@@ -165,6 +165,7 @@ pub async fn run(app: &mut App, matches: &clap::ArgMatches) -> Result<()> {
         .map_err(|e| format!("failed to subscribe to task: {e}"))?
         .message;
     let mut seen_prompt = false;
+    let mut received_answer = false;
     loop {
         let next = tokio::select! {
             _ = app.cancellation.cancelled() => break,
@@ -180,6 +181,14 @@ pub async fn run(app: &mut App, matches: &clap::ArgMatches) -> Result<()> {
                 if message.metadata.as_ref().is_some_and(|m| m.id == sent_id) {
                     seen_prompt = true;
                 }
+                if seen_prompt
+                    && message
+                        .metadata
+                        .as_ref()
+                        .is_some_and(|m| m.role == MessageRole::Assistant as i32)
+                {
+                    received_answer = true;
+                }
                 let task = terminal::get_task(app.client()?, &id).await?;
                 format_message(
                     &mut app.stdout,
@@ -193,6 +202,17 @@ pub async fn run(app: &mut App, matches: &clap::ArgMatches) -> Result<()> {
                 }
             }
             Some(event::Payload::Task(payload)) if seen_prompt => {
+                // The daemon currently logs reconciliation errors without publishing an error message.
+                if !received_answer
+                    && payload.previous_phase.as_deref() == Some("running")
+                    && payload
+                        .task
+                        .as_ref()
+                        .and_then(|t| t.status.as_ref())
+                        .is_some_and(|s| s.phase == TaskPhase::Awaiting as i32)
+                {
+                    return Err("task stopped before producing a response; check the daemon log for details".into());
+                }
                 if payload
                     .task
                     .and_then(|t| t.status)
@@ -305,7 +325,7 @@ mod tests {
         assert!(empty.is_empty());
     }
 
-    struct Fake;
+    struct Fake(bool);
     fn task() -> Task {
         Task {
             metadata: Some(TaskMetadata {
@@ -374,27 +394,48 @@ mod tests {
                 ("prompt", MessageRole::User),
                 ("final", MessageRole::Assistant),
             ];
-            let events = messages.map(|(id, role)| {
-                Ok(EventSubscribeResponse {
+            let mut events = messages
+                .into_iter()
+                .filter(|(id, _)| !self.0 || *id != "final")
+                .map(|(id, role)| {
+                    Ok(EventSubscribeResponse {
+                        event: Some(Event {
+                            payload: Some(event::Payload::Message(MessageEvent {
+                                message: Some(Message {
+                                    metadata: Some(MessageMetadata {
+                                        id: id.into(),
+                                        role: role as i32,
+                                        ..Default::default()
+                                    }),
+                                    spec: Some(MessageSpec::default()),
+                                    status: Some(MessageStatus {
+                                        is_final_response: false,
+                                        ..Default::default()
+                                    }),
+                                }),
+                            })),
+                            ..Default::default()
+                        }),
+                    })
+                })
+                .collect::<Vec<_>>();
+            if self.0 {
+                events.push(Ok(EventSubscribeResponse {
                     event: Some(Event {
-                        payload: Some(event::Payload::Message(MessageEvent {
-                            message: Some(Message {
-                                metadata: Some(MessageMetadata {
-                                    id: id.into(),
-                                    role: role as i32,
+                        payload: Some(event::Payload::Task(TaskEvent {
+                            task: Some(Task {
+                                status: Some(TaskStatus {
+                                    phase: TaskPhase::Awaiting as i32,
                                     ..Default::default()
                                 }),
-                                spec: Some(MessageSpec::default()),
-                                status: Some(MessageStatus {
-                                    is_final_response: false,
-                                    ..Default::default()
-                                }),
+                                ..task()
                             }),
+                            previous_phase: Some("running".into()),
                         })),
                         ..Default::default()
                     }),
-                })
-            });
+                }));
+            }
             Ok(construct_connect::Response::new(Box::pin(
                 futures_util::stream::iter(events).chain(futures_util::stream::pending()),
             )))
@@ -402,10 +443,17 @@ mod tests {
     }
     #[tokio::test]
     async fn exits_after_final_response_on_open_stream() {
-        let router = TaskServiceServer::new(Fake)
+        check_exec(false).await;
+    }
+    #[tokio::test]
+    async fn exits_with_error_after_task_stops_without_a_response() {
+        check_exec(true).await;
+    }
+    async fn check_exec(stopped: bool) {
+        let router = TaskServiceServer::new(Fake(stopped))
             .router()
-            .merge(MessageServiceServer::new(Fake).router())
-            .merge(EventServiceServer::new(Fake).router());
+            .merge(MessageServiceServer::new(Fake(stopped)).router())
+            .merge(EventServiceServer::new(Fake(stopped)).router());
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
         let server = tokio::spawn(async move {
@@ -447,10 +495,17 @@ mod tests {
                 "00000000-0000-0000-0000-000000000001",
             ])
             .unwrap();
-        tokio::time::timeout(std::time::Duration::from_secs(5), run(&mut app, &args))
+        let result = tokio::time::timeout(std::time::Duration::from_secs(5), run(&mut app, &args))
             .await
-            .expect("exec must not wait for server EOF")
-            .unwrap();
+            .expect("exec must not wait for server EOF");
+        if stopped {
+            assert_eq!(
+                result.unwrap_err().to_string(),
+                "task stopped before producing a response; check the daemon log for details"
+            );
+        } else {
+            result.unwrap();
+        }
         server.abort();
     }
     #[test]
