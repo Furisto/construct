@@ -226,9 +226,106 @@ pub mod anthropic {
 /// Porting seam for the openai provider (not yet ported).
 pub mod openai {
     use super::*;
-    /// Placeholder catalog; provider implementation fills this in.
+    /// All supported models in Go order.
     pub fn supported_models() -> Vec<Model> {
-        Vec::new()
+        vec![
+            Model {
+                id: uuid::uuid!("01960000-0001-7000-8000-000000000001"),
+                name: "chatgpt-4o-latest".into(),
+                provider: ProviderKind::OPEN_AI.into(),
+                capabilities: Some(vec![Capability::IMAGE.into()]),
+                context_window: 128000,
+                pricing: ModelPricing {
+                    input: 2.500,
+                    output: 10.000,
+                    cache_write: 1.250,
+                    cache_read: 0.250,
+                },
+            },
+            Model {
+                id: uuid::uuid!("01960000-0002-7000-8000-000000000002"),
+                name: "o4-mini".into(),
+                provider: ProviderKind::OPEN_AI.into(),
+                capabilities: Some(vec![Capability::IMAGE.into()]),
+                context_window: 128000,
+                pricing: ModelPricing {
+                    input: 0.150,
+                    output: 0.600,
+                    cache_write: 0.075,
+                    cache_read: 0.015,
+                },
+            },
+            Model {
+                id: uuid::uuid!("01960000-0003-7000-8000-000000000003"),
+                name: "gpt-4-turbo".into(),
+                provider: ProviderKind::OPEN_AI.into(),
+                capabilities: Some(vec![Capability::IMAGE.into()]),
+                context_window: 128000,
+                pricing: ModelPricing {
+                    input: 10.000,
+                    output: 30.000,
+                    cache_write: 5.000,
+                    cache_read: 1.000,
+                },
+            },
+            Model {
+                id: uuid::uuid!("01960000-0004-7000-8000-000000000004"),
+                name: "gpt-3.5-turbo".into(),
+                provider: ProviderKind::OPEN_AI.into(),
+                capabilities: Some(vec![]),
+                context_window: 16385,
+                pricing: ModelPricing {
+                    input: 0.500,
+                    output: 1.500,
+                    cache_write: 0.250,
+                    cache_read: 0.050,
+                },
+            },
+            Model {
+                id: uuid::uuid!("01960000-0005-7000-8000-000000000005"),
+                name: "o1".into(),
+                provider: ProviderKind::OPEN_AI.into(),
+                capabilities: Some(vec![]),
+                context_window: 200000,
+                pricing: ModelPricing {
+                    input: 15.000,
+                    output: 60.000,
+                    cache_write: 7.500,
+                    cache_read: 1.500,
+                },
+            },
+            Model {
+                id: uuid::uuid!("01960000-0006-7000-8000-000000000006"),
+                name: "o1-mini".into(),
+                provider: ProviderKind::OPEN_AI.into(),
+                capabilities: Some(vec![]),
+                context_window: 128000,
+                pricing: ModelPricing {
+                    input: 3.000,
+                    output: 12.000,
+                    cache_write: 1.500,
+                    cache_read: 0.300,
+                },
+            },
+            Model {
+                id: uuid::uuid!("01960000-0007-7000-8000-000000000007"),
+                name: "gpt-5-2025-08-07".into(),
+                provider: ProviderKind::OPEN_AI.into(),
+                capabilities: Some(vec![
+                    Capability::IMAGE.into(),
+                    Capability::COMPUTER_USE.into(),
+                    Capability::PROMPT_CACHE.into(),
+                    Capability::EXTENDED_THINKING.into(),
+                ]),
+                context_window: 128000,
+                pricing: ModelPricing {
+                    input: 1.250,
+                    output: 10.000,
+                    cache_write: 1.250,
+                    cache_read: 0.250,
+                },
+            },
+        ]
     }
     /// Placeholder default until the provider catalog is ported.
     pub fn default_model() -> Result<Model, &'static str> {
@@ -238,9 +335,62 @@ pub mod openai {
 /// Porting seam for the xai provider (not yet ported).
 pub mod xai {
     use super::*;
-    /// Placeholder catalog; provider implementation fills this in.
+    /// All supported models in Go order.
     pub fn supported_models() -> Vec<Model> {
-        Vec::new()
+        vec![
+            Model {
+                id: uuid::uuid!("01980000-0001-7000-8000-000000000001"),
+                name: "grok-code-fast-1".into(),
+                provider: ProviderKind::XAI.into(),
+                capabilities: Some(vec![Capability::IMAGE.into()]),
+                context_window: 256000,
+                pricing: ModelPricing {
+                    input: 0.200,
+                    output: 1.500,
+                    cache_write: 0.000,
+                    cache_read: 0.000,
+                },
+            },
+            Model {
+                id: uuid::uuid!("01980000-0002-7000-8000-000000000002"),
+                name: "grok-4-0709".into(),
+                provider: ProviderKind::XAI.into(),
+                capabilities: Some(vec![Capability::IMAGE.into()]),
+                context_window: 256000,
+                pricing: ModelPricing {
+                    input: 3.000,
+                    output: 15.000,
+                    cache_write: 0.000,
+                    cache_read: 0.000,
+                },
+            },
+            Model {
+                id: uuid::uuid!("01980000-0003-7000-8000-000000000003"),
+                name: "grok-3".into(),
+                provider: ProviderKind::XAI.into(),
+                capabilities: Some(vec![Capability::IMAGE.into()]),
+                context_window: 131072,
+                pricing: ModelPricing {
+                    input: 3.000,
+                    output: 15.000,
+                    cache_write: 0.000,
+                    cache_read: 0.000,
+                },
+            },
+            Model {
+                id: uuid::uuid!("01980000-0004-7000-8000-000000000004"),
+                name: "grok-3-mini".into(),
+                provider: ProviderKind::XAI.into(),
+                capabilities: Some(vec![Capability::IMAGE.into()]),
+                context_window: 131072,
+                pricing: ModelPricing {
+                    input: 0.300,
+                    output: 0.500,
+                    cache_write: 0.000,
+                    cache_read: 0.000,
+                },
+            },
+        ]
     }
     /// Placeholder default until the provider catalog is ported.
     pub fn default_model() -> Result<Model, &'static str> {
@@ -311,6 +461,7 @@ mod tests {
             default_model(&ProviderKind::ANTHROPIC.into()).unwrap().id,
             models[0].id
         );
+<<<<<<< HEAD
         let gemini = supported_models(&ProviderKind::GEMINI.into());
         assert_eq!(gemini.len(), 3);
         assert_eq!(gemini[0].name, "gemini-2.5-pro");
@@ -321,6 +472,19 @@ mod tests {
             gemini[0].id
         );
         for kind in ["openai", "xai", "deepseek", "bedrock", "unknown"] {
+||||||| 25b5fc6
+        for kind in ["openai", "gemini", "xai", "deepseek", "bedrock", "unknown"] {
+=======
+        assert_eq!(openai::supported_models().len(), 7);
+        assert_eq!(xai::supported_models().len(), 4);
+        for kind in ["openai", "xai"] {
+            assert_eq!(
+                default_model(&kind.into()).unwrap_err(),
+                "model not supported"
+            );
+        }
+        for kind in ["gemini", "deepseek", "bedrock", "unknown"] {
+>>>>>>> origin/devin/1795094873-rust-openai-xai
             assert!(supported_models(&kind.into()).is_empty());
             assert_eq!(
                 default_model(&kind.into()).unwrap_err(),
