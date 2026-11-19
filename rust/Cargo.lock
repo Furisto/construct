@@ -790,6 +790,7 @@ dependencies = [
 name = "construct-proto"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "construct-connect",
  "futures-util",
  "libc",
@@ -798,6 +799,7 @@ dependencies = [
  "pbjson-types",
  "prost",
  "prost-build",
+ "prost-types",
  "protoc-bin-vendored",
  "serde",
  "serde_json",

@@ -1,3 +1,4 @@
+use prost::Message;
 use std::{env, error::Error, fmt::Write, fs, path::PathBuf};
 
 /// Connect-specific code generation, independent of message configuration.
@@ -122,7 +123,46 @@ fn main() -> Result<(), Box<dyn Error>> {
         )?;
 
     pbjson_build::Builder::new()
-        .register_descriptors(&fs::read(descriptor)?)?
+        .register_descriptors(&fs::read(&descriptor)?)?
         .build(&[".construct.v1", ".google.type"])?;
+    let descriptors = prost_types::FileDescriptorSet::decode(fs::read(descriptor)?.as_slice())?;
+    let path = out.join("construct.v1.serde.rs");
+    let mut generated = fs::read_to_string(&path)?;
+    for file in descriptors.file {
+        if file.package.as_deref() != Some("construct.v1") {
+            continue;
+        }
+        for message in file.message_type {
+            let start = format!("impl serde::Serialize for {} {{", message.name());
+            let Some(offset) = generated.find(&start) else {
+                continue;
+            };
+            let end = offset
+                + generated[offset..]
+                    .find("impl<'de> serde::Deserialize")
+                    .ok_or("missing generated deserializer")?;
+            let mut implementation = generated[offset..end].to_owned();
+            for field in message.field {
+                if field.type_name.as_deref() == Some(".google.protobuf.Timestamp") {
+                    let original =
+                        format!("struct_ser.serialize_field(\"{}\", v)?;", field.json_name());
+                    let replacement = format!(
+                        "struct_ser.serialize_field(\"{}\", &crate::timestamp::Timestamp(v))?;",
+                        field.json_name()
+                    );
+                    if !implementation.contains(&original) {
+                        return Err(format!(
+                            "unsupported Timestamp serialization: {}",
+                            field.name()
+                        )
+                        .into());
+                    }
+                    implementation = implementation.replace(&original, &replacement);
+                }
+            }
+            generated.replace_range(offset..end, &implementation);
+        }
+    }
+    fs::write(path, generated)?;
     Ok(())
 }

@@ -26,6 +26,8 @@
 //! # Ok(()) }
 //! ```
 
+mod timestamp;
+
 /// Static metadata for a Connect RPC method. Type names are fully qualified proto names.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MethodDescriptor {
