@@ -5,11 +5,15 @@ on:
     paths:
       - 'rust/**'
       - 'api/def/**'
+      - '.goreleaser.rust.yml'
+      - '.github/workflows/release-rust.yml'
       - '.github/workflows/rust.yml'
   push:
     paths:
       - 'rust/**'
       - 'api/def/**'
+      - '.goreleaser.rust.yml'
+      - '.github/workflows/release-rust.yml'
       - '.github/workflows/rust.yml'
   workflow_dispatch:
 
@@ -21,6 +25,38 @@ env:
   RUST_VERSION: '1.89.0'
 
 jobs:
+  release-snapshot:
+    name: Rust release config and Linux snapshot
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          targets: x86_64-unknown-linux-musl
+      - uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: '0.13.0'
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - run: cargo install cargo-zigbuild --version 0.20.1 --locked
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: v2.8.2
+          args: check -f .goreleaser.rust.yml
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: v2.8.2
+          args: build -f .goreleaser.rust.yml --snapshot --clean --single-target --parallelism 1
+        env:
+          TARGET: x86_64-unknown-linux-musl
+          POSTHOG_API_KEY: dummy
+
   check:
     name: Format, lint, build and test
     runs-on: ubuntu-latest

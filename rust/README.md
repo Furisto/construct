@@ -58,6 +58,73 @@ checksum; it accepts `update.channel` (default `latest`) and `update.url` (defau
 the US release bucket). Release URLs must use HTTPS except for loopback tests.
 Until cutover, the published release artifacts still contain the Go binary.
 
+## Rust releases (opt-in; Go remains live)
+
+`.goreleaser.rust.yml` is a parallel GoReleaser v2 configuration, not a
+replacement for `.goreleaser.yml`. Tag pushes still run the Go release workflow.
+Rust releases are manual through **Release Rust (opt-in)**. Leave `snapshot`
+enabled for a non-publishing rehearsal; downloadable workflow artifacts contain
+the archives and checksums. Snapshot builds use a dummy analytics key and do not
+receive signing or publishing credentials.
+
+The release tool versions are GoReleaser **2.8.2**, Rust **1.89.0**, Zig **0.13.0**,
+and cargo-zigbuild **0.20.1** (`cargo install cargo-zigbuild --version 0.20.1
+--locked`). GoReleaser is pinned because newer v2 versions deprecate the inherited
+Homebrew formula publisher. Install all four Rust targets from the config with
+`rustup target add --toolchain 1.89.0`. Run these commands from the repository root:
+
+```sh
+export RUSTUP_TOOLCHAIN=1.89.0
+goreleaser check -f .goreleaser.rust.yml
+POSTHOG_API_KEY=dummy goreleaser release -f .goreleaser.rust.yml --snapshot --clean --parallelism 1
+
+# Linux-only smoke build (the Rust CI release-snapshot job):
+TARGET=x86_64-unknown-linux-musl POSTHOG_API_KEY=dummy \
+  goreleaser build -f .goreleaser.rust.yml --snapshot --clean --single-target
+```
+
+The full workflow uses macOS for its Apple SDK. Cross-compiling Darwin from Linux
+requires a separately provisioned Apple SDK (`SDKROOT`; verified with the 14.5
+SDK); Zig alone is not enough for dependencies using Apple frameworks. Linux
+targets use musl for static executables, rather than requiring a host glibc.
+Builds select the `construct-cli`
+package and `construct` binary in the `rust/` workspace and always use `--locked`.
+Builds inject `CONSTRUCT_VERSION`, `CONSTRUCT_GIT_COMMIT`, `CONSTRUCT_BUILD_DATE`,
+and `POSTHOG_API_KEY`. `construct version` is an alias for `construct info` and
+prints the same Version/Commit/BuildDate fields as Go's `info` command (the Go CLI
+currently has no `version` command, despite the existing Homebrew test using it).
+
+The publishing contract is otherwise unchanged: `linux_amd64.tar.gz`,
+`linux_arm64.tar.gz`, `darwin_amd64.tar.gz`, `darwin_arm64.tar.gz`, each containing
+`construct` and the root `README.md`; `checksums.txt` hashes the archives.
+The per-binary post-build hook writes `<os>_<arch>_checksum.txt` in the repository
+root, containing only the executable's SHA-256 and a newline. Those files are
+release/S3 extra files, **not archive checksums**: the updater hashes the extracted
+binary. Remove stale `*_checksum.txt` files before any partial build or publish.
+The inherited draft GitHub release/changelog, Homebrew tap, both S3 buckets, and
+conditional macOS signing/notarization are preserved. Signing credentials are
+only supplied on the explicit publishing path; verify checksums against the final
+signed executables during a release rehearsal as well.
+
+To deliberately publish Rust before cutover: select the intended **existing
+version tag** as the workflow ref (GoReleaser derives the version from git), verify
+no Go release is running for it, and disable `snapshot`. This uses the same
+`Release` environment and secrets as the Go workflow: `HOMEBREW_TAP_GH_TOKEN`,
+AWS access/secret keys, `POSTHOG_API_KEY`, and the `MACOS_SIGN_*` /
+`MACOS_NOTARY_*` credentials. **This writes the live tap/S3 destinations**, so do
+not use it as a dry run. It creates a draft GitHub release, not a published one.
+
+Later cutover checklist (not performed here):
+
+1. Rehearse all four artifacts, signing/notarization, final binary checksums,
+   Homebrew installation and Go-to-Rust self-update with release credentials.
+2. Choose a release version and stop the Go tag-triggered publisher before any
+   Rust publishing run; never let both pipelines write the same version.
+3. Promote/swap the Rust config and release workflow trigger deliberately,
+   retaining the existing archive/checksum names, bucket paths and tap contract.
+4. Publish the reviewed draft and verify update manifests and both S3 regions;
+   retain the Go pipeline/config for rollback until the migration is accepted.
+
 Daemon install, stop, and uninstall manage the same systemd/launchd unit
 locations as the Go CLI; use `--system` for system units. The units invoke
 `construct daemon run`, which runs the agent workers and authenticated API in the

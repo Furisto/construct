@@ -1,0 +1,70 @@
+name: Release Rust (opt-in)
+
+on:
+  workflow_dispatch:
+    inputs:
+      snapshot:
+        description: 'Snapshot only (no signing or publishing); disable only for a deliberate Rust release'
+        type: boolean
+        default: true
+        required: true
+
+jobs:
+  release:
+    runs-on: macos-14
+    environment: Release
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.89.0'
+          targets: x86_64-unknown-linux-musl,aarch64-unknown-linux-musl,x86_64-apple-darwin,aarch64-apple-darwin
+      - uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: '0.13.0'
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - run: cargo install cargo-zigbuild --version 0.20.1 --locked
+      - run: |
+          brew install coreutils
+          echo "$(brew --prefix coreutils)/libexec/gnubin" >> "$GITHUB_PATH"
+      - name: Snapshot (never publish)
+        if: inputs.snapshot
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: v2.8.2
+          args: release -f .goreleaser.rust.yml --snapshot --clean --parallelism 1
+        env:
+          POSTHOG_API_KEY: dummy
+      - name: Release (explicit opt-in)
+        if: ${{ !inputs.snapshot }}
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: v2.8.2
+          args: release -f .goreleaser.rust.yml --clean --parallelism 1
+        env:
+          GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GH_TOKEN }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          MACOS_SIGN_P12: ${{ secrets.MACOS_SIGN_P12 }}
+          MACOS_SIGN_PASSWORD: ${{ secrets.MACOS_SIGN_PASSWORD }}
+          MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+          MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+          MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+      - uses: actions/upload-artifact@v4
+        if: inputs.snapshot
+        with:
+          name: rust-release-snapshot
+          path: |
+            dist/*.tar.gz
+            dist/checksums.txt
+            *_checksum.txt

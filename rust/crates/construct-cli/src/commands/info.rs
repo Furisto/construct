@@ -38,6 +38,7 @@ impl DisplayResource for VersionInfo {
 pub fn command() -> Command {
     RenderOptions::augment_args(
         Command::new("info")
+            .alias("version")
             .about("Print information about the Construct CLI")
             .display_order(12),
     )
@@ -70,4 +71,27 @@ pub async fn run(app: &mut App, matches: &ArgMatches) -> Result<()> {
         return Ok(());
     }
     app.renderer.render_one(&mut app.stdout, &info, &options)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn build_metadata_defaults() {
+        assert_eq!(metadata(None), "unknown");
+        assert_eq!(metadata(Some("")), "unknown");
+        assert_eq!(metadata(Some("v1.2.3")), "v1.2.3");
+    }
+
+    #[test]
+    fn version_alias() {
+        let matches = crate::cli::command()
+            .try_get_matches_from(["construct", "version"])
+            .unwrap();
+        assert_eq!(matches.subcommand_name(), Some("info"));
+        assert!(crate::cli::command()
+            .try_get_matches_from(["construct", "version", "--invalid"])
+            .is_err());
+    }
 }
