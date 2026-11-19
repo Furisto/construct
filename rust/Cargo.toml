@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/construct-proto", "crates/construct-connect", "crates/construct-types"]
+members = ["crates/construct-proto", "crates/construct-connect", "crates/construct-types", "crates/construct-core"]
 resolver = "2"
 
 [workspace.package]
