@@ -30,9 +30,8 @@ libc = "0.2"
 regex = "1"
 chrono = "0.4"
 thiserror = "2"
+uuid = "1"
+tempfile = "3"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 dbus-secret-service = { version = "4.1", features = ["crypto-rust", "vendored"] }
-
-[dev-dependencies]
-tempfile = "3"
