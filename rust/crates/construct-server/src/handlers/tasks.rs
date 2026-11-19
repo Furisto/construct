@@ -65,7 +65,8 @@ impl pb::TaskService for Services {
         let options = ListOptions {
             limit: r
                 .page_size
-                .filter(|&size| size >= 0)
+                // Go's ent query treats Limit(0) as no limit.
+                .filter(|&size| size > 0)
                 .map(|size| size as usize),
             sort_field: if r.sort_field == Some(pb::SortField::UpdatedAt as i32) {
                 SortField::UpdatedAt

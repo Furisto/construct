@@ -249,9 +249,6 @@ pub fn format_message(
         )?,
         "yaml" => {
             let mut value = serde_yaml::to_value(&answer)?;
-            value["usage"]["cost"] = serde_yaml::from_str(&String::from_utf8(
-                construct_types::to_go_json(&answer.usage.cost)?,
-            )?)?;
             if answer.usage.tool_uses.is_none() {
                 value["usage"]["tool_uses"] = serde_yaml::Value::Mapping(Default::default());
             }

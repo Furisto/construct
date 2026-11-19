@@ -166,6 +166,7 @@ impl DisplayAnswer {
                 cache_read_tokens: usage.map_or(0, |u| u.cache_read_tokens),
                 cost: usage.map_or(0., |u| u.cost),
                 tool_uses: usage
+                    .filter(|u| !u.tool_uses.is_empty())
                     .map(|u| u.tool_uses.iter().map(|(k, v)| (k.clone(), *v)).collect()),
             },
         }
@@ -329,7 +330,9 @@ pub fn format_markdown(content: &str, width: usize) -> String {
         Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH,
     ) {
         match event {
-            Event::Text(text) | Event::Html(text) | Event::InlineHtml(text) => out.push_str(&text),
+            Event::Text(text) => out.push_str(&text),
+            // Glamour drops raw HTML.
+            Event::Html(_) | Event::InlineHtml(_) => {}
             Event::Code(text) => out.push_str(&format!("\x1b[38;5;203m{text}\x1b[0m")),
             Event::Start(Tag::Strong | Tag::Heading { .. }) => out.push_str("\x1b[1m"),
             Event::Start(Tag::Emphasis) => out.push_str("\x1b[3m"),
@@ -485,6 +488,10 @@ mod tests {
             "Hello world"
         );
         assert_eq!(format_markdown("", 0), "");
+        assert_eq!(
+            format_markdown("done <ok> & \"quoted\"", 80),
+            "done  & \"quoted\""
+        );
         assert_eq!(format_markdown("hello world", 5), "hello\nworld");
         assert_eq!(trim_markdown_edges("\x1b[31m \nHello\n \x1b[0m"), "Hello");
         assert_eq!(trim_markdown_edges(""), "");

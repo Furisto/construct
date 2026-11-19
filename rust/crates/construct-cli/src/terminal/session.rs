@@ -112,11 +112,18 @@ impl Session {
         }
     }
     fn tool(&mut self, call: ToolCall) {
+        // Go only shows interpreter scripts in verbose mode, which the TUI never enables.
+        if matches!(call.input, Some(tool_call::Input::CodeInterpreter(_))) {
+            return;
+        }
         if call.id.is_empty() || self.tools.insert(call.id.clone()) {
             self.feed.push(FeedContent::ToolCall(call));
         }
     }
     fn result(&mut self, result: ToolResult) {
+        if matches!(result.result, Some(tool_result::Result::CodeInterpreter(_))) {
+            return;
+        }
         if result.id.is_empty() || self.results.insert(result.id.clone()) {
             self.feed.push(FeedContent::ToolResult(result));
         }

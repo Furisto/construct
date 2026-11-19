@@ -1,7 +1,7 @@
 use crate::Result;
 use clap::{Args, ValueEnum};
 use serde::Serialize;
-use std::io::Write;
+use std::io::{IsTerminal, Write};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, ValueEnum)]
 pub enum OutputFormat {
@@ -106,15 +106,18 @@ impl Renderer {
                             }
                         }
                         if !options.no_headers {
+                            let bold = std::io::stdout().is_terminal();
                             for (i, h) in headers.iter().enumerate() {
                                 if i > 0 {
                                     write!(writer, "  ")?;
                                 }
-                                write!(
-                                    writer,
-                                    "\x1b[1m{h}\x1b[0m{}",
-                                    " ".repeat(widths[i] - h.len())
-                                )?;
+                                // Go's lipgloss drops the bold style when stdout is not a terminal.
+                                if bold {
+                                    write!(writer, "\x1b[1m{h}\x1b[0m")?;
+                                } else {
+                                    write!(writer, "{h}")?;
+                                }
+                                write!(writer, "{}", " ".repeat(widths[i] - h.len()))?;
                             }
                             writeln!(writer)?;
                         }

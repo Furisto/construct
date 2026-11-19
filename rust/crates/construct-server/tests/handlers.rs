@@ -1215,7 +1215,8 @@ async fn tasks_go_cases_count_filter_order_limit_and_events() {
         assert_eq!(tasks.len(), 1);
         assert_eq!(tasks[0].metadata.as_ref().unwrap().id, first.id.to_string());
     }
-    assert!(c
+    // Go's ent query ignores Limit(0): page_size 0 returns every task.
+    assert!(!c
         .list_tasks(req(pb::ListTasksRequest {
             page_size: Some(0),
             ..Default::default()
