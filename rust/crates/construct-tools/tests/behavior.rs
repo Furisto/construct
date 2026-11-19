@@ -250,6 +250,10 @@ fn all_tools_expose_go_names_schemas_and_rendered_descriptions() {
 
 #[tokio::test]
 async fn find_and_grep_real_processes() {
+    let ripgrep = std::process::Command::new("rg")
+        .arg("--version")
+        .output()
+        .is_ok();
     let dir = tempfile::tempdir().unwrap();
     let root = dir.path();
     std::fs::write(root.join("a.rs"), "before\nNeedle\nafter\n").unwrap();
@@ -257,7 +261,7 @@ async fn find_and_grep_real_processes() {
     let result = FindFile
         .execute(
             &context(),
-            json!({"path":root,"pattern":"*.rs","exclude_pattern":".hidden.rs","max_results":10}),
+            json!({"path":root,"pattern":"*.rs","exclude_pattern":"**/.hidden.rs","max_results":10}),
         )
         .await
         .unwrap()
@@ -286,7 +290,11 @@ async fn find_and_grep_real_processes() {
     assert_eq!(result.total_matches, 1);
     assert_eq!(
         result.matches.unwrap()[0].value,
-        "-1-before\n:2:Needle\n-3-after\n"
+        if ripgrep {
+            "-1-before\n:2:Needle\n-3-after\n"
+        } else {
+            "-1-before:2:Needle-3-after"
+        }
     );
     assert_eq!(
         Grep.execute(&context(), json!({"path":root,"query":"absent"}))
@@ -302,7 +310,11 @@ async fn find_and_grep_real_processes() {
             .await
             .unwrap_err()
             .message,
-        "ripgrep error"
+        if ripgrep {
+            "ripgrep error"
+        } else {
+            "grep error"
+        }
     );
     assert_eq!(
         FindFile
@@ -311,6 +323,27 @@ async fn find_and_grep_real_processes() {
             .unwrap_err()
             .message,
         "Path is not absolute"
+    );
+}
+
+#[test]
+fn real_search_fallback_without_ripgrep_on_path() {
+    let bin = tempfile::tempdir().unwrap();
+    let grep = std::env::split_paths(&std::env::var_os("PATH").unwrap())
+        .map(|p| p.join("grep"))
+        .find(|p| p.is_file())
+        .expect("system grep");
+    std::fs::copy(grep, bin.path().join("grep")).unwrap();
+    let output = std::process::Command::new(std::env::current_exe().unwrap())
+        .args(["--exact", "find_and_grep_real_processes", "--nocapture"])
+        .env("PATH", bin.path())
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
     );
 }
 
