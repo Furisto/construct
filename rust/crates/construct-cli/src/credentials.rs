@@ -47,8 +47,34 @@ impl Provider for MemoryProvider {
 }
 #[derive(Default)]
 pub struct SystemProvider;
+#[cfg(target_os = "macos")]
 impl SystemProvider {
-    #[cfg(not(target_os = "linux"))]
+    fn error(key: &str, error: construct_secret::macos_keychain::KeychainError) -> CredentialError {
+        use construct_secret::macos_keychain::KeychainError;
+        match error {
+            KeychainError::NotFound => not_found(key),
+            KeychainError::TooLarge => CredentialError::TooLarge {
+                key: key.into(),
+                message: "data passed to Set was too big".into(),
+            },
+            KeychainError::Other(message) => CredentialError::Other(message),
+        }
+    }
+}
+#[cfg(target_os = "macos")]
+impl Provider for SystemProvider {
+    fn get(&self, key: &str) -> Result<String, CredentialError> {
+        construct_secret::macos_keychain::get(SERVICE, key).map_err(|e| Self::error(key, e))
+    }
+    fn set(&self, key: &str, value: &str) -> Result<(), CredentialError> {
+        construct_secret::macos_keychain::set(SERVICE, key, value).map_err(|e| Self::error(key, e))
+    }
+    fn delete(&self, key: &str) -> Result<(), CredentialError> {
+        construct_secret::macos_keychain::delete(SERVICE, key).map_err(|e| Self::error(key, e))
+    }
+}
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+impl SystemProvider {
     fn entry(key: &str) -> Result<keyring::Entry, CredentialError> {
         #[cfg(target_os = "windows")]
         let entry = keyring::Entry::new_with_target(&format!("{SERVICE}:{key}"), SERVICE, key);
@@ -56,7 +82,6 @@ impl SystemProvider {
         let entry = keyring::Entry::new(SERVICE, key);
         entry.map_err(|e| Self::error(key, e))
     }
-    #[cfg(not(target_os = "linux"))]
     fn error(key: &str, error: keyring::Error) -> CredentialError {
         match error {
             keyring::Error::NoEntry => not_found(key),
@@ -68,31 +93,12 @@ impl SystemProvider {
         }
     }
 }
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
 impl Provider for SystemProvider {
     fn get(&self, key: &str) -> Result<String, CredentialError> {
         let entry = Self::entry(key)?;
         let bytes = entry.get_secret().map_err(|e| Self::error(key, e))?;
-        let value = String::from_utf8(bytes).map_err(|e| CredentialError::Other(e.to_string()))?;
-        #[cfg(target_os = "macos")]
-        {
-            use base64::Engine;
-            if let Some(encoded) = value.strip_prefix("go-keyring-base64:") {
-                return String::from_utf8(
-                    base64::engine::general_purpose::STANDARD
-                        .decode(encoded)
-                        .map_err(|e| CredentialError::Other(e.to_string()))?,
-                )
-                .map_err(|e| CredentialError::Other(e.to_string()));
-            }
-            if let Some(encoded) = value.strip_prefix("go-keyring-encoded:") {
-                return String::from_utf8(
-                    hex::decode(encoded).map_err(|e| CredentialError::Other(e.to_string()))?,
-                )
-                .map_err(|e| CredentialError::Other(e.to_string()));
-            }
-        }
-        Ok(value)
+        String::from_utf8(bytes).map_err(|e| CredentialError::Other(e.to_string()))
     }
     fn set(&self, key: &str, value: &str) -> Result<(), CredentialError> {
         #[cfg(target_os = "windows")]
@@ -102,14 +108,6 @@ impl Provider for SystemProvider {
                 message: "SetData failed: data too big".into(),
             });
         }
-        #[cfg(target_os = "macos")]
-        let value = {
-            use base64::Engine;
-            format!(
-                "go-keyring-base64:{}",
-                base64::engine::general_purpose::STANDARD.encode(value)
-            )
-        };
         Self::entry(key)?
             .set_secret(value.as_bytes())
             .map_err(|e| Self::error(key, e))

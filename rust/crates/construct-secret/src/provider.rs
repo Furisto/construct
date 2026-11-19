@@ -132,7 +132,28 @@ impl Provider for KeyringProvider {
         })
     }
 }
-#[cfg(not(target_os = "linux"))]
+#[cfg(target_os = "macos")]
+fn keychain_error(key: &str, error: crate::macos_keychain::KeychainError) -> Error {
+    use crate::macos_keychain::KeychainError;
+    match error {
+        KeychainError::NotFound => Error::NotFound(key.into()),
+        KeychainError::TooLarge => Error::TooLarge(key.into()),
+        KeychainError::Other(message) => Error::Provider(message),
+    }
+}
+#[cfg(target_os = "macos")]
+impl Provider for KeyringProvider {
+    fn get(&self, key: &str) -> Result<String> {
+        crate::macos_keychain::get("construct", key).map_err(|e| keychain_error(key, e))
+    }
+    fn set(&self, key: &str, value: &str) -> Result<()> {
+        crate::macos_keychain::set("construct", key, value).map_err(|e| keychain_error(key, e))
+    }
+    fn delete(&self, key: &str) -> Result<()> {
+        crate::macos_keychain::delete("construct", key).map_err(|e| keychain_error(key, e))
+    }
+}
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
 fn keyring_error(key: &str, error: keyring::Error) -> Error {
     match error {
         keyring::Error::NoEntry => Error::NotFound(key.into()),
@@ -140,7 +161,7 @@ fn keyring_error(key: &str, error: keyring::Error) -> Error {
         e => Error::Provider(e.to_string()),
     }
 }
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
 fn entry(key: &str) -> std::result::Result<keyring::Entry, keyring::Error> {
     #[cfg(target_os = "windows")]
     {
@@ -151,50 +172,19 @@ fn entry(key: &str) -> std::result::Result<keyring::Entry, keyring::Error> {
         keyring::Entry::new("construct", key)
     }
 }
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
 impl Provider for KeyringProvider {
     fn get(&self, key: &str) -> Result<String> {
         let value = entry(key)
             .and_then(|e| e.get_secret())
             .map_err(|e| keyring_error(key, e))?;
-        let value = String::from_utf8(value).map_err(|e| Error::Provider(e.to_string()))?;
-        #[cfg(target_os = "macos")]
-        {
-            use base64::Engine;
-            if let Some(encoded) = value.strip_prefix("go-keyring-base64:") {
-                let decoded = base64::engine::general_purpose::STANDARD
-                    .decode(encoded)
-                    .map_err(|e| Error::Provider(e.to_string()))?;
-                return String::from_utf8(decoded).map_err(|e| Error::Provider(e.to_string()));
-            }
-            if let Some(encoded) = value.strip_prefix("go-keyring-encoded:") {
-                let decoded = (0..encoded.len())
-                    .step_by(2)
-                    .map(|i| {
-                        encoded
-                            .get(i..i + 2)
-                            .and_then(|s| u8::from_str_radix(s, 16).ok())
-                            .ok_or_else(|| Error::Provider("invalid hex secret".into()))
-                    })
-                    .collect::<Result<Vec<_>>>()?;
-                return String::from_utf8(decoded).map_err(|e| Error::Provider(e.to_string()));
-            }
-        }
-        Ok(value)
+        String::from_utf8(value).map_err(|e| Error::Provider(e.to_string()))
     }
     fn set(&self, key: &str, value: &str) -> Result<()> {
         #[cfg(target_os = "windows")]
         if value.len() > 2560 {
             return Err(Error::TooLarge(key.into()));
         }
-        #[cfg(target_os = "macos")]
-        let value = {
-            use base64::Engine;
-            format!(
-                "go-keyring-base64:{}",
-                base64::engine::general_purpose::STANDARD.encode(value)
-            )
-        };
         entry(key)
             .and_then(|e| e.set_secret(value.as_bytes()))
             .map_err(|e| keyring_error(key, e))

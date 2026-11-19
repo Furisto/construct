@@ -1,6 +1,8 @@
 //! Go-compatible Construct secret storage and cleartext Tink AES-GCM keysets.
 //! Serialized keysets contain secret key material; store them only in a provider.
 mod encryption;
+#[cfg(target_os = "macos")]
+pub mod macos_keychain;
 mod provider;
 pub use encryption::*;
 pub use provider::*;

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Linux prerequisites: Go, Rust, Python 3, curl, tmux, dbus-run-session,
-# gnome-keyring-daemon. All model traffic is loopback; all credentials are fake.
+# Prerequisites: Go, Rust, Python 3, curl, tmux, ripgrep; on Linux also
+# dbus-run-session and gnome-keyring-daemon. macOS uses the login Keychain.
+# All model traffic is loopback; all credentials are fake.
 set -euo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo="$(cd -- "$script_dir/../.." && pwd)"
@@ -14,7 +15,11 @@ if [[ ${1:-} != --inner ]]; then
     CGO_ENABLED=0 go build -o /tmp/construct-go ./frontend/cli
     cargo build --manifest-path rust/Cargo.toml --locked -p construct-cli
     run="$(mktemp -d "$output/run-XXXXXXXX")"
-    dbus-run-session -- bash "$script_dir/e2e-daemon.sh" --inner "$output" "$run"
+    if [[ $(uname) == Darwin ]]; then
+      bash "$script_dir/e2e-daemon.sh" --inner "$output" "$run"
+    else
+      dbus-run-session -- bash "$script_dir/e2e-daemon.sh" --inner "$output" "$run"
+    fi
   ) 2>&1 | tee "$output/e2e.log"
   exit "${PIPESTATUS[0]}"
 fi
@@ -22,14 +27,19 @@ fi
 output="$2"
 run="$3"
 echo "Artifacts: $run"
-export HOME="$run/home" XDG_CONFIG_HOME="$run/config" XDG_DATA_HOME="$run/data"
+# The macOS Keychain belongs to the real HOME, so only XDG paths are isolated there.
+[[ $(uname) == Darwin ]] || export HOME="$run/home"
+export XDG_CONFIG_HOME="$run/config" XDG_DATA_HOME="$run/data"
 export XDG_STATE_HOME="$run/state" XDG_RUNTIME_DIR="$run/runtime" TERM=xterm-256color
-mkdir -p "$HOME" "$XDG_CONFIG_HOME/construct" "$XDG_RUNTIME_DIR" "$run/workspace"
-chmod 700 "$HOME" "$XDG_RUNTIME_DIR"
+mkdir -p "$run/home" "$XDG_CONFIG_HOME/construct" "$XDG_RUNTIME_DIR" "$run/workspace"
+chmod 700 "$run/home" "$XDG_RUNTIME_DIR"
 printf 'secret:\n  provider: file\n' > "$XDG_CONFIG_HOME/construct/config.yaml"
 # Enrollment tokens use the CLI keyring even when daemon encryption uses files.
 # Start a private Secret Service inside this run's D-Bus session and isolated HOME.
-printf 'e2e-only-password' | gnome-keyring-daemon --unlock --components=secrets > "$run/keyring.log" 2>&1
+if [[ $(uname) != Darwin ]]; then
+  printf 'e2e-only-password' | gnome-keyring-daemon --unlock --components=secrets > "$run/keyring.log" 2>&1
+fi
+sha256() { if command -v sha256sum >/dev/null; then sha256sum "$1"; else shasum -a 256 "$1"; fi | cut -d' ' -f1; }
 GO=/tmp/construct-go
 RUST="$repo/rust/target/debug/construct"
 socket="$run/daemon.sock"
@@ -107,7 +117,7 @@ go_task="$("$GO" task create --agent "$agent" --workspace "$run/workspace" 2>&1)
 "$GO" message create "$go_task" GO_INITIAL
 wait_reply "$GO" "$go_task" GO_INITIAL
 stop_daemon
-key_before="$(sha256sum "$XDG_DATA_HOME/construct/secrets/encryption_key" | cut -d' ' -f1)"
+key_before="$(sha256 "$XDG_DATA_HOME/construct/secrets/encryption_key")"
 
 echo '=== Rust phase: read Go data, enroll TCP, execute new and old tasks ==='
 unset ANTHROPIC_BASE_URL
@@ -140,7 +150,7 @@ rust_task="$("$RUST" --context tcp-e2e task create --agent "$agent" --workspace 
 wait_reply "$RUST" "$rust_task" RUST_TCP tcp-e2e
 "$RUST" --context tcp-e2e message create "$go_task" GO_RESUMED
 wait_reply "$RUST" "$go_task" GO_RESUMED tcp-e2e
-test "$key_before" = "$(sha256sum "$XDG_DATA_HOME/construct/secrets/encryption_key" | cut -d' ' -f1)"
+test "$key_before" = "$(sha256 "$XDG_DATA_HOME/construct/secrets/encryption_key")"
 echo 'PASS: Rust reused Go encryption key and decrypted Go provider credentials'
 
 echo '=== TUI: resume Go-created task and send a new message ==='

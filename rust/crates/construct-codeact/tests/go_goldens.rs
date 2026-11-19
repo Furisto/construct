@@ -46,6 +46,8 @@ impl LoopbackServer {
                     }
                     Err(e) => panic!("loopback accept: {e}"),
                 };
+                // BSD sockets inherit O_NONBLOCK from the listener; Linux does not.
+                stream.set_nonblocking(false).unwrap();
                 stream
                     .set_read_timeout(Some(Duration::from_secs(2)))
                     .unwrap();
@@ -199,6 +201,14 @@ fn normalize_output(text: &str) -> String {
     text.replacen(&prefix, &format!("{{\"console_output\":{normalized},"), 1)
 }
 
+/// macOS launch constraints kill copied platform binaries, so link instead.
+fn link_executable(source: &std::path::Path, target: &std::path::Path) {
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(source, target).unwrap();
+    #[cfg(not(unix))]
+    fs::copy(source, target).unwrap();
+}
+
 #[test]
 fn go_goldens_without_ripgrep() {
     let bin = tempfile::tempdir().unwrap();
@@ -207,7 +217,7 @@ fn go_goldens_without_ripgrep() {
             .map(|path| path.join(name))
             .find(|path| path.is_file())
             .unwrap_or_else(|| panic!("system {name}"));
-        fs::copy(executable, bin.path().join(name)).unwrap();
+        link_executable(&executable, &bin.path().join(name));
     }
     let output = std::process::Command::new(std::env::current_exe().unwrap())
         .args(["--exact", "real_go_interpreter_goldens", "--nocapture"])
