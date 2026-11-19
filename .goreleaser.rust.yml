@@ -1,0 +1,105 @@
+version: 2
+
+project_name: construct
+
+builds:
+  - id: construct
+    builder: rust
+    dir: rust
+    binary: construct
+    targets:
+      - x86_64-unknown-linux-musl
+      - aarch64-unknown-linux-musl
+      - x86_64-apple-darwin
+      - aarch64-apple-darwin
+    flags:
+      - --release
+      - --locked
+      - -p=construct-cli
+      - --bin=construct
+    env:
+      - RUSTUP_TOOLCHAIN=1.89.0
+      - CONSTRUCT_VERSION={{ .Version }}
+      - CONSTRUCT_GIT_COMMIT={{ .Commit }}
+      - CONSTRUCT_BUILD_DATE={{ .Date }}
+      - POSTHOG_API_KEY={{ .Env.POSTHOG_API_KEY }}
+    hooks:
+      post:
+        - sh -c 'sha256sum {{ .Path }} | cut -d" " -f1 > {{ .Os }}_{{ .Arch }}_checksum.txt'
+
+archives:
+  - id: construct
+    ids:
+      - construct
+    name_template: "{{ .Os }}_{{ .Arch }}"
+    files:
+      - README.md
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+
+release:
+  draft: true
+  replace_existing_draft: true
+  target_commitish: "{{ .Commit }}"
+  extra_files:
+    - glob: "*_checksum.txt"
+  header: |
+    ## What's Changed
+
+    This release includes the following changes:
+
+brews:
+  - name: construct
+    repository:
+      owner: furisto
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.GITHUB_TOKEN }}"
+    commit_author:
+      name: Thomas Schubart
+      email: 24721048+Furisto@users.noreply.github.com
+    homepage: https://github.com/furisto/construct
+    description: "Your AI-powered development assistant"
+    license: Apache-2.0
+    install: |
+      bin.install "construct"
+    test: |
+      system "#{bin}/construct", "version"
+
+blobs:
+  - provider: s3
+    region: us-east-1
+    bucket: us-construct-releases
+    directory: versions/{{ .Version }}
+    extra_files:
+    - glob: "*_checksum.txt"
+  - provider: s3
+    region: eu-central-1
+    bucket: eu-construct-releases
+    directory: versions/{{ .Version }}
+    extra_files:
+    - glob: "*_checksum.txt"
+
+notarize:
+  macos:
+    - enabled: '{{ isEnvSet "MACOS_SIGN_P12" }}'
+      sign:
+        certificate: "{{.Env.MACOS_SIGN_P12}}"
+        password: "{{.Env.MACOS_SIGN_PASSWORD}}"
+        entitlements: ./entitlements.xml
+      notarize:
+        issuer_id: "{{.Env.MACOS_NOTARY_ISSUER_ID}}"
+        key_id: "{{.Env.MACOS_NOTARY_KEY_ID}}"
+        key: "{{.Env.MACOS_NOTARY_KEY}}"
+        wait: true
+        timeout: 20m
