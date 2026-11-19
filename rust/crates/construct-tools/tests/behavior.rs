@@ -290,11 +290,7 @@ async fn find_and_grep_real_processes() {
     assert_eq!(result.total_matches, 1);
     assert_eq!(
         result.matches.unwrap()[0].value,
-        if ripgrep {
-            "-1-before\n:2:Needle\n-3-after\n"
-        } else {
-            "-1-before:2:Needle-3-after"
-        }
+        "-1-before\n:2:Needle\n-3-after\n"
     );
     assert_eq!(
         Grep.execute(&context(), json!({"path":root,"query":"absent"}))

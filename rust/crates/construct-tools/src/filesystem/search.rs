@@ -336,7 +336,7 @@ pub(super) fn parse_ripgrep(output: &str, max: i64, context: i64) -> GrepResult 
 fn parse_grep(output: &str, max: i64, context: i64) -> GrepResult {
     let mut files: BTreeMap<String, Vec<Entry>> = BTreeMap::new();
     let mut searched = BTreeSet::new();
-    for line in output.trim().lines() {
+    for line in output.split_inclusive('\n') {
         if line.is_empty() || line.starts_with("--") {
             continue;
         }
@@ -420,8 +420,30 @@ mod tests {
         assert_eq!(result.searched_files, 1);
         assert_eq!(
             result.matches.unwrap()[0].value,
-            "-1-before:2:match-3-after"
+            "-1-before\n:2:match\n-3-after\n"
         );
         assert_eq!(parse_grep("", 50, 2).total_matches, 0);
+    }
+
+    #[test]
+    fn fallback_preserves_line_endings_and_whitespace() {
+        for (output, expected) in [
+            (
+                "file-1-apple\nfile:2:banana\nfile-3-carrot\n",
+                "-1-apple\n:2:banana\n-3-carrot\n",
+            ),
+            ("file:1:  match  \n", ":1:  match  \n"),
+            ("file:1:match\r\n", ":1:match\r\n"),
+            ("file:1:match", ":1:match"),
+        ] {
+            assert_eq!(
+                parse_grep(output, 50, 2).matches.unwrap()[0].value,
+                expected
+            );
+        }
+        assert_eq!(
+            parse_grep("invalid\n--\nfile-x-content\n", 50, 2).total_matches,
+            0
+        );
     }
 }

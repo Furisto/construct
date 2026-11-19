@@ -30,6 +30,9 @@ bytes are preserved when editing; string results replace invalid UTF-8 bytes wit
 U+FFFD individually. Find and grep use executable `rg` from PATH when available;
 their fallbacks are glob traversal and system `grep`, respectively. Consequently,
 the two search backends have Go's different ignore/hidden-file behavior.
+The grep fallback retains the emitted line endings, unlike Go's fallback parser
+which strips them, so match/context values agree with Go's ripgrep output even
+when ripgrep is absent.
 
 Execute-command uses `/bin/sh -c` with Go's `set -eu` wrapper. Stdout and stderr
 share one file descriptor and are returned as combined `stdout` with empty
