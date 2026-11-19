@@ -166,8 +166,7 @@ impl Node {
 fn is_null(value: &str, style: TScalarStyle, tag: Option<&Tag>) -> bool {
     match tag {
         Some(tag) => {
-            tag.handle == "tag:yaml.org,2002:" && tag.suffix == "null"
-                || tag.handle == "!!" && tag.suffix == "null"
+            tag.suffix == "null" && (tag.handle == "tag:yaml.org,2002:" || tag.handle == "!!")
         }
         None => {
             style == TScalarStyle::Plain && matches!(value, "" | "~" | "null" | "Null" | "NULL")
