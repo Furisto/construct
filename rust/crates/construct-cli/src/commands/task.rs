@@ -272,7 +272,7 @@ pub async fn run(app: &mut App, matches: &clap::ArgMatches) -> Result<()> {
                 .task
                 .ok_or("task missing")?;
             writeln!(
-                app.stdout,
+                app.stderr,
                 "{}",
                 task.metadata.ok_or("task metadata missing")?.id
             )?;

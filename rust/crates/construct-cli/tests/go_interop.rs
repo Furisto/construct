@@ -994,15 +994,23 @@ async fn rust_resource_commands_and_skill_layout_with_go_daemon() {
             serde_json::from_str(&sandbox.go(rust, &[group, "list", "-o", "json"])).unwrap();
         assert!(values.is_array());
     }
-    let task = sandbox.go(
-        rust,
-        &[
+    let output = sandbox
+        .command(rust)
+        .args([
             "task",
             "create",
             "--agent",
             agents[0]["id"].as_str().unwrap(),
-        ],
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
     );
+    assert!(output.stdout.is_empty());
+    let task = String::from_utf8(output.stderr).unwrap();
     let task = task.trim();
     assert!(uuid::Uuid::parse_str(task).is_ok());
     let tasks: Value =

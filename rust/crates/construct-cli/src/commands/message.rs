@@ -239,7 +239,7 @@ pub async fn run(app: &mut App, matches: &clap::ArgMatches) -> Result<()> {
                 .message
                 .ok_or("message missing")?;
             writeln!(
-                app.stdout,
+                app.stderr,
                 "{}",
                 message.metadata.ok_or("message metadata missing")?.id
             )?;

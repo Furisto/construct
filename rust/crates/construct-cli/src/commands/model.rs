@@ -230,7 +230,7 @@ pub async fn run(app: &mut App, matches: &clap::ArgMatches) -> Result<()> {
                 .model
                 .ok_or("model missing")?;
             writeln!(
-                app.stdout,
+                app.stderr,
                 "{}",
                 model.metadata.ok_or("model metadata missing")?.id
             )?;
