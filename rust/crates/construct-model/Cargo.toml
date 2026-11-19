@@ -1,0 +1,19 @@
+[package]
+name = "construct-model"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+construct-core = { path = "../construct-core" }
+construct-types = { path = "../construct-types" }
+reqwest.workspace = true
+rand.workspace = true
+tokio.workspace = true
+bytes.workspace = true
+futures-util.workspace = true
+async-stream.workspace = true
+uuid = "1"
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
