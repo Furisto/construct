@@ -1,0 +1,101 @@
+// Run via agent-goldens.py. All encryption material is test-only.
+package main
+
+import (
+    "bytes"
+    "encoding/json"
+    "os"
+    "path/filepath"
+    "text/template"
+
+    "github.com/furisto/construct/backend/agent"
+    "github.com/furisto/construct/backend/analytics"
+    "github.com/furisto/construct/backend/memory/schema/types"
+    "github.com/furisto/construct/backend/model"
+    "github.com/furisto/construct/backend/prompt"
+    "github.com/furisto/construct/backend/secret"
+    "github.com/furisto/construct/backend/tool/system"
+    tooltypes "github.com/furisto/construct/backend/tool/types"
+    "github.com/google/uuid"
+)
+
+func must(err error) { if err != nil { panic(err) } }
+func main() {
+    out := os.Args[1]
+    write := func(name string, value interface{}) {
+        b, err := json.MarshalIndent(value, "", "  "); must(err)
+        must(os.WriteFile(filepath.Join(out, name), append(b, '\n'), 0644))
+    }
+    var cases []map[string]interface{}
+    for _, blocks := range [][]model.ContentBlock{
+        nil,
+        {&model.TextBlock{Text: "hello <world> & café\u2028"}},
+        {&model.ToolCallBlock{ID: "call-1", Tool: "code_interpreter", Args: json.RawMessage(`{"script":"console.log('<ok>')"}`)}, &model.ToolResultBlock{ID: "call-1", Name: "code_interpreter", Result: "deliberately discarded", Succeeded: true}},
+        {&model.ToolCallBlock{ID: "call-2", Tool: "other", Args: json.RawMessage(`{"x":1}`)}},
+        {&model.ToolCallBlock{ID: "call-3", Tool: "code_interpreter", Args: json.RawMessage(`{"script":17}`)}},
+        {&model.ToolCallBlock{ID: "call-4", Tool: "code_interpreter", Args: json.RawMessage(`null`)}},
+    } {
+        memory, err := agent.ConvertModelContentBlocksToMemoryWithProvider(blocks, "anthropic"); must(err)
+        stored, err := json.Marshal(memory); must(err)
+        back, err := agent.ConvertMemoryMessageBlocksToModel(memory.Blocks); must(err)
+        backJSON, err := json.Marshal(back); must(err)
+        explicitNull := false
+        if len(blocks) > 0 { if call, ok := blocks[0].(*model.ToolCallBlock); ok { explicitNull = string(call.Args) == "null" } }
+        cases = append(cases, map[string]interface{}{"model": blocks, "stored": string(stored), "back": string(backJSON), "explicit_null_args": explicitNull})
+    }
+    write("conversion.json", cases)
+    output := tooltypes.ToolResult{
+        Provider: &tooltypes.ProviderData{Kind: "anthropic", ID: "call-1"}, Tool: "code_interpreter", Succeeded: false,
+        Output: &tooltypes.ToolOutput{Interpreter: &tooltypes.InterpreterOutput{ConsoleOutput: "stdout", FunctionCalls: []tooltypes.FunctionCall{{Output: tooltypes.ToolOutput{ExecuteCommand: &system.ExecuteCommandResult{Stderr: "failure"}}}}}},
+    }
+    payload, err := json.Marshal(output); must(err)
+    blocks := []types.MessageBlock{{Kind: types.MessageBlockKindToolResult, Payload: string(payload)}}
+    back, err := agent.ConvertMemoryMessageBlocksToModel(blocks); must(err)
+    write("tool-result.json", map[string]interface{}{"blocks": blocks, "model": back})
+
+    prompts := map[string]string{}
+    for _, full := range []bool{false, true} {
+        tools := &agent.DevTools{}
+        toolInstructions, toolDescriptions := "", ""
+        if full { tools.VersionControl = []string{"git", "gh"}; tools.PackageManagers = []string{"cargo"}; toolInstructions = prompt.ToolInstructions(); toolDescriptions = "# read_file\nRead a file\n\n" }
+        params := struct {
+            CurrentTime, WorkingDirectory, OperatingSystem, DefaultShell, ProjectStructure, ToolInstructions, Tools, AvailableSkills string
+            DevTools *agent.DevTools
+        }{WorkingDirectory: "/workspace/<demo>", OperatingSystem: "linux", DefaultShell: "bash", ProjectStructure: "|_Cargo.toml\n|_src\n", ToolInstructions: toolInstructions, Tools: toolDescriptions, AvailableSkills: "skills", DevTools: tools}
+        for name, source := range map[string]string{"edit": prompt.Edit, "plan": prompt.Plan} {
+            var b bytes.Buffer
+            tmpl, err := template.New("system_prompt").Parse(source); must(err)
+            must(tmpl.Execute(&b, params))
+            suffix := "-empty"; if full { suffix = "-full" }
+            prompts[name+suffix] = b.String()
+        }
+    }
+    write("prompts.json", prompts)
+    handle, err := secret.GenerateKeyset(); must(err)
+    keyset, err := secret.KeysetToJSON(handle); must(err)
+    encryption, err := secret.NewClient(handle); must(err)
+    id := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+    ciphertext, err := encryption.Encrypt([]byte(`{"apiKey":"test-only-key"}`), secret.ModelProviderAssociated(id)); must(err)
+    write("provider.json", map[string]interface{}{"keyset": json.RawMessage(keyset), "id": id, "ciphertext": ciphertext})
+
+    client := analytics.NewInMemoryClient()
+    analytics.EmitAgentCreated(client,"a","edit","claude")
+    analytics.EmitAgentUpdated(client,"a","edit",[]string{"name"})
+    analytics.EmitModelProviderCreated(client,"p","provider","anthropic")
+    analytics.EmitModelCreated(client,"m","claude","p",100)
+    analytics.EmitTaskCreated(client,"t","a")
+    analytics.EmitTaskUpdated(client,"t",nil)
+    analytics.EmitAgentDeleted(client,"a","edit")
+    analytics.EmitModelProviderDeleted(client,"p","provider","anthropic")
+    analytics.EmitModelDeleted(client,"m","claude","p")
+    analytics.EmitTaskDeleted(client,"t","a")
+    analytics.EmitMessageCreated(client,"msg","t","user")
+    analytics.EmitMessageDeleted(client,"msg","t","user")
+    analytics.EmitSessionStarted(client,"new","edit","/workspace",true)
+    analytics.EmitConversationResumed(client,"t",2,3)
+    analytics.EmitQuickAsk(client,"edit",4,5,true,6)
+    analytics.EmitToolExecuted(client,"t","read_file",42,false,"missing")
+    analytics.EmitCodeInterpreterSession(client,"t",3,1,20)
+    analytics.EmitAgentHandoff(client,"a","b","t","specialization",2)
+    write("analytics.json",client.Events)
+}

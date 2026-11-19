@@ -1,0 +1,171 @@
+[
+  {
+    "DistinctId": "user",
+    "Event": "agent_created",
+    "Properties": {
+      "agent_id": "a",
+      "agent_name": "edit",
+      "model_name": "claude"
+    }
+  },
+  {
+    "DistinctId": "user",
+    "Event": "agent_updated",
+    "Properties": {
+      "agent_id": "a",
+      "agent_name": "edit",
+      "updated_fields": [
+        "name"
+      ]
+    }
+  },
+  {
+    "DistinctId": "user",
+    "Event": "model_provider_created",
+    "Properties": {
+      "model_provider_id": "p",
+      "model_provider_name": "provider",
+      "provider_type": "anthropic"
+    }
+  },
+  {
+    "DistinctId": "user",
+    "Event": "model_created",
+    "Properties": {
+      "context_window": 100,
+      "model_id": "m",
+      "model_name": "claude",
+      "model_provider_id": "p"
+    }
+  },
+  {
+    "DistinctId": "user",
+    "Event": "task_created",
+    "Properties": {
+      "agent_id": "a",
+      "task_id": "t"
+    }
+  },
+  {
+    "DistinctId": "user",
+    "Event": "task_updated",
+    "Properties": {
+      "task_id": "t",
+      "updated_fields": null
+    }
+  },
+  {
+    "DistinctId": "user",
+    "Event": "agent_deleted",
+    "Properties": {
+      "agent_id": "a",
+      "agent_name": "edit"
+    }
+  },
+  {
+    "DistinctId": "user",
+    "Event": "model_provider_deleted",
+    "Properties": {
+      "model_provider_id": "p",
+      "model_provider_name": "provider",
+      "provider_type": "anthropic"
+    }
+  },
+  {
+    "DistinctId": "user",
+    "Event": "model_deleted",
+    "Properties": {
+      "model_id": "m",
+      "model_name": "claude",
+      "model_provider_id": "p"
+    }
+  },
+  {
+    "DistinctId": "user",
+    "Event": "task_deleted",
+    "Properties": {
+      "agent_id": "a",
+      "task_id": "t"
+    }
+  },
+  {
+    "DistinctId": "user",
+    "Event": "message_created",
+    "Properties": {
+      "message_id": "msg",
+      "role": "user",
+      "task_id": "t"
+    }
+  },
+  {
+    "DistinctId": "user",
+    "Event": "message_deleted",
+    "Properties": {
+      "message_id": "msg",
+      "role": "user",
+      "task_id": "t"
+    }
+  },
+  {
+    "DistinctId": "user",
+    "Event": "session_started",
+    "Properties": {
+      "agent_name": "edit",
+      "has_existing_files": true,
+      "session_type": "new",
+      "workspace": "/workspace"
+    }
+  },
+  {
+    "DistinctId": "user",
+    "Event": "conversation_resumed",
+    "Properties": {
+      "days_since_last_activity": 2,
+      "message_count": 3,
+      "task_id": "t"
+    }
+  },
+  {
+    "DistinctId": "user",
+    "Event": "quick_ask",
+    "Properties": {
+      "agent_name": "edit",
+      "files_included": 5,
+      "has_stdin_input": true,
+      "max_turns": 4,
+      "question_length": 6
+    }
+  },
+  {
+    "DistinctId": "user",
+    "Event": "tool_executed",
+    "Properties": {
+      "error_type": "missing",
+      "execution_time_ms": 42,
+      "success": false,
+      "task_id": "t",
+      "tool_name": "read_file"
+    }
+  },
+  {
+    "DistinctId": "user",
+    "Event": "code_interpreter_session",
+    "Properties": {
+      "errors_encountered": 1,
+      "lines_of_code": 20,
+      "scripts_executed": 3,
+      "task_id": "t"
+    }
+  },
+  {
+    "DistinctId": "user",
+    "Event": "agent_handoff",
+    "Properties": {
+      "from_agent_id": "a",
+      "reason": "specialization",
+      "task_id": "t",
+      "to_agent_id": "b",
+      "turn_number": 2
+    }
+  }
+]

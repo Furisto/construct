@@ -1,0 +1,78 @@
+[
+  {
+    "back": "null",
+    "explicit_null_args": false,
+    "model": null,
+    "stored": "{\"blocks\":null}"
+  },
+  {
+    "back": "[{\"Text\":\"hello \\u003cworld\\u003e \\u0026 café\\u2028\"}]",
+    "explicit_null_args": false,
+    "model": [
+      {
+        "Text": "hello \u003cworld\u003e \u0026 café\u2028"
+      }
+    ],
+    "stored": "{\"blocks\":[{\"kind\":\"text\",\"payload\":\"hello \\u003cworld\\u003e \\u0026 café\\u2028\"}]}"
+  },
+  {
+    "back": "[{\"id\":\"call-1\",\"tool\":\"code_interpreter\",\"args\":{\"script\":\"console.log('\\u003cok\\u003e')\"}},{\"id\":\"call-1\",\"name\":\"code_interpreter\",\"result\":\"\",\"succeeded\":true}]",
+    "explicit_null_args": false,
+    "model": [
+      {
+        "id": "call-1",
+        "tool": "code_interpreter",
+        "args": {
+          "script": "console.log('\u003cok\u003e')"
+        }
+      },
+      {
+        "id": "call-1",
+        "name": "code_interpreter",
+        "result": "deliberately discarded",
+        "succeeded": true
+      }
+    ],
+    "stored": "{\"blocks\":[{\"kind\":\"tool_call\",\"payload\":\"{\\\"provider\\\":{\\\"kind\\\":\\\"anthropic\\\",\\\"id\\\":\\\"call-1\\\"},\\\"tool\\\":\\\"code_interpreter\\\",\\\"input\\\":{\\\"interpreter\\\":{\\\"script\\\":\\\"console.log('\\\\u003cok\\\\u003e')\\\"}}}\"},{\"kind\":\"tool_result\",\"payload\":\"{\\\"provider\\\":{\\\"kind\\\":\\\"anthropic\\\",\\\"id\\\":\\\"call-1\\\"},\\\"tool\\\":\\\"code_interpreter\\\",\\\"succeeded\\\":true}\"}]}"
+  },
+  {
+    "back": "[{\"id\":\"call-2\",\"tool\":\"other\",\"args\":null}]",
+    "explicit_null_args": false,
+    "model": [
+      {
+        "id": "call-2",
+        "tool": "other",
+        "args": {
+          "x": 1
+        }
+      }
+    ],
+    "stored": "{\"blocks\":[{\"kind\":\"tool_call\",\"payload\":\"{\\\"provider\\\":{\\\"kind\\\":\\\"anthropic\\\",\\\"id\\\":\\\"call-2\\\"},\\\"tool\\\":\\\"other\\\"}\"}]}"
+  },
+  {
+    "back": "[{\"id\":\"call-3\",\"tool\":\"code_interpreter\",\"args\":null}]",
+    "explicit_null_args": false,
+    "model": [
+      {
+        "id": "call-3",
+        "tool": "code_interpreter",
+        "args": {
+          "script": 17
+        }
+      }
+    ],
+    "stored": "{\"blocks\":[{\"kind\":\"tool_call\",\"payload\":\"{\\\"provider\\\":{\\\"kind\\\":\\\"anthropic\\\",\\\"id\\\":\\\"call-3\\\"},\\\"tool\\\":\\\"code_interpreter\\\"}\"}]}"
+  },
+  {
+    "back": "[{\"id\":\"call-4\",\"tool\":\"code_interpreter\",\"args\":{\"script\":\"\"}}]",
+    "explicit_null_args": true,
+    "model": [
+      {
+        "id": "call-4",
+        "tool": "code_interpreter",
+        "args": null
+      }
+    ],
+    "stored": "{\"blocks\":[{\"kind\":\"tool_call\",\"payload\":\"{\\\"provider\\\":{\\\"kind\\\":\\\"anthropic\\\",\\\"id\\\":\\\"call-4\\\"},\\\"tool\\\":\\\"code_interpreter\\\",\\\"input\\\":{\\\"interpreter\\\":{\\\"script\\\":\\\"\\\"}}}\"}]}"
+  }
+]
