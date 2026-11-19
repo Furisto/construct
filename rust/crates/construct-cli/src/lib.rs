@@ -10,6 +10,7 @@ pub mod helpers;
 pub mod logging;
 pub mod paths;
 pub mod render;
+pub mod terminal;
 pub mod yaml;
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
