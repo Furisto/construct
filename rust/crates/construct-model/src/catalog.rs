@@ -461,7 +461,6 @@ mod tests {
             default_model(&ProviderKind::ANTHROPIC.into()).unwrap().id,
             models[0].id
         );
-<<<<<<< HEAD
         let gemini = supported_models(&ProviderKind::GEMINI.into());
         assert_eq!(gemini.len(), 3);
         assert_eq!(gemini[0].name, "gemini-2.5-pro");
@@ -471,10 +470,6 @@ mod tests {
             default_model(&ProviderKind::GEMINI.into()).unwrap().id,
             gemini[0].id
         );
-        for kind in ["openai", "xai", "deepseek", "bedrock", "unknown"] {
-||||||| 25b5fc6
-        for kind in ["openai", "gemini", "xai", "deepseek", "bedrock", "unknown"] {
-=======
         assert_eq!(openai::supported_models().len(), 7);
         assert_eq!(xai::supported_models().len(), 4);
         for kind in ["openai", "xai"] {
@@ -483,8 +478,7 @@ mod tests {
                 "model not supported"
             );
         }
-        for kind in ["gemini", "deepseek", "bedrock", "unknown"] {
->>>>>>> origin/devin/1795094873-rust-openai-xai
+        for kind in ["deepseek", "bedrock", "unknown"] {
             assert!(supported_models(&kind.into()).is_empty());
             assert_eq!(
                 default_model(&kind.into()).unwrap_err(),
