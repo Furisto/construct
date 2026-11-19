@@ -88,6 +88,27 @@ async fn go_patterns_empty_scope_invalid_task_and_internal_filtering() {
 }
 
 #[tokio::test]
+async fn go_task_scope_accepts_wrapped_and_case_folded_urn_uuids() {
+    let router = EventRouter::default();
+    let task = Uuid::from_u128(1);
+    for task_id in [
+        task.simple().to_string(),
+        format!("{{{task}}}"),
+        format!("[{task}]"),
+        format!("URN:UUID:{task}"),
+    ] {
+        let mut stream = router.subscribe(SubscribeOptions {
+            task_id,
+            ..Default::default()
+        });
+        router.publish(event("task.created", Some(Uuid::from_u128(2)), 0));
+        empty(&mut stream);
+        router.publish(event("task.created", Some(task), 0));
+        assert_eq!(stream.next().await.unwrap().task_id, Some(task));
+    }
+}
+
+#[tokio::test]
 async fn go_slow_subscriber_drops_new_events_and_default_buffer() {
     let router = EventRouter::new(2);
     let mut slow = router.subscribe(opts(&[]));

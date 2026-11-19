@@ -11,6 +11,7 @@ contracts for parallel Rust implementations; they do not yet run a Rust daemon.
 | `construct-connect` | Hand-written Connect unary/streaming runtime, HTTP(S)/Unix transports, interceptors |
 | `construct-types` | Domain records, stored Go JSON, tools, provider messages, skill lockfiles, event patterns |
 | `construct-core` | Dyn-safe model/tool/secret/store/event contracts and reference in-memory event router |
+| `construct-event` | Go-compatible domain event constructors, live router, and SQLite event hook |
 
 Crates live in `crates/`. Core depends only on domain types and infrastructure,
 never generated protobuf types, concrete database drivers, provider SDKs, or CLI.
@@ -192,6 +193,14 @@ scope is optional; an invalid string is ignored as in Go. ReplayAfterMessageID i
 an API/store replay concern (Go's router ignores it). Select next() against a
 CancellationToken and drop on cancellation. Match-pattern tables are ported in
 construct-types; core tests port the router lifecycle/filter/backpressure cases.
+
+`construct-event` re-exports that same router and adds constructors and
+`EventHook`. To send committed entity changes to the router, register
+`Arc::new(EventHook::new(router.clone()))` in the hook list passed to
+`SqliteStore::open_with_hooks`, where `router` is an `Arc<EventRouter>`.
+The hook emits agent, model and model provider CRUD events, and task create/delete
+events. Task updates, message and tool events, and internal task coordination
+events are published explicitly by their producers.
 
 ### Store and per-entity repositories
 

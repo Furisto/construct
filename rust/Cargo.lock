@@ -231,6 +231,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "construct-event"
+version = "0.1.0"
+dependencies = [
+ "construct-core",
+ "construct-store",
+ "construct-types",
+ "futures-util",
+ "tempfile",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "construct-proto"
 version = "0.1.0"
 dependencies = [
