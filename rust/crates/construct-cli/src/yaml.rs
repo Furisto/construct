@@ -7,7 +7,7 @@ pub fn to_string<T: ?Sized + Serialize>(value: &T) -> Result<String> {
         if let Value::String(text) = value {
             if matches!(
                 text.as_str(),
-                "y" | "Y"
+                "" | "y" | "Y"
                     | "yes"
                     | "Yes"
                     | "YES"
@@ -110,6 +110,7 @@ mod tests {
             "contexts:\n    local:\n        address: /tmp/test\n        kind: unix\n"
         );
         assert_eq!(to_string(&"yes").unwrap(), "\"yes\"\n");
+        assert_eq!(to_string(&"").unwrap(), "\"\"\n");
     }
     #[test]
     fn multiline_scalars_preserve_contents_and_nesting() {

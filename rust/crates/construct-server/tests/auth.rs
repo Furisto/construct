@@ -195,6 +195,16 @@ async fn tcp_requires_exact_bearer_scheme_and_reports_go_errors() {
             assert_eq!(error.code, Code::Unauthenticated);
             assert_eq!(error.message, message);
         }
+        let (mut parts, ()) = http::Request::builder()
+            .uri("/private")
+            .body(())
+            .unwrap()
+            .into_parts();
+        parts.headers = headers;
+        parts.extensions.insert(Transport::Tcp);
+        let error = a.intercept(&mut parts).await.unwrap_err();
+        assert_eq!(error.code, Code::Unauthenticated);
+        assert_eq!(error.message, format!("unauthenticated: {message}"));
     }
 }
 
