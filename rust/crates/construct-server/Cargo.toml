@@ -10,6 +10,12 @@ construct-core = { path = "../construct-core" }
 construct-event = { path = "../construct-event" }
 construct-proto = { path = "../construct-proto" }
 construct-types = { path = "../construct-types" }
+construct-secret = { path = "../construct-secret" }
+construct-skill = { path = "../construct-skill" }
+async-stream.workspace = true
+futures-util.workspace = true
+tokio.workspace = true
+tracing = "0.1"
 base64 = "0.22"
 rand = "0.8"
 sha2 = "0.10"
@@ -17,10 +23,11 @@ thiserror = "2"
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
 pbjson-types.workspace = true
 serde_json.workspace = true
-uuid = "1"
+uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
 construct-core = { path = "../construct-core", features = ["testing"] }
-tokio.workspace = true
+construct-store = { path = "../construct-store" }
+tempfile = "3"
 tower.workspace = true
 http-body-util.workspace = true

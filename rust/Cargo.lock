@@ -560,21 +560,28 @@ dependencies = [
 name = "construct-server"
 version = "0.1.0"
 dependencies = [
+ "async-stream",
  "base64 0.22.1",
  "chrono",
  "construct-connect",
  "construct-core",
  "construct-event",
  "construct-proto",
+ "construct-secret",
+ "construct-skill",
+ "construct-store",
  "construct-types",
+ "futures-util",
  "http-body-util",
  "pbjson-types",
  "rand",
  "serde_json",
  "sha2",
+ "tempfile",
  "thiserror",
  "tokio",
  "tower",
+ "tracing",
  "uuid",
 ]
 
