@@ -157,6 +157,10 @@ struct Display {
     usage: Usage,
 }
 impl DisplayResource for Display {
+    fn yaml_value(&self) -> Result<serde_yaml::Value> {
+        crate::yaml::with_timestamps(self, &["created_at", "updated_at"])
+    }
+
     fn fields(&self) -> Vec<Field<'_>> {
         vec![
             Field::new("Id", &self.id),

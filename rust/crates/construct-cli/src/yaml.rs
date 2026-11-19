@@ -1,9 +1,40 @@
 use crate::Result;
 use serde::Serialize;
-use serde_yaml::Value;
+use serde_yaml::{
+    value::{Tag, TaggedValue},
+    Value,
+};
+
+const TIMESTAMP: &str = "!construct-timestamp";
+
+pub fn with_timestamps(value: &impl Serialize, fields: &[&str]) -> Result<Value> {
+    let mut value = serde_yaml::to_value(value)?;
+    if let Value::Mapping(map) = &mut value {
+        for &field in fields {
+            if let Some(timestamp @ Value::String(_)) = map.get_mut(field) {
+                *timestamp = Value::Tagged(Box::new(TaggedValue {
+                    tag: Tag::new(TIMESTAMP),
+                    value: std::mem::take(timestamp),
+                }));
+            }
+        }
+    }
+    Ok(value)
+}
 
 pub fn to_string<T: ?Sized + Serialize>(value: &T) -> Result<String> {
+    value_to_string(&serde_yaml::to_value(value)?)
+}
+
+pub fn value_to_string(value: &Value) -> Result<String> {
     fn scalar(value: &Value, indent: usize, step: usize) -> Result<String> {
+        if let Value::Tagged(tagged) = value {
+            if tagged.tag == TIMESTAMP {
+                if let Value::String(timestamp) = &tagged.value {
+                    return Ok(timestamp.clone());
+                }
+            }
+        }
         if let Value::Number(number) = value {
             if let (true, Some(float)) = (number.is_f64(), number.as_f64()) {
                 return Ok(go_float(float));
@@ -113,7 +144,7 @@ pub fn to_string<T: ?Sized + Serialize>(value: &T) -> Result<String> {
         Ok(())
     }
     let mut output = String::new();
-    emit(&serde_yaml::to_value(value)?, 0, &mut output)?;
+    emit(value, 0, &mut output)?;
     Ok(output)
 }
 
@@ -199,6 +230,20 @@ mod tests {
         assert_eq!(
             to_string(&value).unwrap(),
             "- agent: \"\"\n  usage:\n    cost: 0\n    inner:\n        a: 1\n"
+        );
+    }
+    #[test]
+    fn native_timestamps_and_timestamp_like_strings_render_differently() {
+        let timestamp = "2026-11-19T15:14:28.123Z";
+        let value = serde_json::json!({"created_at": timestamp, "name": timestamp});
+        let yaml = with_timestamps(&value, &["created_at"]).unwrap();
+        assert_eq!(
+            value_to_string(&yaml).unwrap(),
+            "created_at: 2026-11-19T15:14:28.123Z\nname: \"2026-11-19T15:14:28.123Z\"\n"
+        );
+        assert_eq!(
+            value_to_string(&Value::Sequence(vec![yaml])).unwrap(),
+            "- created_at: 2026-11-19T15:14:28.123Z\n  name: \"2026-11-19T15:14:28.123Z\"\n"
         );
     }
     /// Expected output is Go's `yaml.Marshal` of the same values.

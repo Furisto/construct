@@ -65,6 +65,10 @@ impl<'a> Field<'a> {
 }
 pub trait DisplayResource: Serialize {
     fn fields(&self) -> Vec<Field<'_>>;
+
+    fn yaml_value(&self) -> Result<serde_yaml::Value> {
+        Ok(serde_yaml::to_value(self)?)
+    }
 }
 #[derive(Default)]
 pub struct Renderer;
@@ -77,7 +81,11 @@ impl Renderer {
     ) -> Result<()> {
         match options.format {
             OutputFormat::Json => writeln!(writer, "{}", pretty_go_json(item)?)?,
-            OutputFormat::Yaml => writeln!(writer, "{}", crate::yaml::to_string(item)?)?,
+            OutputFormat::Yaml => writeln!(
+                writer,
+                "{}",
+                crate::yaml::value_to_string(&item.yaml_value()?)?
+            )?,
             _ => return self.render(writer, std::slice::from_ref(item), options),
         }
         Ok(())
@@ -92,7 +100,17 @@ impl Renderer {
             OutputFormat::Json => {
                 writeln!(writer, "{}", pretty_go_json(items)?)?;
             }
-            OutputFormat::Yaml => writeln!(writer, "{}", crate::yaml::to_string(items)?)?,
+            OutputFormat::Yaml => {
+                let values = items
+                    .iter()
+                    .map(DisplayResource::yaml_value)
+                    .collect::<Result<_>>()?;
+                writeln!(
+                    writer,
+                    "{}",
+                    crate::yaml::value_to_string(&serde_yaml::Value::Sequence(values))?
+                )?;
+            }
             _ => {
                 let rows: Vec<Vec<_>> = items
                     .iter()
@@ -261,7 +279,7 @@ mod tests {
     }
     #[test]
     fn redirected_table_headers_are_plain() {
-        if std::io::stdout().is_terminal() {
+        if styled_stdout() {
             return;
         }
         let mut out = Vec::new();

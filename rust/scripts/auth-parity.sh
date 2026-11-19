@@ -21,6 +21,7 @@ dbus-run-session -- bash -c '
   export CONSTRUCT_KEYRING_INTEROP=1 CONSTRUCT_TEST_KEYRING=1
   bash rust/scripts/secret-interop.sh
   cargo test --manifest-path rust/Cargo.toml --locked -p construct-cli --test go_interop -- --nocapture --test-threads=1
+  cargo test --manifest-path rust/Cargo.toml --locked -p construct-cli --test keyring_interop -- --nocapture
   cargo test --manifest-path rust/Cargo.toml --locked -p construct-server --test go_interop -- --nocapture --test-threads=1
 '
 echo 'PASS auth parity: RPC/error diffs, contexts, both mixed CLI/daemon directions, file secrets and live Secret Service'

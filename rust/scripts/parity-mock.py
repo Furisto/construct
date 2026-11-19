@@ -9,6 +9,7 @@ import argparse
 import json
 import re
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -82,6 +83,9 @@ def main():
                 finish = "tool_use" if any(b[0] == "code" for b in blocks) else "end_turn"
             with lock, args.requests.open("a") as log:
                 log.write(json.dumps({"kind": kind, "marker": marker, "step": step, "request": request}) + "\n")
+            if kind == "turn":
+                # Give exec time to read the replayed prompt before model usage can advance.
+                time.sleep(0.25)
             usage = {"input_tokens": 30, "output_tokens": 0, "cache_creation_input_tokens": 5, "cache_read_input_tokens": 7}
             chunks = [{"type": "message_start", "message": {"id": "msg_parity", "type": "message", "role": "assistant", "model": request["model"], "content": [], "stop_reason": None, "stop_sequence": None, "usage": usage}}]
             for index, (block, value) in enumerate(blocks):

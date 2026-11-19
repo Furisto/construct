@@ -212,7 +212,11 @@ class Run:
         for impl, binary in (("go_cli", self.args.go), ("rust_cli", self.args.rust)):
             r = subprocess.run([binary, "--context", "local", *argv], env=self.env,
                                capture_output=True, text=True, stdin=subprocess.DEVNULL)
-            out[impl] = {"rc": r.returncode, "stdout": CLI_TIME.sub("<time>", r.stdout),
+            if argv[1] in ("list", "ls"):
+                stdout = normalize_skill_list(r.stdout, argv)
+            else:
+                stdout = CLI_TIME.sub("<time>", r.stdout)
+            out[impl] = {"rc": r.returncode, "stdout": stdout,
                          "stderr": CLI_TIME.sub("<time>", r.stderr)}
         return out
 
@@ -338,6 +342,31 @@ CLI_CASES = [
     ("cli-install-invalid", ["skill", "install", "not-a-source"]),
 ]
 CLI_TIME = re.compile(r"\d{4}-\d\d-\d\dT[0-9:.]+(?:Z|[+-]\d\d:\d\d)|\d+ (?:seconds?|minutes?) ago|less than a minute ago")
+CLI_RECENT = re.compile(r"now|\d+ (?:seconds?|minutes?) ago|less than a minute ago")
+
+
+def normalize_skill_list(stdout, argv):
+    """Ignore time elapsed during the run, without changing skill names or descriptions."""
+    def age(text):
+        return "<time>" if CLI_RECENT.fullmatch(text) else text
+
+    if "-o" in argv:
+        return re.sub(r'(?m)^([ \t]*"?(?:installed_at|updated_at)"?: "?)([^"\n,]+)',
+                      lambda m: m[1] + age(m[2]), stdout)
+
+    lines = stdout.splitlines()
+    if not lines or "Installed" not in lines[0]:
+        return stdout
+    start = lines[0].index("Installed")
+    updated = lines[0].find("Updated", start)
+    cols = [start, updated] if updated != -1 else [start]
+    return "".join(
+        line[:start] + "  ".join(
+            age(line[left:right].strip())
+            for left, right in zip(cols, cols[1:] + [None])
+        ) + "\n"
+        for line in lines
+    )
 
 
 def scenario(run, impl):
