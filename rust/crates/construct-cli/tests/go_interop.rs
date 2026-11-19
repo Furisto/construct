@@ -428,3 +428,118 @@ fn real_keyring_is_go_compatible() {
     go("delete", None);
     eprintln!("[cli/keyring] real Secret Service Go -> Rust, Rust -> Go, overwrite and delete verified (no tokens logged)");
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn rust_resource_commands_and_skill_layout_with_go_daemon() {
+    use serde_json::{json, Value};
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let Some(go) = binary() else {
+        return;
+    };
+    let rust = Path::new(env!("CARGO_BIN_EXE_construct"));
+    let sandbox = Sandbox::new();
+    let mut config = ConfigStore::load(&sandbox.user).unwrap();
+    config.set("secret.provider", parse_value("file")).unwrap();
+    config.flush().unwrap();
+    let (_daemon, endpoint) = daemon(&go, &sandbox, false).await;
+    sandbox
+        .manager()
+        .upsert("smoke", endpoint.clone(), true)
+        .unwrap();
+    let client = ApiClient::new(&endpoint, &sandbox.manager()).unwrap();
+    client
+        .model_provider
+        .create_model_provider(Request::new(CreateModelProviderRequest {
+            name: "offline-resource-smoke".into(),
+            provider_type: ModelProviderType::Anthropic as i32,
+            authentication: Some(create_model_provider_request::Authentication::ApiKey(
+                "not-a-real-api-key".into(),
+            )),
+            url: Some("http://127.0.0.1:9".into()),
+        }))
+        .await
+        .unwrap();
+    let agents: Value =
+        serde_json::from_str(&sandbox.go(rust, &["agent", "list", "-o", "json"])).unwrap();
+    assert!(!agents.as_array().unwrap().is_empty());
+    for group in ["model", "modelprovider"] {
+        let values: Value =
+            serde_json::from_str(&sandbox.go(rust, &[group, "list", "-o", "json"])).unwrap();
+        assert!(values.is_array());
+    }
+    let task = sandbox.go(
+        rust,
+        &[
+            "task",
+            "create",
+            "--agent",
+            agents[0]["id"].as_str().unwrap(),
+        ],
+    );
+    let task = task.trim();
+    assert!(uuid::Uuid::parse_str(task).is_ok());
+    let tasks: Value =
+        serde_json::from_str(&sandbox.go(rust, &["task", "list", "-o", "json"])).unwrap();
+    assert!(tasks.as_array().unwrap().iter().any(|t| t["id"] == task));
+    let messages: Value =
+        serde_json::from_str(&sandbox.go(rust, &["message", "list", "--task", task, "-o", "json"]))
+            .unwrap();
+    assert!(messages.is_array());
+
+    let fixture = Arc::new(std::sync::Mutex::new(
+        "---\nname: offline-smoke\ndescription: Offline fixture\n---\nFirst instructions.\n"
+            .to_owned(),
+    ));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let source = format!("http://{}/SKILL.md", listener.local_addr().unwrap());
+    let served = fixture.clone();
+    let server = tokio::spawn(async move {
+        loop {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut request = [0; 4096];
+            let received = stream.read(&mut request).await.unwrap();
+            assert!(received > 0);
+            let content = served.lock().unwrap().clone();
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{content}",
+                content.len()
+            );
+            stream.write_all(response.as_bytes()).await.unwrap();
+        }
+    });
+    let installed: Value =
+        serde_json::from_str(&sandbox.go(rust, &["skill", "install", &source, "-o", "json"]))
+            .unwrap();
+    assert_eq!(installed[0]["name"], "offline-smoke");
+    assert_eq!(installed[0]["source"], "url");
+    let path = sandbox.user.config.join("skills/offline-smoke/SKILL.md");
+    assert_eq!(fs::read_to_string(&path).unwrap(), *fixture.lock().unwrap());
+    let lock: Value =
+        serde_json::from_slice(&fs::read(sandbox.user.config.join("skills.lock.json")).unwrap())
+            .unwrap();
+    assert_eq!(lock["version"], 1);
+    assert_eq!(
+        lock["skills"]["offline-smoke"]["url"],
+        json!({"url":source})
+    );
+    *fixture.lock().unwrap() =
+        "---\nname: offline-smoke\ndescription: Updated fixture\n---\nUpdated instructions.\n"
+            .into();
+    let updated: Value = serde_json::from_str(
+        &sandbox.go(rust, &["skill", "update", "offline-smoke", "-o", "json"]),
+    )
+    .unwrap();
+    assert_eq!(updated[0]["description"], "Updated fixture");
+    assert_eq!(fs::read_to_string(&path).unwrap(), *fixture.lock().unwrap());
+    let skills: Value =
+        serde_json::from_str(&sandbox.go(&go, &["skill", "list", "-o", "json"])).unwrap();
+    assert!(skills
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|s| s["name"] == "offline-smoke"));
+    sandbox.go(rust, &["skill", "delete", "offline-smoke", "--force"]);
+    assert!(!path.exists());
+    server.abort();
+    eprintln!("[cli/resources] Rust agent/model/modelprovider list, task create/list, message list against Go daemon; localhost-only skill install/update/list/delete and Go skill layout verified");
+}
