@@ -316,7 +316,7 @@ pub async fn run(app: &mut App, matches: &clap::ArgMatches) -> Result<()> {
                         agent_id,
                         ..Default::default()
                     }),
-                    page_size: Some(limit),
+                    page_size: (limit != 0).then_some(limit),
                     ..Default::default()
                 }))
                 .await

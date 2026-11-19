@@ -52,7 +52,7 @@ fn tasks_request(agent: Option<&str>, limit: i32) -> ListTasksRequest {
             agent_id: agent.map(str::to_owned),
             ..Default::default()
         }),
-        page_size: Some(limit),
+        page_size: (limit != 0).then_some(limit),
         ..Default::default()
     }
 }

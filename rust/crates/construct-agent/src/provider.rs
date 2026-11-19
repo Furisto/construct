@@ -58,18 +58,29 @@ impl ModelProviderFactory {
         let auth: Option<Auth> = serde_json::from_slice(&plaintext)
             .map_err(|e| format!("failed to unmarshal model provider auth: {e}"))?;
         let key = auth.unwrap_or_default().api_key.unwrap_or_default();
+        let options = |name| {
+            let mut options = ProviderOptions::new(name);
+            options.url = record.url.clone();
+            options
+        };
         let provider: std::result::Result<Box<dyn ModelProvider>, _> = match record
             .provider_type
             .as_ref()
         {
-            "anthropic" => AnthropicProvider::new(key, ProviderOptions::new("anthropic"))
-                .map(|p| Box::new(p) as _),
-            "openai" => OpenAICompletionProvider::new(key, ProviderOptions::new("openai"))
-                .map(|p| Box::new(p) as _),
-            "gemini" => GeminiProvider::new(key).map(|p| Box::new(p) as _),
+            "anthropic" => {
+                AnthropicProvider::new(key, options("anthropic")).map(|p| Box::new(p) as _)
+            }
+            "openai" => {
+                OpenAICompletionProvider::new(key, options("openai")).map(|p| Box::new(p) as _)
+            }
+            "gemini" => {
+                GeminiProvider::with_options(key, options("gemini")).map(|p| Box::new(p) as _)
+            }
             "xai" => {
-                let mut options = ProviderOptions::new("openai");
-                options.url = "https://api.xai.com/v1".into();
+                let mut options = options("openai");
+                if options.url.is_empty() {
+                    options.url = "https://api.xai.com/v1".into();
+                }
                 OpenAICompletionProvider::new(key, options).map(|p| Box::new(p) as _)
             }
             _ => {
@@ -83,9 +94,74 @@ impl ModelProviderFactory {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use construct_core::{store::ModelProviderStore, testing::MemoryStore};
+    use axum::{extract::OriginalUri, http::StatusCode, routing::post, Router};
+    use construct_core::{model::InvokeOptions, store::ModelProviderStore, testing::MemoryStore};
     use construct_secret::Keyset;
-    use construct_types::entity::ModelProvider as Record;
+    use construct_types::{
+        entity::ModelProvider as Record,
+        provider::{ContentBlock, Message, TextBlock},
+    };
+    use std::sync::Mutex;
+
+    #[tokio::test]
+    async fn persisted_provider_urls_are_used_for_requests() {
+        let paths = Arc::new(Mutex::new(Vec::new()));
+        let recorded = paths.clone();
+        let app = Router::new().fallback(post(move |uri: OriginalUri| {
+            let recorded = recorded.clone();
+            async move {
+                recorded.lock().unwrap().push(uri.path().to_owned());
+                (StatusCode::UNAUTHORIZED, "fixture rejects credentials")
+            }
+        }));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        let encryption = Arc::new(Encryption::new(Keyset::generate()).unwrap());
+        let factory =
+            ModelProviderFactory::new(Arc::new(MemoryStore::default()), encryption.clone());
+        let id = Uuid::new_v4();
+        let secret = encryption
+            .encrypt(br#"{"apiKey":"fixture"}"#, &model_provider_associated(id))
+            .unwrap();
+        for (kind, prefix, expected_path) in [
+            ("anthropic", "", "/v1/messages"),
+            ("openai", "/v1", "/v1/chat/completions"),
+            ("xai", "/v1", "/v1/chat/completions"),
+            ("gemini", "", "/v1beta/models/fixture:streamGenerateContent"),
+        ] {
+            let record = Record {
+                id,
+                secret: secret.clone(),
+                provider_type: kind.into(),
+                url: format!("http://{address}{prefix}"),
+                ..Default::default()
+            };
+            let result = factory
+                .create_from_record(&record)
+                .unwrap()
+                .invoke_model(
+                    "fixture",
+                    "system",
+                    &[Message {
+                        source: "user".into(),
+                        content: Some(vec![ContentBlock::Text(TextBlock {
+                            text: "hello".into(),
+                        })]),
+                        ..Default::default()
+                    }],
+                    InvokeOptions::default(),
+                )
+                .await;
+            assert!(result.is_err());
+            assert_eq!(
+                paths.lock().unwrap().pop().as_deref(),
+                Some(expected_path),
+                "{kind}"
+            );
+        }
+        server.abort();
+    }
     #[tokio::test]
     async fn store_and_failures() {
         let store = Arc::new(MemoryStore::default());

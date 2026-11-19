@@ -59,7 +59,7 @@ func ConvertMessageToDisplay(message *v1.Message) *DisplayMessage {
 
 	content := ""
 	for _, part := range message.Spec.Content {
-		content += part.GetText().Content
+		content += part.GetText().GetContent()
 	}
 
 	return &DisplayMessage{
