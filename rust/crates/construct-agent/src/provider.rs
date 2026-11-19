@@ -9,6 +9,19 @@ use construct_secret::{model_provider_associated, Encryption};
 use std::sync::Arc;
 use uuid::Uuid;
 
+/// Injectable factory for provider invocations, including deterministic scripts.
+#[construct_core::async_trait]
+pub trait ProviderFactory: Send + Sync {
+    async fn create(&self, id: Uuid) -> Result<Arc<dyn ModelProvider>>;
+}
+
+#[construct_core::async_trait]
+impl ProviderFactory for ModelProviderFactory {
+    async fn create(&self, id: Uuid) -> Result<Arc<dyn ModelProvider>> {
+        self.create_client(id).await.map(Arc::from)
+    }
+}
+
 pub struct ModelProviderFactory {
     pub store: Arc<dyn ModelProviderStore>,
     pub encryption: Arc<Encryption>,

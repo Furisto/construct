@@ -10,12 +10,17 @@ construct-types = { path = "../construct-types" }
 construct-model = { path = "../construct-model" }
 construct-secret = { path = "../construct-secret" }
 construct-skill = { path = "../construct-skill" }
+construct-codeact = { path = "../construct-codeact" }
+construct-event = { path = "../construct-event" }
+construct-store = { path = "../construct-store" }
+construct-proto = { path = "../construct-proto" }
+futures-util.workspace = true
 serde.workspace = true
 serde_json = { workspace = true, features = ["raw_value"] }
 tokio.workspace = true
 reqwest.workspace = true
 prometheus.workspace = true
-uuid = "1"
+uuid = { version = "1", features = ["v4"] }
 libc = "0.2"
 
 [dev-dependencies]
