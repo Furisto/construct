@@ -201,7 +201,7 @@ pub async fn run(app: &mut App, matches: &clap::ArgMatches) -> Result<()> {
                 write!(app.stdout, "Enter authentication token: ")?;
                 app.stdout.flush()?;
                 let result = if std::io::stdin().is_terminal() {
-                    rpassword::read_password().map_err(|e| e.to_string())
+                    super::modelprovider::read_password().map_err(|e| e.to_string())
                 } else {
                     Err("inappropriate ioctl for device".into())
                 };

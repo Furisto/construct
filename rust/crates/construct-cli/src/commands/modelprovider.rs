@@ -243,12 +243,53 @@ fn api_key(app: &mut App, key: String, kind: ModelProviderType, name: &str) -> R
     if !std::io::stdin().is_terminal() {
         return Err("failed to read API key: cannot prompt for API key in non-interactive terminal\n\nPlease use --api-key flag or set environment variable".into());
     }
-    let key = rpassword::read_password().map_err(|e| format!("failed to read API key: {e}"))?;
+    let key = read_password().map_err(|e| format!("failed to read API key: {e}"))?;
     writeln!(app.stdout)?;
     if key.trim().is_empty() {
         return Err(format!("API key cannot be empty\n\nTip: You can also set the {environment} environment variable or use the --api-key flag").into());
     }
     Ok(key)
+}
+#[cfg(target_os = "linux")]
+pub(super) fn read_password() -> std::io::Result<String> {
+    let _interrupt = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())?;
+    let mut original = std::mem::MaybeUninit::<libc::termios>::uninit();
+    if unsafe { libc::tcgetattr(libc::STDIN_FILENO, original.as_mut_ptr()) } != 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    let original = unsafe { original.assume_init() };
+    let mut hidden = original;
+    hidden.c_lflag &= !libc::ECHO;
+    hidden.c_lflag |= libc::ICANON | libc::ISIG;
+    hidden.c_iflag |= libc::ICRNL;
+    if unsafe { libc::tcsetattr(libc::STDIN_FILENO, libc::TCSANOW, &hidden) } != 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    struct Restore(libc::termios);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            unsafe { libc::tcsetattr(libc::STDIN_FILENO, libc::TCSANOW, &self.0) };
+        }
+    }
+    let _restore = Restore(original);
+    let mut value = String::new();
+    if std::io::BufRead::read_line(&mut std::io::stdin().lock(), &mut value)? == 0 {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::UnexpectedEof,
+            "EOF",
+        ));
+    }
+    if value.ends_with('\n') {
+        value.pop();
+    }
+    if value.ends_with('\r') {
+        value.pop();
+    }
+    Ok(value)
+}
+#[cfg(not(target_os = "linux"))]
+pub(super) fn read_password() -> std::io::Result<String> {
+    rpassword::read_password()
 }
 pub async fn run(app: &mut App, matches: &clap::ArgMatches) -> Result<()> {
     let Some(action) = Options::from_arg_matches(matches)?.action else {

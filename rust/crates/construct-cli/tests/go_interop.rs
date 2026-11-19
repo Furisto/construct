@@ -15,10 +15,11 @@ use serde_json::{json, Value};
 use std::{
     collections::BTreeMap,
     fs::{self, File},
+    io::Write,
     net::TcpListener,
     os::fd::AsRawFd,
     path::{Path, PathBuf},
-    process::{Child, Command},
+    process::{Child, Command, Stdio},
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -64,6 +65,9 @@ impl Sandbox {
             .env("HTTP_PROXY", "http://127.0.0.1:9")
             .env("HTTPS_PROXY", "http://127.0.0.1:9")
             .env("NO_PROXY", "localhost,127.0.0.1,::1");
+        if let Some(address) = std::env::var_os("DBUS_SESSION_BUS_ADDRESS") {
+            cmd.env("DBUS_SESSION_BUS_ADDRESS", address);
+        }
         cmd
     }
     fn go(&self, bin: &Path, args: &[&str]) -> String {
@@ -78,6 +82,285 @@ impl Sandbox {
     fn manager(&self) -> ContextManager {
         ContextManager::new(&self.user, Arc::new(MemoryProvider::default()))
     }
+}
+
+fn pty_command(
+    sandbox: &Sandbox,
+    bin: &Path,
+    args: &[&str],
+    prompt: &str,
+    input: &str,
+    interrupt: bool,
+) -> Value {
+    let mut command = vec![bin.to_str().unwrap()];
+    command.extend_from_slice(args);
+    let mut child = sandbox
+        .command(Path::new("/usr/bin/python3"))
+        .arg("-c")
+        .arg(include_str!("../../../scripts/cli-pty.py"))
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    serde_json::to_writer(
+        child.stdin.take().unwrap(),
+        &json!({"command":command,"prompt":prompt,"input":input,"interrupt":interrupt}),
+    )
+    .unwrap();
+    let output = child.wait_with_output().unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let mut result: Value = serde_json::from_slice(&output.stdout).unwrap();
+    result["transcript"] = json!(prompt_transcript(result["transcript"].as_str().unwrap()));
+    assert_eq!(result["hidden"], true);
+    assert_eq!(result["echoed"], false);
+    eprintln!("[cli/pty] {} {:?}: echo disabled={}, input echoed={}, restored={}, Enter after Ctrl-C={}, exit={}\n{}", bin.file_name().unwrap().to_string_lossy(),args,result["hidden"],result["echoed"],result["restored"],result["needed_enter_after_interrupt"],result["status"],result["transcript"].as_str().unwrap());
+    result
+}
+fn prompt_transcript(value: &str) -> String {
+    let ansi =
+        regex::Regex::new(r"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x1b\x07]*(?:\x07|\x1b\\))").unwrap();
+    let plain = ansi.replace_all(value, "");
+    plain
+        .split("\nUsage:")
+        .next()
+        .unwrap()
+        .trim_end_matches('\n')
+        .to_owned()
+}
+
+fn verify_provider_secrets(sandbox: &Sandbox) {
+    let source = sandbox.dir.path().join("provider-secret.go");
+    fs::write(
+        &source,
+        include_str!("../../../scripts/provider-secret-interop.go.txt"),
+    )
+    .unwrap();
+    let helper = sandbox.dir.path().join("provider-secret-helper");
+    assert!(Command::new("go")
+        .current_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../.."))
+        .env("CGO_ENABLED", "0")
+        .args(["build", "-o"])
+        .arg(&helper)
+        .arg(&source)
+        .status()
+        .unwrap()
+        .success());
+    let mut child = Command::new(helper)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    serde_json::to_writer(child.stdin.take().unwrap(), &json!({"data":sandbox.user.data,"keys":{"pty-go-enter":" offline-pty-synthetic-key ","pty-rust-enter":" offline-pty-synthetic-key "}})).unwrap();
+    let output = child.wait_with_output().unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    eprint!("{}", String::from_utf8_lossy(&output.stdout));
+}
+
+struct KeyringEntries(Vec<String>);
+impl Drop for KeyringEntries {
+    fn drop(&mut self) {
+        for key in &self.0 {
+            let _ = SystemProvider.delete(key);
+        }
+    }
+}
+fn inspect_keyring(key: &str, expected: Option<&str>) {
+    let service =
+        dbus_secret_service::SecretService::connect(dbus_secret_service::EncryptionType::Dh)
+            .unwrap();
+    let found = service
+        .search_items(std::collections::HashMap::from([
+            ("service", "construct"),
+            ("username", key),
+        ]))
+        .unwrap();
+    assert!(found.locked.is_empty());
+    if let Some(expected) = expected {
+        assert_eq!(found.unlocked.len(), 1);
+        let item = &found.unlocked[0];
+        let attributes = item.get_attributes().unwrap();
+        assert_eq!(attributes.get("service").unwrap(), "construct");
+        assert_eq!(attributes.get("username").unwrap(), key);
+        assert!(
+            item.get_secret().unwrap() == expected.as_bytes(),
+            "keyring secret bytes differ"
+        );
+        eprintln!("[cli/keyring/attributes] service=construct username={key}; unlocked; secret bytes match exactly (redacted)");
+    } else {
+        assert!(found.unlocked.is_empty());
+        assert!(SystemProvider.get(key).is_err());
+        eprintln!("[cli/keyring/attributes] service=construct username={key}; absent after opposite CLI removal");
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn real_keyring_context_tokens_cross_cli_and_removal() {
+    if std::env::var("CONSTRUCT_KEYRING_INTEROP").as_deref() != Ok("1") {
+        eprintln!("SKIP real context keyring: CONSTRUCT_KEYRING_INTEROP not set");
+        return;
+    }
+    let Some(go) = binary() else {
+        return;
+    };
+    let rust = Path::new(env!("CARGO_BIN_EXE_construct"));
+    let sandbox = Sandbox::new();
+    let mut config = ConfigStore::load(&sandbox.user).unwrap();
+    config.set("secret.provider", parse_value("file")).unwrap();
+    config.flush().unwrap();
+    let (unix, endpoint) = daemon(&go, &sandbox, false).await;
+    let client = ApiClient::new(&endpoint, &sandbox.manager()).unwrap();
+    let token = client
+        .auth
+        .create_token(Request::new(CreateTokenRequest {
+            name: "real-keyring-context".into(),
+            ..Default::default()
+        }))
+        .await
+        .unwrap()
+        .message
+        .token;
+    drop(unix);
+    let (_tcp, endpoint) = daemon(&go, &sandbox, true).await;
+    let keys = KeyringEntries(vec![
+        format!("rust-cli-context-{}-go", std::process::id()),
+        format!("rust-cli-context-{}-rust", std::process::id()),
+    ]);
+    for (index, creator, reader) in [(0, go.as_path(), rust), (1, rust, go.as_path())] {
+        let key = &keys.0[index];
+        let result = pty_command(
+            &sandbox,
+            creator,
+            &[
+                "context",
+                "add",
+                key,
+                "--endpoint",
+                &endpoint.address,
+                "--auth-token",
+                "--set-current",
+            ],
+            "Enter authentication token: ",
+            &token,
+            false,
+        );
+        assert_eq!(result["status"], 0);
+        assert_eq!(result["restored"], true);
+        inspect_keyring(key, Some(&token));
+        assert_eq!(
+            sandbox.go(reader, &["context", "current"]),
+            format!("{key}\n")
+        );
+        let agents: Value =
+            serde_json::from_str(&sandbox.go(reader, &["agent", "list", "-o", "json"])).unwrap();
+        assert!(agents.is_array());
+        sandbox.go(reader, &["context", "remove", key, "--force"]);
+        inspect_keyring(key, None);
+    }
+    eprintln!("[cli/keyring/context] Go -> Rust and Rust -> Go: real context add/current, authenticated TCP agent list, opposite CLI removal verified");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn hidden_provider_key_prompt_go_rust_pty_and_pipe() {
+    let Some(go) = binary() else {
+        return;
+    };
+    let rust = Path::new(env!("CARGO_BIN_EXE_construct"));
+    let sandbox = Sandbox::new();
+    let mut config = ConfigStore::load(&sandbox.user).unwrap();
+    config.set("secret.provider", parse_value("file")).unwrap();
+    config.flush().unwrap();
+    let (_daemon, endpoint) = daemon(&go, &sandbox, false).await;
+    sandbox.manager().upsert("pty", endpoint, true).unwrap();
+    let mut results = Vec::new();
+    let mut pipe_results = Vec::new();
+    for (label, bin) in [("go", go.as_path()), ("rust", rust)] {
+        let mut cases = Vec::new();
+        for case in ["enter", "empty", "interrupt"] {
+            let name = format!("pty-{label}-{case}");
+            let prompt = format!("Enter Anthropic API key for {name}: ");
+            let input = if case == "empty" {
+                ""
+            } else {
+                " offline-pty-synthetic-key "
+            };
+            let result = pty_command(
+                &sandbox,
+                bin,
+                &["modelprovider", "create", &name, "--type", "anthropic"],
+                &prompt,
+                input,
+                case == "interrupt",
+            );
+            assert_eq!(result["restored"], true);
+            if case == "enter" {
+                assert_eq!(result["status"], 0);
+                let text = result["transcript"].as_str().unwrap();
+                let id = text
+                    .strip_prefix(&format!("{prompt}\n"))
+                    .expect("prompt must be followed by exactly one newline");
+                assert!(uuid::Uuid::parse_str(id).is_ok());
+            } else {
+                assert_eq!(result["status"], 1);
+                assert_eq!(result["transcript"], format!("{prompt}\nError: API key cannot be empty\n\nTip: You can also set the ANTHROPIC_API_KEY environment variable or use the --api-key flag"));
+            }
+            cases.push(result);
+        }
+        let mut child = sandbox
+            .command(bin)
+            .args(["modelprovider", "create", "pty-pipe", "--type", "anthropic"])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(b"offline-piped-key\n")
+            .unwrap();
+        let output = child.wait_with_output().unwrap();
+        assert!(!output.status.success());
+        let transcript = format!(
+            "{}{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(!transcript.contains("offline-piped-key"));
+        let transcript = prompt_transcript(&transcript);
+        assert_eq!(output.status.code(), Some(1));
+        eprintln!("[cli/pipe] {label}: exit=1\n{transcript}");
+        pipe_results.push(transcript);
+        results.push(cases);
+    }
+    assert_eq!(
+        results[0][2]["needed_enter_after_interrupt"],
+        results[1][2]["needed_enter_after_interrupt"]
+    );
+    assert_eq!(results[0][2]["needed_enter_after_interrupt"], true);
+    assert_eq!(pipe_results[0], pipe_results[1]);
+    verify_provider_secrets(&sandbox);
+    let providers: Value =
+        serde_json::from_str(&sandbox.go(rust, &["modelprovider", "list", "-o", "json"])).unwrap();
+    let names: Vec<_> = providers
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| p["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(names.len(), 2);
+    assert!(names.contains(&"pty-go-enter"));
+    assert!(names.contains(&"pty-rust-enter"));
 }
 #[test]
 fn cli_files_are_readable_in_both_directions() {
