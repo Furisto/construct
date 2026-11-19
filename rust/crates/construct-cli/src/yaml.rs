@@ -7,7 +7,8 @@ pub fn to_string<T: ?Sized + Serialize>(value: &T) -> Result<String> {
         if let Value::String(text) = value {
             if matches!(
                 text.as_str(),
-                "" | "y" | "Y"
+                "" | "y"
+                    | "Y"
                     | "yes"
                     | "Yes"
                     | "YES"
