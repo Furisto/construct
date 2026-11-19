@@ -1,0 +1,170 @@
+[
+  {
+    "keyset": {
+      "key": [
+        {
+          "keyData": {
+            "keyMaterialType": "SYMMETRIC",
+            "typeUrl": "type.googleapis.com/google.crypto.tink.AesGcmKey",
+            "value": "GiBNK2RZYPTodEUvTfucGkK23wFNN7h1OvMVf5GEQa2awA=="
+          },
+          "keyId": 568117986,
+          "outputPrefixType": "TINK",
+          "status": "ENABLED"
+        }
+      ],
+      "primaryKeyId": 568117986
+    },
+    "binary": "COKV844CEmQKWAowdHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuQWVzR2NtS2V5EiIaIE0rZFlg9Oh0RS9N+5waQrbfAU03uHU68xV/kYRBrZrAGAEQARjilfOOAiAB",
+    "plaintext": "R2/ihpJSdXN0IHNlY3JldADinJM=",
+    "ad": "bW9kZWxfcHJvdmlkZXI6MDAwMDAwMDAtMDAwMC0wMDAwLTAwMDAtMDAwMDAwMDAwMDAx",
+    "ciphertext": "ASHcyuLJwyVwLZc16AtBLMN0BA7E36qCFKI65PAIUBosqoC2Uh/Uz5zvBKl13HErm2eRjUY="
+  },
+  {
+    "keyset": {
+      "key": [
+        {
+          "keyData": {
+            "keyMaterialType": "SYMMETRIC",
+            "typeUrl": "type.googleapis.com/google.crypto.tink.AesGcmKey",
+            "value": "GiBNK2RZYPTodEUvTfucGkK23wFNN7h1OvMVf5GEQa2awA=="
+          },
+          "keyId": 568117986,
+          "outputPrefixType": "TINK",
+          "status": "ENABLED"
+        }
+      ],
+      "primaryKeyId": 568117986
+    },
+    "binary": "COKV844CEmQKWAowdHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuQWVzR2NtS2V5EiIaIE0rZFlg9Oh0RS9N+5waQrbfAU03uHU68xV/kYRBrZrAGAEQARjilfOOAiAB",
+    "plaintext": "",
+    "ad": "bW9kZWxfcHJvdmlkZXI6MDAwMDAwMDAtMDAwMC0wMDAwLTAwMDAtMDAwMDAwMDAwMDAx",
+    "ciphertext": "ASHcyuKwEpduRylq4jbaeFKLlywg24WJrb2niGMsNon2"
+  },
+  {
+    "keyset": {
+      "key": [
+        {
+          "keyData": {
+            "keyMaterialType": "SYMMETRIC",
+            "typeUrl": "type.googleapis.com/google.crypto.tink.AesGcmKey",
+            "value": "GiCqRUgx8E14M0YdpT1CsT+X1X8Jt4EqNssE1RpP5PuQsg=="
+          },
+          "keyId": 3599077560,
+          "outputPrefixType": "RAW",
+          "status": "ENABLED"
+        }
+      ],
+      "primaryKeyId": 3599077560
+    },
+    "binary": "CLihlrQNEmQKWAowdHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuQWVzR2NtS2V5EiIaIKpFSDHwTXgzRh2lPUKxP5fVfwm3gSo2ywTVGk/k+5CyGAEQARi4oZa0DSAD",
+    "plaintext": "R2/ihpJSdXN0IHNlY3JldADinJM=",
+    "ad": "bW9kZWxfcHJvdmlkZXI6MDAwMDAwMDAtMDAwMC0wMDAwLTAwMDAtMDAwMDAwMDAwMDAx",
+    "ciphertext": "E3DnBKFVGo7cv1+Kny9QHtGOf42e+3SQgtvkRv4pqPKadhThYmet/J/w9/dWCp2l"
+  },
+  {
+    "keyset": {
+      "key": [
+        {
+          "keyData": {
+            "keyMaterialType": "SYMMETRIC",
+            "typeUrl": "type.googleapis.com/google.crypto.tink.AesGcmKey",
+            "value": "GiCqRUgx8E14M0YdpT1CsT+X1X8Jt4EqNssE1RpP5PuQsg=="
+          },
+          "keyId": 3599077560,
+          "outputPrefixType": "RAW",
+          "status": "ENABLED"
+        }
+      ],
+      "primaryKeyId": 3599077560
+    },
+    "binary": "CLihlrQNEmQKWAowdHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuQWVzR2NtS2V5EiIaIKpFSDHwTXgzRh2lPUKxP5fVfwm3gSo2ywTVGk/k+5CyGAEQARi4oZa0DSAD",
+    "plaintext": "",
+    "ad": "bW9kZWxfcHJvdmlkZXI6MDAwMDAwMDAtMDAwMC0wMDAwLTAwMDAtMDAwMDAwMDAwMDAx",
+    "ciphertext": "8aRG65qwWG/BWoNHq/WWpgOXNPFZoQlXCgvwXQ=="
+  },
+  {
+    "keyset": {
+      "key": [
+        {
+          "keyData": {
+            "keyMaterialType": "SYMMETRIC",
+            "typeUrl": "type.googleapis.com/google.crypto.tink.AesGcmKey",
+            "value": "GiCG8pIe3Ja46E3RjrkDesY7f7JFnFsAMmn89Yt+jhVsrw=="
+          },
+          "keyId": 799118113,
+          "outputPrefixType": "LEGACY",
+          "status": "ENABLED"
+        }
+      ],
+      "primaryKeyId": 799118113
+    },
+    "binary": "CKGmhv0CEmQKWAowdHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuQWVzR2NtS2V5EiIaIIbykh7clrjoTdGOuQN6xjt/skWcWwAyafz1i36OFWyvGAEQARihpob9AiAC",
+    "plaintext": "R2/ihpJSdXN0IHNlY3JldADinJM=",
+    "ad": "bW9kZWxfcHJvdmlkZXI6MDAwMDAwMDAtMDAwMC0wMDAwLTAwMDAtMDAwMDAwMDAwMDAx",
+    "ciphertext": "AC+hkyHgQ7qgucisVIWgIUFjDGK9wNJe7BNCXxIG4T/aNXMbBnX5y5rp1HF7c4FSdBlh9+Q="
+  },
+  {
+    "keyset": {
+      "key": [
+        {
+          "keyData": {
+            "keyMaterialType": "SYMMETRIC",
+            "typeUrl": "type.googleapis.com/google.crypto.tink.AesGcmKey",
+            "value": "GiCG8pIe3Ja46E3RjrkDesY7f7JFnFsAMmn89Yt+jhVsrw=="
+          },
+          "keyId": 799118113,
+          "outputPrefixType": "LEGACY",
+          "status": "ENABLED"
+        }
+      ],
+      "primaryKeyId": 799118113
+    },
+    "binary": "CKGmhv0CEmQKWAowdHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuQWVzR2NtS2V5EiIaIIbykh7clrjoTdGOuQN6xjt/skWcWwAyafz1i36OFWyvGAEQARihpob9AiAC",
+    "plaintext": "",
+    "ad": "bW9kZWxfcHJvdmlkZXI6MDAwMDAwMDAtMDAwMC0wMDAwLTAwMDAtMDAwMDAwMDAwMDAx",
+    "ciphertext": "AC+hkyHUzpNTY+3A3tRjY/A9miEFJnuwxfH376V7Q2eD"
+  },
+  {
+    "keyset": {
+      "key": [
+        {
+          "keyData": {
+            "keyMaterialType": "SYMMETRIC",
+            "typeUrl": "type.googleapis.com/google.crypto.tink.AesGcmKey",
+            "value": "GiBbKrK57IIF2U/tWS60ev3g/22mvyTnF5KeOcUh3WlQdA=="
+          },
+          "keyId": 4242567596,
+          "outputPrefixType": "CRUNCHY",
+          "status": "ENABLED"
+        }
+      ],
+      "primaryKeyId": 4242567596
+    },
+    "binary": "CKzjgecPEmQKWAowdHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuQWVzR2NtS2V5EiIaIFsqsrnsggXZT+1ZLrR6/eD/baa/JOcXkp45xSHdaVB0GAEQARis44HnDyAE",
+    "plaintext": "R2/ihpJSdXN0IHNlY3JldADinJM=",
+    "ad": "bW9kZWxfcHJvdmlkZXI6MDAwMDAwMDAtMDAwMC0wMDAwLTAwMDAtMDAwMDAwMDAwMDAx",
+    "ciphertext": "APzgcaymUAiODDfkt06/l0tanDgAnMPqrjrJ+obZ06CKwu1+RaYGGWHEYhPbDYk+B4xUing="
+  },
+  {
+    "keyset": {
+      "key": [
+        {
+          "keyData": {
+            "keyMaterialType": "SYMMETRIC",
+            "typeUrl": "type.googleapis.com/google.crypto.tink.AesGcmKey",
+            "value": "GiBbKrK57IIF2U/tWS60ev3g/22mvyTnF5KeOcUh3WlQdA=="
+          },
+          "keyId": 4242567596,
+          "outputPrefixType": "CRUNCHY",
+          "status": "ENABLED"
+        }
+      ],
+      "primaryKeyId": 4242567596
+    },
+    "binary": "CKzjgecPEmQKWAowdHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuQWVzR2NtS2V5EiIaIFsqsrnsggXZT+1ZLrR6/eD/baa/JOcXkp45xSHdaVB0GAEQARis44HnDyAE",
+    "plaintext": "",
+    "ad": "bW9kZWxfcHJvdmlkZXI6MDAwMDAwMDAtMDAwMC0wMDAwLTAwMDAtMDAwMDAwMDAwMDAx",
+    "ciphertext": "APzgcayVSq5gbhpXiCL8BhbnXtFFCwELFp41jHnO52iI"
+  }
+]
