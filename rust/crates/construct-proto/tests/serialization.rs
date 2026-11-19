@@ -31,7 +31,7 @@ fn binary_and_proto3_json_round_trip() {
     assert_eq!(
         value,
         json!({
-            "metadata": {"id": "task-1", "createdAt": "2024-01-01T00:00:00+00:00"},
+            "metadata": {"id": "task-1", "createdAt": "2024-01-01T00:00:00Z"},
             "spec": {"agentId": "agent-1", "desiredPhase": "TASK_PHASE_RUNNING"},
             "status": {"turn": "9007199254740993"}
         })
@@ -42,6 +42,69 @@ fn binary_and_proto3_json_round_trip() {
     }))
     .unwrap();
     assert_eq!(Some(metadata), task.metadata);
+}
+
+#[test]
+fn timestamp_precision_and_request_offsets() {
+    for (nanos, fraction) in [
+        (0, ""),
+        (120_000_000, ".120"),
+        (123_450_000, ".123450"),
+        (123_456_789, ".123456789"),
+    ] {
+        let metadata = TaskMetadata {
+            created_at: Some(pbjson_types::Timestamp {
+                seconds: 1_704_067_200,
+                nanos,
+            }),
+            ..Default::default()
+        };
+        let expected = format!("2024-01-01T00:00:00{fraction}Z");
+        let response = construct_proto::construct::v1::GetTaskResponse {
+            task: Some(Task {
+                metadata: Some(metadata.clone()),
+                ..Default::default()
+            }),
+        };
+        assert_eq!(
+            serde_json::to_value(response).unwrap()["task"]["metadata"]["createdAt"],
+            expected
+        );
+        for suffix in ["Z", "+00:00"] {
+            let decoded: TaskMetadata = serde_json::from_value(
+                json!({"createdAt": format!("2024-01-01T00:00:00{fraction}{suffix}")}),
+            )
+            .unwrap();
+            assert_eq!(decoded, metadata);
+        }
+        for sign in [1, -1] {
+            let duration = pbjson_types::Duration {
+                seconds: sign * 2,
+                nanos: sign as i32 * nanos,
+            };
+            let prefix = if sign < 0 { "-" } else { "" };
+            assert_eq!(
+                serde_json::to_value(duration).unwrap(),
+                format!("{prefix}2{fraction}s")
+            );
+        }
+    }
+}
+
+#[test]
+fn invalid_timestamps_cannot_be_serialized() {
+    for (seconds, nanos) in [
+        (0, -1),
+        (0, 1_000_000_000),
+        (-62_135_596_801, 0),
+        (253_402_300_800, 0),
+    ] {
+        let metadata = TaskMetadata {
+            created_at: Some(pbjson_types::Timestamp { seconds, nanos }),
+            ..Default::default()
+        };
+        assert!(serde_json::to_value(metadata).is_err());
+    }
 }
 
 #[test]

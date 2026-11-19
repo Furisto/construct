@@ -10,11 +10,14 @@ prost.workspace = true
 pbjson.workspace = true
 pbjson-types.workspace = true
 serde.workspace = true
+chrono = "0.4"
 
 [build-dependencies]
 prost-build.workspace = true
 pbjson-build.workspace = true
 protoc-bin-vendored.workspace = true
+prost.workspace = true
+prost-types = "0.13"
 
 [dev-dependencies]
 serde_json.workspace = true
