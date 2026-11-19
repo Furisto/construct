@@ -92,8 +92,8 @@ impl SkillManager {
             .await
             .map_err(|e| SkillError::other("failed to read SKILL.md", e))?;
         let skill = parser::parse(&content, &source.direct_url)?;
-        // Go only parses here; validating keeps a hostile name from escaping the skills directory.
-        parser::validate(&skill)?;
+        // Like Go, the skill is only parsed; the name must still be one path component.
+        check_dir_name(&skill.name)?;
         if !opts.skill_names.is_empty() && !opts.skill_names.contains(&skill.name) {
             return Ok(Vec::new());
         }

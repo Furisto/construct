@@ -37,6 +37,9 @@ pub fn to_string<T: ?Sized + Serialize>(value: &T) -> Result<String> {
             {
                 return Ok(serde_json::to_string(text)?);
             }
+            if !text.contains('\n') && resolves_to_non_string(text) {
+                return Ok(serde_json::to_string(text)?);
+            }
         }
         let encoded = serde_yaml::to_string(value)?;
         let encoded = encoded.strip_suffix('\n').unwrap_or(&encoded);
@@ -56,6 +59,10 @@ pub fn to_string<T: ?Sized + Serialize>(value: &T) -> Result<String> {
         }
         Ok(output)
     }
+    /// yaml.v3 indents block content under a mapping to the next multiple of 4.
+    fn mapping_child(indent: usize) -> usize {
+        4 * ((indent + 4) / 4)
+    }
     fn compound(value: &Value) -> bool {
         matches!(value, Value::Mapping(v) if !v.is_empty())
             || matches!(value, Value::Sequence(v) if !v.is_empty())
@@ -64,18 +71,17 @@ pub fn to_string<T: ?Sized + Serialize>(value: &T) -> Result<String> {
         let pad = " ".repeat(indent);
         match value {
             Value::Mapping(map) if !map.is_empty() => {
-                // yaml.v3 rounds nested indentation up to the next multiple of 4.
-                let child = (indent + 4) / 4 * 4;
+                let child = mapping_child(indent);
                 for (key, value) in map {
                     output.push_str(&pad);
-                    output.push_str(&scalar(key, child, 4)?);
+                    output.push_str(&scalar(key, child, child - indent)?);
                     output.push(':');
                     if compound(value) {
                         output.push('\n');
                         emit(value, child, output)?;
                     } else {
                         output.push(' ');
-                        output.push_str(&scalar(value, child, 4)?);
+                        output.push_str(&scalar(value, child, child - indent)?);
                         output.push('\n');
                     }
                 }
@@ -111,6 +117,63 @@ pub fn to_string<T: ?Sized + Serialize>(value: &T) -> Result<String> {
     Ok(output)
 }
 
+/// yaml.v3 double-quotes strings that would otherwise resolve to null, bool, int, float,
+/// timestamp or a YAML 1.1 sexagesimal number.
+fn resolves_to_non_string(text: &str) -> bool {
+    use std::sync::OnceLock;
+    static PATTERNS: OnceLock<[regex::Regex; 3]> = OnceLock::new();
+    let [float, base60, timestamp] = PATTERNS.get_or_init(|| {
+        [
+            r"^[-+]?(\.[0-9]+|[0-9]+(\.[0-9]*)?)([eE][-+]?[0-9]+)?$",
+            r"^[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+(?:\.[0-9_]*)?$",
+            r"^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}(?:[Tt ][0-9]{1,2}:[0-9]{1,2}:[0-9]{1,2}(?:\.[0-9]*)?(?:Z|[+-][0-9]{1,2}(?::[0-9]{2})?)?)?$",
+        ]
+        .map(|p| regex::Regex::new(p).unwrap())
+    });
+    let plain = text.replace('_', "");
+    matches!(
+        text,
+        "" | "~"
+            | "null"
+            | "Null"
+            | "NULL"
+            | "true"
+            | "True"
+            | "TRUE"
+            | "false"
+            | "False"
+            | "FALSE"
+            | ".inf"
+            | ".Inf"
+            | ".INF"
+            | "+.inf"
+            | "+.Inf"
+            | "+.INF"
+            | "-.inf"
+            | "-.Inf"
+            | "-.INF"
+            | ".nan"
+            | ".NaN"
+            | ".NAN"
+    ) || is_go_int(&plain)
+        || float.is_match(&plain)
+        || base60.is_match(text)
+        || timestamp.is_match(text)
+}
+
+/// Go `strconv.ParseInt(s, 0, 64)` syntax.
+fn is_go_int(s: &str) -> bool {
+    let digits = s.strip_prefix(['+', '-']).unwrap_or(s);
+    let (radix, body) = match digits.get(..2) {
+        Some("0x" | "0X") => (16, &digits[2..]),
+        Some("0o" | "0O") => (8, &digits[2..]),
+        Some("0b" | "0B") => (2, &digits[2..]),
+        _ if digits.len() > 1 && digits.starts_with('0') => (8, &digits[1..]),
+        _ => (10, digits),
+    };
+    !body.is_empty() && body.chars().all(|c| c.is_digit(radix))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -135,6 +198,38 @@ mod tests {
         assert_eq!(
             to_string(&value).unwrap(),
             "- agent: \"\"\n  usage:\n    cost: 0\n    inner:\n        a: 1\n"
+        );
+    }
+    /// Expected output is Go's `yaml.Marshal` of the same values.
+    #[test]
+    fn matches_go_yaml_v3_output() {
+        let value = serde_json::json!([{"a": "x\ny\n", "b": "123", "c": "", "d": {"e": "p\nq", "f": ["r\ns", {"g": "t\nu"}]}, "h": "true", "i": "1.5", "j": "~", "k": "null", "l": "0x1F", "m": "1_000", "n": "It's: x", "o": "-", "p": ".inf", "q": "1e3", "r": "+1"}]);
+        assert_eq!(
+            to_string(&value).unwrap(),
+            "- a: |\n    x\n    y\n  b: \"123\"\n  c: \"\"\n  d:\n    e: |-\n        p\n        q\n    f:\n        - |-\n          r\n          s\n        - g: |-\n            t\n            u\n  h: \"true\"\n  i: \"1.5\"\n  j: \"~\"\n  k: \"null\"\n  l: \"0x1F\"\n  m: \"1_000\"\n  \"n\": 'It''s: x'\n  o: '-'\n  p: \".inf\"\n  q: \"1e3\"\n  r: \"+1\"\n"
+        );
+        let value = serde_json::json!({"s": ["a\nb", ["c\nd"]], "top": "a\nb"});
+        assert_eq!(
+            to_string(&value).unwrap(),
+            "s:\n    - |-\n      a\n      b\n    - - |-\n        c\n        d\ntop: |-\n    a\n    b\n"
+        );
+        let value = serde_json::json!([
+            "a: b",
+            "#x",
+            " lead",
+            "trail ",
+            "é",
+            "tab\there",
+            "1:20",
+            "2024-01-02",
+            "2024-01-02T03:04:05Z",
+            "<<",
+            "0b101",
+            "y"
+        ]);
+        assert_eq!(
+            to_string(&value).unwrap(),
+            "- 'a: b'\n- '#x'\n- ' lead'\n- 'trail '\n- é\n- \"tab\\there\"\n- \"1:20\"\n- \"2024-01-02\"\n- \"2024-01-02T03:04:05Z\"\n- <<\n- \"0b101\"\n- \"y\"\n"
         );
     }
     #[test]

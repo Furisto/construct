@@ -37,7 +37,7 @@ pub fn format_available_skills(skills: &[Skill]) -> String {
 }
 
 /// Go `strconv.Quote` (`%q`), treating non-control characters as printable.
-fn go_quote(s: &str) -> String {
+pub(crate) fn go_quote(s: &str) -> String {
     let mut out = String::with_capacity(s.len() + 2);
     out.push('"');
     for c in s.chars() {

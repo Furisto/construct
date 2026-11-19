@@ -1,7 +1,18 @@
 use crate::Result;
 use clap::{Args, ValueEnum};
 use serde::Serialize;
-use std::io::{IsTerminal, Write};
+use std::io::Write;
+
+/// Whether lipgloss would style Go's output: a terminal stdout, unless `NO_COLOR` is set or
+/// `TERM=dumb`; `CLICOLOR_FORCE` forces styling.
+fn styled_stdout() -> bool {
+    use std::io::IsTerminal;
+    let env = |k| std::env::var(k).unwrap_or_default();
+    if !env("CLICOLOR_FORCE").is_empty() && env("CLICOLOR_FORCE") != "0" {
+        return true;
+    }
+    std::io::stdout().is_terminal() && env("NO_COLOR").is_empty() && env("TERM") != "dumb"
+}
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, ValueEnum)]
 pub enum OutputFormat {
@@ -106,18 +117,17 @@ impl Renderer {
                             }
                         }
                         if !options.no_headers {
-                            let bold = std::io::stdout().is_terminal()
-                                && std::env::var_os("NO_COLOR").is_none();
+                            let bold = styled_stdout();
                             for (i, h) in headers.iter().enumerate() {
                                 if i > 0 {
                                     write!(writer, "  ")?;
                                 }
+                                let pad = " ".repeat(widths[i] - h.len());
                                 if bold {
-                                    write!(writer, "\x1b[1m{h}\x1b[0m")?;
+                                    write!(writer, "\x1b[1m{h}\x1b[0m{pad}")?;
                                 } else {
-                                    write!(writer, "{h}")?;
+                                    write!(writer, "{h}{pad}")?;
                                 }
-                                write!(writer, "{}", " ".repeat(widths[i] - h.len()))?;
                             }
                             writeln!(writer)?;
                         }
