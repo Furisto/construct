@@ -86,6 +86,7 @@ service!(ModelProviderService, create_model_provider(CreateModelProviderRequest)
 service!(TaskService, create_task(CreateTaskRequest)->CreateTaskResponse, get_task(GetTaskRequest)->GetTaskResponse, list_tasks(ListTasksRequest)->ListTasksResponse, delete_task(DeleteTaskRequest)->DeleteTaskResponse);
 service!(MessageService, create_message(CreateMessageRequest)->CreateMessageResponse, get_message(GetMessageRequest)->GetMessageResponse, list_messages(ListMessagesRequest)->ListMessagesResponse, delete_message(DeleteMessageRequest)->DeleteMessageResponse);
 service!(SkillService, install_skill(InstallSkillRequest)->InstallSkillResponse, list_skills(ListSkillsRequest)->ListSkillsResponse, delete_skill(DeleteSkillRequest)->DeleteSkillResponse, update_skill(UpdateSkillRequest)->UpdateSkillResponse);
+service!(AuthService, create_token(CreateTokenRequest)->CreateTokenResponse, create_setup_code(CreateSetupCodeRequest)->CreateSetupCodeResponse, list_tokens(ListTokensRequest)->ListTokensResponse, revoke_token(RevokeTokenRequest)->RevokeTokenResponse, exchange_setup_code(ExchangeSetupCodeRequest)->ExchangeSetupCodeResponse);
 
 #[derive(Clone, Default)]
 struct Output(Arc<Mutex<Vec<u8>>>);
@@ -108,8 +109,8 @@ pub struct Harness {
 impl Harness {
     pub async fn new() -> Self {
         use construct_proto::construct::v1::{
-            AgentServiceServer, MessageServiceServer, ModelProviderServiceServer,
-            ModelServiceServer, SkillServiceServer, TaskServiceServer,
+            AgentServiceServer, AuthServiceServer, MessageServiceServer,
+            ModelProviderServiceServer, ModelServiceServer, SkillServiceServer, TaskServiceServer,
         };
         let fake = Fake::default();
         let router = Router::new().nest(
@@ -120,7 +121,8 @@ impl Harness {
                 .merge(ModelProviderServiceServer::new(fake.clone()).router())
                 .merge(TaskServiceServer::new(fake.clone()).router())
                 .merge(MessageServiceServer::new(fake.clone()).router())
-                .merge(SkillServiceServer::new(fake.clone()).router()),
+                .merge(SkillServiceServer::new(fake.clone()).router())
+                .merge(AuthServiceServer::new(fake.clone()).router()),
         );
         Self::with_router(fake, router).await
     }

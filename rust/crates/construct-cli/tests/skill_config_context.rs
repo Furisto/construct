@@ -36,6 +36,189 @@ fn setup(h: &mut Harness, current: &str, previous: &str, names: &[&str]) {
 }
 
 #[tokio::test]
+async fn context_setup_code_exchanges_at_new_endpoint_and_stores_only_keyring_reference() {
+    let mut h = Harness::new().await;
+    let address = h
+        .app
+        .contexts
+        .load()
+        .unwrap()
+        .current()
+        .unwrap()
+        .address
+        .clone();
+    setup(&mut h, "", "", &[]);
+    h.fake.expect(
+        "exchange_setup_code",
+        ExchangeSetupCodeRequest {
+            setup_code: "ABCD-1234".into(),
+        },
+        ExchangeSetupCodeResponse {
+            token: "ctk_setup-token".into(),
+            name: "different-token-name".into(),
+            ..Default::default()
+        },
+    );
+    h.run(
+        "context",
+        &[
+            "add",
+            "remote",
+            "--endpoint",
+            &address,
+            "--setup-code",
+            "ABCD-1234",
+            "--set-current",
+        ],
+    )
+    .await
+    .unwrap();
+    let contexts = h.app.contexts.load().unwrap();
+    assert_eq!(contexts.current, "remote");
+    let context = contexts.current().unwrap();
+    assert_eq!(context.address, address);
+    assert_eq!(context.kind, "http");
+    let auth = context.auth.as_ref().unwrap();
+    assert_eq!(auth.auth_type, "token");
+    assert_eq!(auth.token_ref, "keyring://construct/remote");
+    assert!(auth.token.is_empty());
+    assert_eq!(
+        h.app.contexts.resolve_token(auth).unwrap(),
+        "ctk_setup-token"
+    );
+    assert_eq!(
+        h.stdout(),
+        "Context \"remote\" created and set as current\n"
+    );
+    let yaml = std::fs::read_to_string(h.app.user.config.join("context.yaml")).unwrap();
+    for secret in ["ctk_setup-token", "ABCD-1234"] {
+        assert!(!yaml.contains(secret));
+        assert!(!h.stdout().contains(secret));
+    }
+    h.fake.done();
+}
+
+#[tokio::test]
+async fn context_setup_code_errors_do_not_save_context_or_overwrite_credentials() {
+    for (code, message) in [
+        ("BAD1-CODE", "invalid setup code"),
+        ("OLD1-CODE", "expired setup code"),
+    ] {
+        let mut h = Harness::new().await;
+        let address = h
+            .app
+            .contexts
+            .load()
+            .unwrap()
+            .current()
+            .unwrap()
+            .address
+            .clone();
+        setup(&mut h, "remote", "", &["remote"]);
+        h.app
+            .contexts
+            .store_token("remote", "original-token")
+            .unwrap();
+        let before = std::fs::read(h.app.user.config.join("context.yaml")).unwrap();
+        h.fake.fail_with(
+            "exchange_setup_code",
+            ExchangeSetupCodeRequest {
+                setup_code: code.into(),
+            },
+            ConnectError::new(Code::PermissionDenied, message),
+        );
+        assert_eq!(
+            h.run(
+                "context",
+                &[
+                    "add",
+                    "remote",
+                    "--endpoint",
+                    &address,
+                    "--setup-code",
+                    code,
+                    "--set-current"
+                ]
+            )
+            .await
+            .unwrap_err()
+            .to_string(),
+            format!("failed to exchange setup code: permission_denied: {message}")
+        );
+        assert_eq!(
+            std::fs::read(h.app.user.config.join("context.yaml")).unwrap(),
+            before
+        );
+        assert_eq!(
+            h.app
+                .contexts
+                .resolve_token(&AuthConfig {
+                    auth_type: "token".into(),
+                    token_ref: "keyring://construct/remote".into(),
+                    ..Default::default()
+                })
+                .unwrap(),
+            "original-token"
+        );
+        assert!(h.stdout().is_empty());
+        h.fake.done();
+    }
+    let mut h = Harness::new().await;
+    let address = h
+        .app
+        .contexts
+        .load()
+        .unwrap()
+        .current()
+        .unwrap()
+        .address
+        .clone();
+    setup(&mut h, "", "", &[]);
+    for args in [
+        vec!["add", "remote", "--endpoint", &address, "--setup-code", ""],
+        vec![
+            "add",
+            "remote",
+            "--endpoint",
+            &address,
+            "--setup-code",
+            "ABCD-1234",
+            "--auth-token",
+        ],
+    ] {
+        assert!(h.run("context", &args).await.is_err());
+    }
+    assert!(h.fake.requests().is_empty());
+    h.fake.expect(
+        "exchange_setup_code",
+        ExchangeSetupCodeRequest {
+            setup_code: "ABCD-1234".into(),
+        },
+        ExchangeSetupCodeResponse::default(),
+    );
+    assert_eq!(
+        h.run(
+            "context",
+            &[
+                "add",
+                "remote",
+                "--endpoint",
+                &address,
+                "--setup-code",
+                "ABCD-1234"
+            ]
+        )
+        .await
+        .unwrap_err()
+        .to_string(),
+        "setup code exchange returned an empty token"
+    );
+    assert!(h.app.contexts.load().unwrap().contexts.is_empty());
+    assert!(h.app.contexts.provider.get("remote").is_err());
+    h.fake.done();
+}
+
+#[tokio::test]
 async fn context_add_go_scenarios_and_validation() {
     for (name, address, kind, current, exists) in [
         (

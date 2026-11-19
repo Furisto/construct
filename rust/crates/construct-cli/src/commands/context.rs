@@ -1,10 +1,12 @@
 use crate::{
-    app::App,
+    app::{ApiClient, App},
     context::{AuthConfig, EndpointContext, KEYRING_REF_PREFIX},
     render::{DisplayResource, Field, RenderOptions},
     Result,
 };
 use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
+use construct_connect::Request;
+use construct_proto::construct::v1::ExchangeSetupCodeRequest;
 use serde::Serialize;
 use std::io::{IsTerminal, Write};
 #[derive(Parser)]
@@ -28,6 +30,12 @@ enum Action {
         kind: String,
         #[arg(long)]
         auth_token: bool,
+        #[arg(
+            long,
+            conflicts_with = "auth_token",
+            help = "Exchange a one-time setup code for an authentication token"
+        )]
+        setup_code: Option<String>,
         #[arg(long)]
         set_current: bool,
     },
@@ -84,6 +92,9 @@ Linux Secret Service, Windows Credential Manager)."#,
     --endpoint https://construct.prod.example.com:8443 \
     --auth-token \
     --set-current
+
+  # Enroll using a one-time setup code
+  construct context add remote --endpoint https://construct.example.com --setup-code ABCD-1234
 
   # Update existing context endpoint
   construct context add staging --endpoint https://new-staging.example.com:8443"#,
@@ -184,6 +195,7 @@ pub async fn run(app: &mut App, matches: &clap::ArgMatches) -> Result<()> {
             endpoint,
             kind,
             auth_token,
+            setup_code,
             set_current,
         } => {
             let endpoint = endpoint.ok_or("required flag(s) \"endpoint\" not set")?;
@@ -197,7 +209,40 @@ pub async fn run(app: &mut App, matches: &clap::ArgMatches) -> Result<()> {
             } else {
                 kind
             };
-            let auth = if auth_token {
+            let auth = if let Some(setup_code) = setup_code {
+                if setup_code.is_empty() {
+                    return Err("setup code cannot be empty".into());
+                }
+                let context = EndpointContext {
+                    address: endpoint.clone(),
+                    kind: kind.clone(),
+                    auth: None,
+                };
+                context.validate()?;
+                let token = ApiClient::new(&context, &app.contexts)?
+                    .auth
+                    .exchange_setup_code(Request::new(ExchangeSetupCodeRequest { setup_code }))
+                    .await
+                    .map_err(|e| {
+                        format!(
+                            "failed to exchange setup code: {}",
+                            super::modelprovider::rpc_error(e)
+                        )
+                    })?
+                    .message
+                    .token;
+                if token.trim().is_empty() {
+                    return Err("setup code exchange returned an empty token".into());
+                }
+                app.contexts
+                    .store_token(&name, &token)
+                    .map_err(|e| format!("failed to store token in keyring: {e}"))?;
+                Some(AuthConfig {
+                    auth_type: "token".into(),
+                    token_ref: format!("{KEYRING_REF_PREFIX}{name}"),
+                    ..Default::default()
+                })
+            } else if auth_token {
                 write!(app.stdout, "Enter authentication token: ")?;
                 app.stdout.flush()?;
                 let result = if std::io::stdin().is_terminal() {

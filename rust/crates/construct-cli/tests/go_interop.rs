@@ -8,8 +8,8 @@ use construct::{
 };
 use construct_connect::Request;
 use construct_proto::construct::v1::{
-    create_model_provider_request, CreateModelProviderRequest, CreateTokenRequest,
-    ListAgentsRequest, ModelProviderType,
+    create_model_provider_request, CreateModelProviderRequest, CreateSetupCodeRequest,
+    CreateTokenRequest, ListAgentsRequest, ModelProviderType,
 };
 use serde_json::{json, Value};
 use std::{
@@ -267,6 +267,114 @@ async fn real_keyring_context_tokens_cross_cli_and_removal() {
         inspect_keyring(key, None);
     }
     eprintln!("[cli/keyring/context] Go -> Rust and Rust -> Go: real context add/current, authenticated TCP agent list, opposite CLI removal verified");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn setup_code_enrolls_rust_context_with_real_keyring_and_go_daemon() {
+    if std::env::var("CONSTRUCT_KEYRING_INTEROP").as_deref() != Ok("1") {
+        eprintln!("SKIP setup code keyring: CONSTRUCT_KEYRING_INTEROP not set");
+        return;
+    }
+    let Some(go) = binary() else {
+        return;
+    };
+    let rust = Path::new(env!("CARGO_BIN_EXE_construct"));
+    let sandbox = Sandbox::new();
+    let mut config = ConfigStore::load(&sandbox.user).unwrap();
+    config.set("secret.provider", parse_value("file")).unwrap();
+    config.flush().unwrap();
+    let (unix, local) = daemon(&go, &sandbox, false).await;
+    let admin = ApiClient::new(&local, &sandbox.manager()).unwrap();
+    let setup_code = admin
+        .auth
+        .create_setup_code(Request::new(CreateSetupCodeRequest {
+            token_name: "setup-code-interop".into(),
+            ..Default::default()
+        }))
+        .await
+        .unwrap()
+        .message
+        .setup_code;
+    // Pending codes are in memory, and the daemon exposes only one transport.
+    // Relay enrollment to its Unix listener, then hand the same TCP port to the daemon.
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let endpoint = EndpointContext {
+        address: format!("http://{}", listener.local_addr().unwrap()),
+        kind: "http".into(),
+        auth: None,
+    };
+    let relay_listener = tokio::net::TcpListener::from_std(listener.try_clone().unwrap()).unwrap();
+    let socket = local.address.clone();
+    let relay = tokio::spawn(async move {
+        while let Ok((mut tcp, _)) = relay_listener.accept().await {
+            let mut unix = tokio::net::UnixStream::connect(&socket).await.unwrap();
+            tokio::spawn(async move {
+                tokio::io::copy_bidirectional(&mut tcp, &mut unix)
+                    .await
+                    .unwrap();
+            });
+        }
+    });
+    let key = format!("rust-cli-setup-{}", std::process::id());
+    let _cleanup = KeyringEntries(vec![key.clone()]);
+    let args = [
+        "context",
+        "add",
+        &key,
+        "--endpoint",
+        &endpoint.address,
+        "--setup-code",
+        &setup_code,
+        "--set-current",
+    ];
+    let output = sandbox.go(rust, &args);
+    assert_eq!(
+        output,
+        format!("Context {key:?} created and set as current\n")
+    );
+    let manager = ContextManager::new(&sandbox.user, Arc::new(SystemProvider));
+    let contexts = manager.load().unwrap();
+    let auth = contexts.current().unwrap().auth.as_ref().unwrap();
+    assert_eq!(auth.token_ref, format!("keyring://construct/{key}"));
+    assert!(auth.token.is_empty());
+    let token = manager.resolve_token(auth).unwrap();
+    inspect_keyring(&key, Some(&token));
+    let yaml = fs::read_to_string(sandbox.user.config.join("context.yaml")).unwrap();
+    assert!(!yaml.contains(&token));
+    assert!(!yaml.contains(&setup_code));
+    let before = fs::read(sandbox.user.config.join("context.yaml")).unwrap();
+    let reused = sandbox.command(rust).args(args).output().unwrap();
+    assert!(!reused.status.success());
+    assert!(String::from_utf8_lossy(&reused.stderr).contains("invalid or expired setup code"));
+    assert_eq!(
+        fs::read(sandbox.user.config.join("context.yaml")).unwrap(),
+        before
+    );
+    inspect_keyring(&key, Some(&token));
+    relay.abort();
+    let _ = relay.await;
+    drop(unix);
+    let (_tcp, _) = daemon_with_listener(&go, &sandbox, Some(listener)).await;
+    let unauthenticated = ApiClient::new(&endpoint, &sandbox.manager())
+        .unwrap()
+        .agent
+        .list_agents(Request::new(ListAgentsRequest::default()))
+        .await
+        .unwrap_err();
+    assert_eq!(
+        unauthenticated.code,
+        construct_connect::Code::Unauthenticated
+    );
+    for bin in [rust, go.as_path()] {
+        assert_eq!(sandbox.go(bin, &["context", "current"]), format!("{key}\n"));
+        let agents: Value =
+            serde_json::from_str(&sandbox.go(bin, &["agent", "list", "-o", "json"])).unwrap();
+        assert_eq!(agents, json!([]));
+    }
+    eprintln!("[cli/setup/go] HTTP enrollment through TCP-to-Unix relay, then real socket-activated TCP on the same address:\nRust context add {key} --endpoint {} --setup-code [REDACTED] --set-current\n{}\nUnauthenticated TCP agent list -> unauthenticated; Rust agent list -o json -> []; Go agent list -o json -> []; reusing code -> invalid or expired setup code; context and keyring unchanged", endpoint.address, output.trim_end());
+    sandbox.go(&go, &["context", "remove", &key, "--force"]);
+    inspect_keyring(&key, None);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -529,13 +637,25 @@ impl Drop for Daemon {
     }
 }
 async fn daemon(bin: &Path, sandbox: &Sandbox, tcp: bool) -> (Daemon, EndpointContext) {
+    daemon_with_listener(
+        bin,
+        sandbox,
+        tcp.then(|| TcpListener::bind("127.0.0.1:0").unwrap()),
+    )
+    .await
+}
+async fn daemon_with_listener(
+    bin: &Path,
+    sandbox: &Sandbox,
+    listener: Option<TcpListener>,
+) -> (Daemon, EndpointContext) {
+    let tcp = listener.is_some();
     let socket = sandbox.dir.path().join("daemon.sock");
     let log = sandbox
         .dir
         .path()
         .join(if tcp { "tcp.log" } else { "unix.log" });
     let file = File::create(&log).unwrap();
-    let listener = tcp.then(|| TcpListener::bind("127.0.0.1:0").unwrap());
     let address = listener
         .as_ref()
         .map(|l| format!("http://{}", l.local_addr().unwrap()));
