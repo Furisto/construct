@@ -41,6 +41,20 @@ Core's `testing` feature exposes `MemorySecretProvider`, `MemoryStore`, and
 Plain tests are hermetic: real-Go tests return with a skip notice unless
 `CONSTRUCT_GO_BIN` points to a built Go binary (`--nocapture` displays notices).
 
+`construct-store` implements the repositories with SQLx's bundled SQLite driver.
+`SqliteStore::open(path)` adds missing Ent tables/indexes without rebuilding
+existing tables, and sets the Go daemon's foreign-key/WAL/busy-timeout pragmas.
+Records must be fully initialized, including valid enum values and timestamps.
+Transactions own a pooled connection; drop/cancellation rolls back. Mutation
+observers receive only committed changes, covering the same operations as Go's
+event hooks. Lists currently filter/sort decoded records in memory, preserving
+nanosecond time ordering across Go/SQLite time representations.
+
+The interop script also builds an Ent fixture program and sets
+`CONSTRUCT_GO_STORE_FIXTURE`. The store interop test otherwise skips; it checks
+all six record types bidirectionally, raw Go JSON bytes and `sqlite_master` schema
+equivalence, including running Ent migration on the Rust-created database.
+
 ### Real Go interoperability (Linux)
 
 With Go 1.24.1+ and Rust installed, from any directory:
