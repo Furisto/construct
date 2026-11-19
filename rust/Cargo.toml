@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/construct-proto"]
+members = ["crates/construct-proto", "crates/construct-connect"]
 resolver = "2"
 
 [workspace.package]
@@ -14,3 +14,16 @@ pbjson-types = "0.7"
 protoc-bin-vendored = "3"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+async-trait = "0.1"
+async-stream = "0.3"
+axum = "0.8"
+bytes = "1"
+futures-util = "0.3"
+http = "1"
+http-body-util = "0.1"
+hyper = { version = "1", features = ["client", "server", "http1", "http2"] }
+hyper-util = { version = "0.1", features = ["client-legacy", "server-auto", "http1", "http2", "tokio", "service"] }
+hyper-rustls = { version = "0.27", default-features = false, features = ["http1", "http2", "ring", "webpki-roots", "tls12"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "sync", "time"] }
+tower = { version = "0.5", features = ["util"] }
+tower-service = "0.3"

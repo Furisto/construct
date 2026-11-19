@@ -1,0 +1,22 @@
+[package]
+name = "construct-connect"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+prost.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+async-trait.workspace = true
+async-stream.workspace = true
+axum.workspace = true
+bytes.workspace = true
+futures-util.workspace = true
+http.workspace = true
+http-body-util.workspace = true
+hyper.workspace = true
+hyper-util.workspace = true
+hyper-rustls.workspace = true
+tokio.workspace = true
+tower.workspace = true
+tower-service.workspace = true
