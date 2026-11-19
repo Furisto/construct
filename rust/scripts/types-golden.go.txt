@@ -1,0 +1,261 @@
+// Generates fixtures outside the repository. See fixtures/README.md.
+package main
+
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	memory "github.com/furisto/construct/backend/memory/schema/types"
+	provider "github.com/furisto/construct/backend/model"
+	skill "github.com/furisto/construct/backend/skill"
+	codeact "github.com/furisto/construct/backend/tool/codeact"
+	communication "github.com/furisto/construct/backend/tool/communication"
+	filesystem "github.com/furisto/construct/backend/tool/filesystem"
+	system "github.com/furisto/construct/backend/tool/system"
+	tools "github.com/furisto/construct/backend/tool/types"
+	web "github.com/furisto/construct/backend/tool/web"
+	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
+	"math"
+	"os"
+	"path/filepath"
+	"reflect"
+	"time"
+)
+
+const special = "<>&\u2028\u2029\"\\\n\t é 🚀"
+
+func fill(v reflect.Value, depth int, mode string) {
+	if depth > 5 {
+		return
+	}
+	switch v.Type() {
+	case reflect.TypeOf(time.Time{}):
+		v.Set(reflect.ValueOf(time.Date(2025, 2, 3, 4, 5, 6, 123400000, time.UTC)))
+		return
+	case reflect.TypeOf(uuid.UUID{}):
+		v.Set(reflect.ValueOf(uuid.MustParse("12345678-1234-5678-9abc-123456789abc")))
+		return
+	case reflect.TypeOf(memory.Decimal{}):
+		v.Set(reflect.ValueOf(memory.Decimal{Decimal: decimal.RequireFromString("-123456789012345678901234567890.1234000")}))
+		return
+	case reflect.TypeOf(json.RawMessage{}):
+		v.SetBytes([]byte(`{ "z" : "<>&", "a" : [1.0, true] }`))
+		return
+	}
+	switch v.Kind() {
+	case reflect.String:
+		if mode == "special" {
+			v.SetString(special)
+		} else {
+			v.SetString("value")
+		}
+	case reflect.Bool:
+		v.SetBool(true)
+	case reflect.Int, reflect.Int64:
+		v.SetInt(7)
+	case reflect.Float64:
+		v.SetFloat(1.25)
+	case reflect.Pointer:
+		v.Set(reflect.New(v.Type().Elem()))
+		fill(v.Elem(), depth+1, mode)
+	case reflect.Slice:
+		v.Set(reflect.MakeSlice(v.Type(), 1, 1))
+		fill(v.Index(0), depth+1, mode)
+	case reflect.Map:
+		v.Set(reflect.MakeMap(v.Type()))
+		keys := []string{"z", "a"}
+		if mode == "special" {
+			keys = []string{"z&", "a<"}
+		}
+		for _, k := range keys {
+			item := reflect.New(v.Type().Elem()).Elem()
+			fill(item, depth+1, mode)
+			v.SetMapIndex(reflect.ValueOf(k), item)
+		}
+	case reflect.Struct:
+		for i := 0; i < v.NumField(); i++ {
+			if v.Field(i).CanSet() {
+				fill(v.Field(i), depth+1, mode)
+			}
+		}
+	case reflect.Interface:
+		if v.Type() == reflect.TypeOf((*provider.ContentBlock)(nil)).Elem() {
+			v.Set(reflect.ValueOf(&provider.TextBlock{Text: special}))
+		}
+	}
+}
+func write(name string, value any) {
+	b, err := json.Marshal(value)
+	if err != nil {
+		panic(err)
+	}
+	if err = os.WriteFile(filepath.Join(os.Args[1], name+".json"), b, 0644); err != nil {
+		panic(err)
+	}
+	fmt.Println(name + ".json")
+}
+
+type MemoryFixture struct {
+	TaskSpec          memory.TaskSpec
+	TaskStatus        memory.TaskStatus
+	TaskUsage         memory.TaskUsage
+	MessageContent    memory.MessageContent
+	MessageBlock      memory.MessageBlock
+	MessageUsage      memory.MessageUsage
+	Decimal           memory.Decimal
+	MessageBlockKind  memory.MessageBlockKind
+	MessageSource     memory.MessageSource
+	ModelCapability   memory.ModelCapability
+	ModelProviderType memory.ModelProviderType
+	TaskPhase         memory.TaskPhase
+	TokenType         memory.TokenType
+}
+
+type ToolsFixture struct {
+	CreateFileInput       filesystem.CreateFileInput
+	CreateFileResult      filesystem.CreateFileResult
+	EditFileInput         filesystem.EditFileInput
+	DiffPair              filesystem.DiffPair
+	DiffValidationError   filesystem.DiffValidationError
+	ConflictWarning       filesystem.ConflictWarning
+	PatchInfo             filesystem.PatchInfo
+	EditFileResult        filesystem.EditFileResult
+	FindFileInput         filesystem.FindFileInput
+	FindFileResult        filesystem.FindFileResult
+	GrepInput             filesystem.GrepInput
+	GrepMatch             filesystem.GrepMatch
+	GrepResult            filesystem.GrepResult
+	ListFilesInput        filesystem.ListFilesInput
+	ListFilesResult       filesystem.ListFilesResult
+	DirectoryEntry        filesystem.DirectoryEntry
+	ReadFileInput         filesystem.ReadFileInput
+	ReadFileResult        filesystem.ReadFileResult
+	ExecuteCommandInput   system.ExecuteCommandInput
+	ExecuteCommandResult  system.ExecuteCommandResult
+	AskUserInput          communication.AskUserInput
+	AskUserResult         communication.AskUserResult
+	SubmitReportInput     communication.SubmitReportInput
+	SubmitReportResult    communication.SubmitReportResult
+	HandoffInput          communication.HandoffInput
+	FetchInput            web.FetchInput
+	FetchResult           web.FetchResult
+	InterpreterInput      tools.InterpreterInput
+	InterpreterOutput     tools.InterpreterOutput
+	FunctionCall          tools.FunctionCall
+	ToolInput             tools.ToolInput
+	ToolOutput            tools.ToolOutput
+	ToolCallEvent         tools.ToolCallEvent
+	ToolResultEvent       tools.ToolResultEvent
+	ProviderData          tools.ProviderData
+	ToolCall              tools.ToolCall
+	ToolResult            tools.ToolResult
+	InterpreterToolResult codeact.InterpreterToolResult
+}
+
+type ProviderFixture struct {
+	Message          provider.Message
+	TextBlock        provider.TextBlock
+	ToolCallBlock    provider.ToolCallBlock
+	ToolResultBlock  provider.ToolResultBlock
+	Usage            provider.Usage
+	Model            provider.Model
+	ModelPricing     provider.ModelPricing
+	MessageSource    provider.MessageSource
+	Capability       provider.Capability
+	ContentBlockType provider.ContentBlockType
+	ProviderKind     provider.ProviderKind
+}
+
+type SkillFixture struct {
+	LockFile    skill.LockFile
+	LockEntry   skill.LockEntry
+	GitSource   skill.GitSource
+	URLSource   skill.URLSource
+	GitProvider skill.GitProvider
+}
+
+func emptyCollections(v reflect.Value) {
+	if v.Type() == reflect.TypeOf(json.RawMessage{}) {
+		return
+	}
+	switch v.Kind() {
+	case reflect.Slice:
+		v.Set(reflect.MakeSlice(v.Type(), 0, 0))
+	case reflect.Map:
+		v.Set(reflect.MakeMap(v.Type()))
+	case reflect.Struct:
+		for i := 0; i < v.NumField(); i++ {
+			if v.Field(i).CanSet() {
+				emptyCollections(v.Field(i))
+			}
+		}
+	}
+}
+func main() {
+	if len(os.Args) != 2 {
+		panic("usage: go run . FIXTURE_DIR")
+	}
+	for _, mode := range []string{"zero", "empty", "full", "special"} {
+		v := reflect.New(reflect.TypeOf(MemoryFixture{})).Elem()
+		if mode == "empty" {
+			emptyCollections(v)
+		} else if mode != "zero" {
+			fill(v, 0, mode)
+		}
+		write("memory-"+mode, v.Interface())
+	}
+	for _, mode := range []string{"zero", "empty", "full", "special"} {
+		v := reflect.New(reflect.TypeOf(ToolsFixture{})).Elem()
+		if mode == "empty" {
+			emptyCollections(v)
+		} else if mode != "zero" {
+			fill(v, 0, mode)
+		}
+		write("tools-"+mode, v.Interface())
+	}
+	for _, mode := range []string{"zero", "empty", "full", "special"} {
+		v := reflect.New(reflect.TypeOf(ProviderFixture{})).Elem()
+		if mode == "empty" {
+			emptyCollections(v)
+		} else if mode != "zero" {
+			fill(v, 0, mode)
+		}
+		write("provider-"+mode, v.Interface())
+	}
+	for _, mode := range []string{"zero", "empty", "full", "special"} {
+		v := reflect.New(reflect.TypeOf(SkillFixture{})).Elem()
+		if mode == "empty" {
+			emptyCollections(v)
+		} else if mode != "zero" {
+			fill(v, 0, mode)
+		}
+		write("skill-"+mode, v.Interface())
+	}
+	write("floats", []float64{0, math.Copysign(0, -1), 1, -1, 1.25, 1e-7, 1e-6, 1e20, 1e21, 1.2345678901234567e25, math.SmallestNonzeroFloat64, math.MaxFloat64})
+	write("times", []time.Time{{}, time.Date(2025, 1, 1, 0, 0, 0, 100000000, time.UTC), time.Date(2025, 1, 1, 0, 0, 0, 123400000, time.UTC), time.Date(2025, 1, 1, 0, 0, 0, 123456789, time.UTC)})
+	write("content-blocks", []provider.ContentBlock{&provider.TextBlock{Text: special}, &provider.ToolCallBlock{ID: "call", Tool: "read", Args: json.RawMessage(`{ "z": "<", "a": 1.0 }`)}, &provider.ToolResultBlock{ID: "call", Name: "read", Result: special, Succeeded: true}})
+	var failures []struct {
+		Kind       provider.ProviderErrorKind
+		RetryAfter int64
+		Message    string
+		Retryable  bool
+		Delay      int64
+		Error      string
+	}
+	for _, kind := range []provider.ProviderErrorKind{"", provider.ProviderErrorKindInvalidRequest, provider.ProviderErrorKindRateLimitExceeded, provider.ProviderErrorKindOverloaded, provider.ProviderErrorKindInternal, provider.ProviderErrorKindTimeout, provider.ProviderErrorKindCanceled, provider.ProviderErrorKindUnknown} {
+		for _, delay := range []time.Duration{-1, 0, 1234, 1500000, 1234567890, 20 * time.Second, 65 * time.Second, 3661 * time.Second} {
+			failure := provider.ProviderError{Provider: "test", Kind: kind, RetryAfter: delay, Err: errors.New("underlying")}
+			retry, next := failure.Retryable()
+			failures = append(failures, struct {
+				Kind       provider.ProviderErrorKind
+				RetryAfter int64
+				Message    string
+				Retryable  bool
+				Delay      int64
+				Error      string
+			}{kind, int64(delay), failure.Message(), retry, int64(next), failure.Error()})
+		}
+	}
+	write("provider-errors", failures)
+}
