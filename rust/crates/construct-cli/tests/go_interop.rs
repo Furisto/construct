@@ -378,6 +378,130 @@ async fn context_client_reaches_unix_and_authenticated_tcp() {
     eprintln!("[cli/api] context-built ApiClient lists agents over Unix and authenticated TCP; unauthenticated TCP rejected");
 }
 #[test]
+fn info_output_matches_go() {
+    let Some(bin) = binary() else {
+        return;
+    };
+    let sandbox = Sandbox::new();
+    let rust = Path::new(env!("CARGO_BIN_EXE_construct"));
+    if [
+        option_env!("CONSTRUCT_VERSION"),
+        option_env!("CONSTRUCT_GIT_COMMIT"),
+        option_env!("CONSTRUCT_BUILD_DATE"),
+    ]
+    .into_iter()
+    .flatten()
+    .any(|v| !v.is_empty() && v != "unknown")
+    {
+        return;
+    }
+    sandbox
+        .manager()
+        .upsert(
+            "local",
+            EndpointContext {
+                kind: "unix".into(),
+                address: "/tmp/unused.sock".into(),
+                auth: None,
+            },
+            true,
+        )
+        .unwrap();
+    for format in ["json", "yaml", "card", "markdown"] {
+        let args = ["info", "--output", format];
+        assert_eq!(sandbox.go(rust, &args), sandbox.go(&bin, &args), "{format}");
+    }
+}
+
+#[tokio::test]
+async fn rust_token_commands_interoperate_with_go_daemon() {
+    let Some(bin) = binary() else {
+        return;
+    };
+    use construct_proto::construct::v1::ExchangeSetupCodeRequest;
+    let sandbox = Sandbox::new();
+    let rust = Path::new(env!("CARGO_BIN_EXE_construct"));
+    let mut config = ConfigStore::load(&sandbox.user).unwrap();
+    config.set("secret.provider", parse_value("file")).unwrap();
+    config.flush().unwrap();
+    let (_daemon, endpoint) = daemon(&bin, &sandbox, false).await;
+    let manager = sandbox.manager();
+    manager.upsert("ops", endpoint.clone(), true).unwrap();
+    let json = |cli: &Path, args: &[&str]| -> serde_json::Value {
+        serde_json::from_str(&sandbox.go(cli, args)).unwrap()
+    };
+    let created = json(
+        rust,
+        &[
+            "daemon",
+            "token",
+            "create",
+            "ops-token",
+            "--description",
+            "interop",
+            "--expires",
+            "1.5d",
+            "-o",
+            "json",
+        ],
+    );
+    assert_eq!(created["name"], "ops-token");
+    assert!(created["token"].as_str().unwrap().starts_with("ct_"));
+    assert!(chrono::DateTime::parse_from_rfc3339(created["expires_at"].as_str().unwrap()).is_ok());
+    let list_args = [
+        "daemon",
+        "token",
+        "ls",
+        "--name-prefix",
+        "ops-",
+        "--include-expired",
+        "-o",
+        "json",
+    ];
+    let list = json(rust, &list_args);
+    assert_eq!(list, json(&bin, &list_args));
+    assert_eq!(list[0]["name"], "ops-token");
+    assert_eq!(list[0]["status"], "Active");
+    assert!(list[0].get("token").is_none());
+    let id = list[0]["id"].as_str().unwrap();
+    sandbox.go(rust, &["daemon", "token", "revoke", id]);
+    assert_eq!(
+        json(rust, &list_args)[0]["id"],
+        id,
+        "EOF must cancel revocation"
+    );
+    sandbox.go(rust, &["daemon", "token", "revoke", id, "-f"]);
+    assert_eq!(json(&bin, &list_args), serde_json::json!([]));
+    let setup = json(
+        rust,
+        &[
+            "daemon",
+            "token",
+            "create-setup",
+            "new-client",
+            "--code-expires",
+            "1m",
+            "--token-expires",
+            "2d",
+            "-o",
+            "json",
+        ],
+    );
+    assert_eq!(setup["token_name"], "new-client");
+    let exchange = ApiClient::new(&endpoint, &manager)
+        .unwrap()
+        .auth
+        .exchange_setup_code(Request::new(ExchangeSetupCodeRequest {
+            setup_code: setup["setup_code"].as_str().unwrap().into(),
+        }))
+        .await
+        .unwrap()
+        .message;
+    assert_eq!(exchange.name, "new-client");
+    assert!(exchange.token.starts_with("ct_"));
+}
+
+#[test]
 fn real_keyring_is_go_compatible() {
     if std::env::var("CONSTRUCT_KEYRING_INTEROP").as_deref() != Ok("1") {
         eprintln!(

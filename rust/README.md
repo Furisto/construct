@@ -42,6 +42,21 @@ Core's `testing` feature exposes `MemorySecretProvider`, `MemoryStore`, and
 Plain tests are hermetic: real-Go tests return with a skip notice unless
 `CONSTRUCT_GO_BIN` points to a built Go binary (`--nocapture` displays notices).
 
+### CLI operations
+
+`construct info` reports release metadata set at build time through
+`CONSTRUCT_VERSION`, `CONSTRUCT_GIT_COMMIT`, and `CONSTRUCT_BUILD_DATE`.
+Development builds use `unknown` for unset fields and won't self-replace.
+`construct update` uses the existing release manifest and binary SHA-256
+checksum; it accepts `update.channel` (default `latest`) and `update.url` (default
+the US release bucket). Release URLs must use HTTPS except for loopback tests.
+Until cutover, the published release artifacts still contain the Go binary.
+
+Daemon install, stop, and uninstall manage the same systemd/launchd unit
+locations as the Go CLI; use `--system` for system units. The units invoke
+`construct daemon run`, which remains a stub in the Rust CLI until the backend
+is wired. Use the Go daemon to exercise the Rust CLI's token commands meanwhile.
+
 ### Real Go interoperability (Linux)
 
 With Go 1.24.1+ and Rust installed, from any directory:
