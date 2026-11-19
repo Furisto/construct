@@ -11,10 +11,14 @@ pub fn command() -> clap::Command {
         .arg(clap::Arg::new("limit").long("limit").default_value("10").allow_hyphen_values(true).value_parser(clap::value_parser!(i64)).help("Maximum number of tasks to show in the picker"))
         .arg(clap::Arg::new("agent").long("agent").default_value("").help("Resume the task with a specific agent"))
 }
-pub async fn resolve_task(client: &crate::app::ApiClient, id: &str) -> crate::Result<Task> {
+fn validate_task_id(id: &str) -> crate::Result<()> {
     if id.len() < 8 {
-        return Err("task ID must be at least 4 characters long".into());
+        return Err("task ID must be at least 8 characters long".into());
     }
+    Ok(())
+}
+pub async fn resolve_task(client: &crate::app::ApiClient, id: &str) -> crate::Result<Task> {
+    validate_task_id(id)?;
     if let Ok(uuid) = uuid::Uuid::parse_str(id) {
         return client
             .task
@@ -46,10 +50,10 @@ pub async fn resolve_task(client: &crate::app::ApiClient, id: &str) -> crate::Re
         _ => Err(format!("multiple tasks found matching {id}").into()),
     }
 }
-pub fn list_request(last: bool, limit: i64) -> ListTasksRequest {
+pub fn list_request(last: bool, all: bool, limit: i64) -> ListTasksRequest {
     ListTasksRequest {
         filter: Some(list_tasks_request::Filter {
-            has_messages: if last { None } else { Some(true) },
+            has_messages: if last || all { None } else { Some(true) },
             ..Default::default()
         }),
         page_size: Some(if last { 1 } else { limit as i32 }),
@@ -77,6 +81,7 @@ pub async fn run(app: &mut crate::app::App, matches: &clap::ArgMatches) -> crate
             .task
             .list_tasks(Request::new(list_request(
                 last,
+                matches.get_flag("all"),
                 *matches.get_one::<i64>("limit").unwrap(),
             )))
             .await
@@ -148,26 +153,58 @@ mod tests {
             .unwrap();
         assert!(args.get_flag("all"));
         assert_eq!(
-            list_request(false, 10).filter.unwrap().has_messages,
+            list_request(false, false, 10).filter.unwrap().has_messages,
             Some(true)
         );
-        assert_eq!(list_request(true, 10).page_size, Some(1));
+        assert_eq!(list_request(true, false, 10).page_size, Some(1));
         assert_eq!(
-            list_request(true, 10).sort_field,
+            list_request(true, false, 10).sort_field,
             Some(SortField::UpdatedAt as i32)
         );
-        assert_eq!(list_request(true, 10).filter.unwrap().has_messages, None);
-        assert_eq!(list_request(false, -1).page_size, Some(-1));
         assert_eq!(
-            list_request(false, 10).sort_field,
+            list_request(true, false, 10).filter.unwrap().has_messages,
+            None
+        );
+        assert_eq!(list_request(false, false, -1).page_size, Some(-1));
+        assert_eq!(
+            list_request(false, false, 10).sort_field,
             Some(SortField::CreatedAt as i32)
         );
         assert_eq!(
-            list_request(false, 10).sort_order,
+            list_request(false, false, 10).sort_order,
             Some(SortOrder::Desc as i32)
         );
         assert!(command()
             .try_get_matches_from(["resume", "--limit", "bad"])
             .is_err());
+    }
+    #[test]
+    fn all_includes_tasks_without_messages() {
+        for (flags, has_messages) in [
+            (vec!["resume"], Some(true)),
+            (vec!["resume", "--all"], None),
+        ] {
+            let args = command().try_get_matches_from(flags).unwrap();
+            let request = list_request(
+                args.get_flag("last"),
+                args.get_flag("all"),
+                *args.get_one::<i64>("limit").unwrap(),
+            );
+            assert_eq!(request.filter.unwrap().has_messages, has_messages);
+            assert_eq!(request.page_size, Some(10));
+            assert_eq!(request.sort_field, Some(SortField::CreatedAt as i32));
+        }
+    }
+    #[test]
+    fn prefix_minimum_is_eight_characters() {
+        for id in ["", "1234", "1234567"] {
+            assert_eq!(
+                validate_task_id(id).unwrap_err().to_string(),
+                "task ID must be at least 8 characters long"
+            );
+        }
+        for id in ["12345678", "00000000-0000-0000-0000-000000000001"] {
+            validate_task_id(id).unwrap();
+        }
     }
 }

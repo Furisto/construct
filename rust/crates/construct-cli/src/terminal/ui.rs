@@ -24,41 +24,78 @@ use ratatui::{
     Frame, Terminal,
 };
 use std::{
-    io::{self, Stdout},
-    sync::Once,
+    cell::RefCell,
+    io::{self, Stdout, Write},
+    marker::PhantomData,
+    rc::Rc,
+    sync::{Arc, Mutex, Once},
     time::{Duration, Instant},
 };
 use tokio_util::sync::CancellationToken;
 
-struct RestoreTerminal;
-fn restore() {
-    let _ = disable_raw_mode();
-    let _ = execute!(
-        io::stdout(),
-        DisableBracketedPaste,
-        LeaveAlternateScreen,
-        crossterm::cursor::Show
-    );
+type Restore = Arc<dyn Fn() + Send + Sync>;
+thread_local! {
+    static ACTIVE_RESTORE: RefCell<Option<Restore>> = const { RefCell::new(None) };
+}
+struct RestoreTerminal {
+    restore: Restore,
+    _thread_bound: PhantomData<Rc<()>>,
 }
 impl RestoreTerminal {
     fn enter() -> Result<Self> {
+        Self::enter_with(
+            Arc::new(Mutex::new(io::stdout())),
+            enable_raw_mode,
+            disable_raw_mode,
+        )
+    }
+    fn enter_with<W: Write + Send + 'static>(
+        writer: Arc<Mutex<W>>,
+        enable: impl FnOnce() -> io::Result<()>,
+        disable: impl Fn() -> io::Result<()> + Send + Sync + 'static,
+    ) -> Result<Self> {
         static HOOK: Once = Once::new();
         HOOK.call_once(|| {
             let previous = std::panic::take_hook();
             std::panic::set_hook(Box::new(move |info| {
-                restore();
+                ACTIVE_RESTORE.with(|active| {
+                    if let Some(restore) = active.borrow().as_ref() {
+                        restore();
+                    }
+                });
                 previous(info);
             }));
         });
-        enable_raw_mode()?;
-        let guard = Self;
-        execute!(io::stdout(), EnterAlternateScreen, EnableBracketedPaste)?;
+        enable()?;
+        let output = writer.clone();
+        let restore: Restore = Arc::new(move || {
+            let _ = disable();
+            let mut writer = output.lock().unwrap_or_else(|error| error.into_inner());
+            let _ = execute!(
+                *writer,
+                DisableBracketedPaste,
+                LeaveAlternateScreen,
+                crossterm::cursor::Show
+            );
+        });
+        let guard = Self {
+            restore: restore.clone(),
+            _thread_bound: PhantomData,
+        };
+        ACTIVE_RESTORE.with(|active| *active.borrow_mut() = Some(restore));
+        {
+            let mut writer = writer
+                .lock()
+                .map_err(|_| io::Error::other("terminal writer poisoned"))?;
+            execute!(*writer, EnterAlternateScreen, EnableBracketedPaste)?;
+        }
         Ok(guard)
     }
 }
 impl Drop for RestoreTerminal {
     fn drop(&mut self) {
-        restore();
+        ACTIVE_RESTORE.with(|active| active.borrow_mut().take());
+        (self.restore)();
     }
 }
 fn terminal() -> Result<Terminal<CrosstermBackend<Stdout>>> {
@@ -559,6 +596,105 @@ mod tests {
     use super::*;
     use crate::terminal::session::tests::{state, task};
     use ratatui::{backend::TestBackend, buffer::Buffer};
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    const RESTORE_SEQUENCE: &[u8] = b"\x1b[?2004l\x1b[?1049l\x1b[?25h";
+
+    #[derive(Default, Clone)]
+    struct TerminalState {
+        raw: Arc<AtomicBool>,
+        output: Arc<Mutex<Vec<u8>>>,
+    }
+    impl TerminalState {
+        fn enter(&self) -> RestoreTerminal {
+            let enable = self.raw.clone();
+            let disable = self.raw.clone();
+            RestoreTerminal::enter_with(
+                self.output.clone(),
+                move || {
+                    enable.store(true, Ordering::SeqCst);
+                    Ok(())
+                },
+                move || {
+                    disable.store(false, Ordering::SeqCst);
+                    Ok(())
+                },
+            )
+            .unwrap()
+        }
+        fn restored(&self) -> bool {
+            !self.raw.load(Ordering::SeqCst)
+                && self.output.lock().unwrap().ends_with(RESTORE_SEQUENCE)
+        }
+    }
+    #[test]
+    fn panic_hook_restores_before_unwinding_and_guard_restores_on_drop() {
+        struct ObserveUnwind {
+            terminal: TerminalState,
+            restored: Arc<AtomicBool>,
+        }
+        impl Drop for ObserveUnwind {
+            fn drop(&mut self) {
+                self.restored
+                    .store(self.terminal.restored(), Ordering::SeqCst);
+            }
+        }
+        let terminal = TerminalState::default();
+        let hook_restored = Arc::new(AtomicBool::new(false));
+        let result = std::panic::catch_unwind(|| {
+            let _guard = terminal.enter();
+            assert!(terminal.raw.load(Ordering::SeqCst));
+            assert_eq!(*terminal.output.lock().unwrap(), b"\x1b[?1049h\x1b[?2004h");
+            {
+                let mut output = terminal.output.lock().unwrap();
+                execute!(*output, crossterm::cursor::Hide).unwrap();
+            }
+            let _observe = ObserveUnwind {
+                terminal: terminal.clone(),
+                restored: hook_restored.clone(),
+            };
+            panic!("forced panic with an active terminal");
+        });
+        assert!(result.is_err());
+        assert!(
+            hook_restored.load(Ordering::SeqCst),
+            "hook must restore before guard unwinds"
+        );
+        assert!(terminal.restored());
+        let output = terminal.output.lock().unwrap();
+        let restore_count = output
+            .windows(RESTORE_SEQUENCE.len())
+            .filter(|bytes| *bytes == RESTORE_SEQUENCE)
+            .count();
+        assert_eq!(restore_count, 2, "panic hook and guard drop both restore");
+        ACTIVE_RESTORE.with(|active| assert!(active.borrow().is_none()));
+    }
+    #[test]
+    fn terminal_guard_restores_on_normal_exit() {
+        let terminal = TerminalState::default();
+        let guard = terminal.enter();
+        assert!(terminal.raw.load(Ordering::SeqCst));
+        drop(guard);
+        assert!(terminal.restored());
+    }
+    #[test]
+    fn raw_mode_entry_failure_does_not_enter_alternate_screen() {
+        let output = Arc::new(Mutex::new(Vec::<u8>::new()));
+        let disabled = Arc::new(AtomicBool::new(false));
+        let observed = disabled.clone();
+        assert!(RestoreTerminal::enter_with(
+            output.clone(),
+            || Err(io::Error::other("raw mode unavailable")),
+            move || {
+                observed.store(true, Ordering::SeqCst);
+                Ok(())
+            }
+        )
+        .is_err());
+        assert!(output.lock().unwrap().is_empty());
+        assert!(!disabled.load(Ordering::SeqCst));
+        ACTIVE_RESTORE.with(|active| assert!(active.borrow().is_none()));
+    }
 
     fn rows(buffer: &Buffer) -> Vec<String> {
         (0..buffer.area.height)
