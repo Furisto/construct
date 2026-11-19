@@ -16,3 +16,5 @@ CGO_ENABLED=0 go build -o "$CONSTRUCT_GO_BIN" ./frontend/cli
 # No Secret Service, D-Bus session, credentials, or external model calls required.
 cargo test --manifest-path "$repo_root/rust/Cargo.toml" \
   -p construct-proto --test go_interop -- --nocapture --test-threads=1
+cargo test --manifest-path "$repo_root/rust/Cargo.toml" \
+  -p construct-cli --test go_interop -- --nocapture --test-threads=1

@@ -11,6 +11,7 @@ contracts for parallel Rust implementations; they do not yet run a Rust daemon.
 | `construct-connect` | Hand-written Connect unary/streaming runtime, HTTP(S)/Unix transports, interceptors |
 | `construct-types` | Domain records, stored Go JSON, tools, provider messages, skill lockfiles, event patterns |
 | `construct-core` | Dyn-safe model/tool/secret/store/event contracts and reference in-memory event router |
+| `construct-cli` | `construct` library/binary, extensible command modules, config/contexts, keyring, API wiring and renderers |
 
 Crates live in `crates/`. Core depends only on domain types and infrastructure,
 never generated protobuf types, concrete database drivers, provider SDKs, or CLI.
@@ -62,6 +63,29 @@ The Go daemon currently fails `--listen-http` during context upsert (`invalid
 kind: tcp`: context validation accepts `http`). TCP tests instead pass a bound
 loopback socket on FD 3 using the existing Linux systemd activation path, without
 requiring a running systemd service. Auth remains the actual Go TCP Bearer path.
+
+CLI interop also checks Go/Rust config and context files and context-built clients
+over Unix and authenticated TCP. To exercise real Linux credential interoperability,
+start an unlocked Secret Service and run:
+
+```sh
+eval $(dbus-launch --sh-syntax)
+printf pw | gnome-keyring-daemon --unlock --components=secrets
+CONSTRUCT_KEYRING_INTEROP=1 cargo test -p construct-cli --test go_interop \
+  real_keyring_is_go_compatible -- --nocapture
+```
+
+The CLI library is named `construct`. Command authors add their clap command and
+async handler in `construct-cli/src/commands/<command>.rs`; `App` exposes injected
+I/O, config, contexts, cancellation, a renderer and a lazily constructed API client.
+Implement `DisplayResource::fields` using `Field::new`, `.column` and `.full` for
+human-readable output, and `Serialize` for JSON/YAML. Use `render_one` for an
+object and `render` for a collection. Resource handlers are intentionally stubs.
+Linux credentials use the keyring crate's Secret Service backend directly to
+select Go's **login collection path** (or default alias fallback), not keyring-rs's
+target (a collection **label**), with
+exact `service=construct`/`username=<context>` attributes. macOS preserves Go's
+base64/hex conventions; Windows uses `construct:<context>` and raw UTF-8 blobs.
 
 ## Code generation
 
