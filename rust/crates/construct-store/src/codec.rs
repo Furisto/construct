@@ -1,5 +1,5 @@
 use crate::{database_error, EntityKind, HookRecord, Mutation};
-use construct_core::store::StoreError;
+use construct_core::store::{ListOptions, SortOrder, StoreError};
 use construct_types::{entity::*, Timestamp};
 use serde::{de::DeserializeOwned, Serialize};
 use sqlx::{
@@ -264,36 +264,70 @@ pub(crate) async fn get<T: Record>(
         .map_err(database_error)?;
     T::decode(&row)
 }
-pub(crate) async fn all<T: Record>(
-    connection: &mut SqliteConnection,
-) -> Result<Vec<T>, StoreError> {
-    sqlx::query(&format!("SELECT * FROM `{}`", T::TABLE))
-        .fetch_all(connection)
-        .await
-        .map_err(database_error)?
-        .iter()
-        .map(T::decode)
-        .collect()
+#[derive(Default)]
+pub(crate) struct Selection {
+    predicates: Vec<String>,
+    values: Vec<Value>,
 }
-pub(crate) async fn like<T: Record>(
-    connection: &mut SqliteConnection,
-    column: &str,
-    pattern: String,
-    escape: bool,
-) -> Result<Vec<T>, StoreError> {
-    let sql = format!(
-        "SELECT * FROM `{}` WHERE `{column}` LIKE ?{}",
-        T::TABLE,
-        if escape { " ESCAPE '\\'" } else { "" }
-    );
-    sqlx::query(&sql)
-        .bind(pattern)
-        .fetch_all(connection)
-        .await
-        .map_err(database_error)?
-        .iter()
-        .map(T::decode)
-        .collect()
+
+impl Selection {
+    pub(crate) fn predicate(&mut self, sql: &str, values: Vec<Value>) {
+        self.predicates.push(sql.into());
+        self.values.extend(values);
+    }
+
+    pub(crate) fn equal(&mut self, column: &str, value: Option<Value>) {
+        if let Some(value) = value {
+            self.predicate(&format!("`{column}` = ?"), vec![value]);
+        }
+    }
+
+    pub(crate) fn one_of(&mut self, column: &str, values: Vec<Value>) {
+        if !values.is_empty() {
+            self.predicate(
+                &format!("`{column}` IN ({})", vec!["?"; values.len()].join(", ")),
+                values,
+            );
+        }
+    }
+
+    pub(crate) async fn fetch<T: Record>(
+        mut self,
+        connection: &mut SqliteConnection,
+        name_page: Option<&ListOptions>,
+    ) -> Result<Vec<T>, StoreError> {
+        let mut sql = format!("SELECT * FROM `{}`", T::TABLE);
+        if !self.predicates.is_empty() {
+            sql.push_str(" WHERE ");
+            sql.push_str(&self.predicates.join(" AND "));
+        }
+        if let Some(options) = name_page {
+            let Ok(offset) = i64::try_from(options.offset) else {
+                return Ok(Vec::new());
+            };
+            let direction = match options.sort_order {
+                SortOrder::Ascending => "ASC",
+                SortOrder::Descending => "DESC",
+            };
+            sql.push_str(&format!(
+                " ORDER BY name {direction}, id {direction} LIMIT ? OFFSET ?"
+            ));
+            self.values.push(Value::Integer(
+                options
+                    .limit
+                    .map(|n| i64::try_from(n).unwrap_or(i64::MAX))
+                    .unwrap_or(-1),
+            ));
+            self.values.push(Value::Integer(offset));
+        }
+        bind(sqlx::query(&sql), self.values)
+            .fetch_all(connection)
+            .await
+            .map_err(database_error)?
+            .iter()
+            .map(T::decode)
+            .collect()
+    }
 }
 pub(crate) async fn write<T: Record>(
     connection: &mut SqliteConnection,

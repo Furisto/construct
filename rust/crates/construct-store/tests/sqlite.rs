@@ -1,11 +1,190 @@
 use construct_core::store::*;
 use construct_store::{EntityKind, HookRecord, MutationHook, SqliteStore};
 use construct_types::{entity::*, memory::*, Timestamp};
+use sqlx::Connection;
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
 fn id(n: u128) -> Uuid {
     Uuid::from_u128(n)
+}
+
+#[tokio::test]
+async fn message_task_filter_excludes_unrelated_rows_before_json_decoding() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("store.db");
+    let store = SqliteStore::open(&path).await.unwrap();
+    let tx = store.begin().await.unwrap();
+    for n in 1..=3 {
+        tx.create_task(task(n)).await.unwrap();
+    }
+    for n in 0..512 {
+        tx.create_message(Message {
+            id: id(1000 + n),
+            task_id: id(2 + n % 2),
+            source: "assistant".into(),
+            ..Default::default()
+        })
+        .await
+        .unwrap();
+    }
+    for n in 0..3 {
+        tx.create_message(Message {
+            id: id(10000 + n),
+            task_id: id(1),
+            source: if n == 0 { "system" } else { "user" }.into(),
+            processed_time: if n == 0 {
+                None
+            } else {
+                Some(Timestamp::default())
+            },
+            ..Default::default()
+        })
+        .await
+        .unwrap();
+    }
+    tx.commit().await.unwrap();
+    let mut connection = sqlx::SqliteConnection::connect_with(
+        &sqlx::sqlite::SqliteConnectOptions::new().filename(&path),
+    )
+    .await
+    .unwrap();
+    // Unrelated corrupt JSON must never reach the decoder for a task-scoped query.
+    sqlx::query("UPDATE messages SET content = 'invalid JSON' WHERE task_id != ?")
+        .bind(id(1).to_string())
+        .execute(&mut connection)
+        .await
+        .unwrap();
+    let rows = store
+        .list_messages(
+            MessageFilter {
+                task_id: Some(id(1)),
+                sources: vec!["system".into(), "user".into()],
+                processed: Some(false),
+                ..Default::default()
+            },
+            ListOptions {
+                sort_order: SortOrder::Ascending,
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        rows.iter().map(|r| r.id).collect::<Vec<_>>(),
+        [id(10000), id(10001), id(10002)]
+    );
+    assert!(rows.iter().all(|r| r.task_id == id(1)));
+    assert!(store
+        .list_messages(
+            MessageFilter {
+                task_id: Some(id(1)),
+                processed: Some(true),
+                ..Default::default()
+            },
+            ListOptions::default()
+        )
+        .await
+        .unwrap()
+        .is_empty());
+    assert_eq!(
+        store
+            .list_tasks(
+                TaskFilter {
+                    has_messages: Some(true),
+                    ..Default::default()
+                },
+                ListOptions::default()
+            )
+            .await
+            .unwrap()
+            .len(),
+        3
+    );
+    assert!(store
+        .list_tasks(
+            TaskFilter {
+                has_messages: Some(false),
+                ..Default::default()
+            },
+            ListOptions::default()
+        )
+        .await
+        .unwrap()
+        .is_empty());
+    assert!(store
+        .list_messages(
+            MessageFilter {
+                task_id: Some(id(999)),
+                ..Default::default()
+            },
+            ListOptions::default()
+        )
+        .await
+        .unwrap()
+        .is_empty());
+}
+
+#[tokio::test]
+async fn name_sort_paginates_after_time_bounds_and_sql_values_are_literal() {
+    let directory = tempfile::tempdir().unwrap();
+    let store = SqliteStore::open(directory.path().join("store.db"))
+        .await
+        .unwrap();
+    let now: Timestamp = serde_json::from_str("\"2025-01-01T00:00:00Z\"").unwrap();
+    for (n, name, expires_at) in [
+        (1, "a", Timestamp::default()),
+        (2, "b", now.clone()),
+        (3, "c", now.clone()),
+        (4, "x' OR 1=1 --", now),
+    ] {
+        store
+            .create_token(Token {
+                id: id(n),
+                name: name.into(),
+                r#type: "api_token".into(),
+                token_hash: vec![n as u8],
+                expires_at,
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+    }
+    let options = ListOptions {
+        sort_field: SortField::Name,
+        sort_order: SortOrder::Ascending,
+        offset: 1,
+        limit: Some(1),
+    };
+    let rows = store
+        .list_tokens(
+            TokenFilter {
+                expires_after: Some(Timestamp::default()),
+                ..Default::default()
+            },
+            options.clone(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(rows[0].name, "c");
+    let rows = store
+        .list_tokens(TokenFilter::default(), options)
+        .await
+        .unwrap();
+    assert_eq!(rows[0].name, "b");
+    let rows = store
+        .list_tokens(
+            TokenFilter {
+                name_prefix: "x' OR 1=1 --".into(),
+                token_hash: Some(vec![4]),
+                ..Default::default()
+            },
+            ListOptions::default(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].id, id(4));
 }
 fn agent(n: u128) -> Agent {
     Agent {

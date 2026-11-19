@@ -47,8 +47,11 @@ existing tables, and sets the Go daemon's foreign-key/WAL/busy-timeout pragmas.
 Records must be fully initialized, including valid enum values and timestamps.
 Transactions own a pooled connection; drop/cancellation rolls back. Mutation
 observers receive only committed changes, covering the same operations as Go's
-event hooks. Lists currently filter/sort decoded records in memory, preserving
-nanosecond time ordering across Go/SQLite time representations.
+event hooks. Lists apply non-time predicates in SQL before decoding, using the
+message task index and EXISTS for task/message membership. Name ordering and
+pagination run in SQL when there is no time bound. Time bounds/order and their
+pagination run on SQL-matched records in Rust to preserve nanosecond accuracy
+across Go's offsets, variable fractions and monotonic timestamp suffixes.
 
 The interop script also builds an Ent fixture program and sets
 `CONSTRUCT_GO_STORE_FIXTURE`. The store interop test otherwise skips; it checks

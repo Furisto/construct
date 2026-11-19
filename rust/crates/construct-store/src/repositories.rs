@@ -1,11 +1,49 @@
 use crate::{
-    codec::{self, Record},
+    codec::{self, Record, Selection, Value},
     SqliteStore,
 };
 use async_trait::async_trait;
 use construct_core::store::*;
-use construct_types::{entity::*, Timestamp};
+use construct_types::entity::*;
+use sqlx::SqliteConnection;
 use uuid::Uuid;
+
+fn text(value: Option<impl AsRef<str>>) -> Option<Value> {
+    value.map(|v| Value::Text(v.as_ref().into()))
+}
+fn texts(values: Vec<impl AsRef<str>>) -> Vec<Value> {
+    values
+        .into_iter()
+        .map(|v| Value::Text(v.as_ref().into()))
+        .collect()
+}
+fn uuid(value: Option<Uuid>) -> Option<Value> {
+    value.map(|v| Value::Text(v.to_string()))
+}
+fn boolean(value: Option<bool>) -> Option<Value> {
+    value.map(|v| Value::Integer(i64::from(v)))
+}
+
+async fn list<T: Record>(
+    query: Selection,
+    connection: &mut SqliteConnection,
+    options: ListOptions,
+    has_time_bound: bool,
+    time_filter: impl FnMut(&T) -> bool + Send,
+) -> Result<Vec<T>, StoreError> {
+    // Go times may have offsets, variable fractions and monotonic suffixes; text
+    // order is not instant order, and SQLite time functions lose nanoseconds.
+    // Apply time bounds/order and then pagination after decoding SQL matches.
+    let sql_page = options.sort_field == SortField::Name && !has_time_bound;
+    let rows = query
+        .fetch::<T>(connection, sql_page.then_some(&options))
+        .await?;
+    if sql_page {
+        Ok(rows)
+    } else {
+        page(rows.into_iter().filter(time_filter).collect(), options)
+    }
+}
 
 fn page<T: Record>(mut rows: Vec<T>, options: ListOptions) -> Result<Vec<T>, StoreError> {
     if options.sort_field == SortField::Name && rows.iter().any(|r| r.name().is_none()) {
@@ -56,18 +94,14 @@ impl AgentStore for SqliteStore {
     ) -> Result<Vec<Agent>, StoreError> {
         self.run(move |connection| {
             Box::pin(async move {
-                let records = codec::all::<Agent>(connection).await?;
-
-                let rows = records
-                    .iter()
-                    .filter(|r| {
-                        (filter.names.is_empty() || filter.names.contains(&r.name))
-                            && filter.model_id.is_none_or(|v| r.model_id == Some(v))
-                            && filter.builtin.is_none_or(|v| r.builtin == v)
-                    })
-                    .cloned()
-                    .collect();
-                Ok((page(rows, options)?, None))
+                let mut query = Selection::default();
+                query.one_of("name", texts(filter.names));
+                query.equal("model_id", uuid(filter.model_id));
+                query.equal("builtin", boolean(filter.builtin));
+                Ok((
+                    list::<Agent>(query, connection, options, false, |_| true).await?,
+                    None,
+                ))
             })
         })
         .await
@@ -98,32 +132,30 @@ impl TaskStore for SqliteStore {
     ) -> Result<Vec<Task>, StoreError> {
         self.run(move |connection| {
             Box::pin(async move {
-                let records = if let Some(prefix) = &filter.id_prefix {
-                    codec::like::<Task>(connection, "id", format!("{prefix}%"), false).await?
-                } else {
-                    codec::all::<Task>(connection).await?
-                };
-                let messages = codec::all::<Message>(connection).await?;
-
                 if options.sort_field == SortField::Name {
                     return Err(StoreError::Invalid("entity has no name column".into()));
                 }
-                let rows = records
-                    .iter()
-                    .filter(|r| {
-                        filter.agent_id.is_none_or(|v| r.agent_id == Some(v))
-                            && filter
-                                .has_messages
-                                .is_none_or(|v| messages.iter().any(|m| m.task_id == r.id) == v)
-                            && filter.phase.as_ref().is_none_or(|v| &r.phase == v)
-                            && filter
-                                .desired_phase
-                                .as_ref()
-                                .is_none_or(|v| &r.desired_phase == v)
-                    })
-                    .cloned()
-                    .collect();
-                Ok((page(rows, options)?, None))
+                let mut query = Selection::default();
+                query.equal("agent_id", uuid(filter.agent_id));
+                query.equal("phase", text(filter.phase));
+                query.equal("desired_phase", text(filter.desired_phase));
+                if let Some(prefix) = filter.id_prefix {
+                    query.predicate("id LIKE ?", vec![Value::Text(format!("{prefix}%"))]);
+                }
+                if let Some(has_messages) = filter.has_messages {
+                    query.predicate(
+                        if has_messages {
+                            "EXISTS (SELECT 1 FROM messages WHERE messages.task_id = tasks.id)"
+                        } else {
+                            "NOT EXISTS (SELECT 1 FROM messages WHERE messages.task_id = tasks.id)"
+                        },
+                        Vec::new(),
+                    );
+                }
+                Ok((
+                    list::<Task>(query, connection, options, false, |_| true).await?,
+                    None,
+                ))
             })
         })
         .await
@@ -154,31 +186,44 @@ impl MessageStore for SqliteStore {
     ) -> Result<Vec<Message>, StoreError> {
         self.run(move |connection| {
             Box::pin(async move {
-                let records = codec::all::<Message>(connection).await?;
-
                 if options.sort_field == SortField::Name {
                     return Err(StoreError::Invalid("entity has no name column".into()));
                 }
-                let rows = records
-                    .iter()
-                    .filter(|r| {
-                        filter.task_id.is_none_or(|v| r.task_id == v)
-                            && filter.agent_id.is_none_or(|v| r.agent_id == Some(v))
-                            && (filter.sources.is_empty() || filter.sources.contains(&r.source))
-                            && filter.processed.is_none_or(|v| {
-                                r.processed_time
-                                    .as_ref()
-                                    .is_some_and(|t| t != &Timestamp::default())
-                                    == v
-                            })
-                            && filter
-                                .created_after
-                                .as_ref()
-                                .is_none_or(|v| &r.create_time > v)
+                let mut query = Selection::default();
+                query.equal("task_id", uuid(filter.task_id));
+                query.equal("agent_id", uuid(filter.agent_id));
+                query.one_of("source", texts(filter.sources));
+                if let Some(processed) = filter.processed {
+                    // modernc writes Go's zero time with time.Time.String(); also accept RFC3339/SQLite forms.
+                    let unset = "(processed_time IS NULL OR processed_time IN (?, ?, ?, ?, ?, ?))";
+                    let predicate = if processed {
+                        format!("NOT {unset}")
+                    } else {
+                        unset.into()
+                    };
+                    query.predicate(
+                        &predicate,
+                        texts(vec![
+                            "0001-01-01 00:00:00 +0000 UTC",
+                            "0001-01-01T00:00:00Z",
+                            "0001-01-01 00:00:00",
+                            "0001-01-01T00:00:00",
+                            "0001-01-01 00:00:00+00:00",
+                            "0001-01-01T00:00:00+00:00",
+                        ]),
+                    );
+                }
+                let has_time_bound = filter.created_after.is_some();
+                Ok((
+                    list::<Message>(query, connection, options, has_time_bound, move |r| {
+                        filter
+                            .created_after
+                            .as_ref()
+                            .is_none_or(|v| &r.create_time > v)
                     })
-                    .cloned()
-                    .collect();
-                Ok((page(rows, options)?, None))
+                    .await?,
+                    None,
+                ))
             })
         })
         .await
@@ -209,20 +254,14 @@ impl ModelStore for SqliteStore {
     ) -> Result<Vec<Model>, StoreError> {
         self.run(move |connection| {
             Box::pin(async move {
-                let records = codec::all::<Model>(connection).await?;
-
-                let rows = records
-                    .iter()
-                    .filter(|r| {
-                        (filter.names.is_empty() || filter.names.contains(&r.name))
-                            && filter
-                                .model_provider_id
-                                .is_none_or(|v| r.model_provider_id == v)
-                            && filter.enabled.is_none_or(|v| r.enabled == v)
-                    })
-                    .cloned()
-                    .collect();
-                Ok((page(rows, options)?, None))
+                let mut query = Selection::default();
+                query.one_of("name", texts(filter.names));
+                query.equal("model_provider_id", uuid(filter.model_provider_id));
+                query.equal("enabled", boolean(filter.enabled));
+                Ok((
+                    list::<Model>(query, connection, options, false, |_| true).await?,
+                    None,
+                ))
             })
         })
         .await
@@ -259,18 +298,13 @@ impl ModelProviderStore for SqliteStore {
     ) -> Result<Vec<ModelProvider>, StoreError> {
         self.run(move |connection| {
             Box::pin(async move {
-                let records = codec::all::<ModelProvider>(connection).await?;
-
-                let rows = records
-                    .iter()
-                    .filter(|r| {
-                        filter.enabled.is_none_or(|v| r.enabled == v)
-                            && (filter.provider_types.is_empty()
-                                || filter.provider_types.contains(&r.provider_type))
-                    })
-                    .cloned()
-                    .collect();
-                Ok((page(rows, options)?, None))
+                let mut query = Selection::default();
+                query.equal("enabled", boolean(filter.enabled));
+                query.one_of("provider_type", texts(filter.provider_types));
+                Ok((
+                    list::<ModelProvider>(query, connection, options, false, |_| true).await?,
+                    None,
+                ))
             })
         })
         .await
@@ -301,30 +335,29 @@ impl TokenStore for SqliteStore {
     ) -> Result<Vec<Token>, StoreError> {
         self.run(move |connection| {
             Box::pin(async move {
+                let mut query = Selection::default();
                 let escaped = filter
                     .name_prefix
                     .replace('\\', "\\\\")
                     .replace('%', "\\%")
                     .replace('_', "\\_");
-                let records =
-                    codec::like::<Token>(connection, "name", format!("{escaped}%"), true).await?;
-
-                let rows = records
-                    .iter()
-                    .filter(|r| {
-                        filter.token_type.as_ref().is_none_or(|v| &r.r#type == v)
-                            && filter
-                                .expires_after
-                                .as_ref()
-                                .is_none_or(|v| &r.expires_at > v)
-                            && filter
-                                .token_hash
-                                .as_ref()
-                                .is_none_or(|v| &r.token_hash == v)
+                query.predicate(
+                    "name LIKE ? ESCAPE '\\'",
+                    vec![Value::Text(format!("{escaped}%"))],
+                );
+                query.equal("type", text(filter.token_type));
+                query.equal("token_hash", filter.token_hash.map(Value::Bytes));
+                let has_time_bound = filter.expires_after.is_some();
+                Ok((
+                    list::<Token>(query, connection, options, has_time_bound, move |r| {
+                        filter
+                            .expires_after
+                            .as_ref()
+                            .is_none_or(|v| &r.expires_at > v)
                     })
-                    .cloned()
-                    .collect();
-                Ok((page(rows, options)?, None))
+                    .await?,
+                    None,
+                ))
             })
         })
         .await
