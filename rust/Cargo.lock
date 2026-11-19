@@ -234,12 +234,16 @@ name = "construct-model"
 version = "0.1.0"
 dependencies = [
  "async-stream",
+ "axum",
  "bytes",
  "construct-core",
  "construct-types",
  "futures-util",
+ "httpdate",
  "rand 0.9.5",
  "reqwest",
+ "serde",
+ "serde_json",
  "tokio",
  "uuid",
 ]

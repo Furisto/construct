@@ -1,7 +1,9 @@
 //! Shared provider catalog, transport and resilience policies.
 #![deny(missing_docs)]
 
+pub mod anthropic;
 pub mod catalog;
+pub mod condenser;
 pub mod http;
 pub mod resilience;
 

@@ -9,11 +9,15 @@ construct-core = { path = "../construct-core" }
 construct-types = { path = "../construct-types" }
 reqwest.workspace = true
 rand.workspace = true
+httpdate.workspace = true
 tokio.workspace = true
 bytes.workspace = true
 futures-util.workspace = true
 async-stream.workspace = true
 uuid = "1"
+serde.workspace = true
+serde_json = { workspace = true, features = ["raw_value"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["test-util"] }
+axum.workspace = true
