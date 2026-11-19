@@ -12,6 +12,7 @@ contracts for parallel Rust implementations; they do not yet run a Rust daemon.
 | `construct-types` | Domain records, stored Go JSON, tools, provider messages, skill lockfiles, event patterns |
 | `construct-core` | Dyn-safe model/tool/secret/store/event contracts and reference in-memory event router |
 | `construct-event` | Go-compatible domain event constructors, live router, and SQLite event hook |
+| `construct-skill` | SKILL.md parser, repo/user/system discovery, git/URL install/update/delete, `SkillService` handler |
 
 Crates live in `crates/`. Core depends only on domain types and infrastructure,
 never generated protobuf types, concrete database drivers, provider SDKs, or CLI.
@@ -247,7 +248,7 @@ serializable conflict behavior is intentionally stricter than row-level SQL.
 ### Skills and CLI sessions
 
 Use construct-types::skill LockFile/LockEntry/GitSource/URLSource for disk JSON.
-There is intentionally no speculative skill-manager or CLI trait in core: this
-step defines their shared store/secrets/tools/events dependencies, not installer
-policy or presentation. Keep those adapters separate from protobuf codegen and
-the database/model implementations.
+`construct-skill` ports Go `backend/skill` and `backend/api/skill.go`; it pins
+rustls to the ring provider (gix and reqwest are built without one). There is
+still no CLI trait in core: keep presentation adapters separate from protobuf
+codegen and the database/model implementations.
