@@ -1,0 +1,18 @@
+[package]
+name = "construct-proto"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+prost.workspace = true
+pbjson.workspace = true
+pbjson-types.workspace = true
+serde.workspace = true
+
+[build-dependencies]
+prost-build.workspace = true
+pbjson-build.workspace = true
+protoc-bin-vendored.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
